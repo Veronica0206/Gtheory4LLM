@@ -16,6 +16,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,9 +31,11 @@ def preflight_code(lock: dict, allow_version_drift: bool) -> str:
     strict = "FALSE" if allow_version_drift else "TRUE"
     return f'''
 required <- c({required})
+cat("R dependency preflight started: ", R.version.string, "\\n", sep="")
+flush.console()
+if (getRversion() < "4.5.0") stop("Compatibility validation requires R >= 4.5.0")
 missing <- required[!vapply(required, requireNamespace, logical(1), quietly=TRUE)]
 if (length(missing)) stop("Full validation requires: ", paste(missing, collapse=", "))
-if (getRversion() < "4.2.0") stop("Compatibility validation requires R >= 4.2.0")
 expected <- c({expected})
 actual <- vapply(names(expected), function(p) {{
   if (!requireNamespace(p, quietly=TRUE)) return(NA_character_)
@@ -77,6 +80,18 @@ def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
     return result
 
 
+def launch(command: list[str], *, environment: dict, timeout: int):
+    # Windows Rscript can crash on multiline/complex -e arguments before R
+    # starts. Run generated code from a closed UTF-8 file on every platform.
+    if len(command) >= 4 and command[1:3] == ["--vanilla", "-e"]:
+        with tempfile.TemporaryDirectory(prefix="gtheory-r-invocation-") as directory:
+            script = Path(directory) / "generated.R"
+            script.write_bytes(command[3].encode("utf-8"))
+            return subprocess.run([command[0], "--vanilla", str(script), *command[4:]],
+                                  cwd=ROOT, env=environment, timeout=timeout, check=False)
+    return subprocess.run(command, cwd=ROOT, env=environment, timeout=timeout, check=False)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rscript", default="Rscript")
@@ -103,7 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     if options.list:
         print("\n".join(name for name, _ in plan))
         return 0
-    if shutil.which(options.rscript) is None:
+    resolved_rscript = shutil.which(options.rscript)
+    if resolved_rscript is None:
         parser.error("Rscript was not found")
     env = os.environ.copy()
     env.update({"GTHEORY_FULL_VALIDATION": "true", "PYTHONDONTWRITEBYTECODE": "1",
@@ -117,11 +133,12 @@ def main(argv: list[str] | None = None) -> int:
               "scope": options.scope, "compact": options.compact, "as_cran": options.as_cran,
               "required_independent_comparisons": list(REQUIRED), "stages": []}
     passed = True
+    print("Selected Rscript: " + resolved_rscript, flush=True)
     for name, command in plan:
         print(f"\n=== {name} ===", flush=True)
         start = time.monotonic()
         try:
-            status = subprocess.run(command, cwd=ROOT, env=env, timeout=options.timeout, check=False).returncode
+            status = launch(command, environment=env, timeout=options.timeout).returncode
             detail = None
         except subprocess.TimeoutExpired:
             status, detail = 124, f"Stage exceeded {options.timeout} seconds"

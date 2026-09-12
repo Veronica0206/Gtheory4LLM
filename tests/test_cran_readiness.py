@@ -76,7 +76,7 @@ class CRANReadinessTests(unittest.TestCase):
             self.assertFalse(CHECK.manual_checked(log))
 
     def test_check_uses_downloaded_archive_and_never_rebuilds(self):
-        self.manifest["expected_data_kind"] = "synthetic"
+        self.manifest["expected_data_kind"] = "public_llm_annotations"
         self.save_manifest()
         output = self.root / "checked"
         commands = []
@@ -93,7 +93,9 @@ class CRANReadinessTests(unittest.TestCase):
                 check.mkdir()
                 (check / "00check.log").write_text("* checking PDF version of manual ... OK\n* checking tests ... OK\n* DONE\nStatus: OK\n")
                 stdout = "Check completed\n"
-            elif "cat(R.home" in command[-1]:
+            elif Path(command[-1]).name == "runtime.R":
+                self.assertIn("cat(R.home", Path(command[-1]).read_text(encoding="utf-8"))
+                self.assertNotIn("-e", command)
                 stdout = "/tmp/R-devel/bin\n4.7.0\nUnder development (unstable)\nR Under development\n"
             else:
                 stdout = "Test session\n"

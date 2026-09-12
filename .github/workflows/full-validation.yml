@@ -33,7 +33,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install compilation dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev pandoc
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/gtheory-validation-library

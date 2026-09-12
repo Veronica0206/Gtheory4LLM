@@ -57,10 +57,12 @@ def main():
     environment = os.environ.copy()
     environment['R_PROFILE_USER'] = os.devnull
     environment['R_ENVIRON_USER'] = os.devnull
+    runtime_script = work / 'runtime.R'
+    runtime_script.write_bytes(
+        'd <- read.dcf(commandArgs(TRUE)[1L]); cat(file.path(R.home("bin"), if (.Platform$OS.type == "windows") "R.exe" else "R"), d[1L, "Package"], d[1L, "Version"], sep="\\n")'.encode('utf-8'))
     r, package, version = subprocess.check_output([
-        args.rscript, '--vanilla', '-e',
-        'd <- read.dcf(commandArgs(TRUE)[1L]); cat(file.path(R.home("bin"), if (.Platform$OS.type == "windows") "R.exe" else "R"), d[1L, "Package"], d[1L, "Version"], sep="\\n")',
-        str(ROOT / 'DESCRIPTION')], text=True).strip().splitlines()
+        args.rscript, '--vanilla', str(runtime_script), str(ROOT / 'DESCRIPTION')],
+        env=environment, text=True).strip().splitlines()
     report = {'package': package, 'version': version, 'workspace': str(work), 'steps': [], 'success': False}
     def run(name, command, directory=work):
         result = subprocess.run(command, cwd=directory, env=environment, capture_output=True, text=True)

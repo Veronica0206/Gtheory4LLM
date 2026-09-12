@@ -24,7 +24,7 @@ jobs:
             r: release
             minimum: false
           - os: ubuntu-22.04
-            r: '4.2.3'
+            r: '4.5.0'
             minimum: true
     env:
       OMP_NUM_THREADS: 1
@@ -50,11 +50,11 @@ jobs:
         if: matrix.minimum
         with:
           path: ${{ runner.temp }}/gtheory-minimum-library
-          key: ubuntu-22.04-source-R-4.2.3-${{ hashFiles('scripts/dependency-locks/R-4.2.3.lock') }}
-      - name: Restore R 4.2-compatible exact dependencies
+          key: ubuntu-22.04-source-R-4.5.0-${{ hashFiles('scripts/dependency-locks/R-4.5.0.lock') }}
+      - name: Restore R 4.5.0-compatible exact dependencies
         if: matrix.minimum
         shell: bash
-        run: Rscript --vanilla scripts/restore_validation.R "$RUNNER_TEMP/gtheory-minimum-library" scripts/dependency-locks/R-4.2.3.lock
+        run: Rscript --vanilla scripts/restore_validation.R "$RUNNER_TEMP/gtheory-minimum-library" scripts/dependency-locks/R-4.5.0.lock
       - uses: r-lib/actions/setup-r-dependencies@v2
         if: ${{ !matrix.minimum }}
         with:

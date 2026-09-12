@@ -2,86 +2,130 @@
 \alias{Gtheory4LLM-datasets}
 \alias{gtheory_datasets}
 \docType{data}
-\title{Synthetic LLM Task Examples: Design, Coding, and Background}
-\description{Documents three synthetic task panels: Hate-Speech, Mental-Health,
-and Drug-Review. Eight outcome sets and fifteen combinations of outcome set and
-coding are available through \code{\link{gt_example}}. Every observation is
-algorithmically simulated; none is an actual LLM response or source-study record.}
+\title{Three LLM Annotation Datasets: Design, Coding, and Sources}
+\description{Documents the Hate-Speech, Mental-Health, and Drug-Review modeling
+panels distributed with Gtheory4LLM. The three underlying datasets provide eight
+outcome sets and fifteen combinations of outcome set and coding through
+\code{\link{gt_example}}.}
 \details{
-Each outcome set has 576 measurement rows: 24 hypothetical items crossed with
-three generic evaluators, two generic prompts, two temperature-setting
-identifiers, and two seed identifiers. Each item therefore has 24 measurements.
-The rows are repeated measurements within a toy panel, not independent real
-texts. The eight outcome sets are alternative representations of three
-synthetic panels, not eight independent empirical samples.
+Each dataset contains a 100-item crossed LLM annotation panel from the public
+OSF annotation deposit (Liu, 2026). Task definitions and
+annotation protocols are described in the three task-specific studies cited
+in the dedicated dataset topics. HateXplain, Sentiment Analysis for Mental
+Health, and Drugs.com reviews supplied the original text material.
 
-The public generator uses deterministic bounded integer arithmetic. It does
-not read source studies, fit models, draw from an estimated data-generating
-distribution, call an LLM, or use observed prevalence or performance statistics.
-These toy patterns demonstrate category handling and data structure. They are
-not a parameter-recovery experiment or evidence about reliability in a real task.
+Items were selected using screening-pass entropy stratification. Each of the
+100 items was evaluated under all combinations of four evaluators, three
+prompt types, six temperatures, and three seeds, yielding 216 rows per item
+and 21,600 rows per outcome set. These are repeated measurements on 100 text
+objects; the row count is not the number of independent texts. The selected
+items and evaluator panel define the scope of these examples.
 
-No raw texts, human labels, clinical measurements, actual model identities,
-prompt contents, API metadata, or private manuscript observations are included.
-The task-specific papers and corpus references in the three dedicated help
-topics motivate the task types only; they supplied none of the simulated rows.
+The installed resources contain design identifiers and modeled LLM outcomes.
+The source study's parsing and post-processing are retained, including default
+labels for omitted items within successfully parsed batches. There are no
+missing modeling values in the stored panels; this does not establish that
+every original API response supplied a usable item annotation. Raw texts,
+prompt text, original corpus reference labels, and API metadata are outside
+these minimal modeling tables.
 }
 \format{
 Calling \code{gt_example(name)} returns a list. Its \code{data} element is a
-data frame with five shared factor columns and the selected outcomes. Other
-elements identify outcomes, families, design roles, coding, source, and notes.
-Installed resources also contain \code{source_provenance}.
+data frame containing the five shared factor columns below and the selected
+outcome column(s). The other elements identify the outcomes, observation
+families, object and facets, coding, source, and interpretation notes.
+Installed resources also include \code{source_provenance}.
 \describe{
-\item{item}{24 hypothetical identifiers, \code{item_01} through \code{item_24}.}
-\item{evaluator}{Three generic identifiers: \code{evaluator_1},
-\code{evaluator_2}, and \code{evaluator_3}. These do not identify real models.}
-\item{prompt}{Two generic identifiers: \code{prompt_1} and \code{prompt_2}.}
-\item{temp}{Two factor levels: \code{temperature_1} and \code{temperature_2}.
-These are abstract settings, not actual numeric generation temperatures.}
-\item{seed}{Two factor levels: \code{seed_1} and \code{seed_2}. No random-number
-generator was executed with these labels; they identify hypothetical repeats.}
+\item{item}{100 text-object identifiers retained from the corresponding
+public annotation table.}
+\item{evaluator}{Four stored run identifiers:
+\itemize{
+\item \code{gemini-2.5-flash}
+\item \code{gpt-4o-mini}
+\item \code{llama-70b} (Llama-3.3-70B)
+\item \code{mistral-small} (Mistral-Small-24B)
+}}
+\item{prompt}{Three prompt identifiers: \code{cot}, \code{minimal}, and
+\code{rubric}. The \code{cot} condition adds a structured reasoning checklist.}
+\item{temp}{Six temperature levels: \code{0}, \code{0.2}, \code{0.4},
+\code{0.6}, \code{0.8}, and \code{1}. They are stored as factor levels.}
+\item{seed}{Three replicate-run identifiers: \code{1001}, \code{2001}, and
+\code{3001}. A repeated seed does not guarantee identical provider output.}
 }
 }
-\section{Outcome sets and coding}{
-The \link[=gtheory_hate_speech]{Hate-Speech topic} describes one ordinal set.
-The \link[=gtheory_mental_health]{Mental-Health topic} describes five sets:
-unordered labels, six binary flags, three binary OR groups, and two Gaussian
-working-score representations. The \link[=gtheory_drug_review]{Drug-Review
-topic} describes holistic ordinal sentiment and four ordinal aspects.
+\section{Dataset topics and outcome sets}{
+\describe{
+\item{Hate-Speech}{One ordinal outcome set. See the
+\link[=gtheory_hate_speech]{Hate-Speech data topic} for category definitions
+and the original corpus and annotation-study references.}
+\item{Mental-Health}{Five outcome sets. See the
+\link[=gtheory_mental_health]{Mental-Health data topic} for working-score
+mappings, binary flags, unordered labels, and source references.}
+\item{Drug-Review}{Two ordinal outcome sets. See the
+\link[=gtheory_drug_review]{Drug-Review data topic} for holistic sentiment,
+four aspect definitions, and source references.}
+}
+}
+\section{Coding and use}{
+The default \code{coding = "native"} preserves the binary, ordinal, or
+unordered categorical endpoint where defined. The Mental-Health 7L and 3L
+variants remain explicitly Gaussian working scores under both coding options;
+they are not established clinical severity scales. Seven outcome sets also
+support \code{coding = "manuscript"}, which reproduces the original Gaussian
+working-score analysis. The nominal Mental-Health set has native coding only.
+The eight sets are alternative views of three panels, not eight independent
+datasets.
 
-\code{coding = "native"} preserves the declared binary, ordinal, or unordered
-categories. The Mental-Health 7L/3L variants are explicitly Gaussian working
-scores under both options, not validated clinical severity scales. The legacy
-name \code{coding = "manuscript"} selects numeric-score compatibility for
-seven sets. It does not retrieve manuscript observations or reproduce any
-manuscript findings. The nominal set has native coding only.
-
-Use \code{gt_example()} to list the catalog. Successful loading does not prove
-fitting feasibility: random dimensions can exceed the dense discrete backend's
-limits even in a 576-row panel. Inspect \code{\link{gt_preflight}} with the
-intended family and source design. Reliability scales and numerical acceptance
-requirements are described in \code{\link{gt_reliability}}.
+Use \code{gt_example()} to list the catalog and \code{gt_example(name)$data}
+to access a table. The full panels exceed the default dense discrete fitting
+limits. Discrete demonstrations require a scientifically specified small
+panel and supported source structure; successful loading alone does not
+establish fitting feasibility. Numerical model assumptions and coefficient
+scales are described in \code{\link{gt_fit}} and \code{\link{gt_reliability}}.
 }
 \source{
-Original synthetic data authored by Jin Liu, distributed under GPL-3.
-The public repository script \file{scripts/build_package_data.R} regenerates
-the resources using deterministic integer arithmetic. Its \code{--verify-only}
-option checks expected objects and the manifest without modifying files.
-Generator identity is stored in \code{source_provenance}; resource checksums
-are recorded in the installed \file{extdata/manifest.csv}.
+Liu's public OSF annotation deposit:
 
-The installed \file{DATASET_REFERENCES.bib} contains six background references:
-three task-specific annotation papers and three corpus references. These
-references are not data provenance for the synthetic observations.
+\doi{10.17605/OSF.IO/K9CAJ}.
+
+The source files are:
+\itemize{
+\item \file{hate_labeling_final.csv}
+\item \file{mh_labeling_final.csv}
+\item \file{drug_labeling_final.csv}
 }
-\seealso{\code{\link{gt_example}}, \code{\link{gtheory_hate_speech}},
-\code{\link{gtheory_mental_health}}, \code{\link{gtheory_drug_review}}}
+Their checksums match the public deposit. Package resources retain only design
+identifiers and modeled annotations; category types, working-score mappings,
+and grouped flags are defined by \code{gt_example()}.
+
+The deposit's data codebook licenses derived artifacts under CC BY 4.0.
+The installed supporting files are:
+\itemize{
+\item \file{DATA_LICENSE.md}: attribution and modification details.
+\item \file{extdata/manifest.csv}: source and resource checksums.
+\item \file{DATASET_REFERENCES.bib}: the complete task bibliography.
+}
+}
+\references{
+Liu, J. (2026). \emph{LLM Annotation Reliability: A Generalizability Theory
+Analysis of Hate Speech, Mental Health, and Drug Review Tasks}.
+Open Science Framework, public annotation dataset.
+
+\doi{10.17605/OSF.IO/K9CAJ}.
+
+The three dedicated dataset topics provide the original corpus and related
+annotation-study references.
+}
+\seealso{\code{\link{gt_example}},
+\link[=gtheory_hate_speech]{Hate-Speech data},
+\link[=gtheory_mental_health]{Mental-Health data},
+\link[=gtheory_drug_review]{Drug-Review data}}
 \examples{
 gt_example()
 x <- gt_example("hate_speech")
 dim(x$data)
-vapply(x$data[c(x$object, x$facets)], nlevels, integer(1))
-x$source_provenance$data_kind
+vapply(x$data[x$facets], nlevels, integer(1))
+x$outcomes
 system.file("DATASET_REFERENCES.bib", package = "Gtheory4LLM")
 }
 \keyword{datasets}

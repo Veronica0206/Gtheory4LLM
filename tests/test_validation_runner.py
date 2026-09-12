@@ -2,6 +2,8 @@
 import importlib.util
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -42,6 +44,27 @@ class ValidationRunnerTests(unittest.TestCase):
         self.assertIn("stop(\"Full validation requires:", code)
         self.assertIn("strict <- FALSE", RUNNER.preflight_code(self.lock, True))
 
+    @unittest.skipUnless(shutil.which("Rscript"), "Rscript is required to exercise the version gate")
+    def test_minimum_r_is_checked_before_loading_incompatible_dependencies(self):
+        code = RUNNER.preflight_code(self.lock, True)
+        for version, expected_pass in (("4.4.3", False), ("4.5.0", True)):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as directory:
+                stubs = 'getRversion <- function() numeric_version("' + version + '")\n'
+                if expected_pass:
+                    stubs += ('requireNamespace <- function(...) TRUE\n'
+                              'packageDescription <- function(p, fields) expected[[p]]\n'
+                              'sessionInfo <- function() list(fixture_runtime="4.5.0")\n')
+                else:
+                    stubs += 'requireNamespace <- function(...) stop("dependency loading was reached")\n'
+                script = Path(directory) / "preflight.R"
+                script.write_bytes((stubs + code).encode("utf-8"))
+                result = subprocess.run([shutil.which("Rscript"), "--vanilla", str(script)],
+                                        capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode == 0, expected_pass, result.stderr)
+                if not expected_pass:
+                    self.assertIn("requires R >= 4.5.0", result.stderr)
+                    self.assertNotIn("dependency loading was reached", result.stderr)
+
     def test_failure_stops_gate_and_is_recorded(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "report.json"
@@ -55,6 +78,26 @@ class ValidationRunnerTests(unittest.TestCase):
             report = json.loads(output.read_text())
             self.assertFalse(report["full_locked_validation_passed"])
             self.assertEqual(report["stages"][0]["exit_code"], 9)
+
+    def test_generated_preflight_uses_closed_script_file_and_preserves_arguments(self):
+        code = 'cat("quoted value\\n")\nstopifnot(TRUE)\n'
+        calls = []
+
+        def observe(command, **kwargs):
+            calls.append(command)
+            self.assertNotIn("-e", command)
+            self.assertEqual(command[:2], ["SelectedRscript", "--vanilla"])
+            self.assertEqual(command[3:], ["argument with spaces"])
+            self.assertEqual(Path(command[2]).read_text(encoding="utf-8"), code)
+            self.assertEqual(kwargs["timeout"], 13)
+            self.assertEqual(kwargs["env"], {"EXAMPLE": "1"})
+            return type("Result", (), {"returncode": 0})()
+
+        with patch.object(RUNNER.subprocess, "run", side_effect=observe):
+            result = RUNNER.launch(["SelectedRscript", "--vanilla", "-e", code,
+                                    "argument with spaces"], environment={"EXAMPLE": "1"}, timeout=13)
+        self.assertEqual(result.returncode, 0)
+        self.assertFalse(Path(calls[0][2]).exists())
 
     def test_preflight_pass_is_not_reported_as_full_validation(self):
         with tempfile.TemporaryDirectory() as directory:

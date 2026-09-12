@@ -56,7 +56,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Build one candidate from audited, committed public sources
-        run: python scripts/cran_readiness.py build --output-dir "$RUNNER_TEMP/cran-candidate"
+        run: python scripts/cran_readiness.py build --expected-data-kind public_llm_annotations --output-dir "$RUNNER_TEMP/cran-candidate"
       - name: Preserve exact release-built candidate for the next job
         uses: actions/upload-artifact@v4
         with:
@@ -95,7 +95,7 @@ jobs:
         run: |
           tlmgr install inconsolata helvetic times courier collection-latexrecommended
           sudo apt-get update
-          sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev
+          sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev pandoc
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: any::OpenMx, any::lme4, any::ordinal
@@ -106,7 +106,7 @@ jobs:
           name: cran-candidate-built-${{ github.sha }}
           path: ${{ runner.temp }}/downloaded-cran-candidate
       - name: Check the downloaded archive with R-devel, CRAN incoming checks, and its PDF manual
-        run: python scripts/cran_readiness.py check --require-devel --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked"
+        run: python scripts/cran_readiness.py check --require-devel --expected-data-kind public_llm_annotations --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked"
       - name: Preserve the exact successfully checked candidate
         uses: actions/upload-artifact@v4
         with:

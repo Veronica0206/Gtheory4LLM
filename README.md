@@ -14,7 +14,7 @@ LLMs needed in a real application.
 
 ## Install
 
-R 4.2 or later and OpenMx are required. Install the source archive from the
+R 4.5 or later and OpenMx are required. Install the source archive from the
 [release page](https://github.com/Veronica0206/Gtheory4LLM/releases):
 
 ```r
@@ -121,14 +121,20 @@ require further statistical validation.
 
 ## Example data and references
 
-`gt_example()` lists eight outcome sets from three **entirely synthetic**
-panels illustrating hate-speech, mental-health, and drug-review annotation
-tasks. Each contains 576 hypothetical measurements, with no real texts, LLM
-responses, clinical data, or source-study records. The legacy argument
-`coding = "manuscript"` selects numeric-score compatibility only; it does not
-reproduce any manuscript data or findings. The cited studies motivate task
-types and supplied none of the synthetic observations. The installed manual describes their exact
-origin, variables, response codings, and task literature:
+`gt_example()` lists eight outcome sets from three **real LLM annotation
+panels**: hate speech, mental health, and drug reviews. Each contains 21,600
+measurements of 100 items crossed with four evaluators, three prompts, six
+temperatures, and three seeds. These are alternative codings of three panels,
+not eight independent datasets. The package includes design identifiers and
+modeled annotations from the [public OSF deposit](https://doi.org/10.17605/OSF.IO/K9CAJ).
+The original source CSV checksums match that deposit. Raw texts, original corpus
+reference labels, and API metadata are omitted from the package tables.
+
+Native coding preserves binary, ordinal, or unordered categorical outcomes;
+`coding = "manuscript"` reproduces the seven historical Gaussian working-score
+codings. Mental-health 7L/3L values are working scores, not established clinical
+severity scales. The installed manual documents variables, category mappings,
+preprocessing, source corpora, and the corresponding annotation studies:
 
 ```r
 gt_example()
@@ -170,6 +176,9 @@ credentials before posting. Maintainer: Jin Liu,
 
 ## License
 
-Package code is licensed under [GPL-3](LICENSE). Public release files are
+Package code is licensed under [GPL-3](LICENSE). The real annotation tables
+retain the **CC BY 4.0** license stated in the public deposit’s data codebook;
+see [data attribution and license](inst/DATA_LICENSE.md). Synthetic tutorial
+and test examples are covered by the code license. Public release files are
 limited to the package, its documented examples, tests, and software release
 artifacts. Unpublished manuscripts and research archives are excluded.

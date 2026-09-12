@@ -1,7 +1,8 @@
 # Public validation entrypoints
 
 Run from any directory with Python 3.10 or later. No additional Python packages
-are needed. The scripts check public package sources and synthetic examples only.
+are needed. The scripts check public package sources, independent synthetic
+numerical examples, and the approved real LLM annotation resources.
 
 ```sh
 python3 scripts/run_validation.py --scope source
@@ -10,7 +11,7 @@ python3 scripts/run_validation.py --scope all --as-cran
 ```
 
 The source scope runs independent synthetic numerical regressions, the standalone
-example, a reproducibility check of bundled synthetic resources, a package-content
+example, an integrity check of bundled real annotation resources, a package-content
 audit, and R package build/install/check. The artifact scope independently verifies
 the committed archive and manual against `artifacts/manifest.json`, compares the
 archive to its declared public source commit, then installs that exact archive in
@@ -40,16 +41,17 @@ separately. Reports replace machine-local source, work, and home paths with
 placeholders; an explicit `--output` controls summary-file creation.
 
 The compatibility workflow is a separate, smaller source check on current R for
-Windows/macOS and R 4.2.3 on Ubuntu 22.04. It retains every installed-package test,
+Windows/macOS and the minimum supported R 4.5.0 on Ubuntu 22.04. It retains every installed-package test,
 the independent lme4/ordinal comparisons, and selected synthetic source regressions.
 It never claims a full locked-environment pass. Current Windows/macOS dependencies
 are resolved from CRAN and their actual versions are reported. The minimum-R job
-uses `scripts/dependency-locks/R-4.2.3.lock`: it preserves the locked dependency
-versions except Matrix 1.6-5 and MASS 7.3-60, whose source DESCRIPTION files support
-R 4.2. Later Matrix/MASS versions in the main lock require R 4.4 or newer.
+uses `scripts/dependency-locks/R-4.5.0.lock`, with the same dependency versions as
+the main lock and R 4.5.0 selected explicitly. OpenMx 2.22.11 uses the
+`Rf_isDataFrame` C API introduced in R 4.5.0; the package therefore requires
+R 4.5.0 or later. The preflight rejects older R before loading dependencies.
 
 ```sh
-Rscript --vanilla scripts/restore_validation.R /tmp/gtheory-minimum-library scripts/dependency-locks/R-4.2.3.lock
+Rscript --vanilla scripts/restore_validation.R /tmp/gtheory-minimum-library scripts/dependency-locks/R-4.5.0.lock
 python3 scripts/run_validation.py --scope source --compatibility --compact --library /tmp/gtheory-minimum-library
 ```
 
@@ -66,8 +68,12 @@ first job selects current R release, requires clean committed sources, audits
 the public working tree and reachable history, verifies bundled resources, and
 builds one source archive. It records the source commit, actual R version, byte
 count, and SHA-256 in `candidate.json`. No pre-existing `artifacts/` bundle is
-needed. The default public-resource contract is synthetic; changing that contract
-requires an explicit approved data decision and matching audit configuration.
+needed. The current public-resource contract is `public_llm_annotations`: eight
+outcome sets with fifteen codings of the three approved real annotation panels,
+each containing 21,600 rows. The tutorial and independent numerical regression
+fixtures remain synthetic. Historical public-content inspection can recognize
+earlier explicitly synthetic resources; current source and candidate checks still
+require the approved real annotations.
 
 The downstream job downloads that archive and manifest, verifies their source
 commit and hash, then checks the archive with current R-devel using
@@ -89,8 +95,8 @@ current R-devel for the second, with the package dependencies and TeX installed.
 Use new empty output directories outside the source checkout:
 
 ```sh
-python3 scripts/cran_readiness.py build --rscript /path/to/current-release/Rscript --output-dir /tmp/gtheory-cran-candidate
-python3 scripts/cran_readiness.py check --rscript /path/to/R-devel/Rscript --require-devel --candidate-dir /tmp/gtheory-cran-candidate --output-dir /tmp/gtheory-cran-checked
+python3 scripts/cran_readiness.py build --expected-data-kind public_llm_annotations --rscript /path/to/current-release/Rscript --output-dir /tmp/gtheory-cran-candidate
+python3 scripts/cran_readiness.py check --expected-data-kind public_llm_annotations --rscript /path/to/R-devel/Rscript --require-devel --candidate-dir /tmp/gtheory-cran-candidate --output-dir /tmp/gtheory-cran-checked
 ```
 
 The script records the selected local R version; the maintainer must ensure the
@@ -105,6 +111,7 @@ does not automatically preserve this exact candidate. See the
 
 Configuration follows the primary [renv documentation](https://rstudio.github.io/renv/reference/config.html)
 and [r-lib dependency-action documentation](https://github.com/r-lib/actions/tree/v2/setup-r-dependencies).
-Minimum-R version choices are recorded in the CRAN sources for
-[Matrix 1.6-5](https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.6-5.tar.gz)
-and [MASS 7.3-60](https://cran.r-project.org/src/contrib/Archive/MASS/MASS_7.3-60.tar.gz).
+The required API is declared in the exact
+[R 4.5.0 release header](https://svn.r-project.org/R/tags/R-4-5-0/src/include/Rinternals.h).
+The Linux CRAN checks install Pandoc to check Markdown documentation as well as
+package metadata; findings remain subject to the strict NOTE policy above.

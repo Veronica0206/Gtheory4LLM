@@ -99,7 +99,7 @@ gt_example <- function(name = NULL, coding = c("native", "manuscript"), director
       mapped <- if (name == "mental_health_7L") seq_along(cats) else c(1L, 1L, 2L, 2L, 3L, 3L, 3L)
       data$score <- mapped[match(value, cats)]
       families$score <- gt_family()
-      notes <- c(notes, "The 7L/3L coding is a numeric working score, not an established clinical severity order. Use mental_health_nominal for unordered categories.")
+      notes <- c(notes, "The 7L/3L coding is a manuscript working score, not an established clinical severity order. Use mental_health_nominal for unordered categories.")
     }
   }
   if (anyNA(data)) stop("Prepared example contains missing values.")

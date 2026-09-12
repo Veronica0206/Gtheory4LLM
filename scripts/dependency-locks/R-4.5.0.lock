@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.2.3",
+    "Version": "4.5.0",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -53,13 +53,13 @@
     },
     "MASS": {
       "Package": "MASS",
-      "Version": "7.3-60",
+      "Version": "7.3-65",
       "Source": "Repository",
       "Repository": "CRAN"
     },
     "Matrix": {
       "Package": "Matrix",
-      "Version": "1.6-5",
+      "Version": "1.7-4",
       "Source": "Repository",
       "Repository": "CRAN"
     },

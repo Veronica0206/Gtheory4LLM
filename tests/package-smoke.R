@@ -11,11 +11,14 @@ catalog <- gt_example()
 stopifnot(nrow(catalog) == 8L)
 for (name in catalog$name) {
   native <- gt_example(name)
-  stopifnot(nrow(native$data) > 0L,
+  stopifnot(nrow(native$data) == 21600L,
     identical(names(native$data), c(native$object, native$facets, native$outcomes)),
     !anyNA(native$data), file.exists(native$source),
     startsWith(normalizePath(native$source), normalizePath(system.file(package = "Gtheory4LLM"))),
-    identical(native$source_provenance$data_kind, "synthetic"))
+    identical(native$source_provenance$data_kind, "public_llm_annotations"))
+  dimensions <- c(native$object, native$facets)
+  counts <- vapply(native$data[dimensions], function(x) length(unique(x)), integer(1))
+  stopifnot(nrow(native$data) == prod(counts), !anyDuplicated(native$data[dimensions]))
   if (name != "mental_health_nominal") {
     scored <- gt_example(name, coding = "manuscript")
     stopifnot(all(vapply(scored$data[scored$outcomes], is.numeric, logical(1))),
@@ -30,7 +33,7 @@ for (name in catalog$name) {
     if (family == "gaussian") stopifnot(is.numeric(value))
   }
 }
-cat("PASS: installed exports, registered methods, and all synthetic public data codings.\n")
+cat("PASS: installed exports, registered methods, and all real LLM annotation codings.\n")
 
 d <- expand.grid(item = 1:12, rater = 1:3)
 d$score <- sin(d$item) + d$rater / 5 + cos(d$item * d$rater) / 4

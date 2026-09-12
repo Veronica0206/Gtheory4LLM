@@ -176,7 +176,9 @@ def install_and_smoke(report: dict, files: dict[str, bytes], work: Path, rscript
         if result.returncode:
             raise RuntimeError(name + " failed")
     # Obtain R from the selected Rscript rather than a possibly different PATH R.
-    r = subprocess.check_output([rscript, "--vanilla", "-e", 'cat(file.path(R.home("bin"), if (.Platform$OS.type == "windows") "R.exe" else "R"))'],
+    runtime_script = work / "runtime.R"
+    runtime_script.write_bytes('cat(file.path(R.home("bin"), if (.Platform$OS.type == "windows") "R.exe" else "R"))'.encode("utf-8"))
+    r = subprocess.check_output([rscript, "--vanilla", str(runtime_script)],
                                 env=environment, text=True).strip()
     run("install", [r, "CMD", "INSTALL", "--library=" + str(library), report["archive"]])
     code = '''args <- commandArgs(TRUE)
@@ -190,14 +192,16 @@ stopifnot(identical(normalizePath(getNamespaceInfo(asNamespace(args[2L]), "path"
 if (identical(args[2L], "Gtheory4LLM")) {
   loader <- getExportedValue(args[2L], "gt_example")
   for (name in loader()$name)
-    stopifnot(identical(loader(name)$source_provenance$data_kind, "synthetic"))
+    stopifnot(identical(loader(name)$source_provenance$data_kind, "public_llm_annotations"))
 }
 '''
-    run("archived_smoke", [rscript, "--vanilla", "-e", code, str(library),
+    wrapper = work / "archived-smoke-wrapper.R"
+    wrapper.write_bytes(code.encode("utf-8"))
+    run("archived_smoke", [rscript, "--vanilla", str(wrapper), str(library),
                            report["package"], report["version"], str(smoke)])
     report["isolated_library"] = str(library)
     report["archived_smoke_test_run"] = True
-    report["public_synthetic_examples_checked"] = report["package"] == "Gtheory4LLM"
+    report["public_llm_annotations_checked"] = report["package"] == "Gtheory4LLM"
 
 
 def sanitize(value, work):

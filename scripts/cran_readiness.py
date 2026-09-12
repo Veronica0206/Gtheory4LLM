@@ -67,7 +67,7 @@ def main() -> int:
     parser.add_argument("--candidate-dir", type=Path, help="Downloaded build artifact containing candidate.json and its tarball.")
     parser.add_argument("--rscript", default="Rscript")
     parser.add_argument("--require-devel", action="store_true", help="Fail if the checker is not R-devel or a prerelease.")
-    parser.add_argument("--expected-data-kind", choices=("synthetic", "public_llm_annotations"), default="synthetic")
+    parser.add_argument("--expected-data-kind", choices=("synthetic", "public_llm_annotations"), default="public_llm_annotations")
     args = parser.parse_args()
     work = args.output_dir.resolve()
     if work == ROOT or ROOT in work.parents:
@@ -104,8 +104,10 @@ def main() -> int:
     try:
         source_commit = clean_commit(ROOT)
         report["source_commit"] = source_commit
-        info = run("runtime", [args.rscript, "--vanilla", "-e",
-            'cat(R.home("bin"), as.character(getRversion()), R.version$status, R.version.string, sep="\\n")']).splitlines()
+        runtime_script = work / "runtime.R"
+        runtime_script.write_bytes(
+            'cat(R.home("bin"), as.character(getRversion()), R.version$status, R.version.string, sep="\\n")'.encode("utf-8"))
+        info = run("runtime", [args.rscript, "--vanilla", str(runtime_script)]).splitlines()
         r = str(Path(info[0]) / ("R.exe" if os.name == "nt" else "R"))
         report.update({"r_version": info[1], "r_status": info[2], "r_version_string": info[3]})
         if args.mode == "build":
@@ -154,7 +156,9 @@ def main() -> int:
             (work / "public_archive_audit.json").write_text(json.dumps(portable(public_archive.report()), indent=2) + "\n")
             if public_archive.findings:
                 raise ValueError("Downloaded source archive failed the public-content audit.")
-            run("session", [args.rscript, "--vanilla", "-e", "print(sessionInfo()); print(installed.packages()[, c('Package', 'Version')])"])
+            session_script = work / "session.R"
+            session_script.write_bytes("print(sessionInfo()); print(installed.packages()[, c('Package', 'Version')])".encode("utf-8"))
+            run("session", [args.rscript, "--vanilla", str(session_script)])
             library = work / "library"
             library.mkdir()
             run("check", [r, "CMD", "check", "--as-cran", "--timings", "--library=" + str(library), str(archive)])

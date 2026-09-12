@@ -22,6 +22,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "Gtheory4LLM"
 VERSION = "0.0.6"
+PUBLIC_DATA_KINDS = ("synthetic", "public_llm_annotations")
 CURRENT_ARTIFACTS = {
     f"{PACKAGE}_{VERSION}.tar.gz", f"{PACKAGE}-manual.pdf", "manifest.json", "README.md"
 }
@@ -93,15 +94,18 @@ walk <- function(value, depth = 0L) {
   }
 }
 walk(x)
-if (!is.list(x$source_provenance) ||
-    !identical(x$source_provenance$data_kind, args[[2L]]))
-  stop("Example resource data_kind is missing or differs from the approved public kind.", call. = FALSE)
+kind <- x$source_provenance$data_kind
+if (!is.list(x$source_provenance) || !is.character(kind) ||
+    length(kind) != 1L || is.na(kind) || !kind %in% args[-1L])
+  stop("Example resource data_kind is missing, invalid, or outside the approved public kinds for this scope.", call. = FALSE)
 cat("OK\n")
 '''
 
 
 class PublicAudit:
-    def __init__(self, root: Path, expected_data_kind: str = "synthetic"):
+    def __init__(self, root: Path, expected_data_kind: str):
+        if expected_data_kind not in PUBLIC_DATA_KINDS:
+            raise ValueError("The expected data kind must be an explicitly approved public kind.")
         self.root = root.resolve()
         self.expected_data_kind = expected_data_kind
         self.findings: list[dict[str, str]] = []
@@ -161,22 +165,26 @@ class PublicAudit:
             return False
         return True
 
-    def inspect_rds(self, content: bytes, label: str) -> None:
+    def inspect_rds(self, content: bytes, label: str, *, historical: bool = False) -> None:
         rscript = shutil.which("Rscript")
         if rscript is None:
             self.fail(label, "Rscript is required to inspect serialized resources.")
             return
+        allowed_kinds = PUBLIC_DATA_KINDS if historical else (self.expected_data_kind,)
         with tempfile.TemporaryDirectory(prefix="gtheory-public-rds-") as temporary:
             path = Path(temporary) / "resource.rds"
             path.write_bytes(content)
-            result = subprocess.run([rscript, "--vanilla", "-e", RDS_AUDIT, str(path), self.expected_data_kind],
+            script = Path(temporary) / "inspect-resource.R"
+            script.write_bytes(RDS_AUDIT.encode("utf-8"))
+            result = subprocess.run([rscript, "--vanilla", str(script), str(path), *allowed_kinds],
                                     text=True, capture_output=True, timeout=60)
         self.rds_checked += 1
         if result.returncode != 0 or result.stdout.strip() != "OK":
             message = result.stderr.strip().splitlines()
             self.fail(label, message[0][:400] if message else "Serialized-resource inspection failed.")
 
-    def inspect_content(self, relative: str, content: bytes, label: str, *, archive: bool = False) -> None:
+    def inspect_content(self, relative: str, content: bytes, label: str, *,
+                        archive: bool = False, historical: bool = False) -> None:
         self.files_checked += 1
         if self.files_checked > MAX_FILES or len(content) > MAX_FILE_BYTES:
             raise ValueError("File inspection size/count limit exceeded.")
@@ -184,14 +192,14 @@ class PublicAudit:
             if pattern.search(content):
                 self.fail(label, reason)
         if relative.endswith(".rds"):
-            self.inspect_rds(content, label)
+            self.inspect_rds(content, label, historical=historical)
         elif relative == f"artifacts/{PACKAGE}_{VERSION}.tar.gz":
             if archive:
                 self.fail(label, "Nested release archives are forbidden.")
             else:
-                self.inspect_archive(content, label)
+                self.inspect_archive(content, label, historical=historical)
 
-    def inspect_archive(self, content: bytes, label: str) -> None:
+    def inspect_archive(self, content: bytes, label: str, *, historical: bool = False) -> None:
         self.archives_checked += 1
         total = 0
         seen = set()
@@ -227,7 +235,7 @@ class PublicAudit:
                 if len(value) != member.size:
                     self.fail(member_label, "Truncated archive member.")
                     continue
-                self.inspect_content(relative, value, member_label, archive=True)
+                self.inspect_content(relative, value, member_label, archive=True, historical=historical)
 
     def working_tree(self) -> None:
         self.scopes_requested.append("working_tree")
@@ -305,7 +313,10 @@ class PublicAudit:
                 if size > MAX_FILE_BYTES:
                     self.fail(label, "Historical file exceeds inspection size limit.")
                     continue
-                self.inspect_content(relative, self.git("cat-file", "blob", oid), label)
+                # Published historical versions can use either approved public kind.
+                # Current files and release artifacts are checked separately against
+                # the explicitly selected release kind by working_tree().
+                self.inspect_content(relative, self.git("cat-file", "blob", oid), label, historical=True)
 
     def allowed_path_silent(self, relative: str) -> bool:
         # History repeats filenames. Cache allowed paths independently from
@@ -316,6 +327,7 @@ class PublicAudit:
     def report(self) -> dict:
         return {"passed": not self.findings, "scopes_requested": self.scopes_requested,
                 "expected_data_kind": self.expected_data_kind,
+                "historical_data_kinds": list(PUBLIC_DATA_KINDS),
                 "files_checked": self.files_checked, "serialized_resources_checked": self.rds_checked,
                 "archives_checked": self.archives_checked, "commits_checked": self.commits_checked,
                 "findings": self.findings,
@@ -326,8 +338,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--working-tree", action="store_true", help="Inspect all working files, including ignored/untracked files.")
-    parser.add_argument("--history", action="store_true", help="Inspect every reachable Git tree and version of each file.")
-    parser.add_argument("--expected-data-kind", choices=("synthetic", "public_llm_annotations"), default="synthetic")
+    parser.add_argument("--history", action="store_true", help="Inspect every reachable Git tree; either approved public data kind is allowed in historical snapshots.")
+    parser.add_argument("--expected-data-kind", choices=PUBLIC_DATA_KINDS, required=True,
+                        help="Required provenance kind for current files and release archives. History permits either approved public kind.")
     parser.add_argument("--output", type=Path, help="Optional JSON evidence file; otherwise print JSON.")
     args = parser.parse_args()
     audit = PublicAudit(args.root, args.expected_data_kind)

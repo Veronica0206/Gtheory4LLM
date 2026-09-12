@@ -1,9 +1,11 @@
 # Gtheory4LLM 0.0.6
 
 - Prepares the package for its first public distribution under GPL-3.
-- Bundles eight entirely synthetic example resources with fifteen explicit
-  codings and a deterministic public generator. The three dataset chapters
-  retain task literature as background, separate from data provenance.
+- Bundles eight outcome sets and fifteen codings of three real, publicly
+  archived LLM annotation panels. Preserves public-source checksums, CC BY 4.0
+  data attribution, response mappings, and the three dataset reference chapters.
+  Rebuilding modeling resources accepts explicitly supplied public-source CSVs;
+  verification requires no external files or network access.
 - Adds `gt_preflight()` to report resolved sources, covariance and random-effect
   dimensions, replication/completeness, resource limits, and supported scales.
 - Adds an installed synthetic LLM tutorial completing fitting, diagnostics,
@@ -16,6 +18,7 @@
   unchanged.
 - Preserves explicit starting values, fixed optimizer selection across fitting
   attempts, reproducible retry controls, and failed-fit safeguards.
+- Requires R 4.5 or later because the supported OpenMx dependency uses an R 4.5 API.
 - Adds minimum-R and Windows/macOS compatibility workflows beside the locked
   Linux numerical checks, plus one source-and-artifact release-check entrypoint.
 

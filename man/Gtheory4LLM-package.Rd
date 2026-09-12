@@ -12,17 +12,19 @@ Gaussian outcomes use exact balanced likelihood. Binary, ordinal, and unordered 
 
 Observed Gaussian reliability and latent binary or ordinal reliability are distinct estimands. Scalar nominal reliability is not implemented. Decision studies require a complete balanced coded panel. Their projections depend on fitted source covariances and the specified universes of evaluators and prompts. Adding arbitrarily chosen LLMs does not ensure those assumptions hold. Projections do not quantify sampling uncertainty, automatically find a minimum allocation, or establish annotation accuracy against human judgments.
 
-Three synthetic example panels illustrate hate-speech, mental-health, and
-drug-review annotation tasks, with eight outcome sets. These are software
-examples, not real LLM outputs, source-study records, or clinical data.
+Three publicly archived LLM annotation panels cover hate-speech, mental-health,
+and drug-review tasks, with eight outcome sets and fifteen response codings.
 The \link[=gtheory_datasets]{dataset overview} and dedicated
 \link[=gtheory_hate_speech]{Hate-Speech},
 \link[=gtheory_mental_health]{Mental-Health}, and
-\link[=gtheory_drug_review]{Drug-Review} topics describe variables,
-category mappings, generation, and the task literature. The cited studies
-provide background only; they supplied none of the simulated observations.
+\link[=gtheory_drug_review]{Drug-Review} topics describe variables, category
+mappings, preprocessing, and source and annotation-study references.
+The package contains design identifiers and modeled annotations from the
+public OSF deposit, \doi{10.17605/OSF.IO/K9CAJ}.
 
-This package is distributed under GPL-3. Numerical acceptance does not establish
+Package code is distributed under GPL-3; real annotation data retain the
+CC BY 4.0 license in the public deposit's codebook. See \file{DATA_LICENSE.md}.
+Numerical acceptance does not establish
 Laplace approximation adequacy, a global optimum, or empirical validity.
 Bootstrap, jackknife, and general uncertainty intervals are not implemented.
 The installed \file{doc/LLM-workflow.R} tutorial demonstrates fitting through
