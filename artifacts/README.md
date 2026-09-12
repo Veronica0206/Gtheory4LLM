@@ -1,24 +1,23 @@
-# Gtheory4LLM 0.0.6 release candidate
+# Gtheory4LLM 0.0.6 development release
 
-The source archive contains the package and its three real, publicly archived
-LLM annotation panels (eight outcome sets, fifteen codings). The accompanying
-28-page PDF is the package reference manual. Research manuscripts and private
-working archives are outside these release files.
+The source archive includes three real publicly archived LLM annotation panels
+(eight outcome sets, fifteen codings). The accompanying 28-page PDF is the package
+reference manual. Research manuscripts and private working archives are excluded.
+Package code is GPL-3; the annotation data retain CC BY 4.0.
 
-The source archive and manual correspond to the source commit recorded in
-`manifest.json`, which records both SHA-256 checksums. This local candidate was
-built and checked with R 4.5.3: source numerical checks and the installed package
-check passed with no errors, warnings, or notes. The manual compiled without
-overfull text and passed visual review. Hosted platform validation and CRAN
-submission status are reported separately; this file does not assert CRAN
-acceptance.
+The archive was built with R 4.6.1 from the source commit in `manifest.json`,
+which records archive and manual SHA-256 checksums. Independent installation and
+smoke tests passed. Windows and macOS on current R, Linux on minimum R 4.5.0,
+and the locked Linux numerical suite passed. The manual passed visual review.
 
-The CRAN-readiness workflow builds with current R release and checks that exact
-archive with R-devel and PDF manual generation. Verify the distributed artifact
-and source correspondence with:
+The [exact archive check under R-devel](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/34724251172)
+records its own result, including PDF and HTML documentation checks. These checks
+do not establish CRAN acceptance. See the GitHub release for submission status.
+
+Verify archive integrity, source correspondence, and installation with:
 
 ```sh
 python3 scripts/run_validation.py --scope artifact
 ```
 
-See `scripts/VALIDATION.md` for the full source-and-artifact checks.
+See `scripts/VALIDATION.md` for source and artifact validation details.
