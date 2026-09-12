@@ -1,0 +1,144 @@
+\name{gt_control}
+\alias{gt_control}
+\title{Configure Gaussian and Discrete Fitting and Acceptance Checks}
+\description{Collects backend controls in separate named lists. Backend-specific names and values are checked when a model is fitted.}
+\usage{
+gt_control(gaussian = list(), discrete = list())
+}
+\arguments{
+\item{gaussian}{Uniquely named list of Gaussian settings, described below.}
+\item{discrete}{Uniquely named list of discrete settings, described below.}
+}
+\value{A \code{gt_control} object with separate Gaussian and discrete control lists.}
+\details{Gaussian controls and their defaults are:
+\itemize{
+\item \code{optimizer}: CSOLNP.
+\item \code{max_iterations}: 3000.
+\item \code{tolerance}: 1e-12.
+\item \code{check_hessian}: TRUE.
+\item \code{threads}: 1.
+\item \code{silent}: TRUE.
+\item \code{extra_tries}: 9.
+\item \code{retry_seed}: NULL.
+\item \code{start}: NULL (automatic moment-based covariance starts).
+\item \code{max_preparation_bytes}: 512 * 1024^2.
+}
+The allocation guard estimates preparation memory, excluding caller data and downstream OpenMx objects. An explicit retry seed preserves the caller's random-number state.
+Gaussian \code{start} accepts a complete named list of covariance matrices for
+all model sources, including \code{Residual}. Fully named matrix axes are matched
+independently to the outcome names; both unnamed axes use outcome order.
+Incomplete, duplicate, or incompatible labels are rejected. Admissible matrices
+receive the engine's existing interior eigenvalue floor. Diagonal models retain
+their repaired diagonal entries, and a pooled residual starts from the mean
+of those entries. These values initialize estimated parameters; they do not
+fix their fitted values.
+
+Discrete resource limits are:
+\itemize{
+\item \code{max_random_dimension}: 200.
+\item \code{max_observations}: 1200.
+\item \code{max_parameters}: 80.
+}
+Discrete optimizer controls are:
+\itemize{
+\item \code{maxit}: 150.
+\item \code{inner_maxit}: 60.
+\item \code{inner_tol}: 1e-7.
+\item \code{reltol}: 1e-7.
+\item \code{start_sd}: 0.4.
+\item \code{trace}: 0.
+\item \code{optimizer}: \code{"L-BFGS-B"}; alternatively \code{"nlminb"}.
+\item \code{start}: NULL (automatic response and covariance starts).
+\item \code{covariance_parameterization}: \code{"log_cholesky"}.
+}
+The default covariance parameterization is unchanged. Set
+\code{covariance_parameterization} to \code{"variance"} to estimate nonnegative
+variances directly for univariate models or joint models with
+\code{covariance = "diagonal"}.
+It admits an exact-zero variance. It does not implement a boundary solver for
+unstructured joint covariance and rejects that combination rather than removing
+covariances. The variance upper bound is \code{exp(10)}, matching the largest
+diagonal variance allowed by the default log-Cholesky bounds. \code{start_sd}
+still denotes a starting standard deviation and must be positive.
+
+Discrete \code{start} is a finite, uniquely named numeric vector of optimizer
+parameters, with complete or partial overrides of the automatic starts. Names
+are matched exactly; unknown names and values outside the model bounds are
+rejected. Automatic starts are also checked against the bounds before fitting;
+the optimizer never silently projects an invalid starting vector. Labels that
+produce ambiguous parameter names are rejected. The fitted
+\code{fit$parameters} vector can initialize a refit of the
+same model, with unchanged family links, category coding, covariance structure,
+and covariance parameterization. These are optimizer coordinates: ordinal
+threshold parameters contain the first threshold followed by log positive gaps;
+log-Cholesky diagonal parameters are log standard deviations; direct-variance
+parameters are variances. Actual and automatic initial vectors are retained in
+the diagnostics, and \code{fit$starting_parameters} records the primary start.
+Alternative starts perturb fixed-effect coordinates from the primary start and
+use the automatic covariance starts with distinct deterministic scale
+perturbations. If clipping would duplicate an earlier start, a bounded
+fixed-effect perturbation makes the additional trial distinct.
+
+The selected discrete optimizer remains fixed for primary fits, alternatives,
+and tight refinements; the engine never silently switches algorithms.
+\code{maxit} limits iterations per optimization. For \code{nlminb}, the function
+evaluation budget is \code{max(200, 10 * maxit)}, and \code{reltol} supplies its
+relative objective tolerance. Each optimizer uses its own native stopping rules;
+the same independent numerical-acceptance checks apply afterward. Optimizer
+choice is not evidence of approximation accuracy.
+
+Zero is a natural lower variance boundary in this opt-in mode, not an artificial
+optimizer floor. Within \code{gt_diagnostics(fit)$diagnostics}, the
+\code{zero_variance_parameters} field lists exact zeros. These estimates must
+still pass independent covariance-scale stationarity and restart checks. All upper
+bounds and fixed-effect/threshold bounds remain artificial and still cause
+rejection on contact. This mode does not establish approximation accuracy or
+sampling properties for boundary estimates.
+
+Discrete numerical-acceptance controls are:
+\itemize{
+\item \code{stationarity_tol}: 1e-3.
+\item \code{validation_reltol}: 1e-10.
+\item \code{validation_inner_tol}: 1e-9.
+\item \code{alternative_starts}: 1.
+\item \code{stability_objective_tol}: 1e-6.
+\item \code{stability_parameter_tol}: 0.02.
+\item \code{bound_tol}: 1e-4.
+}
+Setting alternative starts to zero disables numerical acceptance, not just an optional report.
+The discrete optimization-attempt budget is
+\code{2 * (1 + alternative_starts)}: one preliminary and one tight fit for
+the primary start and each alternative. Final-mode and stationarity evaluations
+are recorded separately and are not additional optimization trials. Gaussian
+\code{extra_tries} and discrete \code{alternative_starts} therefore have different
+meanings. Covariance derivative accuracy uses at most six step halvings when
+needed, without changing the stationarity or derivative-disagreement tolerances.
+Every stationarity evaluation, including the center and all fixed-effect and
+covariance perturbations, must have a valid, converged conditional mode and
+usable finite likelihood. A failed evaluation ends the diagnostic and records
+a validation error; an optimizer penalty is never treated as a derivative.
+
+For a known-covariance calculation, \code{fixed_covariance} can provide one positive-semidefinite matrix for every discrete random source. Fully named matrices are matched and reordered to the latent dimensions; unnamed matrices are positional. Partial or incompatible dimension names are rejected. These matrices are fixed assumptions rather than estimated source covariances. The covariance parameterization setting is not used when all covariances are fixed.
+
+The \code{attempts} entry of \code{gt_diagnostics(fit)$diagnostics} retains
+starts, controls, optimizer codes, messages, errors, warnings, elapsed time, and
+returned parameters. A computational failure during
+refinement, a restart, or stationarity checking prevents numerical acceptance but
+preserves an otherwise usable primary or alternative fit for inspection.
+Unusable optimizer returns are retained unchanged as \code{raw_result}, separately
+from the computational placeholder. The selected attempt, optimizer, trial count,
+and budget are also reported. If no fitted candidate supplies
+a usable conditional mode, a \code{gt_discrete_numerical_failure} error condition
+retains the attempt records instead. Invalid input still fails before fitting.
+Warnings captured during numerical attempts are retained in these diagnostics;
+user interrupts are not swallowed.
+
+Optimizer completion, numerical acceptance, and approximation adequacy are separate. Tighter numerical tolerances do not establish the adequacy of a first-order Laplace approximation.}
+\seealso{\code{\link{gt_diagnostics}}, \code{\link{gt_fit}}}
+\examples{
+gt_control(gaussian = list(retry_seed = 123, check_hessian = FALSE),
+  discrete = list(max_random_dimension = 100, alternative_starts = 1))
+# Opt-in boundary-capable coordinates; this does not change the default.
+gt_control(discrete = list(covariance_parameterization = "variance"))
+gt_control(discrete = list(optimizer = "nlminb", alternative_starts = 2))
+}

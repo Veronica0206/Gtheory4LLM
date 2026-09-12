@@ -1,0 +1,131 @@
+name: Exact CRAN candidate readiness
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'DESCRIPTION'
+      - 'NAMESPACE'
+      - '.Rbuildignore'
+      - 'R/**'
+      - 'man/**'
+      - 'inst/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'cran-comments.md'
+      - '.github/workflows/cran-readiness.yml'
+  pull_request:
+    paths:
+      - 'DESCRIPTION'
+      - 'NAMESPACE'
+      - '.Rbuildignore'
+      - 'R/**'
+      - 'man/**'
+      - 'inst/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'cran-comments.md'
+      - '.github/workflows/cran-readiness.yml'
+
+permissions:
+  contents: read
+
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  RENV_CONFIG_AUTOLOADER_ENABLED: 'FALSE'
+  RENV_CONFIG_PPM_ENABLED: 'FALSE'
+  PYTHONDONTWRITEBYTECODE: '1'
+  MAKEFLAGS: '-j2'
+
+jobs:
+  build-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: false
+          cran: https://cran.r-project.org
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build one candidate from audited, committed public sources
+        run: python scripts/cran_readiness.py build --output-dir "$RUNNER_TEMP/cran-candidate"
+      - name: Preserve exact release-built candidate for the next job
+        uses: actions/upload-artifact@v4
+        with:
+          name: cran-candidate-built-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/cran-candidate/*.tar.gz
+            ${{ runner.temp }}/cran-candidate/candidate.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve build and public-content audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cran-candidate-build-evidence-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/cran-candidate/*.json
+            ${{ runner.temp }}/cran-candidate/*.log
+          if-no-files-found: ignore
+
+  check-devel:
+    needs: build-release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: devel
+          use-public-rspm: false
+          cran: https://cran.r-project.org
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: r-lib/actions/setup-tinytex@v2
+      - name: Install PDF manual fonts and compilation dependencies
+        run: |
+          tlmgr install inconsolata helvetic times courier collection-latexrecommended
+          sudo apt-get update
+          sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::OpenMx, any::lme4, any::ordinal
+          dependencies: 'c("Depends", "Imports", "LinkingTo")'
+          upgrade: 'TRUE'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cran-candidate-built-${{ github.sha }}
+          path: ${{ runner.temp }}/downloaded-cran-candidate
+      - name: Check the downloaded archive with R-devel, CRAN incoming checks, and its PDF manual
+        run: python scripts/cran_readiness.py check --require-devel --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked"
+      - name: Preserve the exact successfully checked candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: cran-candidate-checked-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/cran-checked/*.tar.gz
+            ${{ runner.temp }}/cran-checked/candidate.json
+            ${{ runner.temp }}/cran-checked/check_validation.json
+            ${{ runner.temp }}/cran-checked/*.Rcheck/*-manual.pdf
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve full check evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cran-candidate-check-evidence-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/cran-checked/*.json
+            ${{ runner.temp }}/cran-checked/*.log
+            ${{ runner.temp }}/cran-checked/*.Rcheck
+          if-no-files-found: ignore
+          retention-days: 30
