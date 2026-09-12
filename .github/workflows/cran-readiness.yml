@@ -95,7 +95,7 @@ jobs:
         run: |
           tlmgr install inconsolata helvetic times courier collection-latexrecommended
           sudo apt-get update
-          sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev pandoc
+          sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev pandoc tidy
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: any::OpenMx, any::lme4, any::ordinal
