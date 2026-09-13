@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# Only cancel an older run of this workflow on the same branch or PR ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-24.04
@@ -21,21 +26,21 @@ jobs:
       RENV_CONFIG_CACHE_SYMLINKS: "FALSE"
       MAKEFLAGS: "-j2"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Release manifests record the source commit preceding the bundle.
           fetch-depth: 0
-      - uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           r-version: "4.5.3"
           use-public-rspm: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       # scripts/build_manual.R is the only gate that rejects overfull boxes in
       # the reference manual; R CMD check runs --no-manual and would accept
       # them. Give this job a LaTeX engine so the gate actually runs here.
-      - uses: r-lib/actions/setup-tinytex@v2
+      - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
       - name: Install reference-manual fonts
         run: tlmgr install inconsolata helvetic times courier collection-latexrecommended
       - name: Install compilation dependencies
@@ -43,7 +48,7 @@ jobs:
         # bslib. Without it the vignette toolchain silently fails to install and
         # the gate falls back to checking without vignettes.
         run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev pandoc
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/gtheory-validation-library
           key: ubuntu-24.04-source-v2-R-4.5.3-${{ hashFiles('renv.lock') }}
@@ -82,7 +87,7 @@ jobs:
           python3 scripts/run_validation.py --scope all --as-cran --library "$RUNNER_TEMP/gtheory-validation-library" --output "$RUNNER_TEMP/full-validation.json" 2>&1 | tee "$RUNNER_TEMP/full-validation.log"
       - name: Preserve validation summary and detailed package logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: full-validation-evidence
           path: |

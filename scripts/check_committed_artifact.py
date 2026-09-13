@@ -185,6 +185,64 @@ def verify_bundle(root: Path, manifest_path: Path) -> tuple[dict, dict[str, byte
             "description_metadata_matches": True, "archive": str(manifest_path.parent / archive_name)}, files
 
 
+def verify_release_identity(root: Path, manifest_path: Path,
+                            release_tag: str | None = None) -> dict:
+    """Check current release prose without rewriting historical archive contents.
+
+    The manifest is the release identity. A .9000 development checkout may keep
+    that release, but must say which source and artifact versions it describes.
+    A release-tag check additionally verifies the tag's metadata and manifest.
+    Archive byte integrity/source correspondence remain verify_bundle's job.
+    """
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    package, version = manifest["package"], manifest["version"]
+    description = read_dcf((root / "DESCRIPTION").read_bytes())
+    source_version = description.get("Version")
+    if description.get("Package") != package:
+        raise ValueError("Release package mismatch: DESCRIPTION versus artifact manifest")
+    development = bool(re.fullmatch(re.escape(version) + r"\.9[0-9]{3,}", source_version or ""))
+    if source_version != version and not development:
+        raise ValueError("Release version mismatch: DESCRIPTION versus artifact manifest; "
+                         "use an explicitly labelled .9000 checkout for development")
+    archive_name = f"{package}_{version}.tar.gz"
+    if set(manifest["files"]) != {archive_name, f"{package}-manual.pdf"}:
+        raise ValueError("Release archive filename/version mismatch with artifact manifest")
+    for name in ("README.md", "NEWS.md"):
+        prose = (root / name).read_text(encoding="utf-8")
+        blocks = re.findall(r"<!-- release-identity:start -->(.*?)<!-- release-identity:end -->",
+                            prose, re.S)
+        if len(blocks) != 1:
+            raise ValueError(f"{name}: expected one release-identity summary")
+        declared = re.findall(r"Current artifact bundle: \*\*([^*]+)\*\*\.", blocks[0])
+        if declared != [version]:
+            raise ValueError(f"{name}: current artifact version mismatch with manifest ({version})")
+        if name == "README.md":
+            current = re.findall(r"Checkout version: \*\*([^*]+)\*\*\.", blocks[0])
+            if current != [source_version]:
+                raise ValueError("README.md: checkout version mismatch with DESCRIPTION")
+    heading = (manifest_path.parent / "README.md").read_text(encoding="utf-8").splitlines()[0]
+    if heading != f"# {package} {version} release":
+        raise ValueError("artifacts/README.md: release version mismatch with manifest")
+    if release_tag is not None:
+        if release_tag != f"v{version}" or development:
+            raise ValueError("Release tag/version mismatch with manifest or checkout")
+        ref = f"refs/tags/{release_tag}"
+        try:
+            tagged = read_dcf(git(root, "show", ref + ":DESCRIPTION"))
+            tagged_manifest = json.loads(git(root, "show", ref + ":artifacts/manifest.json"))
+        except subprocess.CalledProcessError as error:
+            raise ValueError("Release tag is unavailable locally; fetch its history first") from error
+        if tagged.get("Package") != package or tagged.get("Version") != version:
+            raise ValueError("Release tag DESCRIPTION version/package mismatch")
+        if tagged_manifest != manifest:
+            raise ValueError("Release tag manifest differs from the distributed bundle manifest")
+    return {"package": package, "source_version": source_version,
+            "artifact_version": version, "archive": archive_name,
+            "source_commit": manifest["source_commit"], "development_checkout": development,
+            "release_tag": release_tag, "release_tag_checked": release_tag is not None,
+            "archive_matches_current_checkout": "not_asserted; compared to recorded source commit"}
+
+
 def install_and_smoke(report: dict, files: dict[str, bytes], work: Path, rscript: str, environment: dict) -> None:
     library = work / "library"
     library.mkdir()  # A reused installed package cannot satisfy this check.
@@ -242,6 +300,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, default=ROOT / "artifacts/manifest.json")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--verify-only", action="store_true", help="Check integrity and source correspondence without installing; this is not a smoke-test pass.")
+    parser.add_argument("--check-release-identity", action="store_true", help="Also check current DESCRIPTION and release summaries against the manifest.")
+    parser.add_argument("--release-tag", help="Also verify this locally available release tag, e.g. v0.0.7.")
     args = parser.parse_args(argv)
     work = args.output_dir.resolve() if args.output_dir else Path(tempfile.mkdtemp(prefix="gtheory-committed-artifact-"))
     work.mkdir(parents=True, exist_ok=True)
@@ -251,6 +311,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         evidence, files = verify_bundle(ROOT, args.manifest.resolve())
         report.update(evidence)
+        if args.check_release_identity or args.release_tag:
+            report["release_identity"] = verify_release_identity(ROOT, args.manifest.resolve(), args.release_tag)
         if not args.verify_only:
             install_and_smoke(report, files, work, args.rscript, environment)
         report["success"] = True

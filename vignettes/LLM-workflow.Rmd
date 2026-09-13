@@ -183,8 +183,9 @@ these data.
 
 A facet is *random* when the study generalizes to a population of its levels,
 and *fixed* when the universe of generalization is exactly the levels used. LLM
-evaluation often has fixed facets: a decoding temperature is chosen, not
-sampled, and a prompt set is frequently the whole set of interest.
+evaluation may target exactly a chosen temperature or prompt set, in which case
+those facets are fixed. Selecting levels deliberately does not by itself decide
+the universe of generalization.
 
 Declare them with `fixed`. Following the mixed model of Brennan (2001), the
 object-by-fixed-facet variance is averaged over that facet's levels and added to
@@ -205,9 +206,11 @@ may not project over it.
 `fixed` acts at the reliability stage: it changes how the already-fitted
 components are aggregated into a coefficient. It does not change the G study,
 so it cannot repair a source whose variance was misspecified during fitting.
-If a facet's variance is heteroscedastic across the levels of another facet --
-as seed disagreement is across temperature in the bundled panels -- fit within
-a single level of that other facet as well. The two remedies are independent.
+Observed seed disagreement can change across temperatures even when latent
+variance is constant, because category probabilities can change. If diagnostics
+raise doubts about pooling temperatures, fitting within one temperature is a
+useful sensitivity analysis for a conditional estimand; declaring a facet fixed
+is a separate decision about generalization.
 
 ## 7. Match other outcomes to their observation model
 

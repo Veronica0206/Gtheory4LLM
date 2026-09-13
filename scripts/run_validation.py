@@ -77,6 +77,8 @@ def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
              scope: str = "all", compact: bool = False, as_cran: bool = False) -> list[tuple[str, list[str]]]:
     result = [("dependency_preflight", [rscript, "--vanilla", "-e", preflight_code(lock, allow_version_drift)])]
     if scope in {"source", "all"}:
+        result.append(("release_identity", [sys.executable, str(root / "scripts/check_committed_artifact.py"),
+                      "--verify-only", "--check-release-identity"]))
         result.append(("python_regressions", [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py", "-v"]))
         r_tests = sorted((root / "tests").glob("test_*.R"))
         if compact:
@@ -95,7 +97,8 @@ def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
         if as_cran: package_command.append("--as-cran")
         result.append(("package_build_install_check", package_command))
     if scope in {"artifact", "all"}:
-        command = [sys.executable, str(root / "scripts/check_committed_artifact.py"), "--rscript", rscript]
+        command = [sys.executable, str(root / "scripts/check_committed_artifact.py"), "--rscript", rscript,
+                   "--check-release-identity"]
         artifact_dir = os.environ.get("GTHEORY_ARTIFACT_CHECK_DIR")
         if artifact_dir:
             command.extend(["--output-dir", artifact_dir])

@@ -1,5 +1,22 @@
 # Gtheory4LLM 0.0.7
 
+<!-- release-identity:start -->
+Current artifact bundle: **0.0.7**.
+The published files are preserved against the source commit in the manifest;
+subsequent repository refinements below do not replace those release files.
+<!-- release-identity:end -->
+
+## Repository refinements after release
+
+- Corrects release-version prose and checks DESCRIPTION, the archive manifest,
+  release summaries, and optionally the release tag for consistency.
+- Covers all pull-request and main-branch changes in CRAN candidate readiness,
+  pins external Actions to verified commits, and cancels superseded runs.
+- Clarifies parameter uncertainty versus new-panel prediction, fixed-facet
+  choices, and what temperature-specific agreement can establish.
+- Adds contribution, release, and statistical-validation scope guidance.
+
+
 ## Fixes found in review of this release
 
 - The `variance` covariance coordinates, which `auto` now selects for every
@@ -42,11 +59,9 @@
   libuv headers, and `install.packages()` only warns when a build fails, so the
   step passed while the toolchain was absent. The workflow installs `libuv1-dev`
   and the step now asserts the result instead of reporting success either way.
-- Corrects the temperature guidance. Declaring `fixed = "temp"` fixes the
-  estimand but not the misspecification: the G study has already pooled one
-  seed variance across all six temperatures before any coefficient is formed.
-  Only fitting within a single temperature removes that, and a study affected
-  by both should do both.
+- Clarifies that `fixed = "temp"` selects a reliability estimand after fitting;
+  it does not alter the fitted variance model. A within-temperature analysis is
+  one conditional sensitivity analysis when pooling is questionable.
 
 ## Uncertainty for Gaussian fits
 
@@ -60,10 +75,11 @@
   `gt_reliability()` and `gt_dstudy()`, per outcome and for weighted composites.
   New `level` argument; new `Erho2_se`, `Erho2_lower`, `Erho2_upper`, `Phi_se`,
   `Phi_lower`, and `Phi_upper` columns. `plot.gt_dstudy()` draws the bounds.
-  Simulated coverage of the G interval was 0.94-0.96 across three crossed
-  two-facet designs; this is a limited check, not general coverage evidence.
-- When a variance component rests on zero the joint Hessian is indefinite, which
-  previously removed every standard error. Standard errors are now computed on
+  Deterministic tests check the delta-method mapping. A previously reported
+  pilot coverage range has no reproducible protocol/results in the public
+  repository and does not define a validated operating range.
+- A zero-boundary variance can accompany unusable joint Hessian curvature,
+  which previously removed every standard error. Standard errors are now computed on
   the interior block, conditional on the zero components being held at zero, and
   both the fit and the printed coefficients say so. A component held that way
   reports `NA`, never a structural zero that would read as certainty.
@@ -97,11 +113,9 @@
   files previously carried roxygen blocks that were not the source of the richer
   hand-written Rd pages; running roxygen2 would have replaced them and dropped
   the S3 methods registered in `NAMESPACE`. Those blocks are now plain comments.
-- Documents that temperature is a chosen setting rather than a sampled level,
-  and that seed agreement in the bundled panels falls monotonically with
-  temperature (0.92 to 0.73 for hate speech, 0.91 to 0.68 for mental health,
-  0.84 to 0.58 for drug reviews), so one seed variance pooled across all six
-  temperatures is misspecified.
+- Documents temperature and seed as study-design choices. Observed agreement
+  differences across temperatures motivate diagnostics but do not by themselves
+  prove heterogeneity of latent random-effect variances.
 - States that the native discrete codings of the bundled panels exceed the dense
   discrete engine by more than an order of magnitude, and explains why the
   declared `R (>= 4.5.0)` floor comes from OpenMx's under-declared C API
@@ -135,8 +149,8 @@
   Explicit choices and numerical acceptance criteria remain available.
 - Corrects the public package citation and explains full-panel discrete limits,
   mental-health preprocessing, and coefficient interpretation more directly.
-- The previously submitted 0.0.6 archive and its reference manual are unchanged;
-  `artifacts/` still describes that frozen release, not this version.
+- The 0.0.7 source archive and reference manual are identified by
+  `artifacts/manifest.json`; older release files remain on their GitHub releases.
 
 # Gtheory4LLM 0.0.6
 

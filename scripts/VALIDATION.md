@@ -19,9 +19,26 @@ a new library and runs its archived smoke test. A source-only revision can retai
 a previous bundle: the report keeps source and committed-artifact results separate.
 The default scope is `all`; missing release artifacts fail that scope explicitly.
 
+Both source and artifact checks now verify release identity against the manifest:
+DESCRIPTION, archive filename, current README/NEWS summaries, and the artifact
+README heading must agree. Historical NEWS sections are preserved. A clearly
+labelled `.9000` development checkout may retain the preceding release; a new
+ordinary release version cannot silently use an older bundle. The archive still
+compares to its recorded source commit, not to a later checkout. Check the local
+release tag's DESCRIPTION and manifest explicitly before publication:
+
+```sh
+python3 scripts/check_committed_artifact.py --verify-only --check-release-identity --release-tag v0.0.7
+```
+
+The tag example must be updated for a new release. The ordinary gate reports
+whether a tag was checked; it never treats an unfetched tag or unqueried GitHub
+release as verified. See [the release checklist](../docs/RELEASE_CHECKLIST.md).
+
+
 The package build now knits `vignettes/LLM-workflow.Rmd`, so the source stage
 needs knitr, rmarkdown, and pandoc in addition to the numerical stack. These are
-documentation build tools rather than package dependencies, so they are not
+documentation build tools rather than runtime dependencies, so they are not
 recorded in `renv.lock`; the workflows install them beside the restored library.
 When they are absent, `scripts/check_package.py` records that fact under
 `vignette_toolchain`, builds with `--no-build-vignettes`, and checks with
@@ -90,7 +107,11 @@ claiming a platform has passed.
 
 ## Exact candidate for CRAN
 
-`cran-readiness.yml` is separate from the numerical and compatibility gates. Its
+`cran-readiness.yml` is separate from the numerical and compatibility gates.
+It covers every main push and ordinary pull request, without package-path
+filters, so vignette and release-documentation edits cannot skip it. All three
+workflows pin external Actions to verified commit SHAs and cancel superseded
+runs on the same workflow/ref. Its
 first job selects current R release, requires clean committed sources, audits
 the public working tree and reachable history, verifies bundled resources, and
 builds one source archive. It records the source commit, actual R version, byte

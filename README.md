@@ -6,9 +6,12 @@ LLM-as-a-judge evaluations. Specify which evaluator, prompt, and repeated-run
 sources matter for your study, fit their variation, and compare projected
 reliability across alternative numbers of evaluators and prompts.
 
-This checkout is **0.0.7**. The files in `artifacts/` still describe the
-previously submitted **0.0.6** release and are not rebuilt here. Build this
-checkout to use the changes listed in `NEWS.md`.
+<!-- release-identity:start -->
+Checkout version: **0.0.7**. Current artifact bundle: **0.0.7**.
+The archive and manual in `artifacts/` are the published release, identified by
+its [manifest](artifacts/manifest.json). Later checkout changes are recorded in
+`NEWS.md`; the archive remains tied to the manifest's source commit.
+<!-- release-identity:end -->
 
 The package provides exact balanced Gaussian analyses and a bounded,
 first-order Laplace implementation for small discrete models. Numerical checks
@@ -77,9 +80,9 @@ specified model; it is not 80% labeling accuracy or agreement with a human
 reference. Phi additionally penalizes absolute panel shifts and is no larger
 than G under this model.
 
-Gaussian fits report an asymptotic standard error for every source variance and
-a delta-method interval for G and Phi, both taken from the restricted-likelihood
-curvature the fit already computes:
+Gaussian fits report asymptotic standard errors and delta-method intervals
+where the likelihood curvature and boundary rules permit them. They use the
+restricted (REML) or profile (ML) likelihood Hessian:
 
 ```r
 summary(fit)$variances          # variance, std_error, boundary flag
@@ -88,7 +91,9 @@ gt_reliability(fit)$per_trait   # Erho2, Erho2_se, Erho2_lower, Erho2_upper, ...
 
 These are asymptotic Wald quantities conditional on the declared model and
 allocation. They describe estimation uncertainty in the fitted source
-covariances, not sampling variation in the evaluator or prompt populations. A
+covariances, including finite sampling of random facet levels under that model.
+They are not prediction intervals for a newly sampled panel and do not account
+for model misspecification or changes in the populations used for extrapolation. A
 source resting on a variance boundary has no Wald standard error; the fit says
 so and, where the joint curvature is indefinite there, conditions the remaining
 intervals on that source being held at zero. The discrete Laplace engine
@@ -97,8 +102,9 @@ computes no observed information and reports point estimates only.
 ### Fixed facets
 
 A facet is random when the study generalizes to a population of its levels, and
-fixed when the universe is exactly the levels used. Temperature is chosen, not
-sampled, and a prompt set is often the whole set of interest. Declare those with
+fixed when the universe is exactly the levels used. A chosen temperature or
+prompt set may be fixed when inference is restricted to those conditions; the
+choice follows the intended generalization, not the facet name. Declare it with
 `fixed`, which applies the mixed model of Brennan (2001): the object-by-fixed
 interaction is averaged over that facet's levels and joins universe-score
 variance, and a source built only from fixed facets leaves the model.
@@ -179,9 +185,10 @@ Laplace approximation. Rejected fits cannot produce coefficients.
 
 Bootstrap, jackknife, discrete standard errors, observed-score discrete
 reliability, and automatic minimum-allocation search are not provided. Gaussian
-intervals are asymptotic and Wald; their coverage has been checked only on a
-small set of crossed two-facet simulations, and estimator recovery and broad LLM
-evaluation performance still require further statistical validation.
+intervals are asymptotic and Wald. Public tests check their numerical
+implementation; a reproducible coverage and parameter-recovery study has not
+yet established a general supported operating range. See the
+[validation scope and study priorities](docs/VALIDATION_SCOPE.md).
 
 ## Example data and references
 
@@ -201,19 +208,17 @@ fitting examples. Use a scientifically justified small design for this backend;
 do not remove item interactions merely to obtain an accepted fit. The two
 mental-health 7L/3L sets remain Gaussian working scores under both coding options.
 
-Temperature and seed are also not exchangeable in the same way. Temperature is
-a setting rather than a sampled level, so declare it `fixed`. Seed is a genuine
-replication facet, but its variation is strongly heteroscedastic: the share of
-cells in which all three seeds agree falls from 0.92 to 0.73 (hate speech),
-0.91 to 0.68 (mental health), and 0.84 to 0.58 (drug reviews) between
-temperature 0 and 1.
+Temperature-specific seed agreement is a useful descriptive diagnostic. Lower
+agreement at higher temperatures may reflect changes in category probabilities,
+latent variances, or both; agreement alone does not identify which changed.
 
-Those are two problems with two remedies, and `fixed` only addresses the first.
-It changes how fitted components are aggregated into a coefficient, so it stops
-a decision study averaging over a population of temperatures that was never
-sampled. It cannot undo the pooling: the G study has already estimated one seed
-variance across all six temperatures. Only fitting within a single temperature
-removes that. Do both when both apply. See `help("gtheory_datasets")`.
+Use `fixed = "temp"` when the coefficient is intended to average over exactly
+the observed temperatures. This changes the reliability estimand after fitting;
+it cannot repair misspecification in the fitted variance model. If pooling
+across temperatures is questionable, a within-temperature analysis is one
+sensitivity analysis, with its own conditional estimand. It is not the only
+possible model and does not generalize across temperatures automatically.
+See `help("gtheory_datasets")`.
 
 Other native codings preserve binary, ordinal, or unordered categorical outcomes;
 `coding = "manuscript"` reproduces the seven historical Gaussian working-score
@@ -270,3 +275,10 @@ see [data attribution and license](inst/DATA_LICENSE.md). Synthetic tutorial
 and test examples are covered by the code license. Public release files are
 limited to the package, its documented examples, tests, and software release
 artifacts. Unpublished manuscripts and research archives are excluded.
+
+## Development and release checks
+
+See the [contribution guide](docs/CONTRIBUTING.md) for setup and statistical
+change requirements, and the [release checklist](docs/RELEASE_CHECKLIST.md) for
+version, tag, archive, and manual correspondence. Software checks and scientific
+validation are reported separately.

@@ -34,3 +34,5 @@
 ^release$
 ^PUBLIC-RELEASE[.]md$
 ^public-files[.]json$
+
+^docs$

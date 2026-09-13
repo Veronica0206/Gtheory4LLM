@@ -4,32 +4,15 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'DESCRIPTION'
-      - 'NAMESPACE'
-      - '.Rbuildignore'
-      - 'R/**'
-      - 'man/**'
-      - 'inst/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'cran-comments.md'
-      - '.github/workflows/cran-readiness.yml'
   pull_request:
-    paths:
-      - 'DESCRIPTION'
-      - 'NAMESPACE'
-      - '.Rbuildignore'
-      - 'R/**'
-      - 'man/**'
-      - 'inst/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'cran-comments.md'
-      - '.github/workflows/cran-readiness.yml'
 
 permissions:
   contents: read
+
+# Only cancel an older run of this workflow on the same branch or PR ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   OMP_NUM_THREADS: '1'
@@ -44,24 +27,24 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           r-version: release
           use-public-rspm: false
           cran: https://cran.r-project.org
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
       # Building a CRAN candidate now installs the package and knits its
       # vignette, so this job needs the runtime stack and the documentation
       # toolchain, not only R itself.
-      - uses: r-lib/actions/setup-pandoc@v2
+      - uses: r-lib/actions/setup-pandoc@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
       - name: Install compilation dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev
-      - uses: r-lib/actions/setup-r-dependencies@v2
+      - uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           packages: any::OpenMx, any::knitr, any::rmarkdown
           dependencies: 'c("Depends", "Imports", "LinkingTo")'
@@ -69,7 +52,7 @@ jobs:
       - name: Build one candidate from audited, committed public sources
         run: python scripts/cran_readiness.py build --expected-data-kind public_llm_annotations --output-dir "$RUNNER_TEMP/cran-candidate"
       - name: Preserve exact release-built candidate for the next job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cran-candidate-built-${{ github.sha }}
           path: |
@@ -79,7 +62,7 @@ jobs:
           retention-days: 30
       - name: Preserve build and public-content audit evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cran-candidate-build-evidence-${{ github.sha }}
           path: |
@@ -92,34 +75,34 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: r-lib/actions/setup-r@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           r-version: devel
           use-public-rspm: false
           cran: https://cran.r-project.org
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
-      - uses: r-lib/actions/setup-tinytex@v2
+      - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
       - name: Install PDF manual fonts and compilation dependencies
         run: |
           tlmgr install inconsolata helvetic times courier collection-latexrecommended
           sudo apt-get update
           sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev pandoc tidy
-      - uses: r-lib/actions/setup-r-dependencies@v2
+      - uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           packages: any::OpenMx, any::lme4, any::ordinal, any::knitr, any::rmarkdown
           dependencies: 'c("Depends", "Imports", "LinkingTo")'
           upgrade: 'TRUE'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: cran-candidate-built-${{ github.sha }}
           path: ${{ runner.temp }}/downloaded-cran-candidate
       - name: Check the downloaded archive with R-devel, CRAN incoming checks, and its PDF manual
         run: python scripts/cran_readiness.py check --require-devel --expected-data-kind public_llm_annotations --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked"
       - name: Preserve the exact successfully checked candidate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cran-candidate-checked-${{ github.sha }}
           path: |
@@ -131,7 +114,7 @@ jobs:
           retention-days: 30
       - name: Preserve full check evidence, including failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cran-candidate-check-evidence-${{ github.sha }}
           path: |

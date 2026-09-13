@@ -54,16 +54,17 @@ public annotation table.}
 }
 }
 
-\section{Temperature and seed are not exchangeable in the same way}{
-Temperature is a setting chosen by the analyst, not a level drawn from a
-population of temperatures. Averaging a decision study over \dQuote{a
-population of temperatures} has no substantive referent. Declare it as a fixed
-facet with \code{gt_reliability(fit, fixed = "temp")}.
+\section{Temperature, seed, and the intended universe}{
+Temperature is a controlled setting. Whether it is treated as fixed or random
+in a reliability analysis depends on the intended universe of generalization.
+If inference concerns exactly the observed temperature settings, an analyst
+can declare \code{gt_reliability(fit, fixed = "temp")}. Generalizing beyond
+those settings instead requires an explicit population and exchangeability
+assumptions; selection by the researcher alone does not determine the choice.
 
-Seed is a genuine replication facet, but its variation is strongly
-heteroscedastic across temperature. In the bundled panels the proportion of
-item-by-evaluator-by-prompt cells in which all three seeds return the same
-label falls monotonically with temperature:
+The observed agreement among seed replicates changes across temperature.
+The table gives the proportion of item-by-evaluator-by-prompt cells in which
+all three seeds return the same label:
 
 \tabular{lcccccc}{
   \strong{temperature} \tab 0 \tab 0.2 \tab 0.4 \tab 0.6 \tab 0.8 \tab 1 \cr
@@ -72,19 +73,21 @@ label falls monotonically with temperature:
   Drug-Review  \tab 0.840 \tab 0.767 \tab 0.711 \tab 0.686 \tab 0.631 \tab 0.581 \cr
 }
 
-A single homoscedastic seed-related variance pooled across all six
-temperatures is therefore misspecified for these panels, and so is any
-decision study built on it. Seed disagreement is also nonzero at temperature
-0, so a nominally deterministic setting still replicates imperfectly.
+These are descriptive observed-label agreement rates. Their differences
+motivate checking the response and covariance model, but do not by themselves
+establish that a latent seed variance is heterogeneous. For discrete outcomes,
+changes in category probabilities can change observed agreement even with
+constant latent random-effect variance. Agreement is below one at temperature
+0, so that setting does not guarantee identical recorded labels across runs.
 
-These are two separate problems with two separate remedies, and only one of
-them is a reliability-stage option. Declaring \code{fixed = "temp"} fixes the
-estimand: it stops a decision study averaging over a population of temperatures
-that was never sampled. It does not fix the heteroscedasticity, because the
-G study has already pooled one seed variance across all six temperatures before
-any coefficient is formed. Only fitting within a single temperature removes
-that misspecification. A study affected by both should do both: fit within one
-temperature, and declare any remaining chosen facet fixed.
+Declaring \code{fixed = "temp"} changes the reliability estimand after fitting;
+it does not change the G-study likelihood or correct covariance misspecification.
+A scientifically defined analysis within one temperature is one possible
+sensitivity analysis. In that case, omit the now-constant temperature column
+from the fitted facet declaration while recording the conditioned setting in
+the analysis. A model explicitly allowing variation by temperature is another
+possible approach, provided its implementation and assumptions are justified.
+Neither treatment is selected automatically from this descriptive table.
 }
 \section{Dataset topics and outcome sets}{
 \describe{
