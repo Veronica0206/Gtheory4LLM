@@ -20,7 +20,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOTS = {"R", "man", "inst", "data", "src", "tests", "vignettes"}
 PACKAGE_FILES = {"DESCRIPTION", "NAMESPACE", "LICENSE", "LICENCE", "LICENSE.note",
                  "NEWS", "NEWS.md", "NEWS.Rd", "README", "README.md", "README.Rmd"}
-GENERATED_FILES = {"build/partial.rdb"}
+# R CMD build writes these itself and they have no counterpart in git:
+# partial.rdb while preparing lazy loading, and vignette.rds as the index of
+# the vignettes it built. Built vignette products land in inst/doc/ and are
+# derived per vignette, so they are computed from the source commit rather
+# than whitelisted by prefix: an unexpected file under inst/doc/ must still fail.
+GENERATED_FILES = {"build/partial.rdb", "build/vignette.rds"}
+VIGNETTE_PRODUCT_SUFFIXES = (".R", ".html", ".pdf")
 GENERATED_FIELDS = {"Packaged", "Built", "NeedsCompilation"}
 MAX_FILES = 10000
 MAX_BYTES = 512 * 1024 * 1024
@@ -97,6 +103,23 @@ def package_source_paths(root: Path, commit: str) -> set[str]:
     return {name for name in names if included(name)}
 
 
+def vignette_products(source_paths: set[str]) -> set[str]:
+    """Paths R CMD build derives in inst/doc/ from each declared vignette.
+
+    Only the products of vignettes that exist in the source commit are
+    excused, so an unexpected file under inst/doc/ still fails the inventory.
+    """
+    products: set[str] = set()
+    for name in source_paths:
+        parts = PurePosixPath(name)
+        if parts.parent.as_posix() != "vignettes":
+            continue
+        products.add("inst/doc/" + parts.name)
+        for suffix in VIGNETTE_PRODUCT_SUFFIXES:
+            products.add("inst/doc/" + parts.stem + suffix)
+    return products
+
+
 def verify_bundle(root: Path, manifest_path: Path) -> tuple[dict, dict[str, bytes]]:
     manifest = json.loads(manifest_path.read_text())
     package, version, commit = (manifest[key] for key in ("package", "version", "source_commit"))
@@ -147,7 +170,7 @@ def verify_bundle(root: Path, manifest_path: Path) -> tuple[dict, dict[str, byte
     if set(actual) - set(expected) - GENERATED_FIELDS:
         raise ValueError("Unexpected generated DESCRIPTION fields")
     source_paths = package_source_paths(root, commit)
-    packaged_paths = set(files) - GENERATED_FILES
+    packaged_paths = set(files) - GENERATED_FILES - vignette_products(source_paths)
     if source_paths != packaged_paths:
         raise ValueError("Archive/source file inventory differs: missing=" +
                          str(sorted(source_paths - packaged_paths)) + "; extra=" +

@@ -16,6 +16,24 @@ CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
 
+class VignetteProductTests(unittest.TestCase):
+    def test_only_declared_vignettes_excuse_inst_doc_products(self):
+        # inst/doc/ is generated from vignettes/ and has no counterpart in git,
+        # so its products must be derived from the source commit rather than
+        # excused by prefix. An unexpected file under inst/doc/ still fails.
+        products = CHECK.vignette_products({"vignettes/guide.Rmd", "R/fit.R"})
+        self.assertIn("inst/doc/guide.Rmd", products)
+        self.assertIn("inst/doc/guide.R", products)
+        self.assertIn("inst/doc/guide.html", products)
+        self.assertNotIn("inst/doc/other.html", products)
+        self.assertNotIn("R/fit.R", products)
+        self.assertEqual(CHECK.vignette_products({"R/fit.R"}), set())
+
+    def test_build_index_is_treated_as_generated(self):
+        self.assertIn("build/vignette.rds", CHECK.GENERATED_FILES)
+        self.assertIn("build/partial.rdb", CHECK.GENERATED_FILES)
+
+
 class CommittedArtifactTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()

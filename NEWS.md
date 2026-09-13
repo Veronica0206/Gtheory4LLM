@@ -18,6 +18,14 @@
   in `$uncertainty`, and coefficient intervals still use it.
 - The interval caveat names at most three sources inline and otherwise gives a
   count and a pointer; on the bundled panels it listed all thirteen.
+- Adding a vignette made `R CMD build` write `build/vignette.rds` and
+  `inst/doc/` products into the archive, which no release gate expected. The
+  public-content audit rejected the build index as an unexpected build file and
+  then as a malformed example resource; the committed-artifact gate would have
+  reported every generated vignette product as content missing from git at the
+  next release. Both now account for them, and `inst/doc/` products are derived
+  from the vignettes declared in the source commit rather than excused by
+  prefix, so an unexpected file there still fails.
 - Corrects the temperature guidance. Declaring `fixed = "temp"` fixes the
   estimand but not the misspecification: the G study has already pooled one
   seed variance across all six temperatures before any coefficient is formed.

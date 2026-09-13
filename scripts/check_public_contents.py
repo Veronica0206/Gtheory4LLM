@@ -41,6 +41,10 @@ PUBLIC_FILES = {
 # are skipped only in a working-tree scan, and only by exact name: an audit that
 # a maintainer learns to ignore is worse than one that is slightly narrower.
 OS_METADATA_FILES = {".DS_Store", "Thumbs.db", "desktop.ini", "._.DS_Store"}
+# R CMD build writes these into the archive itself: partial.rdb while preparing
+# lazy loading, and vignette.rds as the index of the vignettes it just built.
+# vignette.rds appears only once a package actually has vignettes.
+GENERATED_BUILD_FILES = {"build/partial.rdb", "build/vignette.rds"}
 PRIVATE_DIRECTORIES = {
     "companion", "reference", "review", "planning", "provenance", "archive",
     "archives", "skills", ".agents", ".codex", ".claude"
@@ -139,7 +143,7 @@ class PublicAudit:
             self.fail(label, "Private research or skill directory is forbidden.")
             return False
         if archive and parts[0] == "build":
-            allowed = directory and relative == "build" or relative == "build/partial.rdb"
+            allowed = (directory and relative == "build") or relative in GENERATED_BUILD_FILES
             if not allowed:
                 self.fail(label, "Unexpected generated package-build file.")
             return allowed
@@ -200,6 +204,12 @@ class PublicAudit:
         for reason, pattern in PRIVATE_PATTERNS.items():
             if pattern.search(content):
                 self.fail(label, reason)
+        if relative in GENERATED_BUILD_FILES:
+            # R CMD build owns these. vignette.rds is its index of built
+            # vignettes, not an example resource, so the bundled-example
+            # metadata rules do not apply. The private-pattern scan above
+            # still ran over their bytes.
+            return
         if relative.endswith(".rds"):
             self.inspect_rds(content, label, historical=historical)
         elif relative == f"artifacts/{PACKAGE}_{VERSION}.tar.gz":
