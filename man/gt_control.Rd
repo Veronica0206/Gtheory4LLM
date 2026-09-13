@@ -52,7 +52,8 @@ Discrete optimizer controls are:
 \item \code{covariance_parameterization}: \code{"auto"}.
 }
 The default \code{"auto"} uses direct nonnegative variance coordinates for
-univariate models and joint models with \code{covariance = "diagonal"}.
+univariate models and for joint models whose \code{covariance} is
+\code{"diagonal"}.
 Joint models with unstructured covariance use \code{"log_cholesky"}, retaining
 all cross-outcome covariance parameters. Explicit \code{"variance"} and
 \code{"log_cholesky"} selections remain available. Direct variance coordinates

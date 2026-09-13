@@ -33,23 +33,22 @@ components and delta-method intervals for G and Phi; see
 implemented, and the discrete Laplace engine reports point estimates only.
 
 \subsection{Why this package declares R (>= 4.5.0)}{
-Nothing in this package's own R code needs R 4.5. The floor is inherited from
-its supported OpenMx version: OpenMx 2.22.11 calls the \code{Rf_isDataFrame} C
-entry point that R introduced in 4.5.0, while declaring only
-\code{R (>= 3.5.0)} itself. Declaring the floor here is what prevents an
+Nothing in this package's own R code needs R 4.5. The floor comes from
+the OpenMx version it supports. OpenMx 2.22.11 calls \code{Rf_isDataFrame}, a C
+entry point R introduced in 4.5.0, while declaring only \code{R (>= 3.5.0)}
+for itself. Declaring the floor here is what prevents an
 install on an older R from failing later with an unexplained compilation error.
 Earlier combinations such as R 4.3 with OpenMx 2.21.11 have been reported to
 run this package's checks; that pairing is not part of its validated gate. To
 use one, install from source with a relaxed floor, or load the implementation
-directly with \code{source("load_functions.R")}, which imposes no version
+directly by sourcing \file{load_functions.R}, which imposes no version
 requirement of its own.
 }
 
 The vignette \dQuote{How many evaluators, prompts, and runs?} demonstrates
 fitting through reliability, intervals, fixed facets, and a decision study
-using synthetic continuous judgments; \code{browseVignettes("Gtheory4LLM")}
-opens it, and \file{doc/LLM-workflow.R} is the same workflow as a runnable
-script.}
+using synthetic continuous judgments. Open it with \code{browseVignettes()}.
+The installed \file{doc/LLM-workflow.R} is the same workflow as a script.}
 \references{
 Brennan, R. L. (2001). \emph{Generalizability Theory}. Springer.
 \doi{10.1007/978-1-4757-3456-0}.
