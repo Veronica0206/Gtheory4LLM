@@ -51,30 +51,19 @@ jobs:
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/gtheory-validation-library
-          key: ubuntu-24.04-source-v2-R-4.5.3-${{ hashFiles('renv.lock') }}
-      - name: Restore exact R dependencies
-        run: Rscript --vanilla scripts/restore_validation.R "$RUNNER_TEMP/gtheory-validation-library"
-      # knitr and rmarkdown build the vignette; they are documentation tools,
-      # not part of the numerical stack the lockfile pins, so install them
-      # beside the restored library rather than recording them in renv.lock.
-      - name: Install the vignette build toolchain beside the locked library
-        # install.packages() only warns when a package fails to build, so assert
-        # the result. The gate degrades gracefully without these, but that would
-        # silently stop exercising the vignette in the locked environment.
+          key: ubuntu-24.04-source-v3-R-4.5.3-${{ hashFiles('renv.lock', 'scripts/dependency-locks/documentation.lock') }}
+      - name: Check documentation lock preserves the numerical environment
+        run: python3 scripts/check_documentation_lock.py
+      - name: Restore exact numerical and R documentation dependencies
+        run: Rscript --vanilla scripts/restore_validation.R "$RUNNER_TEMP/gtheory-validation-library" scripts/dependency-locks/documentation.lock
+      - name: Require the locked vignette tools
         run: |
           Rscript --vanilla -e '
-            target <- Sys.getenv("R_LIBS_TARGET")
-            install.packages(c("knitr", "rmarkdown"), lib = target,
-                             repos = "https://cloud.r-project.org")
-            .libPaths(c(target, .libPaths()))
-            missing <- Filter(function(p) !requireNamespace(p, quietly = TRUE),
-                              c("knitr", "rmarkdown"))
-            if (length(missing)) stop("Vignette toolchain unavailable: ",
-                                      paste(missing, collapse = ", "))
-            cat("Vignette toolchain installed:",
-                paste(vapply(c("knitr", "rmarkdown"),
-                             function(p) paste0(p, " ", packageVersion(p)), character(1)),
-                      collapse = ", "), "\n")'
+            .libPaths(c(Sys.getenv("R_LIBS_TARGET"), .libPaths()))
+            for (p in c("knitr", "rmarkdown")) {
+              if (!requireNamespace(p, quietly = TRUE)) stop("Vignette tool unavailable: ", p)
+              cat(p, as.character(packageVersion(p)), "\n")
+            }'
         env:
           R_LIBS_TARGET: ${{ runner.temp }}/gtheory-validation-library
       - name: Run clean-session validation with required independent comparisons

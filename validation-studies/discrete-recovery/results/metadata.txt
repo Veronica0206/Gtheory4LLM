@@ -1,0 +1,12 @@
+Source commit: 137a9feb594aba648b55169b262e52298d694e25
+Started UTC: 2026-09-13 19:21:30 UTC
+R: R version 4.5.3 (2026-03-11)
+Platform: aarch64-apple-darwin20
+RNG: Mersenne-Twister;Inversion;Rejection
+Source: explicit checkout; exact files identified by source-files.csv
+Fit budget: 180 cumulative seconds, checked between fits
+L-BFGS-B; maxit=150; default automatic starts and numerical acceptance checks
+Finished UTC: 2026-09-13 19:21:32 UTC
+Cumulative fit seconds: 1.996
+Attempted: 40
+Accepted: 40

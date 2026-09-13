@@ -34,7 +34,22 @@ RELEASE_ARCHIVE = re.compile(rf"^{re.escape(PACKAGE)}_[0-9]+(?:[.-][0-9]+)*\.tar
 HISTORICAL_ARTIFACTS = {f"{PACKAGE}-manual.pdf", "manifest.json", "README.md"}
 PUBLIC_DIRECTORIES = {
     ".github", "R", "man", "inst", "data", "src", "tests", "vignettes",
-    "scripts", "examples", "docs", "artifacts"
+    "scripts", "examples", "docs", "artifacts", "validation-studies"
+}
+# These are independently generated simulation/integration records, never raw
+# research panels. Keep the exception narrow; private-path scanning still runs.
+STUDY_CSV_FILES = {
+    "validation-studies/discrete-laplace/" + name for name in (
+        "scenarios.csv", "results.csv", "summary.csv", "generated-data.csv",
+        "source-hashes.csv")
+} | {"validation-studies/gaussian-coverage/config.csv"} | {
+    "validation-studies/gaussian-coverage/results/" + name for name in (
+        "schedule.csv", "config.csv", "source-files.csv", "environment.csv",
+        "run-metadata.csv", "replicates.csv", "summary.csv",
+        "boundary-summary.csv", "recovery.csv", "completion.csv")
+} | {"validation-studies/discrete-recovery/config.csv"} | {
+    "validation-studies/discrete-recovery/results/" + name for name in (
+        "config.csv", "source-files.csv", "replicates.csv", "summary.csv")
 }
 PUBLIC_FILES = {
     "DESCRIPTION", "NAMESPACE", "LICENSE", "LICENCE", "LICENSE.note",
@@ -175,8 +190,9 @@ class PublicAudit:
         if lower.endswith((".tex", ".ipynb", ".patch", ".zip", ".skill", ".skill.enc", ".rda", ".rdata")):
             self.fail(label, "Private document, notebook, opaque data bundle, or development archive type is forbidden.")
             return False
-        if lower.endswith((".csv", ".tsv")) and relative != "inst/extdata/manifest.csv":
-            self.fail(label, "Only the bundled-resource manifest CSV is permitted.")
+        if lower.endswith((".csv", ".tsv")) and relative not in (
+                {"inst/extdata/manifest.csv"} | STUDY_CSV_FILES):
+            self.fail(label, "Only the bundled-resource manifest CSV and declared synthetic study CSVs are permitted.")
             return False
         # A previous release's archive is legitimate where it actually lived: in
         # artifacts/ at a commit made before the version bump. Everywhere else,

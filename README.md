@@ -188,9 +188,15 @@ reliability, and automatic minimum-allocation search are not provided. Gaussian
 intervals are asymptotic and Wald. Public tests check their numerical
 implementation; a reproducible coverage and parameter-recovery study has not
 yet established a general supported operating range. See the
-[validation scope and study priorities](docs/VALIDATION_SCOPE.md).
+[validation scope and study priorities](docs/VALIDATION_SCOPE.md). The initial
+[statistical pilots](validation-studies/README.md) preserve coverage, approximation
+and recovery results, including boundaries and unavailable comparisons.
 
 ## Example data and references
+
+The [real-data workflow](docs/REAL_DATA_WORKFLOW.md) audits the native outcome
+types and full designs of all three panels, then demonstrates how to interpret
+unsupported requests and numerical failures.
 
 `gt_example()` lists eight outcome sets from three **real LLM annotation
 panels**: hate speech, mental health, and drug reviews. Each contains 21,600
@@ -281,4 +287,5 @@ artifacts. Unpublished manuscripts and research archives are excluded.
 See the [contribution guide](docs/CONTRIBUTING.md) for setup and statistical
 change requirements, and the [release checklist](docs/RELEASE_CHECKLIST.md) for
 version, tag, archive, and manual correspondence. Software checks and scientific
-validation are reported separately.
+validation are reported separately. The [development status](docs/DEVELOPMENT_STATUS.md)
+tracks completed work and remaining extensions.

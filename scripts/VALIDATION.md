@@ -59,20 +59,27 @@ not read as one that rendered it cleanly. The locked Linux workflow installs
 TinyTeX so the gate is enforced there; set `GTHEORY_MANUAL_CHECK_DIR` to keep the
 rendered manual and its build log.
 
-The locked full gate uses R 4.5.3 and all versions in `renv.lock`, with one
-stated exception: knitr and rmarkdown are installed from current CRAN beside the
-restored library rather than pinned in the lockfile, in the same way renv itself
-is bootstrapped separately. They build the vignette and are never loaded by the
-package, so no numerical result depends on their versions; the workflow log
-records which versions were used. The lock therefore pins the numerical stack,
-not the documentation toolchain, and the gate reports `vignettes_built` so a run
-that skipped them is distinguishable from one that did not. Restore into an
-explicit library and pass that library to every clean R process:
+The locked full gate uses R 4.5.3 and the combined
+[`documentation.lock`](dependency-locks/documentation.lock). This includes all
+numerical dependencies from `renv.lock`, unchanged, plus the transitive R
+build dependencies of knitr 1.50 and rmarkdown 2.29. The separate numerical lock
+remains the source of truth for model dependencies;
+`check_documentation_lock.py` rejects differences before restoration. The CI cache
+includes both locks. Pandoc, TeX, the operating system and system libraries remain
+platform-provided; pinning R packages alone does not promise byte-identical PDFs.
+The gate reports `vignettes_built` so a skipped build is distinguishable from a
+successful one. Restore into an explicit library and pass it to clean R processes:
 
 ```sh
-Rscript --vanilla scripts/restore_validation.R /tmp/gtheory-validation-library
+python3 scripts/check_documentation_lock.py
+Rscript --vanilla scripts/restore_validation.R /tmp/gtheory-validation-library scripts/dependency-locks/documentation.lock
 python3 scripts/run_validation.py --library /tmp/gtheory-validation-library --scope all
 ```
+
+To restore only numerical dependencies, omit the final lockfile argument. The
+combined documentation lock was assembled from the working local R 4.5.3
+vignette environment. A successful local build does not establish that a fresh
+hosted restoration has passed; inspect the corresponding CI run.
 
 The Linux workflow builds source dependencies consistently from CRAN. Explicit
 renv repository overrides prevent a runner's binary repository from replacing

@@ -1,0 +1,5 @@
+scenario,n_items,repetitions,variance,intercept,replicates,seed_base
+short_low_variance,12,3,0.1,-0.5,10,492100
+long_low_variance,12,12,0.1,-0.5,10,492200
+short_high_variance,12,3,2,-0.5,10,492300
+long_high_variance,12,12,2,-0.5,10,492400

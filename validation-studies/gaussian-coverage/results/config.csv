@@ -1,0 +1,5 @@
+"scenario","n_items","n_raters","var_item","var_rater","var_residual","mean","replicates","seed_base"
+"interior",24,6,1,0.3,1,0.2,40,9101000
+"few_raters",24,3,1,0.3,1,0.2,40,9102000
+"near_zero_rater",24,6,1,0.001,1,0.2,40,9103000
+"zero_rater",24,6,1,0,1,0.2,40,9104000

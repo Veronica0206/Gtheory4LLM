@@ -1,0 +1,13 @@
+Study started UTC: 2026-09-13 19:22:09 UTC
+Source commit: 137a9feb594aba648b55169b262e52298d694e25
+Source R/DESCRIPTION working-tree changes: none
+R: R version 4.5.3 (2026-03-11)
+Platform: aarch64-apple-darwin20
+RNG: Mersenne-Twister; Inversion; Rejection
+Package dependencies for this study: base R only; package source loaded explicitly.
+Engine controls: inner_tol=1e-9; inner_maxit=100; fixed generating covariance.
+Reference convergence threshold: successive NLL difference <= 1e-7.
+Planned panels: 180; elapsed budget seconds: 240 (checked between panels).
+Started panels: 180
+Compared panels: 165
+Elapsed seconds: 3.658

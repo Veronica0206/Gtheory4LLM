@@ -94,6 +94,18 @@ class PublicContentsTests(unittest.TestCase):
         self.assertIn("current public release", reasons)
         self.assertIn("manifest CSV", reasons)
 
+    def test_only_declared_synthetic_study_csvs_are_allowed(self):
+        for name in sorted(module.STUDY_CSV_FILES):
+            self.write(name, "scenario,estimate\nsynthetic,0.5\n")
+        self.assertFalse(self.check().findings)
+        self.write("validation-studies/discrete-laplace/raw_panel.csv", "unapproved rows")
+        self.assertTrue(any("declared synthetic" in x["reason"] for x in self.check().findings))
+
+    def test_study_csvs_still_undergo_private_content_scanning(self):
+        self.write(sorted(module.STUDY_CSV_FILES)[0],
+                   "/" + "Users" + "/private-person/source.csv")
+        self.assertTrue(any("private home-directory" in x["reason"] for x in self.check().findings))
+
     def test_os_metadata_is_skipped_in_a_working_tree_but_never_in_an_archive(self):
         # A desktop environment recreates these files on sight and git ignores
         # them, so flagging them locally only teaches maintainers to ignore the
