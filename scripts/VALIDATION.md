@@ -19,13 +19,30 @@ a new library and runs its archived smoke test. A source-only revision can retai
 a previous bundle: the report keeps source and committed-artifact results separate.
 The default scope is `all`; missing release artifacts fail that scope explicitly.
 
+The package build now knits `vignettes/LLM-workflow.Rmd`, so the source stage
+needs knitr, rmarkdown, and pandoc in addition to the numerical stack. These are
+documentation build tools rather than package dependencies, so they are not
+recorded in `renv.lock`; the workflows install them beside the restored library.
+When they are absent, `scripts/check_package.py` records that fact under
+`vignette_toolchain`, builds with `--no-build-vignettes`, and checks with
+`--ignore-vignettes`. The installed-tutorial stage of `tests/package-preflight.R`
+then prints `NOT RUN` instead of passing silently, because the end-to-end
+workflow really is unverified in that run.
+
 `--as-cran` adds CRAN incoming checks. Only a CRAN incoming NOTE consisting of the
 maintainer line and `New submission` is classified as expected. It remains counted
 and reported. Other notes, warnings, errors, or incomplete checks fail validation.
 PDF manual generation is separate through `scripts/build_manual.R`; the automated
 package check uses `--no-manual` so it does not require TeX on every platform.
 
-The locked full gate uses R 4.5.3 and all versions in `renv.lock`. Restore into an
+The locked full gate uses R 4.5.3 and all versions in `renv.lock`, with one
+stated exception: knitr and rmarkdown are installed from current CRAN beside the
+restored library rather than pinned in the lockfile, in the same way renv itself
+is bootstrapped separately. They build the vignette and are never loaded by the
+package, so no numerical result depends on their versions; the workflow log
+records which versions were used. The lock therefore pins the numerical stack,
+not the documentation toolchain, and the gate reports `vignettes_built` so a run
+that skipped them is distinguishable from one that did not. Restore into an
 explicit library and pass that library to every clean R process:
 
 ```sh
@@ -41,14 +58,17 @@ separately. Reports replace machine-local source, work, and home paths with
 placeholders; an explicit `--output` controls summary-file creation.
 
 The compatibility workflow is a separate, smaller source check on current R for
-Windows/macOS and the minimum supported R 4.5.0 on Ubuntu 22.04. It retains every installed-package test,
+Windows/macOS and the minimum supported R 4.5.0 on Ubuntu 22.04. It installs
+pandoc so the vignette is exercised on every platform in that matrix. It retains every installed-package test,
 the independent lme4/ordinal comparisons, and selected synthetic source regressions.
 It never claims a full locked-environment pass. Current Windows/macOS dependencies
 are resolved from CRAN and their actual versions are reported. The minimum-R job
 uses `scripts/dependency-locks/R-4.5.0.lock`, with the same dependency versions as
 the main lock and R 4.5.0 selected explicitly. OpenMx 2.22.11 uses the
-`Rf_isDataFrame` C API introduced in R 4.5.0; the package therefore requires
-R 4.5.0 or later. The preflight rejects older R before loading dependencies.
+`Rf_isDataFrame` C API introduced in R 4.5.0 while declaring only
+`R (>= 3.5.0)` itself; the package therefore declares R 4.5.0 or later on its
+behalf. Nothing in this package's own R code requires R 4.5. The preflight
+rejects older R before loading dependencies.
 
 ```sh
 Rscript --vanilla scripts/restore_validation.R /tmp/gtheory-minimum-library scripts/dependency-locks/R-4.5.0.lock

@@ -250,6 +250,74 @@ check("combinatorial growth respects max_terms", {
   fails(gt_design("item", paste0("facet", seq_len(12L)), max_terms = 64L))
 })
 
+check("validated notes retain scope without stale pending claims", {
+  declared <- gt_design("item", "rater", random = ~ item + rater)
+  assert(any(grepl("Specification only:", declared$notes, fixed = TRUE)),
+         "Constructor lost pending-validation note")
+  checked <- .implementation$.gt_design_validated(declared, "Fixture scope: observed grouping checks only")
+  assert(checked$validated_data && identical(checked$validation_scope,
+    "Fixture scope: observed grouping checks only"), "Validation scope was lost")
+  assert(!any(grepl("Specification only:", checked$notes, fixed = TRUE)),
+         "Validated fit retained stale constructor note")
+  assert(any(grepl("do not infer physical crossing or nesting", checked$notes, fixed = TRUE)),
+         "Substantive sampling-design limitation was lost")
+  panel <- expand.grid(item = 1:3, rater = 1:2)
+  resolved <- .implementation$.gt_resolve_design(panel, gt_design("item", "rater"), "gaussian")
+  resolved <- .implementation$.gt_design_validated(resolved, "Fixture balanced panel")
+  assert(!any(grepl("requires family-specific resolution", resolved$notes, fixed = TRUE)) &&
+         any(grepl("combined as Residual", resolved$notes, fixed = TRUE)),
+         "Resolved alias notes are stale or their interpretation was lost")
+  err <- tryCatch(.implementation$.gt_resolve_design(panel, gt_design("item", "rater"), "discrete"),
+                  error = identity)
+  assert(inherits(err, "error") && grepl("random = ~ item + rater", conditionMessage(err), fixed = TRUE),
+         "Discrete full-cell rejection lacks an explicit reduced-model example")
+})
+
+check("full_cell removes exactly the observation-level source", {
+  complete <- gt_design("item", c("rater", "occasion"))
+  reduced <- gt_design("item", c("rater", "occasion"), full_cell = FALSE)
+  assert(isTRUE(complete$full_cell) && isFALSE(reduced$full_cell),
+         "The requested full_cell setting was not retained")
+  assert(identical(setdiff(complete$terms_requested, reduced$terms_requested),
+                   "item:rater:occasion"),
+         "full_cell = FALSE changed more than the object-by-all-facets source")
+  assert(identical(reduced$terms_requested,
+                   setdiff(complete$terms_requested, "item:rater:occasion")),
+         "full_cell = FALSE dropped or reordered a retained source")
+  assert(!length(reduced$potential_aliases),
+         "A removed full-cell source must not remain a pending alias")
+  assert(any(grepl("full_cell = FALSE removed", reduced$notes, fixed = TRUE)),
+         "The removal was not recorded in the design notes")
+  # It is deliberately combinable with an explicit random specification, which
+  # the mutually exclusive automatic selectors are not.
+  explicit <- gt_design("item", "rater", random = ~ item * rater, full_cell = FALSE)
+  assert(identical(explicit$terms_requested, c("item", "rater")),
+         "full_cell = FALSE did not compose with an explicit random formula")
+  for (bad in list(NA, "yes", c(TRUE, FALSE), 1L)) {
+    err <- tryCatch(gt_design("item", "rater", full_cell = bad), error = identity)
+    assert(inherits(err, "error") && grepl("full_cell must be TRUE or FALSE",
+                                           conditionMessage(err), fixed = TRUE),
+           "An invalid full_cell value was accepted")
+  }
+  panel <- expand.grid(item = 1:3, rater = 1:2)
+  fitted <- .implementation$.gt_resolve_design(panel,
+    gt_design("item", "rater", full_cell = FALSE), "discrete")
+  assert(identical(fitted$terms, c("item", "rater")) && !length(fitted$aliased_terms),
+         "A reduced discrete design did not resolve without an alias")
+})
+
+check("discrete full-cell rejection names the argument that resolves it", {
+  panel <- expand.grid(item = 1:3, rater = 1:2)
+  err <- tryCatch(.implementation$.gt_resolve_design(panel,
+    gt_design("item", "rater"), "discrete"), error = identity)
+  assert(inherits(err, "error"), "The unsupported source was accepted")
+  message <- conditionMessage(err)
+  assert(grepl("full_cell = FALSE", message, fixed = TRUE),
+         "The rejection does not name the argument that declares the reduced model")
+  assert(grepl("not removed automatically", message, fixed = TRUE),
+         "The rejection no longer states that the source is never dropped silently")
+})
+
 .failed <- !vapply(.results, isTRUE, logical(1))
 cat("\n", sum(!.failed), "/", length(.results), " design tests passed.\n", sep = "")
 if (any(.failed)) {

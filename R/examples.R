@@ -1,13 +1,16 @@
+# Documentation policy: man/*.Rd and NAMESPACE are hand written and are
+# the only source of truth. These comments describe the code for readers;
+# they are deliberately not roxygen, so running roxygen2 cannot replace the
+# richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Example modeling tables and explicit CSV loading.
 
-#' Load a documented outcome set without raw text or API metadata
-#' @param name Outcome-set name; NULL lists the available sets.
-#' @param coding native retains binary/ordinal/nominal observation types;
-#'   manuscript is the legacy name for seven Gaussian numeric-score codings.
-#' @param directory Directory containing example RDS resources or source CSVs. The
-#'   installed package uses bundled modeling tables when directory is omitted.
-#'   Standalone use requires installed resources or an explicit local directory.
-#' @export
+# Load a documented outcome set without raw text or API metadata
+# name: Outcome-set name; NULL lists the available sets.
+# coding: native retains binary/ordinal/nominal observation types;
+#   manuscript is the legacy name for seven Gaussian numeric-score codings.
+# directory: Directory containing example RDS resources or source CSVs. The
+#   installed package uses bundled modeling tables when directory is omitted.
+#   Standalone use requires installed resources or an explicit local directory.
 gt_example <- function(name = NULL, coding = c("native", "manuscript"), directory = NULL) {
   catalog <- data.frame(
     name = c("hate_speech", "mental_health_7L", "mental_health_3L", "mental_health_6flag",

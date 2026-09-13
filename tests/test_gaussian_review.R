@@ -12,6 +12,28 @@ expect_error <- function(expr, pattern) {
   err <- tryCatch({force(expr); NULL}, error = identity)
   stopifnot(inherits(err, "error"), grepl(pattern, conditionMessage(err), fixed = TRUE))
 }
+# Exercise derivative warning isolation without an optimizer or fit.
+raw_warning <- "diagnostic-only fixture: status RED / Hessian not convex"
+sentinel <- list(output = list(hessian = diag(2), infoDefinite = FALSE))
+escaped <- character()
+captured <- withCallingHandlers(.gt_gaussian_derivative_run(sentinel,
+  run = function(model, silent) { warning(raw_warning, call. = FALSE); model }),
+  warning = function(w) { escaped <<- c(escaped, conditionMessage(w)); invokeRestart("muffleWarning") })
+stopifnot(identical(captured$model, sentinel), identical(captured$warnings, raw_warning),
+          is.null(captured$error), !length(escaped))
+failed <- .gt_gaussian_derivative_run(sentinel, run = function(model, silent) {
+  warning(raw_warning, call. = FALSE); stop("derivative fixture failure", call. = FALSE)
+})
+stopifnot(is.null(failed$model), identical(failed$error, "derivative fixture failure"),
+          identical(failed$warnings, raw_warning))
+# Warnings outside the derivative call remain visible to the caller.
+withCallingHandlers({
+  .gt_gaussian_derivative_run(sentinel, run = function(model, silent) model)
+  warning("optimizer fixture warning", call. = FALSE)
+}, warning = function(w) { escaped <<- c(escaped, conditionMessage(w)); invokeRestart("muffleWarning") })
+stopifnot(identical(escaped, "optimizer fixture warning"))
+cat("PASS: derivative-only warnings and errors retain their exact text without hiding other warnings.\n")
+
 set.seed(5012)
 for (n in c(2L, 3L, 11L, 51L)) {
   x <- matrix(rnorm(n * 4L), n, 4L)
@@ -57,6 +79,7 @@ near(unlist(p$strata), unlist(r$strata), 1e-12)
 permuted <- engine$prepare(d, c("w", "y", "z"))
 for (i in seq_along(p$strata))
   near(permuted$strata[[i]]$SSCP, p$strata[[i]]$SSCP[c(3,1,2), c(3,1,2)], 1e-12)
+expect_error(engine$prepare(d[-1, ], c("y", "z", "w")), "within-parent index")
 cat("PASS: multivariate preparation is invariant to row order and ID relabeling, and equivariant to outcome order.\n")
 
 # Instrument the actual closure's preparation entry, including the fitter's
@@ -78,7 +101,8 @@ control <- list(extra_tries = 2L, check_hessian = FALSE, retry_seed = 821L,
                 tolerance = 1e-10, max_iterations = 2000L)
 ml <- .gt_fit_gaussian(d, "y", design, estimator = "ML", control = control)
 .gt_gaussian_engine <- original_constructor
-stopifnot(ml$converged, preparation_calls == 1L)
+stopifnot(ml$converged, preparation_calls == 1L,
+  !any(grepl("Specification only:", ml$design$notes, fixed = TRUE)))
 reference <- lme4::lmer(y ~ 1 + (1|item) + (1|rater), d, REML = FALSE,
   control = lme4::lmerControl(optimizer = "bobyqa", optCtrl = list(rhoend = 1e-10)))
 near(ml$minus2loglik, -2 * as.numeric(stats::logLik(reference)), 1e-8)

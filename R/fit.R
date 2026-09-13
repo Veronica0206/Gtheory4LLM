@@ -1,12 +1,15 @@
+# Documentation policy: man/*.Rd and NAMESPACE are hand written and are
+# the only source of truth. These comments describe the code for readers;
+# they are deliberately not roxygen, so running roxygen2 cannot replace the
+# richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Unified independent-function interface; no package namespace is required.
 
-#' Fit one or multiple Gaussian or discrete G-theory outcomes
-#' @param outcomes One or multiple outcome column names. Multiple discrete
-#'   outcomes are modeled jointly through shared source covariance matrices.
-#' @param estimator ML/REML for Gaussian; ML_Laplace for discrete outcomes.
-#' @param residual Gaussian residual covariance structure. Discrete outcomes
-#'   use their identified observation models, not a fitted Gaussian residual.
-#' @export
+# Fit one or multiple Gaussian or discrete G-theory outcomes
+# outcomes: One or multiple outcome column names. Multiple discrete
+#   outcomes are modeled jointly through shared source covariance matrices.
+# estimator: ML/REML for Gaussian; ML_Laplace for discrete outcomes.
+# residual: Gaussian residual covariance structure. Discrete outcomes
+#   use their identified observation models, not a fitted Gaussian residual.
 gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
                    estimator = NULL, covariance = "unstructured", residual = NULL,
                    control = gt_control()) {
@@ -48,6 +51,9 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   if (is.null(result$optimizer_completed))
     result$optimizer_completed <- if (!is.null(result$status)) identical(as.integer(result$status), 0L) else isTRUE(result$converged)
   if (is.null(result$approximation_adequacy)) result$approximation_adequacy <- "exact_balanced_gaussian_likelihood"
+  if (is.null(result$uncertainty)) result$uncertainty <- list(available = FALSE,
+    reason = "Parameter standard errors are not implemented for this engine.",
+    method = NA_character_, boundary_components = character())
   if (is.null(result$engine)) result$engine <- result$backend
   if (is.null(result$nobs)) result$nobs <- nrow(data)
   if (is.null(result$npar)) result$npar <- result$n_model_parameters
@@ -67,8 +73,7 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   result
 }
 
-#' Extract model source covariance matrices without changing their scale
-#' @export
+# Extract model source covariance matrices without changing their scale
 gt_components <- function(fit, correlation = FALSE, tolerance = 1e-8) {
   if (!inherits(fit, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
   if (!is.logical(correlation) || length(correlation) != 1L || is.na(correlation))
@@ -88,8 +93,7 @@ gt_components <- function(fit, correlation = FALSE, tolerance = 1e-8) {
   result
 }
 
-#' Inspect engine-specific diagnostics without certifying identification
-#' @export
+# Inspect engine-specific diagnostics without certifying identification
 gt_diagnostics <- function(fit) {
   if (!inherits(fit, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
   status <- .gt_fit_status(fit)
@@ -101,6 +105,9 @@ gt_diagnostics <- function(fit) {
        acceptance_failures = status$acceptance_failures,
        attempt_failures = status$attempt_failures,
        boundary_sources = status$boundary_sources, parameter_bounds = status$parameter_bounds,
+       standard_errors_available = isTRUE(fit$uncertainty$available),
+       standard_errors_unavailable_reason = fit$uncertainty$reason,
+       component_standard_errors = fit$component_standard_errors,
        diagnostics = fit$diagnostics, declared_aliases = fit$design$aliased_terms,
        data_validation = fit$design$validation_scope,
        notes = fit$design$notes)
@@ -162,6 +169,9 @@ gt_diagnostics <- function(fit) {
   cat("Optimizer completed:", show(d$optimizer_completed),
       "| Numerically accepted:", show(d$numerically_accepted), "\n")
   cat("Likelihood approximation:", show(d$approximation_adequacy), "\n")
+  if (isFALSE(d$standard_errors_available) && length(d$standard_errors_unavailable_reason) &&
+      !is.na(d$standard_errors_unavailable_reason))
+    cat("Standard errors: unavailable -", d$standard_errors_unavailable_reason, "\n")
   if (length(d$acceptance_failures))
     cat("Acceptance failures:", paste(d$acceptance_failures, collapse = "; "), "\n")
   cat("Boundary or nearly singular sources:", show(d$boundary_sources, "none recorded"), "\n")
@@ -195,6 +205,13 @@ summary.gt_fit <- function(object, ...) {
     if (is.null(traits)) traits <- seq_len(nrow(value))
     data.frame(source = source, trait = traits, variance = diag(value), row.names = NULL)
   }))
+  errors <- object$component_standard_errors
+  if (is.data.frame(errors) && nrow(errors) == nrow(variances)) {
+    matched <- match(paste(variances$source, variances$trait),
+                     paste(errors$component, errors$trait))
+    variances$std_error <- errors$std_error[matched]
+    variances$at_boundary <- errors$at_boundary[matched]
+  }
   structure(list(outcomes = object$outcomes, families = object$families,
        N = object$N, random_sources = length(object$design$terms),
        instrumentation_facets = length(object$design$facets),

@@ -55,6 +55,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # Building a CRAN candidate now installs the package and knits its
+      # vignette, so this job needs the runtime stack and the documentation
+      # toolchain, not only R itself.
+      - uses: r-lib/actions/setup-pandoc@v2
+      - name: Install compilation dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::OpenMx, any::knitr, any::rmarkdown
+          dependencies: 'c("Depends", "Imports", "LinkingTo")'
+          upgrade: 'TRUE'
       - name: Build one candidate from audited, committed public sources
         run: python scripts/cran_readiness.py build --expected-data-kind public_llm_annotations --output-dir "$RUNNER_TEMP/cran-candidate"
       - name: Preserve exact release-built candidate for the next job
@@ -98,7 +109,7 @@ jobs:
           sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev pandoc tidy
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          packages: any::OpenMx, any::lme4, any::ordinal
+          packages: any::OpenMx, any::lme4, any::ordinal, any::knitr, any::rmarkdown
           dependencies: 'c("Depends", "Imports", "LinkingTo")'
           upgrade: 'TRUE'
       - uses: actions/download-artifact@v4

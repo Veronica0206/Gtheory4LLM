@@ -21,6 +21,39 @@ class PackageValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
             CHECK.check_status(log.replace("New submission", "New submission\nInvalid URL"), as_cran=True)
 
+    def test_missing_vignette_index_is_excused_only_when_vignettes_were_skipped(self):
+        # An archive built without vignettes carries no vignette index and
+        # --as-cran says so. That extra line is expected there and nowhere else:
+        # in a run that did build vignettes it means the index is really absent.
+        log = ("* checking CRAN incoming feasibility ... NOTE\n"
+               "Maintainer: 'Example <a@example.invalid>'\n\nNew submission\n\n"
+               "Package has a VignetteBuilder field but no prebuilt vignette index.\n"
+               "* checking package namespace information ... OK\n* DONE\nStatus: 1 NOTE\n")
+        report = CHECK.check_status(log, as_cran=True, vignettes_built=False)
+        self.assertEqual(report["allowed_notes"], ["CRAN incoming feasibility: New submission"])
+        with self.assertRaises(RuntimeError):
+            CHECK.check_status(log, as_cran=True, vignettes_built=True)
+        # The exemption removes exactly that line and nothing else.
+        with_extra = log.replace("* checking package namespace information",
+                                 "Unexpected additional finding.\n* checking package namespace information")
+        with self.assertRaises(RuntimeError):
+            CHECK.check_status(with_extra, as_cran=True, vignettes_built=False)
+
+    def test_toolchain_probe_reports_what_is_missing(self):
+        import subprocess
+        from unittest.mock import patch
+        completed = subprocess.CompletedProcess([], 0, stdout="knitr\n", stderr="")
+        with patch.object(CHECK.subprocess, "run", return_value=completed):
+            found = CHECK.vignette_toolchain("Rscript", {})
+        self.assertFalse(found["available"])
+        self.assertEqual(found["present"], ["knitr"])
+        self.assertIn("rmarkdown", found["reason"])
+        full = subprocess.CompletedProcess([], 0, stdout="knitr,rmarkdown,pandoc", stderr="")
+        with patch.object(CHECK.subprocess, "run", return_value=full):
+            found = CHECK.vignette_toolchain("Rscript", {})
+        self.assertTrue(found["available"])
+        self.assertEqual(found["reason"], "")
+
     def test_substantive_notes_warnings_and_incomplete_checks_fail(self):
         for log in (
             "* checking R code ... NOTE\nUnused import\n* DONE\nStatus: 1 NOTE\n",

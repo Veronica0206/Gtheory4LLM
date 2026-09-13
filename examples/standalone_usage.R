@@ -164,6 +164,16 @@ gt_example_results <- local({
       all(vapply(fits, function(f) identical(f$converged, f$numerically_accepted), logical(1))))
     for (name in c("binary", "ordinal", "categorical")) {
       fit <- fits[[name]]
+      # A bounded optimizer may evaluate a variance coordinate a few ulps below
+      # its zero lower bound. That is arithmetic on the boundary, not a model
+      # failure, and must never be recorded as a computation failure. Assert the
+      # arithmetic rather than the acceptance verdict: optimizer trajectories
+      # differ across platforms, so asserting acceptance here would go red for
+      # reasons that are not defects.
+      recorded <- unlist(lapply(fit$diagnostics$attempts, `[[`, "error"))
+      if (any(grepl("nonnegative", recorded, fixed = TRUE)))
+        stop("Discrete fit '", name, "' treated a variance coordinate at its zero ",
+             "boundary as invalid instead of projecting it.", call. = FALSE)
       if (!fit$numerically_accepted) {
         cat("Numerically rejected", name, ":", paste(fit$diagnostics$acceptance_failures, collapse=", "), "\n")
         if (name != "categorical") stopifnot(inherits(tryCatch(

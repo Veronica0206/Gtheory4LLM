@@ -1,0 +1,243 @@
+---
+title: "How many evaluators, prompts, and runs?"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+vignette: >
+  %\VignetteIndexEntry{How many evaluators, prompts, and runs?}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE, purl = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 100)
+```
+
+A complete **Gtheory4LLM** workflow for the reliability of mean continuous
+subjective-quality judgments.
+
+> **All data below are synthetic.** This tutorial uses no manuscript results,
+> source-study data, API calls, or real LLM outputs. Its results demonstrate the
+> software workflow; they do not establish an adequate evaluator or prompt count
+> for a real task.
+
+```{r library}
+# This vignette is also installed as a runnable script:
+#   source(system.file("doc", "LLM-workflow.R", package = "Gtheory4LLM"))
+library(Gtheory4LLM)
+```
+
+## 1. Define the quantity and the sampling design
+
+The quantity is an item's mean continuous quality score over evaluators,
+prompts, and repeated runs. We generate a complete panel of 24 items, four
+evaluators, three prompts, and two runs: 576 measurements. The model assumes
+exchangeable random effects for those populations and a Gaussian score model.
+The scores are simulated continuous numbers, not numeric codes assigned to
+ordered categories.
+
+| Facet | Meaning in this example |
+|---|---|
+| Item | The object of measurement. Stable differences between items form the universe-score variance. |
+| Evaluator and prompt | Both have main effects and direct item interactions. Different items can respond differently to these facets. |
+| Run | Scoped to an evaluator/prompt pair. A run group labels all items. The run source is a common shift across items; remaining item-specific run variation belongs to the residual in this simulation. |
+
+```{r design}
+set.seed(20260912)
+llm_data <- expand.grid(item = factor(seq_len(24)),
+  evaluator = factor(paste0("model_", seq_len(4))),
+  prompt = factor(paste0("prompt_", seq_len(3))),
+  run = factor(seq_len(2)))
+
+llm_design <- gt_design("item", c("evaluator", "prompt", "run"),
+  crossed = c("evaluator", "prompt"),
+  nested = list(run = c("evaluator", "prompt")),
+  item_interactions = "additive", instrument_interactions = "additive")
+llm_design$terms_requested
+```
+
+This declares six random sources: item, evaluator, prompt, item-by-evaluator,
+item-by-prompt, and evaluator-by-prompt-by-run. The run group is parent-scoped
+even though the coded panel is complete. Item-by-run and additional
+evaluator-by-prompt effects are not silently added. Omitting them is an
+assumption of this known simulation; a real study needs its own justification.
+The exact Gaussian engine currently requires a complete coded Cartesian panel
+with one row per full cell.
+
+```{r simulate}
+source_sd <- c(item = 1.2, evaluator = 0.4, prompt = 0.3,
+  "item:evaluator" = 0.5, "item:prompt" = 0.4,
+  "evaluator:prompt:run" = 0.25)
+llm_data$quality <- 0
+for (source in names(source_sd)) {
+  members <- strsplit(source, ":", fixed = TRUE)[[1L]]
+  group <- do.call(interaction, c(llm_data[members], list(drop = TRUE)))
+  effects <- rnorm(nlevels(group), sd = source_sd[[source]])
+  llm_data$quality <- llm_data$quality + effects[as.integer(group)]
+}
+llm_data$quality <- llm_data$quality + rnorm(nrow(llm_data), sd = 0.6)
+```
+
+## 2. Inspect feasibility before fitting
+
+`gt_preflight()` reports observed counts, source dimensions, free parameters,
+configured size limits, and the supported reliability scale, without building a
+model matrix or running an optimizer.
+
+```{r preflight}
+preflight <- gt_preflight(llm_data, "quality", llm_design)
+print(preflight)
+preflight$sources
+stopifnot(preflight$fitting_feasible)
+```
+
+Passing this report means that the listed structural and resource checks pass.
+It does not prove identification, reliable estimation, numerical acceptance, or
+approximation adequacy. Read failed checks before changing a resource limit or
+simplifying a scientific model.
+
+## 3. Fit and inspect acceptance
+
+```{r fit}
+fit <- gt_fit(llm_data, "quality", llm_design,
+  control = gt_control(gaussian = list(optimizer = "CSOLNP",
+    extra_tries = 2L, retry_seed = 415L, threads = 1L)))
+print(summary(fit))
+diagnostics <- gt_diagnostics(fit)
+print(diagnostics[c("numerically_accepted", "selected_attempt",
+                    "acceptance_failures", "approximation_adequacy")])
+stopifnot(isTRUE(diagnostics$numerically_accepted))
+gt_components(fit)
+```
+
+The Gaussian default estimator is REML. The trial budget allows the initial fit
+plus two additional attempts; it is not resampling. The chosen optimizer remains
+fixed across attempts. Inspect numerical acceptance and source-boundary
+diagnostics before interpreting the components. A completed optimizer alone is
+insufficient. If an installation does not support the selected optimizer or a
+fit is rejected, address that explicitly.
+
+The summary table also carries an asymptotic standard error for each source
+variance, obtained from the numerically differentiated restricted-likelihood
+Hessian. A component resting on a variance boundary is flagged, because Wald
+theory does not apply there.
+
+```{r variances}
+summary(fit)$variances
+```
+
+## 4. Compute relative and absolute reliability
+
+```{r reliability}
+reliability <- gt_reliability(fit)
+reliability
+reliability$interpretation
+```
+
+`Erho2` is the relative coefficient G: common evaluator, prompt, and run shifts
+do not change relative item comparisons. `Phi` is the absolute coefficient and
+also includes those shifts as error. Item-dependent interactions contribute to
+both error definitions. Here both coefficients refer to observed Gaussian-score
+averages under the declared design. They measure consistency under that model,
+not accuracy against human reference labels. A coefficient of 0.80 means that
+80% of the variance in item means is universe-score variance under this model;
+it is not 80% labeling accuracy.
+
+The interval is a delta-method Wald interval on the logit scale, propagating the
+fitted parameter covariance matrix through the source covariances. It describes
+estimation uncertainty in those covariances under the declared model. It is not
+a guarantee about a future sample of evaluators or prompts.
+
+## 5. Compare measurement budgets
+
+```{r dstudy}
+grid <- expand.grid(evaluator = c(2L, 4L, 6L),
+  prompt = c(2L, 3L, 4L), run = c(1L, 2L))
+dstudy <- gt_dstudy(fit, grid)
+allocation <- dstudy$allocations
+allocation$measurements_per_item <- dstudy$measurements_per_object
+allocation$extrapolated <- dstudy$extrapolated
+planning <- cbind(allocation,
+  dstudy$results[, c("outcome", "Erho2", "Erho2_lower", "Erho2_upper",
+                     "Phi", "Phi_lower", "Phi_upper")])
+planning <- planning[order(planning$measurements_per_item, -planning$Phi), ]
+rownames(planning) <- NULL
+print(planning)
+```
+
+Runs are counted within each evaluator/prompt pair, so the budget per item is
+evaluators x prompts x runs. A row using more levels than observed extrapolates
+the fitted variance model to the declared exchangeable population.
+
+```{r threshold}
+planning[planning$Phi >= 0.80, ]
+```
+
+A threshold of 0.80 is illustrative; choose and justify your own criterion. Read
+the interval columns alongside the point projection: several allocations here
+have overlapping intervals, so the ordering of nearby rows is not established by
+these data.
+
+## 6. Fixed facets
+
+A facet is *random* when the study generalizes to a population of its levels,
+and *fixed* when the universe of generalization is exactly the levels used. LLM
+evaluation often has fixed facets: a decoding temperature is chosen, not
+sampled, and a prompt set is frequently the whole set of interest.
+
+Declare them with `fixed`. Following the mixed model of Brennan (2001), the
+object-by-fixed-facet variance is averaged over that facet's levels and added to
+universe-score variance, and a source built only from fixed facets shifts every
+item equally and leaves the model.
+
+```{r fixed}
+fixed_prompt <- gt_reliability(fit, fixed = "prompt")
+fixed_prompt
+fixed_prompt$source_roles
+```
+
+Treating the prompt set as fixed raises both coefficients, because
+item-by-prompt variation is now part of what the study is trying to measure
+rather than error. A fixed facet's count cannot be changed, and a decision study
+may not project over it.
+
+`fixed` acts at the reliability stage: it changes how the already-fitted
+components are aggregated into a coefficient. It does not change the G study,
+so it cannot repair a source whose variance was misspecified during fitting.
+If a facet's variance is heteroscedastic across the levels of another facet --
+as seed disagreement is across temperature in the bundled panels -- fit within
+a single level of that other facet as well. The two remedies are independent.
+
+## 7. Match other outcomes to their observation model
+
+| Outcome | Current scalar reliability support |
+|---|---|
+| Gaussian | Observed continuous-score averages. |
+| Binary or ordinal | Explicit `scale = "latent"` after an accepted fit. This describes latent-response averages, not majority votes, label proportions, or observed ordinal-score averages. |
+| Unordered categorical | No implemented default scalar G/Phi. A scientific score or category-probability estimand is needed. |
+
+Declare category order and references explicitly. Do not recode binary, ordinal,
+or nominal labels as the continuous quality score used above. Discrete fitting
+uses a bounded dense Laplace engine with Gaussian latent random effects;
+`gt_preflight()` reports its current limits, and changing the link does not
+remove the random-effects distribution assumption. That engine reports point
+estimates only: it computes no standard errors. Analytic reliability and D
+studies require complete balanced coded panels even when discrete fitting admits
+missing whole cells.
+
+At one observation per object-by-facets cell, a discrete fit cannot identify the
+full-cell source that the default design requests. Declare the same design
+without it:
+
+```{r discrete-design}
+gt_design("item", "rater", full_cell = FALSE)$terms_requested
+```
+
+## Where to read next
+
+Installed help: `?gt_design`, `?gt_family`, `?gt_preflight`, `?gt_control`,
+`?gt_fit`, `?gt_diagnostics`, `?gt_reliability`, and `?gt_dstudy`.
+
+Brennan, R. L. (2001). *Generalizability Theory*. Springer.
+<doi:10.1007/978-1-4757-3456-0>

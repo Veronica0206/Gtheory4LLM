@@ -70,7 +70,8 @@ stopifnot(many$numerically_accepted, nrow(starts) == 6L,
           nrow(unique(starts)) == 6L, many$diagnostics$optimization_trials == 12L)
 for (override in list(NULL, c("y::intercept" = 0)))
   expect_error(gt_fit(d, "y", design, gt_family("binary"),
-    control = gt_control(discrete = list(start_sd = 1e-6, start = override))), "model bounds")
+    control = gt_control(discrete = list(covariance_parameterization = "log_cholesky",
+      start_sd = 1e-6, start = override))), "model bounds")
 ambiguous <- c("c", "b,c", "a", "a,b")
 for (name in ambiguous) d[[name]] <- d$y
 expect_error(gt_fit(d, ambiguous, design, gt_family("binary")), "ambiguous discrete parameter names")

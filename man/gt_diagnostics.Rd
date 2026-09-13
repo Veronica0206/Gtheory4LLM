@@ -19,6 +19,9 @@ data-validation notes. Shared diagnostic fields include:
 \item \code{attempt_failures}: recorded trial errors or rejections.
 \item \code{boundary_sources}: zero or nearly singular covariance sources.
 \item \code{parameter_bounds}: artificial parameter-bound contacts.
+\item \code{standard_errors_available}: whether a usable parameter covariance matrix was obtained.
+\item \code{standard_errors_unavailable_reason}: why it was not, when it was not.
+\item \code{component_standard_errors}: per-source variance standard errors with a boundary flag.
 }}
 \details{Gaussian diagnostics include independent likelihood reconstruction, covariance-scale stationarity, boundary components, and optional Hessian diagnostics. Discrete diagnostics include covariance- and parameter-scale stationarity, bound locations, and tighter-tolerance alternative-start stability. Passing these checks does not prove structural identification, a global optimum, or adequate approximation in sparse or strongly dependent data.
 
@@ -29,6 +32,17 @@ for rejecting the returned fit; \code{attempt_failures} is a two-column data
 frame of recorded attempt identifiers and error or rejection reasons, including
 earlier attempts. An empty attempt-failure table does not certify every trial:
 some native candidates have no independent acceptance assessment.
+
+\code{standard_errors_available} is \code{TRUE} only for a Gaussian fit whose
+numerically differentiated Hessian was computed and is positive definite. The
+Gaussian engine forms the parameter covariance matrix as \code{2 * H^-1} for the
+\code{-2 log L} fit function and maps it to source covariance entries by the
+delta method; \code{fit$uncertainty} retains that matrix, the entry Jacobian,
+and the entry covariance matrix used by \code{gt_reliability()}. The discrete
+Laplace engine computes no observed information, so its standard errors are
+always unavailable and its coefficients remain point estimates. A component at
+a variance boundary is flagged in \code{component_standard_errors}: Wald theory
+does not apply there, and the reported number is not a usable standard error.
 
 \code{boundary_sources} describes natural zero or nearly singular covariance
 components and does not by itself imply rejection. \code{parameter_bounds}

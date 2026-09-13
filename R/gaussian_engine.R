@@ -1,3 +1,7 @@
+# Documentation policy: man/*.Rd and NAMESPACE are hand written and are
+# the only source of truth. These comments describe the code for readers;
+# they are deliberately not roxygen, so running roxygen2 cannot replace the
+# richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Balanced Gaussian source-covariance likelihood using OpenMx.
 # Each call creates an isolated lexical environment for this design's dimensions.
 # Shared correlation policy: suppress entries whose variances are negligible
@@ -42,6 +46,219 @@
        2^n_axes * (D * D + 8))
 }
 
+# Warnings from a derivative-only diagnostic pass describe that pass, not the
+# accepted optimizer run. Retain their exact text without changing acceptance.
+.gt_gaussian_derivative_run <- function(model, silent = TRUE, run = OpenMx::mxRun) {
+  messages <- character()
+  failure <- NULL
+  result <- tryCatch(withCallingHandlers(run(model, silent = silent),
+    warning = function(w) {
+      messages <<- c(messages, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }), error = function(e) {
+      failure <<- conditionMessage(e)
+      NULL
+    })
+  list(model = result, error = failure, warnings = messages)
+}
+
+# Wald machinery for the exact balanced Gaussian likelihood.
+#
+# The OpenMx fit function is -2 log L, so the free-parameter covariance matrix
+# is 2 * H^-1 for the numerically differentiated Hessian H at the returned
+# estimates. REML supplies restricted-likelihood curvature for the covariance
+# parameters; ML supplies profile curvature, because the outcome means are
+# profiled rather than free. Neither is a small-sample guarantee, and Wald
+# theory does not hold for a component resting on a variance boundary. The
+# engine therefore reports availability and boundary contact explicitly rather
+# than silently returning an interval that does not cover.
+.gt_gaussian_parameter_covariance <- function(hessian, interior, standard_errors = NULL) {
+  unavailable <- function(reason) list(covariance = NULL, reason = reason, restricted = FALSE,
+    openmx_agreement = NA_real_, condition_number = NA_real_)
+  if (is.null(hessian) || !is.matrix(hessian) || !is.numeric(hessian) ||
+      nrow(hessian) != ncol(hessian) || !nrow(hessian) || any(!is.finite(hessian)))
+    return(unavailable("No finite numerically differentiated Hessian is available."))
+  symmetric <- (hessian + t(hessian)) / 2
+  invert <- function(M) {
+    values <- eigen(M, symmetric = TRUE, only.values = TRUE)$values
+    if (min(values) <= 0) return(list(inverse = NULL, smallest = min(values)))
+    inverse <- tryCatch(chol2inv(chol(M)), error = function(e) NULL)
+    if (is.null(inverse) || any(!is.finite(inverse)))
+      return(list(inverse = NULL, smallest = min(values)))
+    list(inverse = 2 * inverse, condition_number = max(values) / min(values), smallest = min(values))
+  }
+  full <- invert(symmetric)
+  if (!is.null(full$inverse)) {
+    covariance <- full$inverse
+    dimnames(covariance) <- dimnames(hessian)
+    # OpenMx computes the same quantity in its own standard-error step. Comparing
+    # the two is a cheap independent check of this reconstruction, not a test of
+    # whether the asymptotic approximation is appropriate for these data.
+    agreement <- NA_real_
+    if (!is.null(standard_errors)) {
+      reported <- as.vector(standard_errors)
+      ours <- sqrt(diag(covariance))
+      if (length(reported) == length(ours) && all(is.finite(reported)))
+        agreement <- max(abs(reported - ours) / pmax(1e-12, abs(ours)))
+    }
+    return(list(covariance = covariance, reason = NA_character_, restricted = FALSE,
+                openmx_agreement = agreement, condition_number = full$condition_number))
+  }
+  smallest <- format(full$smallest, digits = 3, trim = TRUE)
+  # A variance component resting on zero has no Wald standard error, and its
+  # row makes the joint Hessian indefinite. Condition on those components being
+  # held at zero and invert the interior block instead of discarding every
+  # standard error. This is a different, narrower estimand; the caller labels it.
+  if (!any(interior) || all(interior))
+    return(unavailable(paste0("The estimated Hessian is not positive definite (smallest eigenvalue ",
+      smallest, "); Wald standard errors are not defined here.")))
+  block <- invert(symmetric[interior, interior, drop = FALSE])
+  if (is.null(block$inverse))
+    return(unavailable(paste0("Neither the full Hessian (smallest eigenvalue ", smallest,
+      ") nor its interior block (smallest eigenvalue ",
+      format(block$smallest, digits = 3, trim = TRUE),
+      ") is positive definite; Wald standard errors are not defined here.")))
+  covariance <- matrix(0, nrow(symmetric), ncol(symmetric), dimnames = dimnames(hessian))
+  covariance[interior, interior] <- block$inverse
+  list(covariance = covariance, reason = NA_character_, restricted = TRUE,
+       openmx_agreement = NA_real_, condition_number = block$condition_number)
+}
+
+# Derivative of every unique (lower-triangular) source covariance entry with
+# respect to the free parameters actually used by each covariance structure.
+# diagonal: G[j, j] = s_j * v_j. pooled: G = v * I.
+# unstructured: G = L L', so dG/dL[a, b] = E_ab L' + L E_ab'.
+.gt_gaussian_component_jacobian <- function(model, algebra_names, types, outcomes,
+                                            parameter_names) {
+  D <- length(outcomes)
+  index <- which(lower.tri(matrix(0, D, D), diag = TRUE), arr.ind = TRUE)
+  entries <- do.call(rbind, lapply(names(types), function(g)
+    data.frame(component = g, row = outcomes[index[, 1L]], column = outcomes[index[, 2L]],
+               stringsAsFactors = FALSE)))
+  jacobian <- matrix(0, nrow(entries), length(parameter_names),
+                     dimnames = list(NULL, parameter_names))
+  offset <- 0L
+  for (g in names(types)) {
+    nm <- algebra_names[[g]]
+    type <- types[[g]]
+    if (type == "diagonal") {
+      scale <- diag(OpenMx::mxEvalByName(paste0(nm, "_scale"), model))
+      for (j in seq_len(D)) {
+        label <- paste0(nm, "_v", j)
+        k <- which(index[, 1L] == j & index[, 2L] == j)
+        if (label %in% parameter_names) jacobian[offset + k, label] <- scale[[j]]
+      }
+    } else if (type == "pooled") {
+      label <- paste0(nm, "_v")
+      for (j in seq_len(D)) {
+        k <- which(index[, 1L] == j & index[, 2L] == j)
+        if (label %in% parameter_names) jacobian[offset + k, label] <- 1
+      }
+    } else {
+      L <- OpenMx::mxEvalByName(paste0(nm, "_L"), model)
+      for (l in seq_len(nrow(index))) {
+        label <- paste0(nm, "_l", l)
+        if (!label %in% parameter_names) next
+        a <- index[l, 1L]
+        b <- index[l, 2L]
+        jacobian[offset + seq_len(nrow(index)), label] <-
+          (index[, 1L] == a) * L[index[, 2L], b] + (index[, 2L] == a) * L[index[, 1L], b]
+      }
+    }
+    offset <- offset + nrow(index)
+  }
+  list(entries = entries, jacobian = jacobian, index = index)
+}
+
+# Assemble everything a delta-method consumer needs: the entry covariance
+# matrix, per-variance standard errors, and an explicit availability record.
+.gt_gaussian_uncertainty <- function(model, algebra_names, types, outcomes,
+                                     components, hessian, standard_errors,
+                                     boundary, estimator_label, check_hessian) {
+  parameter_names <- names(OpenMx::omxGetParameters(model))
+  record <- list(available = FALSE,
+    reason = "Hessian diagnostics were disabled; rerun with check_hessian = TRUE.",
+    method = "Delta method from the numerically differentiated -2 log likelihood Hessian (parameter covariance 2 * H^-1).",
+    likelihood = estimator_label, boundary_components = names(boundary)[which(boundary)],
+    restricted_to_interior = FALSE, fixed_components = character(),
+    parameter_covariance = NULL, entries = NULL, jacobian = NULL,
+    entry_covariance = NULL, variances = NULL,
+    openmx_standard_error_agreement = NA_real_, hessian_condition_number = NA_real_,
+    interpretation = paste("Asymptotic Wald standard errors for source variance components.",
+      "They do not establish coverage in small designs. A component resting on a variance",
+      "boundary reports NA, because no symmetric interval follows from curvature there."))
+  if (!check_hessian) return(record)
+  # Each free parameter belongs to exactly one component; the algebra prefix and
+  # its underscore identify it without re-deriving the structure-specific labels.
+  owner <- rep(NA_character_, length(parameter_names))
+  for (g in names(types)) {
+    prefix <- paste0(algebra_names[[g]], "_")
+    owner[startsWith(parameter_names, prefix)] <- g
+  }
+  if (anyNA(owner)) {
+    record$reason <- "Free parameters could not be matched to their covariance components."
+    return(record)
+  }
+  interior <- !unname(boundary[owner])
+  # Index the Hessian by parameter name rather than trusting its row order.
+  # Without usable labels there is no defensible mapping, so report that.
+  aligned <- if (is.matrix(hessian) && identical(dim(hessian), rep.int(length(parameter_names), 2L)) &&
+      !is.null(rownames(hessian)) && !is.null(colnames(hessian)) &&
+      setequal(rownames(hessian), parameter_names) && setequal(colnames(hessian), parameter_names))
+    hessian[parameter_names, parameter_names, drop = FALSE] else NULL
+  if (is.null(aligned) && is.matrix(hessian) &&
+      identical(dim(hessian), rep.int(length(parameter_names), 2L))) {
+    record$reason <- "The numerically differentiated Hessian does not carry this model's free-parameter labels on both axes, so its parameter order cannot be verified."
+    return(record)
+  }
+  inverted <- .gt_gaussian_parameter_covariance(aligned, interior, standard_errors)
+  if (is.null(inverted$covariance)) {
+    record$reason <- inverted$reason
+    return(record)
+  }
+  mapping <- .gt_gaussian_component_jacobian(model, algebra_names, types, outcomes,
+                                             parameter_names)
+  entry_covariance <- mapping$jacobian %*% inverted$covariance %*% t(mapping$jacobian)
+  labels <- paste0(mapping$entries$component, "[", mapping$entries$row, ",",
+                   mapping$entries$column, "]")
+  dimnames(entry_covariance) <- list(labels, labels)
+  diagonal <- mapping$entries$row == mapping$entries$column
+  fixed_components <- if (inverted$restricted) sort(unique(owner[!interior])) else character()
+  variances <- data.frame(
+    component = mapping$entries$component[diagonal],
+    trait = mapping$entries$row[diagonal],
+    variance = unlist(lapply(names(types), function(g) diag(components[[g]])), use.names = FALSE),
+    std_error = sqrt(pmax(0, diag(entry_covariance)[diagonal])),
+    row.names = NULL, stringsAsFactors = FALSE)
+  variances$at_boundary <- unname(boundary[variances$component])
+  # A variance resting on zero has no usable Wald standard error whether or not
+  # the joint Hessian happened to stay invertible: its sampling distribution has
+  # an atom at the boundary, so no symmetric interval follows from a curvature
+  # estimate. Report NA in both cases rather than a number that reads as one,
+  # and keep the full entry covariance matrix in $uncertainty for anyone who
+  # wants the raw curvature. A component held at zero would otherwise report a
+  # structural zero, which reads as an estimate known without error.
+  variances$std_error[variances$at_boundary |
+                        variances$component %in% fixed_components] <- NA_real_
+  record$available <- TRUE
+  record$reason <- NA_character_
+  record$restricted_to_interior <- inverted$restricted
+  record$fixed_components <- fixed_components
+  record$parameter_covariance <- inverted$covariance
+  record$entries <- mapping$entries
+  record$jacobian <- mapping$jacobian
+  record$entry_covariance <- entry_covariance
+  record$variances <- variances
+  record$openmx_standard_error_agreement <- inverted$openmx_agreement
+  record$hessian_condition_number <- inverted$condition_number
+  if (inverted$restricted)
+    record$interpretation <- paste("Asymptotic Wald standard errors conditional on the",
+      "zero-variance component(s)", paste(fixed_components, collapse = ", "),
+      "being held at zero, because the joint Hessian is indefinite there.",
+      "They describe the remaining components only, and are not valid coverage statements in small designs.")
+  record
+}
+
 .gt_gaussian_engine <- function(facet_names) {
   .gt_facet_names <- facet_names
   .gt_full_mask <- as.integer(2^length(facet_names) - 1)
@@ -75,11 +292,11 @@
 .gt_bits <- function(mask) as.logical(bitwAnd(as.integer(mask), 2L ^ (seq_along(.gt_facet_names) - 1L)))
 .gt_error <- function(...) stop(..., call. = FALSE)
 
-#' Prepare sufficient cross-products using orthonormal factorial contrasts.
-#'
-#' Requires one complete observation per object-by-all-facets cell, at least
-#' two levels per variable, and numeric nonconstant outcomes.
-#' No imputation, aggregation, or outcome recoding is performed.
+# Prepare sufficient cross-products using orthonormal factorial contrasts.
+#
+# Requires one complete observation per object-by-all-facets cell, at least
+# two levels per variable, and numeric nonconstant outcomes.
+# No imputation, aggregation, or outcome recoding is performed.
 gtheory_prepare <- function(data, outcomes, facets = .gt_default_facets,
                             max_preparation_bytes = 512 * 1024^2) {
   facets <- .gt_validate_facets(facets)
@@ -111,7 +328,11 @@ gtheory_prepare <- function(data, outcomes, facets = .gt_default_facets,
   N <- prod(counts)
   if (N != nrow(data))
     .gt_error("A complete balanced factorial design is required: expected ", N,
-              " rows, received ", nrow(data), ". Missing cells are not dropped.")
+              " rows, received ", nrow(data), ". Missing cells are not dropped. ",
+              "Check missing cells and facet coding. If child IDs are unique within parents, ",
+              "use an explicitly verified within-parent index only when the sampling design ",
+              "supports the same complete coded panel; declare the parent-scoped nested terms. ",
+              "Otherwise this Gaussian backend does not support the design; do not fill or relabel cells automatically.")
   if (!is.numeric(max_preparation_bytes) || length(max_preparation_bytes) != 1L ||
       !is.finite(max_preparation_bytes) || max_preparation_bytes <= 0)
     .gt_error("max_preparation_bytes must be a positive finite number of bytes.")
@@ -193,8 +414,8 @@ gtheory_prepare <- function(data, outcomes, facets = .gt_default_facets,
   C
 }
 
-#' Evaluate the exact Gaussian ML or REML deviance without fitting a model.
-#' REML includes D * log(N), matching the unscaled fixed intercepts in lme4.
+# Evaluate the exact Gaussian ML or REML deviance without fitting a model.
+# REML includes D * log(N), matching the unscaled fixed intercepts in lme4.
 gtheory_deviance <- function(prepared, components, reml = TRUE) {
   .gt_validate_components(prepared, components)
   if (!is.logical(reml) || length(reml) != 1L || is.na(reml))
@@ -266,10 +487,10 @@ gtheory_deviance <- function(prepared, components, reml = TRUE) {
          scale = prepared$observed_variances)
 }
 
-#' Raw-data method-of-moments components and admissible OpenMx starting values.
-#' Saturated expected mean cross-products are inverted first, then the sources
-#' in the requested model are selected. Negative moment components are retained
-#' in raw_components; only starting_components receive an interior PSD repair.
+# Raw-data method-of-moments components and admissible OpenMx starting values.
+# Saturated expected mean cross-products are inverted first, then the sources
+# in the requested model are selected. Negative moment components are retained
+# in raw_components; only starting_components receive an interior PSD repair.
 gtheory_mom <- function(data, outcomes, facets = .gt_default_facets,
                        spec) {
   prepared <- gtheory_prepare(data, outcomes, facets)
@@ -311,7 +532,7 @@ gtheory_mom <- function(data, outcomes, facets = .gt_default_facets,
   lapply(information, function(x) 1 / sqrt(x))
 }
 
-#' Fit a univariate G-study using the same Gaussian random-intercept models.
+# Fit a univariate G-study using the same Gaussian random-intercept models.
 fit_openmx_gtheory <- function(data, outcome, facets = .gt_default_facets,
                               spec, reml = TRUE, ...) {
   if (!is.character(outcome) || length(outcome) != 1L)
@@ -321,13 +542,13 @@ fit_openmx_gtheory <- function(data, outcome, facets = .gt_default_facets,
                          residual = "diagonal", ...)
 }
 
-#' Fit a joint multivariate G-study with directly estimated trait covariances.
-#'
-#' A scalar covariance type applies to every random-effect source. A named
-#' vector supplies overrides, leaving unspecified sources diagonal.
-#' residual='pooled' imposes sigma^2 I; diagonal allows trait-specific variance;
-#' unstructured also estimates residual covariance between traits in one cell.
-#' This is a Gaussian observed-score model, including for numeric binary data.
+# Fit a joint multivariate G-study with directly estimated trait covariances.
+#
+# A scalar covariance type applies to every random-effect source. A named
+# vector supplies overrides, leaving unspecified sources diagonal.
+# residual='pooled' imposes sigma^2 I; diagonal allows trait-specific variance;
+# unstructured also estimates residual covariance between traits in one cell.
+# This is a Gaussian observed-score model, including for numeric binary data.
 .gt_parse_tryhard_trials <- function(native_messages, optimizer, start_label,
                                      max_trials) {
   begins <- grep("Beginning (initial fit attempt|fit attempt [0-9]+)", native_messages)
@@ -733,6 +954,7 @@ fit_openmx_multivariate <- function(
   optimizer_status <- as.integer(model$output$status$code)
   derivative_diagnostics <- NULL
   derivative_error <- NULL
+  derivative_warnings <- character()
   diagnostic_seconds <- 0
   if (check_hessian) {
     # Derivative-only computation at the returned parameters is not another
@@ -741,11 +963,11 @@ fit_openmx_multivariate <- function(
       OpenMx::mxComputeNumericDeriv(parallel = FALSE),
       OpenMx::mxComputeStandardError(), OpenMx::mxComputeHessianQuality(),
       OpenMx::mxComputeReportDeriv())))
-    diagnostic_timing <- system.time(derivative_diagnostics <- tryCatch(
-      OpenMx::mxRun(derivative_model, silent = silent), error = function(e) {
-        derivative_error <<- conditionMessage(e)
-        NULL
-      }))
+    diagnostic_timing <- system.time(derivative_result <-
+      .gt_gaussian_derivative_run(derivative_model, silent = silent))
+    derivative_diagnostics <- derivative_result$model
+    derivative_error <- derivative_result$error
+    derivative_warnings <- derivative_result$warnings
     diagnostic_seconds <- unname(diagnostic_timing[["elapsed"]])
   }
   components <- retried$assessment$components
@@ -763,6 +985,10 @@ fit_openmx_multivariate <- function(
   if (!check_hessian) issues <- c(issues, "Hessian diagnostics were disabled.")
   diagnostic_output <- if (is.null(derivative_diagnostics)) model$output else derivative_diagnostics$output
   if (!is.null(derivative_error)) issues <- c(issues, paste("Hessian diagnostics failed:", derivative_error))
+  if (length(derivative_warnings)) issues <- c(issues, paste0(
+    "Derivative-only OpenMx diagnostics emitted ", length(derivative_warnings),
+    " warning(s); inspect derivative_warnings and Hessian quality. ",
+    "These warnings do not replace the optimizer status or numerical acceptance checks."))
   if (check_hessian && isFALSE(diagnostic_output$infoDefinite))
     issues <- c(issues, "The estimated Hessian is not positive definite.")
   boundary <- vapply(components, function(M) {
@@ -779,6 +1005,26 @@ fit_openmx_multivariate <- function(
       issues <- c(issues, paste0(g, " has only ", nlevels, " grouping levels for ",
                                 D, " traits; its covariance may be unstable."))
   }
+  uncertainty <- .gt_gaussian_uncertainty(model, algebra_names, types, outcomes,
+    components, diagnostic_output$hessian, diagnostic_output$standardErrors,
+    boundary, if (reml) "REML restricted likelihood" else "ML profile likelihood",
+    check_hessian)
+  if (isTRUE(uncertainty$available) && isTRUE(uncertainty$restricted_to_interior))
+    issues <- c(issues, paste0("The joint Hessian is indefinite at a variance boundary, so standard errors condition on ",
+      paste(uncertainty$fixed_components, collapse = ", "),
+      " being held at zero. Intervals then describe the remaining components only."))
+  else if (isTRUE(uncertainty$available) && length(uncertainty$boundary_components))
+    issues <- c(issues, paste0(length(uncertainty$boundary_components),
+      " source(s) rest on a variance boundary and report no standard error; the joint",
+      " Hessian remained invertible, so coefficient intervals still use their curvature.",
+      " See uncertainty$boundary_components."))
+  if (!isTRUE(uncertainty$available) && check_hessian)
+    issues <- c(issues, paste("Standard errors are unavailable:", uncertainty$reason))
+  if (isTRUE(uncertainty$available) && is.finite(uncertainty$openmx_standard_error_agreement) &&
+      uncertainty$openmx_standard_error_agreement > 1e-6)
+    issues <- c(issues, paste0("Reconstructed and native OpenMx standard errors differ by a relative ",
+      format(uncertainty$openmx_standard_error_agreement, digits = 3),
+      "; inspect uncertainty$parameter_covariance before quoting an interval."))
   deviance <- as.numeric(model$output$fit)
   # Preserve the archive's variance-only, N*D OpenMx criteria under explicit
   # legacy names. For ordinary ML, profiled means remain estimated parameters.
@@ -802,6 +1048,8 @@ fit_openmx_multivariate <- function(
     correlations = lapply(components, .gt_correlation,
                           scale = prepared$observed_variances), estimates = estimates,
     minus2loglik = deviance, loglik = -deviance / 2,
+    uncertainty = uncertainty,
+    component_standard_errors = uncertainty$variances,
     n_variance_parameters = n_variance_parameters, n_parameters = total_parameters,
     n_profiled_means = D, n_model_parameters = total_parameters,
     n_likelihood_parameters = if (reml) n_variance_parameters else total_parameters,
@@ -826,8 +1074,13 @@ fit_openmx_multivariate <- function(
                        hessian_checked = check_hessian,
                        gradient = diagnostic_output$gradient,
                        hessian = diagnostic_output$hessian,
+                       standard_errors = diagnostic_output$standardErrors,
+                       standard_errors_available = isTRUE(uncertainty$available),
+                       standard_errors_unavailable_reason = uncertainty$reason,
                        info_definite = diagnostic_output$infoDefinite,
                        hessian_error = derivative_error,
+                       derivative_warnings = derivative_warnings,
+                       derivative_warning_scope = "Derivative-only Hessian/SE diagnostics; optimizer warnings are not intercepted.",
                        covariance_stationarity = stationarity,
                        independent_likelihood_matches = retried$assessment$likelihood_matches),
     optimization_trials = nrow(retried$attempts), retry_attempts = retried$attempts,
@@ -852,16 +1105,16 @@ fit_openmx_multivariate <- function(
 }
 
 
-#' Diagnose covariance-scale stationarity, including variance boundaries.
-#'
-#' The exact derivative H_g satisfies d(-2 log L) = tr(H_g dG_g).
-#' Diagonal models use box projection in Fisher-standardized variance units.
-#' Unstructured models use PSD-cone projection after standardizing each trait
-#' by its observed SD and scaling the component by a scalar curvature bound.
-#' A zero projected score is the first-order KKT condition. A small numerical
-#' score is a local stationarity diagnostic, not proof of a global optimum.
-#' The scalar matrix scaling changes the magnitude, but not the zero, of KKT.
-#' Report negative-eigenvalue and complementarity diagnostics alongside it.
+# Diagnose covariance-scale stationarity, including variance boundaries.
+#
+# The exact derivative H_g satisfies d(-2 log L) = tr(H_g dG_g).
+# Diagonal models use box projection in Fisher-standardized variance units.
+# Unstructured models use PSD-cone projection after standardizing each trait
+# by its observed SD and scaling the component by a scalar curvature bound.
+# A zero projected score is the first-order KKT condition. A small numerical
+# score is a local stationarity diagnostic, not proof of a global optimum.
+# The scalar matrix scaling changes the magnitude, but not the zero, of KKT.
+# Report negative-eigenvalue and complementarity diagnostics alongside it.
 gtheory_optimization_diagnostics <- function(
     prepared, components, covariance_types = NULL, reml = TRUE,
     tolerance = 1e-3, boundary_tolerance = 1e-8) {

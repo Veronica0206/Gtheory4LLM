@@ -1,14 +1,17 @@
+# Documentation policy: man/*.Rd and NAMESPACE are hand written and are
+# the only source of truth. These comments describe the code for readers;
+# they are deliberately not roxygen, so running roxygen2 cannot replace the
+# richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Explicitly distinct Gaussian, binary, ordinal, and unordered categorical families.
 
-#' Define the observation distribution for a G-theory outcome
-#' @param family gaussian, binary, ordinal, or categorical (unordered, >=3 levels).
-#' @param link identity for Gaussian; probit or logit for binary/ordinal;
-#'   softmax for unordered categorical responses.
-#' @param levels Category labels. Binary levels are negative then positive;
-#'   ordinal levels specify their substantive order; categorical levels only
-#'   identify categories, without ordering them.
-#' @param reference Reference category for categorical models only.
-#' @export
+# Define the observation distribution for a G-theory outcome
+# family: gaussian, binary, ordinal, or categorical (unordered, >=3 levels).
+# link: identity for Gaussian; probit or logit for binary/ordinal;
+#   softmax for unordered categorical responses.
+# levels: Category labels. Binary levels are negative then positive;
+#   ordinal levels specify their substantive order; categorical levels only
+#   identify categories, without ordering them.
+# reference: Reference category for categorical models only.
 gt_family <- function(family = "gaussian", link = NULL, levels = NULL,
                       reference = NULL) {
   choices <- c("gaussian", "binary", "ordinal", "categorical")
@@ -90,8 +93,7 @@ gt_family <- function(family = "gaussian", link = NULL, levels = NULL,
   list(data = encoded, families = families)
 }
 
-#' Separate controls for exact Gaussian and approximate discrete fitting
-#' @export
+# Separate controls for exact Gaussian and approximate discrete fitting
 gt_control <- function(gaussian = list(), discrete = list()) {
   for (x in list(gaussian, discrete)) {
     if (!is.list(x) || (length(x) && (is.null(names(x)) || anyNA(names(x)) ||

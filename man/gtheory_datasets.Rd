@@ -53,6 +53,39 @@ public annotation table.}
 \code{3001}. A repeated seed does not guarantee identical provider output.}
 }
 }
+
+\section{Temperature and seed are not exchangeable in the same way}{
+Temperature is a setting chosen by the analyst, not a level drawn from a
+population of temperatures. Averaging a decision study over \dQuote{a
+population of temperatures} has no substantive referent. Declare it as a fixed
+facet with \code{gt_reliability(fit, fixed = "temp")}.
+
+Seed is a genuine replication facet, but its variation is strongly
+heteroscedastic across temperature. In the bundled panels the proportion of
+item-by-evaluator-by-prompt cells in which all three seeds return the same
+label falls monotonically with temperature:
+
+\tabular{lcccccc}{
+  \strong{temperature} \tab 0 \tab 0.2 \tab 0.4 \tab 0.6 \tab 0.8 \tab 1 \cr
+  Hate-Speech  \tab 0.915 \tab 0.862 \tab 0.837 \tab 0.817 \tab 0.780 \tab 0.733 \cr
+  Mental-Health (nominal) \tab 0.914 \tab 0.842 \tab 0.835 \tab 0.789 \tab 0.749 \tab 0.678 \cr
+  Drug-Review  \tab 0.840 \tab 0.767 \tab 0.711 \tab 0.686 \tab 0.631 \tab 0.581 \cr
+}
+
+A single homoscedastic seed-related variance pooled across all six
+temperatures is therefore misspecified for these panels, and so is any
+decision study built on it. Seed disagreement is also nonzero at temperature
+0, so a nominally deterministic setting still replicates imperfectly.
+
+These are two separate problems with two separate remedies, and only one of
+them is a reliability-stage option. Declaring \code{fixed = "temp"} fixes the
+estimand: it stops a decision study averaging over a population of temperatures
+that was never sampled. It does not fix the heteroscedasticity, because the
+G study has already pooled one seed variance across all six temperatures before
+any coefficient is formed. Only fitting within a single temperature removes
+that misspecification. A study affected by both should do both: fit within one
+temperature, and declare any remaining chosen facet fixed.
+}
 \section{Dataset topics and outcome sets}{
 \describe{
 \item{Hate-Speech}{One ordinal outcome set. See the
@@ -77,8 +110,12 @@ The eight sets are alternative views of three panels, not eight independent
 datasets.
 
 Use \code{gt_example()} to list the catalog and \code{gt_example(name)$data}
-to access a table. The full panels exceed the default dense discrete fitting
-limits. Discrete demonstrations require a scientifically specified small
+to access a table. Each panel has 21,600 rows, so every native discrete coding
+exceeds the dense discrete engine's default limits by more than an order of
+magnitude, and raising the limits does not make the dense engine practical at
+that size. These are data resources, not full-panel discrete fitting examples:
+use \code{gt_preflight()} before requesting a discrete fit, and do not remove
+item interactions merely to obtain an accepted fit. Discrete demonstrations require a scientifically specified small
 panel and supported source structure; successful loading alone does not
 establish fitting feasibility. Numerical model assumptions and coefficient
 scales are described in \code{\link{gt_fit}} and \code{\link{gt_reliability}}.

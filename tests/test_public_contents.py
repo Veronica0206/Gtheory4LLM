@@ -94,6 +94,53 @@ class PublicContentsTests(unittest.TestCase):
         self.assertIn("current public release", reasons)
         self.assertIn("manifest CSV", reasons)
 
+    def test_os_metadata_is_skipped_in_a_working_tree_but_never_in_an_archive(self):
+        # A desktop environment recreates these files on sight and git ignores
+        # them, so flagging them locally only teaches maintainers to ignore the
+        # audit. They must still be refused inside anything published.
+        self.write(Path(".DS_Store"))
+        self.write(Path("R") / "Thumbs.db")
+        audit = self.check()
+        self.assertEqual(audit.findings, [])
+        self.assertEqual(sorted(audit.skipped_os_metadata), [".DS_Store", "R/Thumbs.db"])
+
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+            member = tarfile.TarInfo(module.PACKAGE + "/.DS_Store")
+            member.size = 0
+            archive.addfile(member, io.BytesIO(b""))
+        packaged = module.PublicAudit(self.root, "synthetic")
+        packaged.inspect_archive(buffer.getvalue(), "fixture archive")
+        self.assertEqual(packaged.skipped_os_metadata, [])
+        self.assertEqual(len(packaged.findings), 1)
+
+    def test_built_vignette_products_are_accepted_but_stray_build_files_are_not(self):
+        # R CMD build writes build/vignette.rds once a package has vignettes.
+        # It is the build's own index, not a bundled example resource, so the
+        # serialized-example rules must not be applied to it. Anything else
+        # under build/ must still fail.
+        def archive_with(*members):
+            buffer = io.BytesIO()
+            with tarfile.open(fileobj=buffer, mode="w:gz") as bundle:
+                for name in members:
+                    entry = tarfile.TarInfo("/".join([module.PACKAGE, name]))
+                    payload = b"not a real rds"
+                    entry.size = len(payload)
+                    bundle.addfile(entry, io.BytesIO(payload))
+            return buffer.getvalue()
+
+        allowed = module.PublicAudit(self.root, "synthetic")
+        allowed.inspect_archive(archive_with("build/partial.rdb", "build/vignette.rds",
+                                             "vignettes/guide.Rmd", "inst/doc/guide.html"),
+                                "fixture archive")
+        self.assertEqual(allowed.findings, [])
+        self.assertEqual(allowed.rds_checked, 0)
+
+        stray = module.PublicAudit(self.root, "synthetic")
+        stray.inspect_archive(archive_with("build/notes.rds"), "fixture archive")
+        self.assertEqual(len(stray.findings), 1)
+        self.assertIn("generated package-build file", stray.findings[0]["reason"])
+
     def test_archive_members_are_audited_without_extraction(self):
         buffer = io.BytesIO()
         with tarfile.open(fileobj=buffer, mode="w:gz") as archive:

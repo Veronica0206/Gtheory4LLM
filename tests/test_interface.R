@@ -247,4 +247,53 @@ stopifnot(identical(public, internal), is.na(public[1,2]), public[2,2] == 1)
 near(gt_components(near_boundary, correlation=TRUE, tolerance=0)$person[1,2], .9)
 expect_error(gt_components(fit, correlation=TRUE, tolerance=-1), "tolerance")
 cat("PASS: public and internal correlations share the near-zero variance policy.\n")
+# Mixed-model fixed facets, checked against the published formulas on a fixture
+# with known source covariances rather than on an estimated fit.
+mixed_design <- gt_design("item", c("rater", "occasion"))
+mixed_data <- expand.grid(item = 1:5, rater = 1:4, occasion = 1:2, KEEP.OUT.ATTRS = FALSE)
+mixed_data$y <- seq_len(nrow(mixed_data))
+sources <- list(item = 1.6, rater = .3, occasion = .2, "item:rater" = .5,
+                "item:occasion" = .25, "rater:occasion" = .15, Residual = .6)
+mixed_fit <- structure(list(data = mixed_data, outcomes = "y",
+  design = .gt_resolve_design(mixed_data, mixed_design, "gaussian"),
+  covariance_components = lapply(sources, matrix),
+  families = list(y = gt_family()), estimator = "REML", converged = TRUE,
+  diagnostics = list(test_fixture = TRUE)), class = "gt_fit")
+stopifnot(length(mixed_fit$design$terms) == 6L)
+v <- function(name) sources[[name]]
+tau <- v("item")
+delta <- v("item:rater") / 4 + v("item:occasion") / 2 + v("Residual") / 8
+Delta <- delta + v("rater") / 4 + v("occasion") / 2 + v("rater:occasion") / 8
+random_model <- gt_reliability(mixed_fit)
+near(random_model$per_trait$Erho2, tau / (tau + delta), 1e-12, "random-model G")
+near(random_model$per_trait$Phi, tau / (tau + Delta), 1e-12, "random-model Phi")
+# Occasion fixed: its object interaction is averaged into the universe score and
+# its main effect leaves the model entirely.
+tau_fixed <- v("item") + v("item:occasion") / 2
+delta_fixed <- v("item:rater") / 4 + v("Residual") / 8
+Delta_fixed <- delta_fixed + v("rater") / 4 + v("rater:occasion") / 8
+fixed_model <- gt_reliability(mixed_fit, fixed = "occasion")
+near(fixed_model$per_trait$Erho2, tau_fixed / (tau_fixed + delta_fixed), 1e-12, "mixed-model G")
+near(fixed_model$per_trait$Phi, tau_fixed / (tau_fixed + Delta_fixed), 1e-12, "mixed-model Phi")
+stopifnot(identical(fixed_model$fixed_facets, "occasion"),
+  identical(unname(fixed_model$source_roles[["occasion"]]), "dropped_fixed_instrumentation_constant"),
+  identical(unname(fixed_model$source_roles[["item:occasion"]]), "universe_after_fixed_facet_averaging"),
+  identical(unname(fixed_model$source_roles[["rater:occasion"]]), "absolute_error"))
+expect_error(gt_reliability(mixed_fit, fixed = c("rater", "occasion")), "At least one facet must remain random")
+expect_error(gt_reliability(mixed_fit, fixed = "wave"), "unknown facet")
+expect_error(gt_reliability(mixed_fit, counts = c(occasion = 4), fixed = "occasion"), "cannot be changed")
+expect_error(gt_dstudy(mixed_fit, data.frame(occasion = c(2, 4)), fixed = "occasion"),
+             "cannot project over a fixed facet")
+mixed_study <- gt_dstudy(mixed_fit, data.frame(rater = c(2, 4)), fixed = "occasion")
+stopifnot(all(mixed_study$allocations$occasion == 2L))
+near(mixed_study$results$Erho2[2L], fixed_model$per_trait$Erho2, 1e-12,
+     "mixed D study at the observed allocation")
+# A fixture with no parameter covariance matrix must report missing intervals
+# and an explicit reason, never a fabricated standard error.
+stopifnot(all(is.na(random_model$per_trait[c("Erho2_se", "Erho2_lower", "Phi_upper")])),
+          isFALSE(random_model$uncertainty$available),
+          nzchar(random_model$uncertainty$reason),
+          all(is.na(mixed_study$results$Erho2_se)))
+expect_error(gt_reliability(mixed_fit, level = 1), "strictly between 0 and 1")
+cat("PASS: Brennan mixed-model fixed facets, their guards, and missing-interval reporting.\n")
 cat("All standalone interface tests passed.\n")

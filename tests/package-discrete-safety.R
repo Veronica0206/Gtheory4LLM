@@ -67,13 +67,13 @@ stopifnot(identical(malformed$attempt$raw_result, "bad return"),
 d <- expand.grid(occasion = seq_len(12), item = seq_len(8))
 d$y <- as.integer(d$occasion <= 6L)
 design <- gt_design("item", "occasion", random = ~ item)
-control <- gt_control(discrete = list(covariance_parameterization = "variance",
-                                     maxit = 300L, alternative_starts = 2L))
+control <- gt_control(discrete = list(maxit = 300L, alternative_starts = 2L))
 for (link in c("logit", "probit")) {
   boundary <- gt_fit(d, "y", design, gt_family("binary", link), control = control)
   stopifnot(boundary$numerically_accepted,
             identical(boundary$covariance_components$item[[1L]], 0),
             identical(boundary$diagnostics$covariance_parameterization, "variance"),
+            identical(boundary$diagnostics$covariance_parameterization_requested, "auto"),
             length(boundary$diagnostics$zero_variance_parameters) == 1L,
             !length(boundary$diagnostics$parameter_bounds),
             boundary$diagnostics$outer_stationarity$stationary_within_tolerance,
@@ -126,9 +126,10 @@ for (specification in list(
 }
 cat("PASS: analytic ordinal logit/probit and diagonal nominal boundary likelihoods and covariance scores.\n")
 
-# The default remains log-Cholesky, including its artificial-floor rejection.
+# Explicit log-Cholesky retains its artificial-floor rejection.
 legacy <- suppressWarnings(gt_fit(d, "y", design, gt_family("binary", "logit"),
-  control = gt_control(discrete = list(start_sd = exp(-10), maxit = 50L))))
+  control = gt_control(discrete = list(covariance_parameterization = "log_cholesky",
+    start_sd = exp(-10), maxit = 50L))))
 stopifnot(!legacy$numerically_accepted,
           identical(legacy$diagnostics$covariance_parameterization, "log_cholesky"),
           "artificial_parameter_bound_contact" %in% legacy$diagnostics$acceptance_failures)
@@ -137,7 +138,8 @@ stopifnot(!legacy$numerically_accepted,
 d$y <- as.integer(d$occasion <= c(2L, 3L, 4L, 5L, 7L, 8L, 9L, 10L)[d$item])
 interior <- gt_fit(d, "y", design, gt_family("binary", "logit"), control = control)
 reference <- suppressWarnings(gt_fit(d, "y", design, gt_family("binary", "logit"),
-  control = gt_control(discrete = list(maxit = 300L, alternative_starts = 2L))))
+  control = gt_control(discrete = list(covariance_parameterization = "log_cholesky",
+    maxit = 300L, alternative_starts = 2L))))
 stopifnot(interior$numerically_accepted, interior$covariance_components$item[[1L]] > .01,
           !length(interior$diagnostics$zero_variance_parameters))
 near(interior$minus2loglik, reference$minus2loglik, 1e-5)
@@ -183,7 +185,16 @@ stopifnot(joint$numerically_accepted, joint$covariance_components$item[2, 2] == 
           all(joint$covariance_components$item[row(diag(2)) != col(diag(2))] == 0))
 near(joint$minus2loglik, interior$minus2loglik + 2 * nrow(d) * log(2), 1e-5)
 expect_error(gt_fit(d, c("y", "z"), design, gt_family("binary", "logit"),
-                    covariance = "unstructured", control = control), "univariate or diagonal")
+  covariance = "unstructured", control = gt_control(discrete = list(
+    covariance_parameterization = "variance", maxit = 300L, alternative_starts = 2L))),
+  "univariate or diagonal")
+# The resolved default must not silently convert that unstructured request:
+# 'auto' selects log-Cholesky coordinates and keeps every covariance parameter.
+auto_joint <- gt_fit(d, c("y", "z"), design, gt_family("binary", "logit"),
+                     covariance = "unstructured", control = control)
+stopifnot(identical(auto_joint$diagnostics$covariance_parameterization, "log_cholesky"),
+          identical(auto_joint$diagnostics$covariance_parameterization_requested, "auto"),
+          length(auto_joint$diagnostics$starting_parameters) == 5L)
 expect_error(gt_fit(d, "y", design, gt_family("binary"),
   control = gt_control(discrete = list(covariance_parameterization = "typo"))),
   "covariance_parameterization")
@@ -266,3 +277,82 @@ no_fit <- tryCatch(local$gt_fit(d, "y", design, gt_family("binary", "logit"), co
                    error = identity)
 stopifnot(inherits(no_fit, "gt_discrete_numerical_failure"), length(no_fit$attempts) > 0L)
 cat("PASS: restart/refinement/diagnostic exceptions preserve inspectable fits and block coefficients; total failure retains attempt records.\n")
+
+# A bounded optimizer may evaluate a variance coordinate a few ulps below its
+# lower bound of zero while projecting onto it. That is arithmetic, not a model
+# failure: it must be projected onto the boundary, never turned into an error
+# that rejects the whole fit. A coordinate meaningfully below zero must still stop.
+factors <- internal(".gt_d_covariance_factors")
+setup_variance <- internal(".gt_d_covariance_setup")(
+  list(item = internal(".gt_d_group")(d, "item")), 1L, "diagonal",
+  internal(".gt_d_control")(list(covariance_parameterization = "variance")), "y")
+stopifnot(identical(setup_variance$parameterization, "variance"),
+          identical(setup_variance$lower, 0))
+for (noise in c(0, -.Machine$double.eps, -3.357127e-17, -1e-14)) {
+  projected <- factors(c(item = noise), setup_variance)
+  stopifnot(identical(dim(projected$item), c(1L, 1L)), projected$item[[1L]] == 0)
+}
+near(factors(c(item = 0.25), setup_variance)$item[[1L]], 0.5, 1e-12)
+expect_error(factors(c(item = -0.01), setup_variance),
+             "Direct variance parameters must be finite and nonnegative")
+expect_error(factors(c(item = NaN), setup_variance), "Direct variance parameters must be finite")
+
+# End-to-end regression for the same defect. On this ordinal panel the optimizer
+# visits the rater-variance boundary during its search; before the projection a
+# single rounding-noise evaluation there recorded an attempt error, set
+# computation_failed, and rejected a fit whose estimates were already correct.
+# The asserted estimates are the ones log-Cholesky coordinates reach on the same
+# data, so the projection is shown to change acceptance and not the answer.
+set.seed(912)
+boundary_panel <- expand.grid(item = seq_len(24), rater = seq_len(4), replicate = seq_len(3))
+object_effect <- rnorm(24, sd = .9)
+rater_effect <- c(-.5, -.1, .1, .5)
+boundary_eta <- -.2 + object_effect[boundary_panel$item] + rater_effect[boundary_panel$rater]
+boundary_panel$success <- rbinom(nrow(boundary_panel), 1, plogis(boundary_eta))
+boundary_panel$rating <- cut(boundary_eta + rnorm(nrow(boundary_panel)),
+  c(-Inf, -.4, .7, Inf), labels = c("low", "mid", "high"), ordered_result = TRUE)
+boundary_design <- gt_design("item", "rater", random = ~ item + rater, replicates = 3L)
+ordinal_boundary <- gt_fit(boundary_panel, "rating", boundary_design,
+  family = gt_family("ordinal", link = "probit", levels = c("low", "mid", "high")),
+  control = gt_control(discrete = list(maxit = 200L)))
+attempt_errors <- unlist(lapply(ordinal_boundary$diagnostics$attempts, `[[`, "error"))
+stopifnot(!any(grepl("nonnegative", attempt_errors)),
+          identical(ordinal_boundary$diagnostics$covariance_parameterization, "variance"),
+          ordinal_boundary$numerically_accepted,
+          !length(ordinal_boundary$diagnostics$acceptance_failures))
+near(ordinal_boundary$minus2loglik, 510.0058, 1e-4)
+near(ordinal_boundary$covariance_components$item[[1L]], 1.020897, 1e-4)
+near(ordinal_boundary$covariance_components$rater[[1L]], 0.2607966, 1e-4)
+stopifnot(is.finite(gt_reliability(ordinal_boundary, scale = "latent")$per_trait$Erho2))
+cat("PASS: variance coordinates project rounding noise onto the zero boundary instead of rejecting the fit.\n")
+
+# The same rounding noise can appear in the parameter vector a bounded optimizer
+# returns, not only in the points it evaluates. A converged result reported a few
+# ulps outside its bound was discarded as "no usable finite result", which failed
+# the whole fit. Drive that deterministically through the injected-optimizer hook
+# rather than hoping a platform's L-BFGS-B reproduces it.
+project <- internal(".gt_d_project_bounds")
+stopifnot(identical(project(-5.551115e-17, 0, 10), 0),
+          identical(project(c(0, 5), c(0, 0), c(10, 10)), c(0, 5)),
+          identical(project(10 + 1e-9, 0, 10), 10),
+          is.null(project(-0.01, 0, 10)),
+          is.null(project(10.5, 0, 10)),
+          is.null(project(c(NA_real_, 1), c(0, 0), c(10, 10))),
+          is.null(project(c(1, 2), 0, 10)))
+# A bound of zero must not inherit a tolerance from some other bound's scale:
+# 1e-6 below zero is a real violation even when the upper bound is huge.
+stopifnot(is.null(project(-1e-6, 0, exp(10))))
+
+quadratic <- function(p) sum((p - 0.5)^2)
+converged_below_bound <- function(par, fn, method, lower, upper, control)
+  list(par = -5.551115e-17, value = fn(0), convergence = 0L, message = NULL)
+snapped <- optimize(c(v = 0.2), quadratic, 0, 10, list(maxit = 20), "noisy",
+                    converged_below_bound)
+stopifnot(isTRUE(snapped$result_available), identical(snapped$par, 0),
+          identical(snapped$convergence, 0L), is.null(snapped$attempt$error))
+far_outside <- function(par, fn, method, lower, upper, control)
+  list(par = -0.01, value = fn(0), convergence = 0L, message = NULL)
+refused <- optimize(c(v = 0.2), quadratic, 0, 10, list(maxit = 20), "outside", far_outside)
+stopifnot(isFALSE(refused$result_available),
+          identical(refused$attempt$error, "Optimizer returned no usable finite result."))
+cat("PASS: a converged parameter vector reported just outside its bound is projected, not discarded.\n")
