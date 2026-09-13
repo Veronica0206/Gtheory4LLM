@@ -1,23 +1,28 @@
 # Gtheory4LLM: Generalizability Theory for LLM Subjective Tasks
 
-Gtheory4LLM helps researchers study the reliability of subjective judgments
-produced by large language models (LLMs), including annotations, ratings, and
-LLM-as-a-judge evaluations. Specify which evaluator, prompt, and repeated-run
-sources matter for your study, fit their variation, and compare projected
-reliability across alternative numbers of evaluators and prompts.
+Gtheory4LLM provides exact balanced Gaussian generalizability-theory models and
+a bounded experimental Laplace engine for small discrete G-theory models used in
+LLM annotation and evaluation studies. Specify which evaluator, prompt, and
+repeated-run sources matter for your study, fit their variation, and compare
+projected reliability across alternative numbers of evaluators and prompts.
+
+This is a research beta. Passing the package's numerical acceptance checks does
+**not** establish parameter recovery, interval coverage, Laplace approximation
+quality, or a scientifically sufficient number of evaluators. Read
+[docs/LIMITATIONS.md](docs/LIMITATIONS.md) before quoting a coefficient, and
+[docs/VALIDATION_SCOPE.md](docs/VALIDATION_SCOPE.md) for what has actually been
+validated.
 
 <!-- release-identity:start -->
-Checkout version: **0.1.0**. Current artifact bundle: **0.1.0**.
-The archive and manual in `artifacts/` are the published release, identified by
-its [manifest](artifacts/manifest.json). Later checkout changes are recorded in
-`NEWS.md`; the archive remains tied to the manifest's source commit.
+Checkout version: **0.1.0.9000**. Current artifact bundle: **0.1.0**.
+Release state: **prepared**.
+This checkout is development work past the prepared 0.1.0 bundle. The archive
+and manual in `artifacts/` are that earlier bundle, identified by its
+[manifest](artifacts/manifest.json) and tied to the source commit recorded
+there, not to these sources; no `v0.1.0` tag or GitHub release exists. Changes
+since are recorded in `NEWS.md`. To build a bundle from this checkout, set a
+release version and run `scripts/prepare_release.py`.
 <!-- release-identity:end -->
-
-The package provides exact balanced Gaussian analyses and a bounded,
-first-order Laplace implementation for small discrete models. Numerical checks
-and supported coefficient scales are explicit. Passing a software check does
-not establish parameter recovery, approximation accuracy, or the number of
-LLMs needed in a real application.
 
 ## Install
 
@@ -87,17 +92,14 @@ restricted (REML) or profile (ML) likelihood Hessian:
 ```r
 summary(fit)$variances          # variance, std_error, boundary flag
 gt_reliability(fit)$per_trait   # Erho2, Erho2_se, Erho2_lower, Erho2_upper, ...
+logLik(fit); AIC(fit); vcov(fit)
 ```
 
 These are asymptotic Wald quantities conditional on the declared model and
-allocation. They describe estimation uncertainty in the fitted source
-covariances, including finite sampling of random facet levels under that model.
-They are not prediction intervals for a newly sampled panel and do not account
-for model misspecification or changes in the populations used for extrapolation. A
-source resting on a variance boundary has no Wald standard error; the fit says
-so and, where the joint curvature is indefinite there, conditions the remaining
-intervals on that source being held at zero. The discrete Laplace engine
-computes no observed information and reports point estimates only.
+allocation. A source resting on a variance boundary has no Wald standard error,
+and the discrete Laplace engine computes no observed information at all. What
+those intervals do and do not cover is stated once in
+[docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ### Fixed facets
 
@@ -161,36 +163,42 @@ binary_design <- gt_design("item", "rater", full_cell = FALSE)
 requested source unchanged; `random = ~ item + rater` writes the reduced model
 out in full. Either way the omission is an explicit modeling choice.
 
+A first discrete fit, start to finish — the guard above, preflight, binary and
+ordinal fits, diagnostics, latent reliability and a decision study — is
+installed as a runnable script:
+
+```r
+source(system.file("examples", "discrete-first.R", package = "Gtheory4LLM"))
+```
+
+`system.file("examples", "discrete-boundary.R", package = "Gtheory4LLM")` shows
+the companion case: a constructed panel whose zero object variance is a
+legitimate optimum rather than evidence about reliability.
+
 ## Numerical controls and limits
 
 `gt_control()` exposes named starting values, reproducible additional fitting
-attempts, and an optimizer held fixed across attempts. Discrete fits retain
-rejected candidates and their reasons. `summary(fit)` reports acceptance,
-selected attempt, boundary status, and approximation status without printing
-model internals or observations; detailed records remain available.
+attempts, an optimizer held fixed across attempts, the discrete resource limits,
+and which optional components a fit keeps. Discrete fits retain rejected
+candidates and their reasons. `summary(fit)` reports acceptance, selected
+attempt, boundary status, and approximation status without printing model
+internals or observations; detailed records remain available.
 
-The Gaussian engine requires a complete balanced Cartesian panel of coded
-facet levels and one observation per full cell. Nested groups are scoped by
-their parents and shared across objects; physical nesting with disjoint child
-labels is outside this Gaussian preparation backend. Reliability and D studies
-also require a complete balanced coded panel.
+Two limits decide whether a model can be fitted at all. The Gaussian engine
+requires a complete balanced coded panel, as do `gt_reliability()` and
+`gt_dstudy()`. The dense discrete backend is bounded by row, dimension,
+parameter, and working-memory limits, and refuses before allocating rather than
+after allocation fails. `gt_preflight()` reports both before any optimization.
 
-The dense discrete backend defaults to at most 1,200 rows, 200 random-effect
-dimensions, and 80 parameters. Raising these limits does not validate the
-approximation. The default `covariance_parameterization = "auto"` uses exact-zero-capable
-variance coordinates for univariate or diagonal discrete models and log-Cholesky
-coordinates for joint unstructured models; general singular unstructured covariances are not
-implemented. Numerical acceptance does not prove a global optimum or adequate
-Laplace approximation. Rejected fits cannot produce coefficients.
-
-Bootstrap, jackknife, discrete standard errors, observed-score discrete
-reliability, and automatic minimum-allocation search are not provided. Gaussian
-intervals are asymptotic and Wald. Public tests check their numerical
-implementation; a reproducible coverage and parameter-recovery study has not
-yet established a general supported operating range. See the
-[validation scope and study priorities](docs/VALIDATION_SCOPE.md). The initial
-[statistical pilots](validation-studies/README.md) preserve coverage, approximation
-and recovery results, including boundaries and unavailable comparisons.
+**Every limitation is listed once, in
+[docs/LIMITATIONS.md](docs/LIMITATIONS.md)** — what the designs, the Gaussian
+engine and the discrete engine do and do not support, which combinations are
+not implemented, and what "supported" means here. Read it before quoting a
+coefficient. What has actually been checked, and what a future study still has
+to establish, is in [docs/VALIDATION_SCOPE.md](docs/VALIDATION_SCOPE.md); the
+initial [statistical pilots](validation-studies/README.md) preserve their
+coverage, approximation and recovery results, including boundaries and
+unavailable comparisons.
 
 ## Example data and references
 
@@ -281,6 +289,22 @@ see [data attribution and license](inst/DATA_LICENSE.md). Synthetic tutorial
 and test examples are covered by the code license. Public release files are
 limited to the package, its documented examples, tests, and software release
 artifacts. Unpublished manuscripts and research archives are excluded.
+
+## Where to read what
+
+Each document has one job, so that nothing has to be kept true in two places.
+
+| Document | What it covers |
+|---|---|
+| This README | Install, a complete worked workflow, and what the package is for |
+| [vignettes/LLM-workflow.Rmd](vignettes/LLM-workflow.Rmd) | The end-to-end tutorial, installed and runnable |
+| [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Everything the package does not do, listed once |
+| [docs/VALIDATION_SCOPE.md](docs/VALIDATION_SCOPE.md) | What has been checked, how, and what that does not establish |
+| [docs/REAL_DATA_WORKFLOW.md](docs/REAL_DATA_WORKFLOW.md) | The bundled panels, their native outcomes, and their resource ceilings |
+| [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) | The current release state and what is being worked on |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Planned work beyond this release, in the order it is planned |
+| [NEWS.md](NEWS.md) | Version history |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md), [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md), [docs/REPOSITORY_POLICY.md](docs/REPOSITORY_POLICY.md), [SECURITY.md](SECURITY.md) | Working on the package itself |
 
 ## Development and release checks
 

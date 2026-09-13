@@ -1,9 +1,15 @@
 # Gtheory4LLM 0.1.0 release
 
-This locally prepared 0.1.0 bundle contains the installable source archive and
-31-page reference manual. GitHub publication and hosted candidate validation
-are still pending. The earlier 0.0.6 CRAN submission was confirmed by the
-maintainer and remains awaiting a decision; no duplicate submission was made.
+Release state: **prepared**, not published. This locally prepared 0.1.0 bundle
+contains the installable source archive and 31-page reference manual. It was
+built from the source commit in `manifest.json`; the repository has since moved
+on to a `.9000` development checkout, so these files are that earlier bundle
+rather than a build of the current sources. No
+`v0.1.0` tag and no GitHub release exist; `manifest.json` records that state and
+`scripts/check_committed_artifact.py --check-release-identity` fails if this
+prose and the tag disagree. Hosted candidate validation is still pending. The
+earlier 0.0.6 CRAN submission was confirmed by the maintainer and remains
+awaiting a decision; no duplicate submission was made.
 
 The archive includes three publicly archived LLM annotation panels (eight
 outcome sets, fifteen codings) and the installed vignette. Research manuscripts

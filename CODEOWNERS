@@ -1,0 +1,18 @@
+# Every change needs the maintainer's review. This file is the default; the
+# entries below exist so that a reviewer can see at a glance which parts of the
+# tree carry statistical or release consequences rather than only code style.
+*                               @Veronica0206
+
+# Numerical engines: a change here can move a published estimate.
+/R/                             @Veronica0206
+/tests/                         @Veronica0206
+
+# Release identity, public-content audits, and the validation gates.
+/scripts/                       @Veronica0206
+/artifacts/                     @Veronica0206
+/.github/                       @Veronica0206
+/DESCRIPTION                    @Veronica0206
+/NAMESPACE                      @Veronica0206
+
+# Bundled annotation resources and their provenance.
+/inst/                          @Veronica0206

@@ -54,8 +54,14 @@ jobs:
           key: ubuntu-24.04-source-v3-R-4.5.3-${{ hashFiles('renv.lock', 'scripts/dependency-locks/documentation.lock') }}
       - name: Check documentation lock preserves the numerical environment
         run: python3 scripts/check_documentation_lock.py
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/renv-bootstrap
+          key: renv-bootstrap-${{ hashFiles('scripts/dependency-locks/renv-bootstrap.json') }}
       - name: Restore exact numerical and R documentation dependencies
         run: Rscript --vanilla scripts/restore_validation.R "$RUNNER_TEMP/gtheory-validation-library" scripts/dependency-locks/documentation.lock
+        env:
+          GTHEORY_RENV_BOOTSTRAP_CACHE: ${{ runner.temp }}/renv-bootstrap
       - name: Require the locked vignette tools
         run: |
           Rscript --vanilla -e '

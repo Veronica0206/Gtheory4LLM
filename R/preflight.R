@@ -71,23 +71,15 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
   if (gaussian) {
     .gt_gaussian_validate_control(control$gaussian)
     if (is.null(residual)) residual <- "unstructured"
-    if (!is.character(residual) || length(residual) != 1L || is.na(residual) ||
-        !residual %in% c("unstructured", "diagonal", "pooled"))
-      stop("residual must be unstructured, diagonal, or pooled.", call. = FALSE)
+    .gt_validate_residual_request(residual)
     component_names <- c(names(terms), "Residual")
-    if (!is.character(covariance) || !length(covariance) || anyNA(covariance) ||
-        any(!covariance %in% c("diagonal", "unstructured")))
-      stop("covariance must specify diagonal or unstructured.", call. = FALSE)
-    if (is.null(names(covariance))) {
-      if (length(covariance) != 1L) stop("Multiple covariance types must be named.", call. = FALSE)
-      types <- stats::setNames(rep(covariance, length(component_names)), component_names)
-    } else {
-      if (anyNA(names(covariance)) || anyDuplicated(names(covariance)) ||
-          any(!names(covariance) %in% component_names))
-        stop("Named covariance overrides must refer to unique model components.", call. = FALSE)
-      types <- stats::setNames(rep("diagonal", length(component_names)), component_names)
-      types[names(covariance)] <- covariance
-    }
+    .gt_validate_covariance_request(covariance, names(terms))
+    types <- if (is.null(names(covariance)))
+      stats::setNames(rep(covariance, length(component_names)), component_names) else {
+        overridden <- stats::setNames(rep("diagonal", length(component_names)), component_names)
+        overridden[names(covariance)] <- covariance
+        overridden
+      }
     types[["Residual"]] <- residual
     parameter_count <- function(type) switch(type, diagonal = q,
       unstructured = q * (q + 1) / 2, pooled = 1)
@@ -112,9 +104,7 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
   } else {
     if (!is.null(residual)) stop("Do not specify a Gaussian residual covariance for discrete outcomes.", call. = FALSE)
     dc <- .gt_d_control(control$discrete)
-    if (!is.character(covariance) || length(covariance) != 1L || is.na(covariance) ||
-        !covariance %in% c("diagonal", "unstructured"))
-      stop("Discrete covariance must be diagonal or unstructured.", call. = FALSE)
+    .gt_d_validate_covariance_request(covariance)
     covariance_parameters[] <- if (!is.null(dc$fixed_covariance)) 0 else
       if (covariance == "diagonal") q else q * (q + 1) / 2
     add_check("repeated_observations_within_source", all(levels < n),
@@ -125,6 +115,10 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
               paste("Dense random-effect dimensions must not exceed", dc$max_random_dimension))
     add_check("parameter_limit", location_parameters + sum(covariance_parameters) <= dc$max_parameters,
               paste("Free observation and covariance parameters must not exceed", dc$max_parameters))
+    dense <- .gt_d_dense_bytes(n, q, random_dimension)
+    add_check("dense_memory_limit", dense$total <= dc$max_dense_bytes,
+              paste("Estimated dense working memory", .gt_d_format_bytes(dense$total),
+                    "must not exceed max_dense_bytes", .gt_d_format_bytes(dc$max_dense_bytes)))
     # Reuse fitting's covariance/kernel checks only within its size limits.
     # No random-design matrix, Hessian, likelihood or optimizer is constructed.
     if (all(checks$passed)) {
@@ -151,9 +145,14 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
     } else kernel_check <- "skipped_after_structural_or_resource_failure"
     resources <- list(dense_matrix_bytes_lower_bound =
       8 * (as.double(n) * q * random_dimension + random_dimension^2),
+      dense_working_bytes_estimate = dense$total,
+      dense_working_bytes_breakdown = dense[c("random_design", "conditional_hessian",
+        "block_slices", "predictors", "multiplier")],
+      max_dense_bytes = dc$max_dense_bytes,
       max_observations = dc$max_observations,
       max_random_dimension = dc$max_random_dimension, max_parameters = dc$max_parameters,
-      scope = "One dense random-design matrix plus one random-effect Hessian only; not peak memory or a runtime prediction.")
+      scope = paste("Planning estimates for one dense likelihood evaluation, checked",
+        "before allocation. Not peak resident memory and not a runtime prediction."))
   }
   sources <- data.frame(source = names(terms), observed_groups = unname(levels),
     predictor_dimensions = q, random_dimension = unname(as.double(levels) * q),

@@ -1,6 +1,7 @@
 # Independent regression checks for the repository review's Gaussian findings.
 # Run from the repository root in a clean R session.
 source("R/design.R")
+source("R/gaussian_retry.R")
 source("R/gaussian_engine.R")
 source("R/gaussian.R")
 stopifnot(requireNamespace("OpenMx", quietly = TRUE), requireNamespace("lme4", quietly = TRUE))

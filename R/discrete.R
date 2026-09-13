@@ -16,7 +16,8 @@
 
 .gt_d_control <- function(control) {
   defaults <- list(max_random_dimension = 200L, max_observations = 1200L,
-                   max_parameters = 80L, maxit = 150L, inner_maxit = 60L,
+                   max_parameters = 80L, max_dense_bytes = 512 * 1024^2,
+                   maxit = 150L, inner_maxit = 60L,
                    inner_tol = 1e-7, reltol = 1e-7, start_sd = 0.4,
                    trace = 0L, fixed_covariance = NULL,
                    stationarity_tol = 1e-3, validation_reltol = 1e-10,
@@ -39,7 +40,8 @@
   }
   for (nm in c("inner_tol", "reltol", "start_sd", "stationarity_tol",
                "validation_reltol", "validation_inner_tol",
-               "stability_objective_tol", "stability_parameter_tol", "bound_tol")) {
+               "stability_objective_tol", "stability_parameter_tol", "bound_tol",
+               "max_dense_bytes")) {
     z <- defaults[[nm]]
     if (!is.numeric(z) || length(z) != 1L || !is.finite(z) || z <= 0)
       .gt_d_stop(nm, " must be a positive finite number.")
@@ -65,6 +67,41 @@
       any(!nzchar(names(z))) || anyDuplicated(names(z))))
     .gt_d_stop("discrete start must be a finite, uniquely named numeric parameter vector.")
   defaults
+}
+
+# Planning estimate for the dense arrays one marginal likelihood evaluation
+# holds at once, in bytes. It covers the random-design matrix W, the conditional
+# Hessian and its Cholesky factor, the per-block slices of W that forming that
+# Hessian materializes, and the linear predictor and gradient. The multiplier is
+# a deliberate planning allowance for R's copy-on-modify during those products.
+#
+# This is a resource guard evaluated before allocation, not a measurement of
+# peak resident memory: it excludes the caller's data, the optimizer's own
+# state, and every allocation the finite-difference stationarity pass repeats.
+# It is an underestimate of what a fit really uses, which is why it is a guard
+# against the obviously impossible rather than a promise about the feasible.
+.gt_d_dense_bytes <- function(n, q, random_dimension, multiplier = 2) {
+  n <- as.double(n)
+  q <- as.double(q)
+  random_dimension <- as.double(random_dimension)
+  design <- 8 * n * q * random_dimension
+  hessian <- 2 * 8 * random_dimension^2
+  slices <- 2 * 8 * n * random_dimension
+  predictors <- 4 * 8 * n * q
+  total <- multiplier * (design + hessian + slices + predictors)
+  list(total = total, random_design = design, conditional_hessian = hessian,
+       block_slices = slices, predictors = predictors, multiplier = multiplier,
+       scope = paste("One dense likelihood evaluation's major arrays, with a",
+         "planning multiplier. Excludes caller data, optimizer state, and",
+         "repeated allocation during finite-difference validation."))
+}
+
+.gt_d_format_bytes <- function(bytes) {
+  if (!is.finite(bytes)) return("unavailable")
+  units <- c("bytes", "KiB", "MiB", "GiB", "TiB")
+  index <- if (bytes <= 0) 1L else min(length(units), 1L + floor(log(bytes, 1024)))
+  paste(format(round(bytes / 1024^(index - 1L), 1), scientific = FALSE, trim = TRUE),
+        units[[index]])
 }
 
 # Keep errors and warnings from numerical attempts without changing the global
@@ -398,10 +435,18 @@
   ans
 }
 
-.gt_d_covariance_setup <- function(groups, q, covariance, control, dimensions) {
-  if (!is.character(covariance) || length(covariance) != 1L ||
+# One definition of the discrete covariance request, shared with gt_preflight()
+# so that a request it permits is a request that fitting also permits.
+.gt_d_validate_covariance_request <- function(covariance) {
+  if (!is.character(covariance) || length(covariance) != 1L || is.na(covariance) ||
       !covariance %in% c("diagonal", "unstructured"))
-    .gt_d_stop("covariance must be 'diagonal' or 'unstructured'.")
+    .gt_d_stop("Discrete covariance must be a single 'diagonal' or 'unstructured'; ",
+               "per-source overrides are a Gaussian option.")
+  invisible(covariance)
+}
+
+.gt_d_covariance_setup <- function(groups, q, covariance, control, dimensions) {
+  .gt_d_validate_covariance_request(covariance)
   fixed <- control$fixed_covariance
   if (!is.null(fixed)) {
     if (!is.list(fixed) || is.null(names(fixed)) || anyDuplicated(names(fixed)) ||
@@ -722,8 +767,9 @@
   A <- .gt_d_covariance_factors(a[-fixed], setup)
   B <- .gt_d_covariance_factors(b[-fixed], setup)
   covariance <- max(c(0, vapply(seq_along(A), function(s) {
-    S <- tcrossprod(A[[s]]); T <- tcrossprod(B[[s]])
-    max(abs(S - T)) / max(1, abs(S), abs(T))
+    left <- tcrossprod(A[[s]])
+    right <- tcrossprod(B[[s]])
+    max(abs(left - right)) / max(1, abs(left), abs(right))
   }, numeric(1))))
   max(location, covariance)
 }
@@ -761,6 +807,22 @@
     .gt_d_stop("Discrete prototype requires ", random_dimension,
                " random-effect dimensions, exceeding max_random_dimension (",
                control$max_random_dimension, "). This dense engine is for small validation designs.")
+  # Refuse before allocating rather than after the allocation fails. The other
+  # limits bound counts; this one bounds the dense algebra those counts imply,
+  # and it is what protects a caller who raises them.
+  dense <- .gt_d_dense_bytes(nrow(data), prep$q, random_dimension)
+  if (dense$total > control$max_dense_bytes)
+    .gt_d_stop("This discrete model needs an estimated ",
+      .gt_d_format_bytes(dense$total), " of dense working memory, above the configured ",
+      "max_dense_bytes (", .gt_d_format_bytes(control$max_dense_bytes), "). ",
+      "The model has ", nrow(data), " observations, ", prep$q,
+      " latent dimension(s) per observation, and ", random_dimension,
+      " random-effect dimensions, so its random-design matrix alone is ",
+      .gt_d_format_bytes(dense$random_design), ". ",
+      "Raising max_dense_bytes does not make the dense algebra practical or the ",
+      "Laplace approximation accurate. Fit a scientifically justified smaller ",
+      "design, reduce the number of jointly modelled outcomes, or use an ",
+      "implementation with a sparse random-effects backend.")
   setup <- .gt_d_covariance_setup(groups, prep$q, covariance, control, prep$dimensions)
   kernel_rank <- .gt_d_kernel_rank(groups)
   # A combination of individually repeated-group kernels can still equal I.

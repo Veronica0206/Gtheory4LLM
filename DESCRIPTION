@@ -1,7 +1,7 @@
 Package: Gtheory4LLM
 Type: Package
 Title: Generalizability Theory for LLM Subjective Tasks
-Version: 0.1.0
+Version: 0.1.0.9000
 Authors@R: person("Jin", "Liu", email = "Veronica.Liu0206@gmail.com",
     role = c("aut", "cre", "cph"))
 Author: Jin Liu [aut, cre, cph]
@@ -38,10 +38,12 @@ BugReports: https://github.com/Veronica0206/Gtheory4LLM/issues
 Collate:
     'design.R'
     'family.R'
+    'gaussian_retry.R'
     'gaussian_engine.R'
     'gaussian.R'
     'discrete.R'
     'preflight.R'
     'fit.R'
+    'methods.R'
     'reliability.R'
     'examples.R'

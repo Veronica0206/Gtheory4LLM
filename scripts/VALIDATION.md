@@ -20,8 +20,11 @@ a previous bundle: the report keeps source and committed-artifact results separa
 The default scope is `all`; missing release artifacts fail that scope explicitly.
 
 Both source and artifact checks now verify release identity against the manifest:
-DESCRIPTION, archive filename, current README/NEWS summaries, and the artifact
-README heading must agree. Historical NEWS sections are preserved. A clearly
+DESCRIPTION, archive filename, current README/NEWS summaries, the declared
+release state, and the artifact README heading must agree. The manifest's
+`release_state` is checked against git: `published` requires the `v<version>`
+tag in this checkout, and `prepared` fails once that tag exists. A published
+bundle is tag-verified even when no tag is named on the command line. Historical NEWS sections are preserved. A clearly
 labelled `.9000` development checkout may retain the preceding release; a new
 ordinary release version cannot silently use an older bundle. The archive still
 compares to its recorded source commit, not to a later checkout. Check the local
@@ -33,7 +36,8 @@ python3 scripts/check_committed_artifact.py --verify-only --check-release-identi
 
 The tag example must be updated for a new release. The ordinary gate reports
 whether a tag was checked; it never treats an unfetched tag or unqueried GitHub
-release as verified. See [the release checklist](../docs/RELEASE_CHECKLIST.md).
+release as verified. `scripts/prepare_release.py` performs the whole preparation in one step and
+stops before publication; see [the release checklist](../docs/RELEASE_CHECKLIST.md).
 
 
 The package build now knits `vignettes/LLM-workflow.Rmd`, so the source stage
@@ -54,7 +58,12 @@ and reported. Other notes, warnings, errors, or incomplete checks fail validatio
 The package check uses `--no-manual` so it does not require TeX on every platform,
 and R CMD check would accept overfull boxes in any case. `scripts/build_manual.R`
 is the only gate that rejects them, so the source scope runs it as the
-`reference_manual` stage wherever `pdflatex` is on PATH and omits it otherwise.
+`reference_manual` stage wherever both `pdflatex` and `makeindex` are on PATH
+and omits it otherwise, naming the missing tool in the skip reason. The manual
+build prefers its customized cover and falls back to plain `R CMD Rd2pdf` when
+R's generated LaTeX is not the layout it knows how to reflow; it reports which
+route it took, why, and whether a LaTeX log was available for the overfull-box
+gate.
 The report distinguishes the two through `reference_manual_checked` and
 `reference_manual_skipped_reason`, so a run that could not render the manual is
 not read as one that rendered it cleanly. The locked Linux workflow installs
@@ -82,6 +91,28 @@ To restore only numerical dependencies, omit the final lockfile argument. The
 combined documentation lock was assembled from the working local R 4.5.3
 vignette environment. A successful local build does not establish that a fresh
 hosted restoration has passed; inspect the corresponding CI run.
+
+### Restoring the locked environment
+
+`scripts/restore_validation.R` bootstraps renv before restoring a lockfile.
+Pinning a version fixes *which* renv is used; it does not guarantee that the
+exact file can still be retrieved, or that what arrives is what was reviewed.
+`scripts/dependency-locks/renv-bootstrap.json` therefore records the tool
+version, its URL, and its expected SHA-256, and the script verifies the digest
+before installing. It prefers a file already present over the network:
+
+| Source | How to select it |
+|---|---|
+| A tarball you have already verified | `GTHEORY_RENV_BOOTSTRAP=/path/to/renv_1.1.5.tar.gz` |
+| A cache directory, populated on first use | `GTHEORY_RENV_BOOTSTRAP_CACHE=/path/to/cache` |
+| The recorded URL | neither variable set |
+
+Both locked workflows set the cache directory and cache it between runs, so a
+restore does not depend on the CRAN Archive being reachable. When the descriptor
+records `"sha256": null`, no digest has been reviewed yet: the script prints the
+digest of whatever it fetched and continues, so the maintainer can check that
+value against the source and record it. Once recorded, a mismatch refuses to
+install rather than continuing with an unreviewed environment-restoration tool.
 
 The Linux workflow builds source dependencies consistently from CRAN. Explicit
 renv repository overrides prevent a runner's binary repository from replacing

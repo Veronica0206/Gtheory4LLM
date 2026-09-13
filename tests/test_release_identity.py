@@ -16,26 +16,82 @@ class ReleaseIdentityTests(unittest.TestCase):
         self.manifest = self.fixture.manifest
         self.write_summaries()
 
-    def write_summaries(self, source="0.0.1", artifact="0.0.1"):
+    def write_summaries(self, source="0.0.1", artifact="0.0.1", state="prepared"):
         for filename in ("README.md", "NEWS.md"):
             checkout = f"Checkout version: **{source}**.\n" if filename == "README.md" else ""
             (self.root / filename).write_text(
                 "<!-- release-identity:start -->\n" + checkout +
                 f"Current artifact bundle: **{artifact}**.\n" +
+                f"Release state: **{state}**.\n" +
                 "<!-- release-identity:end -->\n", encoding="utf-8")
         (self.root / "artifacts/README.md").write_text(f"# Example {artifact} release\n", encoding="utf-8")
+
+    def publish(self):
+        """Move the fixture into the state a real publication leaves behind.
+
+        The order matters: the published state is committed and only then
+        tagged, so the tag carries the manifest it claims to publish.
+        """
+        self.fixture.write_manifest(release_state="published")
+        self.write_summaries(state="published")
+        self.fixture.git("add", "-A")
+        self.fixture.git("commit", "-qm", "publish")
+        if CHECK.local_release_tag(self.root, "v0.0.1"):
+            self.fixture.git("tag", "-d", "v0.0.1")
+        self.fixture.git("tag", "v0.0.1")
 
     def verify(self, tag=None):
         return CHECK.verify_release_identity(self.root, self.manifest, tag)
 
     def test_current_release_and_tag_match_real_git_metadata(self):
-        self.fixture.git("tag", "v0.0.1")
+        self.publish()
         result = self.verify("v0.0.1")
         self.assertTrue(result["release_tag_checked"])
         self.assertEqual(result["artifact_version"], "0.0.1")
         self.assertFalse(result["development_checkout"])
         with self.assertRaisesRegex(ValueError, "tag/version mismatch"):
             self.verify("v0.0.2")
+
+    def test_a_prepared_bundle_is_not_a_published_release(self):
+        # No tag exists yet, so nothing may call this bundle published, and a
+        # published claim must be checked against git rather than prose.
+        self.assertFalse(self.verify()["published"])
+        self.fixture.write_manifest(release_state="published")
+        with self.assertRaisesRegex(ValueError, "release state mismatch"):
+            self.verify()
+        self.write_summaries(state="published")
+        with self.assertRaisesRegex(ValueError, "requires the v0.0.1 tag"):
+            self.verify()
+
+    def test_publication_makes_the_prepared_claim_stale(self):
+        self.fixture.git("tag", "v0.0.1")
+        with self.assertRaisesRegex(ValueError, "contradicts the existing v0.0.1 tag"):
+            self.verify()
+        self.publish()
+        result = self.verify()
+        self.assertTrue(result["published"])
+        # A published release is tag-checked even when no tag was requested.
+        self.assertTrue(result["release_tag_checked"])
+        self.assertEqual(result["release_tag"], "v0.0.1")
+
+    def test_release_state_must_be_declared_and_recognized(self):
+        for state in (None, "", "released", "PUBLISHED"):
+            with self.subTest(state=state):
+                content = json.loads(self.manifest.read_text())
+                if state is None:
+                    content.pop("release_state")
+                else:
+                    content["release_state"] = state
+                self.manifest.write_text(json.dumps(content))
+                with self.assertRaisesRegex(ValueError, "must declare release_state"):
+                    self.verify()
+
+    def test_a_development_checkout_may_keep_a_published_release(self):
+        self.publish()
+        path = self.root / "DESCRIPTION"
+        path.write_text(path.read_text().replace("Version: 0.0.1", "Version: 0.0.1.9000"))
+        self.write_summaries(source="0.0.1.9000", state="published")
+        self.assertTrue(self.verify()["development_checkout"])
 
     def test_each_declared_version_is_checked_independently(self):
         for filename, old, new, message in (
@@ -81,7 +137,7 @@ class ReleaseIdentityTests(unittest.TestCase):
             self.verify()
 
     def test_tag_manifest_drift_is_rejected_even_if_version_matches(self):
-        self.fixture.git("tag", "v0.0.1")
+        self.publish()
         changed = json.loads(self.manifest.read_text())
         changed["files"]["Example-manual.pdf"]["sha256"] = "f" * 64
         self.manifest.write_text(json.dumps(changed))

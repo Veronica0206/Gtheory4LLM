@@ -83,9 +83,10 @@ class CommittedArtifactTests(unittest.TestCase):
             for info, content in extras:
                 archive.addfile(info, io.BytesIO(content) if content is not None else None)
 
-    def write_manifest(self):
+    def write_manifest(self, release_state="prepared"):
         self.manifest = self.artifacts / "manifest.json"
-        content = {"package": "Example", "version": "0.0.1", "source_commit": self.commit,
+        content = {"package": "Example", "version": "0.0.1", "release_state": release_state,
+                   "source_commit": self.commit,
                    "files": {path.name: {"bytes": path.stat().st_size,
                              "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
                              for path in [self.archive, self.manual]}}

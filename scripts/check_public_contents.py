@@ -20,8 +20,44 @@ import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = "Gtheory4LLM"
-VERSION = "0.1.0"
+
+
+def description_field(root: Path, field: str) -> str:
+    """Read one DESCRIPTION field, folding its continuation lines.
+
+    DESCRIPTION is the single source of truth for the package name and version.
+    Hard-coding either here meant that a version bump silently checked the
+    working tree against the previous release's archive name.
+    """
+    text = (root / "DESCRIPTION").read_text(encoding="utf-8")
+    match = re.search(rf"(?m)^{re.escape(field)}:[ \t]*(.*(?:\n[ \t]+.*)*)$", text)
+    if match is None:
+        raise ValueError(f"DESCRIPTION has no {field} field")
+    return " ".join(match.group(1).split())
+
+
+def bundled_version(root: Path, fallback: str) -> str:
+    """The version of the bundle in artifacts/, which is the manifest's to say.
+
+    DESCRIPTION owns the package version; artifacts/manifest.json owns the
+    version of the bundle beside it. An explicitly labelled development checkout
+    retains the preceding release, so pinning the artifact set to DESCRIPTION
+    would reject exactly the state the release-identity check permits.
+    """
+    manifest = root / "artifacts/manifest.json"
+    if not manifest.is_file():
+        return fallback
+    try:
+        declared = json.loads(manifest.read_text(encoding="utf-8")).get("version")
+    except (ValueError, OSError):
+        return fallback
+    return declared if isinstance(declared, str) and re.fullmatch(
+        r"[0-9]+(?:[.-][0-9]+)*", declared) else fallback
+
+
+PACKAGE = description_field(ROOT, "Package")
+SOURCE_VERSION = description_field(ROOT, "Version")
+VERSION = bundled_version(ROOT, SOURCE_VERSION)
 PUBLIC_DATA_KINDS = ("synthetic", "public_llm_annotations")
 CURRENT_ARTIFACTS = {
     f"{PACKAGE}_{VERSION}.tar.gz", f"{PACKAGE}-manual.pdf", "manifest.json", "README.md"
@@ -55,7 +91,9 @@ PUBLIC_FILES = {
     "DESCRIPTION", "NAMESPACE", "LICENSE", "LICENCE", "LICENSE.note",
     "NEWS", "NEWS.md", "NEWS.Rd", "README", "README.md", "README.Rmd",
     "renv.lock", "load_functions.R", ".gitignore", ".Rbuildignore",
-    "cran-comments.md", "CRAN-SUBMISSION", "CITATION", "configure", "cleanup"
+    "cran-comments.md", "CRAN-SUBMISSION", "CITATION", "configure", "cleanup",
+    # Repository governance, kept out of the built archive by .Rbuildignore.
+    "SECURITY.md", "CODEOWNERS"
 }
 # Operating-system metadata files carry no publishable content, are already
 # ignored by git, and are recreated by the desktop environment on sight. They

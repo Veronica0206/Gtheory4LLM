@@ -49,7 +49,8 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   }
   if (is.null(result$numerically_accepted)) result$numerically_accepted <- isTRUE(result$converged)
   if (is.null(result$optimizer_completed))
-    result$optimizer_completed <- if (!is.null(result$status)) identical(as.integer(result$status), 0L) else isTRUE(result$converged)
+    result$optimizer_completed <- if (!is.null(result$status))
+      identical(as.integer(result$status), 0L) else isTRUE(result$converged)
   if (is.null(result$approximation_adequacy)) result$approximation_adequacy <- "exact_balanced_gaussian_likelihood"
   if (is.null(result$uncertainty)) result$uncertainty <- list(available = FALSE,
     reason = "Parameter standard errors are not implemented for this engine.",
@@ -69,7 +70,66 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   result$N <- nrow(data)
   result$D <- length(outcomes)
   result$control <- control
+  # A compact description of the fitted panel, so that reliability and decision
+  # studies remain available after the modelled data is dropped. It records
+  # what was observed; it never stands in for data that was checked.
+  result$panel <- .gt_panel_summary(resolved$data, design)
   class(result) <- unique(c("gt_fit", class(result)))
+  .gt_apply_retention(result, control$retain)
+}
+
+# Level counts, row count, and observed cell replication for the fitted panel.
+.gt_panel_summary <- function(data, design) {
+  dimensions <- c(design$object, design$facets)
+  counts <- stats::setNames(vapply(data[dimensions],
+    function(x) length(unique(x)), integer(1)), dimensions)
+  cells <- table(.gt_tuple_key(data, dimensions))
+  list(dimensions = dimensions, counts = counts, rows = nrow(data),
+       observed_cells = length(cells),
+       cell_replication = sort(unique(as.integer(cells))),
+       replicates = design$replicates,
+       source = "Recorded when the model was fitted.")
+}
+
+# Drop optional components a caller asked not to keep.
+#
+# Nothing dropped here is used to compute an estimate, a diagnostic decision, a
+# coefficient, or a decision study: gt_reliability() and gt_dstudy() work from
+# the fitted source covariances, the resolved design, and either the retained
+# data or the panel summary recorded above. The record of what was dropped
+# stays on the fit, so a later error can say which control removed a component
+# rather than reporting it as missing.
+.gt_apply_retention <- function(result, retain) {
+  if (is.null(retain)) retain <- .gt_retention_defaults
+  if (!retain[["data"]]) result$data <- NULL
+  if (!retain[["session"]]) result$session <- NULL
+  if (!retain[["model"]]) {
+    result$model <- NULL
+    result$backend_fit <- NULL
+    # Keep the observed outcome scale: gt_components(correlation = TRUE) uses
+    # it, and it is three numbers rather than the factorial cross-products.
+    if (is.list(result[["prepared"]]))
+      result$prepared <- result[["prepared"]][intersect(names(result[["prepared"]]),
+        c("counts", "N", "D", "means", "outcomes", "facets", "observed_variances"))]
+    result$conditional_eta <- NULL
+    result$conditional_probabilities <- NULL
+  }
+  if (!retain[["retry_log"]]) {
+    result$retry_log <- NULL
+    # Drop the bulky per-attempt payloads, never the fields that say what an
+    # attempt did: label, error, optimizer code and message, and objective.
+    # Index exactly: `$` partial-matches, and a Gaussian fit has no top-level
+    # optimizer element for `$optimizer` to reach for.
+    strip <- function(attempt) attempt[setdiff(names(attempt),
+      c("raw_result", "optimizer_control", "start", "parameters"))]
+    if (is.list(result[["diagnostics"]][["attempts"]]))
+      result$diagnostics$attempts <- lapply(result[["diagnostics"]][["attempts"]], strip)
+    if (is.list(result[["optimizer"]]) && is.list(result[["optimizer"]][["attempt"]]))
+      result$optimizer$attempt <- strip(result[["optimizer"]][["attempt"]])
+    if (is.list(result[["diagnostics"]][["stability"]]))
+      result$diagnostics$stability$tight_parameters <- NULL
+  }
+  result$retained <- retain
   result
 }
 
@@ -97,7 +157,7 @@ gt_components <- function(fit, correlation = FALSE, tolerance = 1e-8) {
 gt_diagnostics <- function(fit) {
   if (!inherits(fit, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
   status <- .gt_fit_status(fit)
-  list(estimator = fit$estimator, engine = if (!is.null(fit$engine)) fit$engine else fit$backend,
+  structure(list(estimator = fit$estimator, engine = if (!is.null(fit$engine)) fit$engine else fit$backend,
        optimizer_completed = fit$optimizer_completed, numerically_accepted = fit$numerically_accepted,
        approximation_adequacy = fit$approximation_adequacy,
        optimizer = status$optimizer, optimization_trials = status$optimization_trials,
@@ -110,7 +170,7 @@ gt_diagnostics <- function(fit) {
        component_standard_errors = fit$component_standard_errors,
        diagnostics = fit$diagnostics, declared_aliases = fit$design$aliased_terms,
        data_validation = fit$design$validation_scope,
-       notes = fit$design$notes)
+       notes = fit$design$notes), class = "gt_diagnostics")
 }
 
 # Summarize existing engine decisions only. This never reruns or relaxes an
