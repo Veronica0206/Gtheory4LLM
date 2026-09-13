@@ -329,19 +329,24 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
   table[, keep, drop = FALSE]
 }
 
+# Name a handful of sources inline; past that a count and a pointer stay
+# readable. A caveat nobody finishes reading is not a caveat.
+.gt_name_sources <- function(sources, field, limit = 3L) {
+  if (length(sources) <= limit) return(paste(sources, collapse = ", "))
+  paste0(length(sources), " sources (see $uncertainty$", field, ")")
+}
+
 .gt_print_uncertainty_note <- function(x) {
   record <- x$uncertainty
   if (!is.list(record)) return(invisible(NULL))
   if (isTRUE(record$available)) {
     cat(format(100 * x$level, digits = 4), "% intervals: delta method on the logit scale from the fitted parameter covariance.\n", sep = "")
     if (isTRUE(record$restricted_to_interior))
-      cat("Intervals condition on the zero-variance source(s)",
-          paste(record$fixed_components, collapse = ", "),
-          "being held at zero; they carry no uncertainty for those sources.\n")
+      cat("Conditional on", .gt_name_sources(record$fixed_components, "fixed_components"),
+          "held at zero; the intervals carry no uncertainty for those.\n")
     else if (length(record$boundary_components))
-      cat("Wald theory does not apply to boundary component(s):",
-          paste(record$boundary_components, collapse = ", "),
-          "- treat their standard errors and intervals as undefined.\n")
+      cat("No standard error for", .gt_name_sources(record$boundary_components, "boundary_components"),
+          "resting on a variance boundary.\n")
   } else if (length(record$reason) && !is.na(record$reason)) {
     cat("No intervals:", record$reason, "\n")
   }

@@ -1,5 +1,29 @@
 # Gtheory4LLM 0.0.7
 
+## Fixes found in review of this release
+
+- The `variance` covariance coordinates, which `auto` now selects for every
+  univariate or diagonal discrete model, treated any negative coordinate as an
+  error. A bounded optimizer evaluates a few ulps outside a bound while
+  projecting onto it, so a coordinate of -3.4e-17 recorded an attempt error,
+  set `computation_failed`, and rejected the entire fit. Zero is this
+  parameterization's natural domain boundary, so rounding noise is now
+  projected onto it; a coordinate meaningfully below zero still stops. This
+  rejected fits whose estimates were already correct, including the ordinal fit
+  in `examples/standalone_usage.R`.
+- A source variance resting on the boundary now reports `NA` rather than a
+  number whenever the joint Hessian happened to stay invertible, matching what
+  it already reported when the Hessian did not. No symmetric interval follows
+  from curvature at a boundary. The full entry covariance matrix is unchanged
+  in `$uncertainty`, and coefficient intervals still use it.
+- The interval caveat names at most three sources inline and otherwise gives a
+  count and a pointer; on the bundled panels it listed all thirteen.
+- Corrects the temperature guidance. Declaring `fixed = "temp"` fixes the
+  estimand but not the misspecification: the G study has already pooled one
+  seed variance across all six temperatures before any coefficient is formed.
+  Only fitting within a single temperature removes that, and a study affected
+  by both should do both.
+
 ## Uncertainty for Gaussian fits
 
 - Reports asymptotic Wald standard errors for every Gaussian source variance.

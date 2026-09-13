@@ -277,3 +277,51 @@ no_fit <- tryCatch(local$gt_fit(d, "y", design, gt_family("binary", "logit"), co
                    error = identity)
 stopifnot(inherits(no_fit, "gt_discrete_numerical_failure"), length(no_fit$attempts) > 0L)
 cat("PASS: restart/refinement/diagnostic exceptions preserve inspectable fits and block coefficients; total failure retains attempt records.\n")
+
+# A bounded optimizer may evaluate a variance coordinate a few ulps below its
+# lower bound of zero while projecting onto it. That is arithmetic, not a model
+# failure: it must be projected onto the boundary, never turned into an error
+# that rejects the whole fit. A coordinate meaningfully below zero must still stop.
+factors <- internal(".gt_d_covariance_factors")
+setup_variance <- internal(".gt_d_covariance_setup")(
+  list(item = internal(".gt_d_group")(d, "item")), 1L, "diagonal",
+  internal(".gt_d_control")(list(covariance_parameterization = "variance")), "y")
+stopifnot(identical(setup_variance$parameterization, "variance"),
+          identical(setup_variance$lower, 0))
+for (noise in c(0, -.Machine$double.eps, -3.357127e-17, -1e-14)) {
+  projected <- factors(c(item = noise), setup_variance)
+  stopifnot(identical(dim(projected$item), c(1L, 1L)), projected$item[[1L]] == 0)
+}
+near(factors(c(item = 0.25), setup_variance)$item[[1L]], 0.5, 1e-12)
+expect_error(factors(c(item = -0.01), setup_variance),
+             "Direct variance parameters must be finite and nonnegative")
+expect_error(factors(c(item = NaN), setup_variance), "Direct variance parameters must be finite")
+
+# End-to-end regression for the same defect. On this ordinal panel the optimizer
+# visits the rater-variance boundary during its search; before the projection a
+# single rounding-noise evaluation there recorded an attempt error, set
+# computation_failed, and rejected a fit whose estimates were already correct.
+# The asserted estimates are the ones log-Cholesky coordinates reach on the same
+# data, so the projection is shown to change acceptance and not the answer.
+set.seed(912)
+boundary_panel <- expand.grid(item = seq_len(24), rater = seq_len(4), replicate = seq_len(3))
+object_effect <- rnorm(24, sd = .9)
+rater_effect <- c(-.5, -.1, .1, .5)
+boundary_eta <- -.2 + object_effect[boundary_panel$item] + rater_effect[boundary_panel$rater]
+boundary_panel$success <- rbinom(nrow(boundary_panel), 1, plogis(boundary_eta))
+boundary_panel$rating <- cut(boundary_eta + rnorm(nrow(boundary_panel)),
+  c(-Inf, -.4, .7, Inf), labels = c("low", "mid", "high"), ordered_result = TRUE)
+boundary_design <- gt_design("item", "rater", random = ~ item + rater, replicates = 3L)
+ordinal_boundary <- gt_fit(boundary_panel, "rating", boundary_design,
+  family = gt_family("ordinal", link = "probit", levels = c("low", "mid", "high")),
+  control = gt_control(discrete = list(maxit = 200L)))
+attempt_errors <- unlist(lapply(ordinal_boundary$diagnostics$attempts, `[[`, "error"))
+stopifnot(!any(grepl("nonnegative", attempt_errors)),
+          identical(ordinal_boundary$diagnostics$covariance_parameterization, "variance"),
+          ordinal_boundary$numerically_accepted,
+          !length(ordinal_boundary$diagnostics$acceptance_failures))
+near(ordinal_boundary$minus2loglik, 510.0058, 1e-4)
+near(ordinal_boundary$covariance_components$item[[1L]], 1.020897, 1e-4)
+near(ordinal_boundary$covariance_components$rater[[1L]], 0.2607966, 1e-4)
+stopifnot(is.finite(gt_reliability(ordinal_boundary, scale = "latent")$per_trait$Erho2))
+cat("PASS: variance coordinates project rounding noise onto the zero boundary instead of rejecting the fit.\n")

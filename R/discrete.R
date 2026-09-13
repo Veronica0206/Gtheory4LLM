@@ -450,9 +450,17 @@
   setNames(lapply(seq_along(setup$sources), function(s) {
     x <- parameters[(s - 1L) * setup$per + seq_len(setup$per)]
     if (identical(setup$parameterization, "variance")) {
-      if (any(!is.finite(x)) || any(x < 0))
+      if (any(!is.finite(x)))
+        .gt_d_stop("Direct variance parameters must be finite.")
+      # Zero is this parameterization's natural domain boundary, and a bounded
+      # optimizer may evaluate a few ulps outside a bound while projecting onto
+      # it. Project that rounding noise back onto the boundary; turning it into
+      # an error rejects fits whose only fault is arithmetic. A coordinate
+      # meaningfully below zero is still a caller error and still stops.
+      tolerance <- 1e-10 * max(1, max(abs(x)))
+      if (any(x < -tolerance))
         .gt_d_stop("Direct variance parameters must be finite and nonnegative.")
-      x <- sqrt(x)
+      x <- sqrt(pmax(x, 0))
     } else {
       x[setup$diagpos] <- exp(x[setup$diagpos])
     }

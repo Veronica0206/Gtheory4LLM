@@ -202,6 +202,13 @@ item-by-prompt variation is now part of what the study is trying to measure
 rather than error. A fixed facet's count cannot be changed, and a decision study
 may not project over it.
 
+`fixed` acts at the reliability stage: it changes how the already-fitted
+components are aggregated into a coefficient. It does not change the G study,
+so it cannot repair a source whose variance was misspecified during fitting.
+If a facet's variance is heteroscedastic across the levels of another facet --
+as seed disagreement is across temperature in the bundled panels -- fit within
+a single level of that other facet as well. The two remedies are independent.
+
 ## 7. Match other outcomes to their observation model
 
 | Outcome | Current scalar reliability support |

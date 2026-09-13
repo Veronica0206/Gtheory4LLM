@@ -185,7 +185,8 @@
     entry_covariance = NULL, variances = NULL,
     openmx_standard_error_agreement = NA_real_, hessian_condition_number = NA_real_,
     interpretation = paste("Asymptotic Wald standard errors for source variance components.",
-      "They do not establish coverage in small designs and are not valid for a component at a variance boundary."))
+      "They do not establish coverage in small designs. A component resting on a variance",
+      "boundary reports NA, because no symmetric interval follows from curvature there."))
   if (!check_hessian) return(record)
   # Each free parameter belongs to exactly one component; the algebra prefix and
   # its underscore identify it without re-deriving the structure-specific labels.
@@ -230,9 +231,15 @@
     std_error = sqrt(pmax(0, diag(entry_covariance)[diagonal])),
     row.names = NULL, stringsAsFactors = FALSE)
   variances$at_boundary <- unname(boundary[variances$component])
-  # A component held at zero has no standard error. Reporting the structural
-  # zero as a number would read as an estimate known without error.
-  variances$std_error[variances$component %in% fixed_components] <- NA_real_
+  # A variance resting on zero has no usable Wald standard error whether or not
+  # the joint Hessian happened to stay invertible: its sampling distribution has
+  # an atom at the boundary, so no symmetric interval follows from a curvature
+  # estimate. Report NA in both cases rather than a number that reads as one,
+  # and keep the full entry covariance matrix in $uncertainty for anyone who
+  # wants the raw curvature. A component held at zero would otherwise report a
+  # structural zero, which reads as an estimate known without error.
+  variances$std_error[variances$at_boundary |
+                        variances$component %in% fixed_components] <- NA_real_
   record$available <- TRUE
   record$reason <- NA_character_
   record$restricted_to_interior <- inverted$restricted
@@ -1007,9 +1014,10 @@ fit_openmx_multivariate <- function(
       paste(uncertainty$fixed_components, collapse = ", "),
       " being held at zero. Intervals then describe the remaining components only."))
   else if (isTRUE(uncertainty$available) && length(uncertainty$boundary_components))
-    issues <- c(issues, paste0("Wald standard errors were computed, but ",
-      paste(uncertainty$boundary_components, collapse = ", "),
-      " rest(s) on a variance boundary; their standard errors and any interval derived from them are not valid."))
+    issues <- c(issues, paste0(length(uncertainty$boundary_components),
+      " source(s) rest on a variance boundary and report no standard error; the joint",
+      " Hessian remained invertible, so coefficient intervals still use their curvature.",
+      " See uncertainty$boundary_components."))
   if (!isTRUE(uncertainty$available) && check_hessian)
     issues <- c(issues, paste("Standard errors are unavailable:", uncertainty$reason))
   if (isTRUE(uncertainty$available) && is.finite(uncertainty$openmx_standard_error_agreement) &&

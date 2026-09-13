@@ -202,12 +202,18 @@ do not remove item interactions merely to obtain an accepted fit. The two
 mental-health 7L/3L sets remain Gaussian working scores under both coding options.
 
 Temperature and seed are also not exchangeable in the same way. Temperature is
-a setting, so declare it `fixed` or analyse within one temperature. Seed is a
-genuine replication facet, but its variation is strongly heteroscedastic: the
-share of cells in which all three seeds agree falls from 0.92 to 0.73 (hate
-speech), 0.91 to 0.68 (mental health), and 0.84 to 0.58 (drug reviews) between
-temperature 0 and 1. A single seed variance pooled across all six temperatures
-is misspecified for these panels. See `help("gtheory_datasets")`.
+a setting rather than a sampled level, so declare it `fixed`. Seed is a genuine
+replication facet, but its variation is strongly heteroscedastic: the share of
+cells in which all three seeds agree falls from 0.92 to 0.73 (hate speech),
+0.91 to 0.68 (mental health), and 0.84 to 0.58 (drug reviews) between
+temperature 0 and 1.
+
+Those are two problems with two remedies, and `fixed` only addresses the first.
+It changes how fitted components are aggregated into a coefficient, so it stops
+a decision study averaging over a population of temperatures that was never
+sampled. It cannot undo the pooling: the G study has already estimated one seed
+variance across all six temperatures. Only fitting within a single temperature
+removes that. Do both when both apply. See `help("gtheory_datasets")`.
 
 Other native codings preserve binary, ordinal, or unordered categorical outcomes;
 `coding = "manuscript"` reproduces the seven historical Gaussian working-score

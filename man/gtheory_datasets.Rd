@@ -58,8 +58,7 @@ public annotation table.}
 Temperature is a setting chosen by the analyst, not a level drawn from a
 population of temperatures. Averaging a decision study over \dQuote{a
 population of temperatures} has no substantive referent. Declare it as a fixed
-facet with \code{gt_reliability(fit, fixed = "temp")}, or analyse within one
-temperature.
+facet with \code{gt_reliability(fit, fixed = "temp")}.
 
 Seed is a genuine replication facet, but its variation is strongly
 heteroscedastic across temperature. In the bundled panels the proportion of
@@ -76,8 +75,16 @@ label falls monotonically with temperature:
 A single homoscedastic seed-related variance pooled across all six
 temperatures is therefore misspecified for these panels, and so is any
 decision study built on it. Seed disagreement is also nonzero at temperature
-0, so a nominally deterministic setting still replicates imperfectly. Fit
-within one temperature, or model temperature as fixed, rather than pooling.
+0, so a nominally deterministic setting still replicates imperfectly.
+
+These are two separate problems with two separate remedies, and only one of
+them is a reliability-stage option. Declaring \code{fixed = "temp"} fixes the
+estimand: it stops a decision study averaging over a population of temperatures
+that was never sampled. It does not fix the heteroscedasticity, because the
+G study has already pooled one seed variance across all six temperatures before
+any coefficient is formed. Only fitting within a single temperature removes
+that misspecification. A study affected by both should do both: fit within one
+temperature, and declare any remaining chosen facet fixed.
 }
 \section{Dataset topics and outcome sets}{
 \describe{

@@ -80,10 +80,20 @@ stopifnot(identical(joint_errors$component, rep(names(joint_fit$covariance_types
 near(joint_errors$variance,
      unlist(lapply(joint_fit$covariance_components[names(joint_fit$covariance_types)], diag),
             use.names = FALSE), 1e-12, "joint variance ordering")
-near(joint_errors$std_error,
+# A variance resting on the boundary reports NA whether or not the joint Hessian
+# stayed invertible: no symmetric interval follows from curvature there. Every
+# other row must equal the entry covariance matrix's own diagonal.
+interior_rows <- !joint_errors$at_boundary
+stopifnot(any(interior_rows), all(is.na(joint_errors$std_error[!interior_rows])))
+near(joint_errors$std_error[interior_rows],
      sqrt(diag(mapping$entry_covariance))[
-       paste0(joint_errors$component, "[", joint_errors$trait, ",", joint_errors$trait, "]")],
+       paste0(joint_errors$component, "[", joint_errors$trait, ",", joint_errors$trait, "]")][interior_rows],
      1e-12, "joint standard-error ordering")
+# The raw curvature is still retained for anyone who wants it, and coefficient
+# intervals still use it because the joint Hessian was invertible here.
+stopifnot(!isTRUE(joint_fit$uncertainty$restricted_to_interior),
+          all(is.finite(diag(mapping$entry_covariance))),
+          all(is.finite(unlist(gt_reliability(joint_fit)$per_trait[c("Erho2_se", "Phi_se")]))))
 
 # 4. The reported coefficient standard error must equal a delta-method value
 # recomputed from the entry covariance matrix by an independent gradient.
@@ -177,10 +187,18 @@ if (length(zero)) {
   stopifnot(all(is.na(held$std_error[held$component %in% zero])),
             all(is.finite(held$std_error[!held$component %in% zero])))
   note <- paste(capture.output(print(gt_reliability(flat_fit))), collapse = "\n")
-  stopifnot(grepl("being held at zero", note))
+  stopifnot(grepl("held at zero", note), grepl(zero[[1L]], note, fixed = TRUE))
   cat("PASS: interior-block standard errors with", length(zero),
       "zero-variance component(s) held fixed.\n")
 } else {
   cat("NOTE: no zero-variance component arose; the interior-block branch was not exercised.\n")
 }
+# 10. The caveat names a few sources inline and switches to a count and a
+# pointer past that. On the bundled panels 13 sources rest on the boundary, and
+# a caveat nobody finishes reading is not a caveat.
+name_sources <- get(".gt_name_sources", envir = asNamespace("Gtheory4LLM"), inherits = FALSE)
+stopifnot(identical(name_sources(c("a", "b"), "boundary_components"), "a, b"),
+          identical(name_sources(c("a", "b", "c"), "boundary_components"), "a, b, c"),
+          identical(name_sources(letters[1:13], "fixed_components"),
+                    "13 sources (see $uncertainty$fixed_components)"))
 cat("PASS: Gaussian Wald standard errors, entry Jacobian, delta-method coefficient intervals, and unavailability reporting.\n")
