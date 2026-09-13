@@ -1,7 +1,10 @@
+# Documentation policy: man/*.Rd and NAMESPACE are hand written and are
+# the only source of truth. These comments describe the code for readers;
+# they are deliberately not roxygen, so running roxygen2 cannot replace the
+# richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Structural and resource checks without optimization or dense model matrices.
 
-#' Inspect an observed design before fitting
-#' @export
+# Inspect an observed design before fitting
 gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
                          covariance = "unstructured", residual = NULL,
                          control = gt_control()) {

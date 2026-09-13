@@ -1,3 +1,95 @@
+# Gtheory4LLM 0.0.7
+
+## Uncertainty for Gaussian fits
+
+- Reports asymptotic Wald standard errors for every Gaussian source variance.
+  The engine already computed the restricted- or profile-likelihood Hessian for
+  its diagnostics and discarded the result; it now forms the parameter
+  covariance matrix `2 * H^-1` and keeps it. Reconstructed values match OpenMx's
+  own standard errors to machine precision and match the classical mean-square
+  formulas for a crossed two-way design to five significant figures.
+- Adds delta-method standard errors and logit-scale intervals for G and Phi in
+  `gt_reliability()` and `gt_dstudy()`, per outcome and for weighted composites.
+  New `level` argument; new `Erho2_se`, `Erho2_lower`, `Erho2_upper`, `Phi_se`,
+  `Phi_lower`, and `Phi_upper` columns. `plot.gt_dstudy()` draws the bounds.
+  Simulated coverage of the G interval was 0.94-0.96 across three crossed
+  two-facet designs; this is a limited check, not general coverage evidence.
+- When a variance component rests on zero the joint Hessian is indefinite, which
+  previously removed every standard error. Standard errors are now computed on
+  the interior block, conditional on the zero components being held at zero, and
+  both the fit and the printed coefficients say so. A component held that way
+  reports `NA`, never a structural zero that would read as certainty.
+- Standard errors are unavailable, with a stated reason, when `check_hessian` is
+  disabled or the curvature is unusable. The discrete Laplace engine computes no
+  observed information and says so rather than leaving the field empty.
+
+## Mixed-model fixed facets
+
+- Adds `fixed` to `gt_reliability()` and `gt_dstudy()`, implementing the mixed
+  model of Brennan (2001): the object-by-fixed-facet variance is averaged over
+  that facet's levels and joins universe-score variance, a source built only
+  from fixed facets shifts every object equally and leaves the model, and every
+  other source keeps its usual divisor. With no fixed facet the decomposition is
+  unchanged. `$source_roles` records the role each source took.
+- A fixed facet's count cannot be changed and a decision study cannot project
+  over it, because its universe is exactly its observed levels. Declaring every
+  facet fixed is refused: that design has no estimable error variance.
+
+## Designs and documentation
+
+- Adds `full_cell` to `gt_design()`. `full_cell = FALSE` removes exactly the
+  object-by-all-facets source and leaves every other requested source
+  unchanged, which is how a binary or ordinal study with one observation per
+  cell declares the default crossed design. The discrete rejection message now
+  names that argument. The source is still never dropped automatically.
+- Converts the installed tutorial into a real knitr vignette, so
+  `browseVignettes("Gtheory4LLM")` finds it. `system.file("doc",
+  "LLM-workflow.R")` and the installed HTML keep working.
+- Makes `man/*.Rd` and `NAMESPACE` the only documentation source of truth. The R
+  files previously carried roxygen blocks that were not the source of the richer
+  hand-written Rd pages; running roxygen2 would have replaced them and dropped
+  the S3 methods registered in `NAMESPACE`. Those blocks are now plain comments.
+- Documents that temperature is a chosen setting rather than a sampled level,
+  and that seed agreement in the bundled panels falls monotonically with
+  temperature (0.92 to 0.73 for hate speech, 0.91 to 0.68 for mental health,
+  0.84 to 0.58 for drug reviews), so one seed variance pooled across all six
+  temperatures is misspecified.
+- States that the native discrete codings of the bundled panels exceed the dense
+  discrete engine by more than an order of magnitude, and explains why the
+  declared `R (>= 4.5.0)` floor comes from OpenMx's under-declared C API
+  requirement rather than from this package's own code.
+- Repairs two tests left inconsistent by the `covariance_parameterization`
+  default change, and adds installed-package regression tests for standard
+  errors, the delta-method mapping, coefficient intervals, mixed-model fixed
+  facets, and `full_cell`.
+- Stops the public-content audit from failing a working-tree scan on operating
+  system metadata such as `.DS_Store`, which git already ignores and a desktop
+  environment recreates. The exemption is by exact filename, is reported under
+  `skipped_os_metadata`, and never applies inside an archive.
+- The package build now knits the vignette, so `scripts/check_package.py` needs
+  knitr, rmarkdown, and pandoc. When they are absent it records that, builds
+  with `--no-build-vignettes`, checks with `--ignore-vignettes`, and the
+  installed-tutorial stage prints `NOT RUN` rather than passing silently. The
+  three workflows install the toolchain.
+
+## Smaller interface and reporting changes
+
+- Adds concise reliability and decision-study print methods while preserving
+  complete results and diagnostics; resets coefficient row names.
+- Adds `counts` to `gt_reliability()` with the existing `design` argument retained
+  as a compatibility alias.
+- Labels and retains Gaussian derivative-pass warnings separately from optimizer
+  acceptance, and removes stale pre-fit validation notes after preparation.
+- Improves unsupported full-cell and balanced/nested design guidance without
+  changing the requested statistical model.
+- Defaults discrete covariance coordinates to `auto`: direct variances for
+  univariate/diagonal models and log-Cholesky for joint unstructured models.
+  Explicit choices and numerical acceptance criteria remain available.
+- Corrects the public package citation and explains full-panel discrete limits,
+  mental-health preprocessing, and coefficient interpretation more directly.
+- The previously submitted 0.0.6 archive and its reference manual are unchanged;
+  `artifacts/` still describes that frozen release, not this version.
+
 # Gtheory4LLM 0.0.6
 
 - Prepares the package for its first public distribution under GPL-3.
@@ -22,10 +114,12 @@
 - Adds minimum-R and Windows/macOS compatibility workflows beside the locked
   Linux numerical checks, plus one source-and-artifact release-check entrypoint.
 
-Supported scope remains exact balanced Gaussian likelihood and small-model
+Scope at 0.0.6 was exact balanced Gaussian likelihood and small-model
 first-order Laplace discrete likelihood. Discrete latent random effects remain
 Gaussian. Binary/ordinal reliability requires an explicit latent scale;
 unordered categorical scalar reliability, observed-score discrete reliability,
-joint Gaussian-discrete fitting, bootstrap/jackknife, and general uncertainty
-intervals are not implemented. Numerical tests do not establish parameter
+joint Gaussian-discrete fitting, bootstrap/jackknife, and uncertainty intervals
+of any kind were not implemented in that release. (The development version adds
+asymptotic Wald standard errors and delta-method coefficient intervals for
+Gaussian fits only; see above.) Numerical tests do not establish parameter
 recovery, approximation adequacy, or application-wide statistical validity.

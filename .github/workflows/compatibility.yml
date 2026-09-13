@@ -43,6 +43,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # The package check builds the vignette, which needs pandoc on every
+      # platform in this matrix rather than whatever the runner image ships.
+      - uses: r-lib/actions/setup-pandoc@v2
       - name: Install minimum-R compilation dependencies
         if: matrix.minimum
         run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev
@@ -58,7 +61,7 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         if: ${{ !matrix.minimum }}
         with:
-          packages: any::OpenMx, any::lme4, any::ordinal
+          packages: any::OpenMx, any::lme4, any::ordinal, any::knitr, any::rmarkdown
           dependencies: 'c("Depends", "Imports", "LinkingTo")'
           upgrade: 'TRUE'
       - name: Check supported source and installed-package behavior

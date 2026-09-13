@@ -79,12 +79,27 @@ cat(sprintf("Nonzero random-effect integration reference: Laplace minus adaptive
 
 # The covariance derivative must detect an inward direction even when its
 # log-SD derivative is effectively zero at the artificial -10 lower bound.
-free_setup <- .gt_d_covariance_setup(groups, 1L, "diagonal", ctl, "a")
+# This coordinate check is specific to log-Cholesky; request it explicitly
+# because 'auto' now resolves univariate/diagonal models to direct variances.
+cholesky_ctl <- .gt_d_control(list(covariance_parameterization = "log_cholesky"))
+free_setup <- .gt_d_covariance_setup(groups, 1L, "diagonal", cholesky_ctl, "a")
+stopifnot(identical(free_setup$parameterization, "log_cholesky"))
 near_zero <- c(qlogis(mean(panel$a)), -10)
-near_zero_detail <- .gt_d_laplace(near_zero, prep, groups, free_setup, ctl, details = TRUE)
-near_zero_check <- .gt_d_stationarity(near_zero, prep, groups, free_setup, ctl, near_zero_detail)
+near_zero_detail <- .gt_d_laplace(near_zero, prep, groups, free_setup, cholesky_ctl, details = TRUE)
+near_zero_check <- .gt_d_stationarity(near_zero, prep, groups, free_setup, cholesky_ctl, near_zero_detail)
 stopifnot(!near_zero_check$stationary_within_tolerance,
           near_zero_check$covariance_gradients$item[[1L]] < -1)
+
+# The resolved default reaches the same natural zero-variance boundary in
+# direct variance coordinates, where the lower bound is not artificial.
+variance_setup <- .gt_d_covariance_setup(groups, 1L, "diagonal", ctl, "a")
+stopifnot(identical(variance_setup$parameterization, "variance"),
+          identical(variance_setup$lower, 0))
+at_zero <- c(qlogis(mean(panel$a)), 0)
+at_zero_detail <- .gt_d_laplace(at_zero, prep, groups, variance_setup, ctl, details = TRUE)
+at_zero_check <- .gt_d_stationarity(at_zero, prep, groups, variance_setup, ctl, at_zero_detail)
+stopifnot(!at_zero_check$stationary_within_tolerance,
+          at_zero_check$covariance_gradients$item[[1L]] < 0)
 
 # A deliberately truncated optimizer is allowed to return inspectable values,
 # but cannot enable coefficients. Disabling restart validation is also explicit.
@@ -104,7 +119,8 @@ stopifnot(unchecked$optimizer_completed, !unchecked$numerically_accepted,
 boundary <- panel
 boundary$a <- as.integer(boundary$occasion <= 6L)
 boundary_fit <- .gt_fit_discrete(boundary, "a", design, list(binary),
-  control = list(start_sd = exp(-10), maxit = 50L))
+  control = list(covariance_parameterization = "log_cholesky",
+    start_sd = exp(-10), maxit = 50L))
 stopifnot(boundary_fit$optimizer_completed, !boundary_fit$numerically_accepted,
           "artificial_parameter_bound_contact" %in% boundary_fit$diagnostics$acceptance_failures)
 

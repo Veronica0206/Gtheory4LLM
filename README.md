@@ -6,7 +6,11 @@ LLM-as-a-judge evaluations. Specify which evaluator, prompt, and repeated-run
 sources matter for your study, fit their variation, and compare projected
 reliability across alternative numbers of evaluators and prompts.
 
-Version **0.0.6** provides exact balanced Gaussian analyses and a bounded,
+This checkout is **0.0.7**. The files in `artifacts/` still describe the
+previously submitted **0.0.6** release and are not rebuilt here. Build this
+checkout to use the changes listed in `NEWS.md`.
+
+The package provides exact balanced Gaussian analyses and a bounded,
 first-order Laplace implementation for small discrete models. Numerical checks
 and supported coefficient scales are explicit. Passing a software check does
 not establish parameter recovery, approximation accuracy, or the number of
@@ -14,17 +18,26 @@ LLMs needed in a real application.
 
 ## Install
 
-R 4.5 or later and OpenMx are required. Install the source archive from the
+R 4.5 or later and OpenMx are required. Nothing in this package's own R code
+needs R 4.5; the floor is inherited from OpenMx 2.22.11, which calls a C entry
+point introduced in R 4.5.0 while declaring only `R (>= 3.5.0)` itself.
+Declaring it here turns a later, unexplained compilation failure into a clear
+refusal. Older pairings such as R 4.3 with OpenMx 2.21.11 have been reported to
+pass these checks but are not part of the validated gate; to use one, install
+from source with a relaxed floor, or `source("load_functions.R")`, which
+imposes no version requirement. Install the source archive from the
 [release page](https://github.com/Veronica0206/Gtheory4LLM/releases):
 
 ```r
 install.packages("OpenMx")
-install.packages("Gtheory4LLM_0.0.6.tar.gz", repos = NULL, type = "source")
+install.packages("Gtheory4LLM_0.0.7.tar.gz", repos = NULL, type = "source")
 library(Gtheory4LLM)
 ```
 
-For a checkout, build and install with `R CMD build .` followed by
-`R CMD INSTALL Gtheory4LLM_0.0.6.tar.gz`. CRAN availability is separate from
+Use the archive name that the release page actually offers; older releases are
+kept there. For a checkout, build and install with `R CMD build .` followed by
+`R CMD INSTALL Gtheory4LLM_0.0.7.tar.gz`. Building the vignette needs knitr,
+rmarkdown, and pandoc; nothing else does. CRAN availability is separate from
 GitHub availability; this repository does not imply CRAN acceptance.
 
 ## A complete LLM reliability workflow
@@ -39,18 +52,18 @@ source(system.file("doc", "LLM-workflow.R",
                    package = "Gtheory4LLM", mustWork = TRUE))
 ```
 
-Read the [illustrated guide](inst/doc/LLM-workflow.html) or locate the installed
-HTML with `system.file("doc", "LLM-workflow.html", package = "Gtheory4LLM")`.
-The main steps are:
+The same workflow is installed as a vignette: `browseVignettes("Gtheory4LLM")`,
+or `vignette("LLM-workflow", package = "Gtheory4LLM")`. Its source is
+[vignettes/LLM-workflow.Rmd](vignettes/LLM-workflow.Rmd). The main steps are:
 
 ```r
 # llm_data and llm_design are created by the tutorial above.
 gt_preflight(llm_data, "quality", llm_design)
 summary(fit)
 gt_diagnostics(fit)$numerically_accepted
-gt_reliability(fit)$per_trait
+gt_reliability(fit)
 gt_dstudy(fit, expand.grid(evaluator = c(2, 4, 6),
-                          prompt = c(2, 3, 4), run = c(1, 2)))$results
+                          prompt = c(2, 3, 4), run = c(1, 2)))
 ```
 
 G describes relative comparisons between items. Phi additionally includes
@@ -58,7 +71,44 @@ absolute shifts across the declared measurement conditions. Decision studies
 average over specified random facet populations and hold fitted source
 covariances fixed. More evaluators or prompts are meaningful projections only
 if those populations and covariance assumptions remain appropriate. These are
-point estimates, not accuracy guarantees or uncertainty intervals.
+point estimates carrying an interval. For example, G = 0.80 describes the
+universe-score share of variance for relative item comparisons under the
+specified model; it is not 80% labeling accuracy or agreement with a human
+reference. Phi additionally penalizes absolute panel shifts and is no larger
+than G under this model.
+
+Gaussian fits report an asymptotic standard error for every source variance and
+a delta-method interval for G and Phi, both taken from the restricted-likelihood
+curvature the fit already computes:
+
+```r
+summary(fit)$variances          # variance, std_error, boundary flag
+gt_reliability(fit)$per_trait   # Erho2, Erho2_se, Erho2_lower, Erho2_upper, ...
+```
+
+These are asymptotic Wald quantities conditional on the declared model and
+allocation. They describe estimation uncertainty in the fitted source
+covariances, not sampling variation in the evaluator or prompt populations. A
+source resting on a variance boundary has no Wald standard error; the fit says
+so and, where the joint curvature is indefinite there, conditions the remaining
+intervals on that source being held at zero. The discrete Laplace engine
+computes no observed information and reports point estimates only.
+
+### Fixed facets
+
+A facet is random when the study generalizes to a population of its levels, and
+fixed when the universe is exactly the levels used. Temperature is chosen, not
+sampled, and a prompt set is often the whole set of interest. Declare those with
+`fixed`, which applies the mixed model of Brennan (2001): the object-by-fixed
+interaction is averaged over that facet's levels and joins universe-score
+variance, and a source built only from fixed facets leaves the model.
+
+```r
+gt_reliability(fit, fixed = "temp")
+```
+
+A fixed facet's count cannot be changed, and a decision study may not project
+over it.
 
 ## Designs and outcome types
 
@@ -93,6 +143,18 @@ MoM. See [Brennan (2001)](https://doi.org/10.1007/978-1-4757-3456-0) and
 [Jiang et al. (2020)](https://doi.org/10.3758/s13428-020-01399-z) for G theory
 and earlier multivariate likelihood implementations.
 
+At one observation per object-by-facets cell, a discrete fit cannot identify the
+object-by-all-facets source that the default design requests, and that source is
+never dropped silently. Declare the same design without it:
+
+```r
+binary_design <- gt_design("item", "rater", full_cell = FALSE)
+```
+
+`full_cell = FALSE` removes exactly that one term and leaves every other
+requested source unchanged; `random = ~ item + rater` writes the reduced model
+out in full. Either way the omission is an explicit modeling choice.
+
 ## Numerical controls and limits
 
 `gt_control()` exposes named starting values, reproducible additional fitting
@@ -109,15 +171,17 @@ also require a complete balanced coded panel.
 
 The dense discrete backend defaults to at most 1,200 rows, 200 random-effect
 dimensions, and 80 parameters. Raising these limits does not validate the
-approximation. Exact-zero variance parameters are available for univariate or
-diagonal discrete models; general singular unstructured covariances are not
+approximation. The default `covariance_parameterization = "auto"` uses exact-zero-capable
+variance coordinates for univariate or diagonal discrete models and log-Cholesky
+coordinates for joint unstructured models; general singular unstructured covariances are not
 implemented. Numerical acceptance does not prove a global optimum or adequate
 Laplace approximation. Rejected fits cannot produce coefficients.
 
-Bootstrap, jackknife, general uncertainty intervals, observed-score discrete
-reliability, and automatic minimum-allocation search are not provided.
-Estimator recovery, interval coverage, and broad LLM evaluation performance
-require further statistical validation.
+Bootstrap, jackknife, discrete standard errors, observed-score discrete
+reliability, and automatic minimum-allocation search are not provided. Gaussian
+intervals are asymptotic and Wald; their coverage has been checked only on a
+small set of crossed two-facet simulations, and estimator recovery and broad LLM
+evaluation performance still require further statistical validation.
 
 ## Example data and references
 
@@ -130,11 +194,29 @@ modeled annotations from the [public OSF deposit](https://doi.org/10.17605/OSF.I
 The original source CSV checksums match that deposit. Raw texts, original corpus
 reference labels, and API metadata are omitted from the package tables.
 
-Native coding preserves binary, ordinal, or unordered categorical outcomes;
+The six discrete native outcome sets each contain 21,600 rows and exceed the
+dense discrete engine limits by more than an order of magnitude; raising the
+limits does not make the dense engine practical at that size. They are data resources, not full-panel discrete
+fitting examples. Use a scientifically justified small design for this backend;
+do not remove item interactions merely to obtain an accepted fit. The two
+mental-health 7L/3L sets remain Gaussian working scores under both coding options.
+
+Temperature and seed are also not exchangeable in the same way. Temperature is
+a setting, so declare it `fixed` or analyse within one temperature. Seed is a
+genuine replication facet, but its variation is strongly heteroscedastic: the
+share of cells in which all three seeds agree falls from 0.92 to 0.73 (hate
+speech), 0.91 to 0.68 (mental health), and 0.84 to 0.58 (drug reviews) between
+temperature 0 and 1. A single seed variance pooled across all six temperatures
+is misspecified for these panels. See `help("gtheory_datasets")`.
+
+Other native codings preserve binary, ordinal, or unordered categorical outcomes;
 `coding = "manuscript"` reproduces the seven historical Gaussian working-score
 codings. Mental-health 7L/3L values are working scores, not established clinical
 severity scales. The installed manual documents variables, category mappings,
-preprocessing, source corpora, and the corresponding annotation studies:
+preprocessing, source corpora, and the corresponding annotation studies. In
+particular, the original mental-health preprocessing could default omitted items
+within a parsed batch to NORMAL; these defaults cannot be distinguished in the
+bundled tables. Interpret the labels with that limitation in mind:
 
 ```r
 gt_example()

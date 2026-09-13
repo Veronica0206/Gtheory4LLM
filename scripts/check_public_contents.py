@@ -36,6 +36,11 @@ PUBLIC_FILES = {
     "renv.lock", "load_functions.R", ".gitignore", ".Rbuildignore",
     "cran-comments.md", "CRAN-SUBMISSION", "CITATION", "configure", "cleanup"
 }
+# Operating-system metadata files carry no publishable content, are already
+# ignored by git, and are recreated by the desktop environment on sight. They
+# are skipped only in a working-tree scan, and only by exact name: an audit that
+# a maintainer learns to ignore is worse than one that is slightly narrower.
+OS_METADATA_FILES = {".DS_Store", "Thumbs.db", "desktop.ini", "._.DS_Store"}
 PRIVATE_DIRECTORIES = {
     "companion", "reference", "review", "planning", "provenance", "archive",
     "archives", "skills", ".agents", ".codex", ".claude"
@@ -109,6 +114,7 @@ class PublicAudit:
         self.root = root.resolve()
         self.expected_data_kind = expected_data_kind
         self.findings: list[dict[str, str]] = []
+        self.skipped_os_metadata: list[str] = []
         self.files_checked = 0
         self.rds_checked = 0
         self.archives_checked = 0
@@ -137,6 +143,9 @@ class PublicAudit:
             if not allowed:
                 self.fail(label, "Unexpected generated package-build file.")
             return allowed
+        if not archive and parts[-1] in OS_METADATA_FILES and not directory:
+            self.skipped_os_metadata.append(relative)
+            return False
         if parts[0] not in PUBLIC_DIRECTORIES and not (len(parts) == 1 and relative in PUBLIC_FILES):
             self.fail(label, "Unexpected top-level package content.")
             return False
@@ -331,6 +340,7 @@ class PublicAudit:
                 "files_checked": self.files_checked, "serialized_resources_checked": self.rds_checked,
                 "archives_checked": self.archives_checked, "commits_checked": self.commits_checked,
                 "findings": self.findings,
+                "skipped_os_metadata": sorted(set(self.skipped_os_metadata)),
                 "scope": "Concrete public-content policy; not a redistribution-rights determination or a substitute for human publication review."}
 
 

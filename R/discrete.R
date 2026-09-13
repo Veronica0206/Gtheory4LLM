@@ -1,3 +1,7 @@
+# Documentation policy: man/*.Rd and NAMESPACE are hand written and are
+# the only source of truth. These comments describe the code for readers;
+# they are deliberately not roxygen, so running roxygen2 cannot replace the
+# richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Discrete G-theory likelihoods shared by package and source-based use.
 #
 # This is a deliberately bounded dense Laplace implementation. Random sources
@@ -19,7 +23,7 @@
                    validation_inner_tol = 1e-9, alternative_starts = 1L,
                    stability_objective_tol = 1e-6,
                    stability_parameter_tol = 0.02, bound_tol = 1e-4,
-                   covariance_parameterization = "log_cholesky",
+                   covariance_parameterization = "auto",
                    start = NULL, optimizer = "L-BFGS-B")
   if (!is.list(control) || (length(control) &&
       (is.null(names(control)) || anyNA(names(control)) ||
@@ -50,8 +54,8 @@
   if (!is.character(defaults$covariance_parameterization) ||
       length(defaults$covariance_parameterization) != 1L ||
       is.na(defaults$covariance_parameterization) ||
-      !defaults$covariance_parameterization %in% c("log_cholesky", "variance"))
-    .gt_d_stop("covariance_parameterization must be 'log_cholesky' or 'variance'.")
+      !defaults$covariance_parameterization %in% c("auto", "log_cholesky", "variance"))
+    .gt_d_stop("covariance_parameterization must be 'auto', 'log_cholesky', or 'variance'.")
   if (!is.character(defaults$optimizer) || length(defaults$optimizer) != 1L ||
       is.na(defaults$optimizer) || !defaults$optimizer %in% c("L-BFGS-B", "nlminb"))
     .gt_d_stop("discrete optimizer must be 'L-BFGS-B' or 'nlminb'.")
@@ -408,9 +412,12 @@
     return(list(fixed = factors, start = numeric(), lower = numeric(), upper = numeric(), q = q,
                 parameterization = "fixed"))
   }
-  # Opt-in boundary-capable coordinates. This is not an unstructured
-  # covariance parameterization and must never silently remove covariances.
-  if (identical(control$covariance_parameterization, "variance")) {
+  # Resolve coordinates without changing the requested covariance model.
+  # Joint unstructured models retain all cross-outcome covariance parameters.
+  parameterization <- control$covariance_parameterization
+  if (identical(parameterization, "auto"))
+    parameterization <- if (q == 1L || covariance == "diagonal") "variance" else "log_cholesky"
+  if (identical(parameterization, "variance")) {
     if (q > 1L && covariance != "diagonal")
       .gt_d_stop("The variance parameterization requires a univariate or diagonal covariance model; unstructured joint covariance still uses log_cholesky.")
     start <- rep(control$start_sd^2, length(groups) * q)
@@ -693,15 +700,15 @@
   max(location, covariance)
 }
 
-#' Fit one or more discrete outcomes using a joint Laplace likelihood
-#'
-#' Internal engine for gt_fit(). covariance is shared as a structure choice
-#' across sources; every source gets its own matrix. A multivariate ordinal or
-#' binary fit estimates source covariances across outcomes. A categorical fit
-#' has K-1 correlated category contrasts per outcome with an explicit reference.
-#' Mixed discrete families are supported; Gaussian-discrete combinations are
-#' outside this engine. Missing outcomes and unobserved declared categories are
-#' rejected in this first implementation. This engine has no REML estimator.
+# Fit one or more discrete outcomes using a joint Laplace likelihood
+#
+# Internal engine for gt_fit(). covariance is shared as a structure choice
+# across sources; every source gets its own matrix. A multivariate ordinal or
+# binary fit estimates source covariances across outcomes. A categorical fit
+# has K-1 correlated category contrasts per outcome with an explicit reference.
+# Mixed discrete families are supported; Gaussian-discrete combinations are
+# outside this engine. Missing outcomes and unobserved declared categories are
+# rejected in this first implementation. This engine has no REML estimator.
 .gt_fit_discrete <- function(data, outcomes, design, families,
                              covariance = "unstructured", control = list()) {
   control <- .gt_d_control(control)
@@ -996,6 +1003,7 @@
                        supplied_start_parameters = control$start,
                        tight_final_mode = tight_final_mode,
                        covariance_parameterization = setup$parameterization,
+                       covariance_parameterization_requested = control$covariance_parameterization,
                        zero_variance_parameters = zero_variances,
                        acceptance = "Completed optimizer, tight conditional mode, independent fixed-effect and covariance-scale stationarity, stable tight restarts, and no artificial-bound contact. Approximation adequacy is separate.",
                        optimizer_code = fit$convergence,
@@ -1025,6 +1033,10 @@
        optimizer_completed = optimizer_completed, numerically_accepted = converged,
        approximation_adequacy = approximation_adequacy, diagnostics = diagnostics,
        conditional_eta = final$eta, conditional_probabilities = probabilities,
+       uncertainty = list(available = FALSE,
+         reason = paste("The dense first-order Laplace engine computes no observed information,",
+           "so its coefficients are point estimates only."),
+         method = NA_character_, boundary_components = boundary_sources),
        parameters = fit$par, starting_parameters = start, optimizer = fit, covariance = covariance,
        families = families, outcomes = outcomes, design = design, residual_structure = "fixed_by_link",
        control = control)

@@ -49,16 +49,17 @@ Discrete optimizer controls are:
 \item \code{trace}: 0.
 \item \code{optimizer}: \code{"L-BFGS-B"}; alternatively \code{"nlminb"}.
 \item \code{start}: NULL (automatic response and covariance starts).
-\item \code{covariance_parameterization}: \code{"log_cholesky"}.
+\item \code{covariance_parameterization}: \code{"auto"}.
 }
-The default covariance parameterization is unchanged. Set
-\code{covariance_parameterization} to \code{"variance"} to estimate nonnegative
-variances directly for univariate models or joint models with
-\code{covariance = "diagonal"}.
-It admits an exact-zero variance. It does not implement a boundary solver for
-unstructured joint covariance and rejects that combination rather than removing
-covariances. The variance upper bound is \code{exp(10)}, matching the largest
-diagonal variance allowed by the default log-Cholesky bounds. \code{start_sd}
+The default \code{"auto"} uses direct nonnegative variance coordinates for
+univariate models and joint models with \code{covariance = "diagonal"}.
+Joint models with unstructured covariance use \code{"log_cholesky"}, retaining
+all cross-outcome covariance parameters. Explicit \code{"variance"} and
+\code{"log_cholesky"} selections remain available. Direct variance coordinates
+admit exact zeros; an explicit \code{"variance"} request with joint unstructured
+covariance is rejected rather than removing covariances. The variance upper
+bound is \code{exp(10)}, matching the largest diagonal variance allowed by the
+log-Cholesky bounds. \code{start_sd}
 still denotes a starting standard deviation and must be positive.
 
 Discrete \code{start} is a finite, uniquely named numeric vector of optimizer
@@ -87,13 +88,16 @@ relative objective tolerance. Each optimizer uses its own native stopping rules;
 the same independent numerical-acceptance checks apply afterward. Optimizer
 choice is not evidence of approximation accuracy.
 
-Zero is a natural lower variance boundary in this opt-in mode, not an artificial
+Zero is a natural lower boundary in direct variance coordinates, not an artificial
 optimizer floor. Within \code{gt_diagnostics(fit)$diagnostics}, the
 \code{zero_variance_parameters} field lists exact zeros. These estimates must
 still pass independent covariance-scale stationarity and restart checks. All upper
 bounds and fixed-effect/threshold bounds remain artificial and still cause
 rejection on contact. This mode does not establish approximation accuracy or
 sampling properties for boundary estimates.
+The diagnostics field \code{covariance_parameterization_requested} records the
+control selection; \code{covariance_parameterization} records the resolved
+coordinates (\code{"variance"}, \code{"log_cholesky"}, or \code{"fixed"}).
 
 Discrete numerical-acceptance controls are:
 \itemize{
@@ -138,7 +142,7 @@ Optimizer completion, numerical acceptance, and approximation adequacy are separ
 \examples{
 gt_control(gaussian = list(retry_seed = 123, check_hessian = FALSE),
   discrete = list(max_random_dimension = 100, alternative_starts = 1))
-# Opt-in boundary-capable coordinates; this does not change the default.
-gt_control(discrete = list(covariance_parameterization = "variance"))
+# Auto selects boundary-capable coordinates when the covariance model permits.
+gt_control(discrete = list(covariance_parameterization = "auto"))
 gt_control(discrete = list(optimizer = "nlminb", alternative_starts = 2))
 }

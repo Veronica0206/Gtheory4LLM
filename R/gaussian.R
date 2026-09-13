@@ -1,3 +1,7 @@
+# Documentation policy: man/*.Rd and NAMESPACE are hand written and are
+# the only source of truth. These comments describe the code for readers;
+# they are deliberately not roxygen, so running roxygen2 cannot replace the
+# richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Public dispatch is provided by gt_fit(); this file owns the Gaussian backend.
 
 .gt_gaussian_validate_control <- function(control) {
@@ -55,29 +59,29 @@
   start
 }
 
-#' Fit Gaussian source covariance matrices for a balanced general G design
-#'
-#' The object name and number and names of instrumentation facets are arbitrary.
-#' Every selected grouping term contributes one source-specific outcome covariance
-#' matrix. Univariate fitting is the one-outcome case of this same joint engine.
-#'
-#' This first backend requires the complete Cartesian panel of the coded object
-#' and facet levels, with one observation per cell and no missing outcomes. A
-#' declared nested group is a parent-scoped grouping term in that panel. Physical
-#' nesting with disjoint globally unique child labels, unbalanced panels, and
-#' within-cell replication require another preparation backend and are rejected.
-#'
-#' ML profiles the fixed outcome means. REML includes D*log(N), matching the
-#' unscaled fixed-intercept convention in lme4. ML AIC includes profiled means;
-#' ML BIC uses N response vectors, with an explicit N*D alternative. Legacy
-#' variance-only criteria remain named separately. Generic AIC/BIC are unavailable
-#' for REML; explicitly named restricted-likelihood criteria preserve the archive.
-#'
-#' @param covariance One of unstructured/diagonal or named source overrides.
-#'   With named overrides, unspecified sources use diagonal covariance.
-#' @param residual One of unstructured, diagonal, or pooled (equal trait variance).
-#' @return A list containing source covariance matrices, outcome means, exact
-#'   likelihood, stationarity and boundary diagnostics, and the fitted OpenMx model.
+# Fit Gaussian source covariance matrices for a balanced general G design
+#
+# The object name and number and names of instrumentation facets are arbitrary.
+# Every selected grouping term contributes one source-specific outcome covariance
+# matrix. Univariate fitting is the one-outcome case of this same joint engine.
+#
+# This first backend requires the complete Cartesian panel of the coded object
+# and facet levels, with one observation per cell and no missing outcomes. A
+# declared nested group is a parent-scoped grouping term in that panel. Physical
+# nesting with disjoint globally unique child labels, unbalanced panels, and
+# within-cell replication require another preparation backend and are rejected.
+#
+# ML profiles the fixed outcome means. REML includes D*log(N), matching the
+# unscaled fixed-intercept convention in lme4. ML AIC includes profiled means;
+# ML BIC uses N response vectors, with an explicit N*D alternative. Legacy
+# variance-only criteria remain named separately. Generic AIC/BIC are unavailable
+# for REML; explicitly named restricted-likelihood criteria preserve the archive.
+#
+# covariance: One of unstructured/diagonal or named source overrides.
+#   With named overrides, unspecified sources use diagonal covariance.
+# residual: One of unstructured, diagonal, or pooled (equal trait variance).
+# Returns: A list containing source covariance matrices, outcome means, exact
+#   likelihood, stationarity and boundary diagnostics, and the fitted OpenMx model.
 .gt_fit_gaussian <- function(data, outcomes, design, estimator = "REML",
                              covariance = "unstructured", residual = "unstructured",
                              control = list()) {
@@ -109,9 +113,8 @@
   result <- do.call(engine$fit, c(list(data = data, outcomes = outcomes,
     facets = facets, spec = design$terms, reml = estimator == "REML",
     covariance = covariance, residual = residual, prepared = prepared), control))
-  checked_design <- design
-  checked_design$validated_data <- TRUE
-  checked_design$validation_scope <- "Complete Cartesian coded panel, one observation per full cell; declared parent-scoped grouping terms. Physical nesting not inferred."
+  checked_design <- .gt_design_validated(design,
+    "Complete Cartesian coded panel, one observation per full cell; declared parent-scoped grouping terms. Physical nesting not inferred.")
   checked_design$observed_counts <- prepared$counts
   result$design <- checked_design
   result$family <- stats::setNames(lapply(outcomes, function(x)

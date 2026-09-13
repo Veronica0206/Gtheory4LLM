@@ -67,13 +67,13 @@ stopifnot(identical(malformed$attempt$raw_result, "bad return"),
 d <- expand.grid(occasion = seq_len(12), item = seq_len(8))
 d$y <- as.integer(d$occasion <= 6L)
 design <- gt_design("item", "occasion", random = ~ item)
-control <- gt_control(discrete = list(covariance_parameterization = "variance",
-                                     maxit = 300L, alternative_starts = 2L))
+control <- gt_control(discrete = list(maxit = 300L, alternative_starts = 2L))
 for (link in c("logit", "probit")) {
   boundary <- gt_fit(d, "y", design, gt_family("binary", link), control = control)
   stopifnot(boundary$numerically_accepted,
             identical(boundary$covariance_components$item[[1L]], 0),
             identical(boundary$diagnostics$covariance_parameterization, "variance"),
+            identical(boundary$diagnostics$covariance_parameterization_requested, "auto"),
             length(boundary$diagnostics$zero_variance_parameters) == 1L,
             !length(boundary$diagnostics$parameter_bounds),
             boundary$diagnostics$outer_stationarity$stationary_within_tolerance,
@@ -126,9 +126,10 @@ for (specification in list(
 }
 cat("PASS: analytic ordinal logit/probit and diagonal nominal boundary likelihoods and covariance scores.\n")
 
-# The default remains log-Cholesky, including its artificial-floor rejection.
+# Explicit log-Cholesky retains its artificial-floor rejection.
 legacy <- suppressWarnings(gt_fit(d, "y", design, gt_family("binary", "logit"),
-  control = gt_control(discrete = list(start_sd = exp(-10), maxit = 50L))))
+  control = gt_control(discrete = list(covariance_parameterization = "log_cholesky",
+    start_sd = exp(-10), maxit = 50L))))
 stopifnot(!legacy$numerically_accepted,
           identical(legacy$diagnostics$covariance_parameterization, "log_cholesky"),
           "artificial_parameter_bound_contact" %in% legacy$diagnostics$acceptance_failures)
@@ -137,7 +138,8 @@ stopifnot(!legacy$numerically_accepted,
 d$y <- as.integer(d$occasion <= c(2L, 3L, 4L, 5L, 7L, 8L, 9L, 10L)[d$item])
 interior <- gt_fit(d, "y", design, gt_family("binary", "logit"), control = control)
 reference <- suppressWarnings(gt_fit(d, "y", design, gt_family("binary", "logit"),
-  control = gt_control(discrete = list(maxit = 300L, alternative_starts = 2L))))
+  control = gt_control(discrete = list(covariance_parameterization = "log_cholesky",
+    maxit = 300L, alternative_starts = 2L))))
 stopifnot(interior$numerically_accepted, interior$covariance_components$item[[1L]] > .01,
           !length(interior$diagnostics$zero_variance_parameters))
 near(interior$minus2loglik, reference$minus2loglik, 1e-5)
@@ -183,7 +185,16 @@ stopifnot(joint$numerically_accepted, joint$covariance_components$item[2, 2] == 
           all(joint$covariance_components$item[row(diag(2)) != col(diag(2))] == 0))
 near(joint$minus2loglik, interior$minus2loglik + 2 * nrow(d) * log(2), 1e-5)
 expect_error(gt_fit(d, c("y", "z"), design, gt_family("binary", "logit"),
-                    covariance = "unstructured", control = control), "univariate or diagonal")
+  covariance = "unstructured", control = gt_control(discrete = list(
+    covariance_parameterization = "variance", maxit = 300L, alternative_starts = 2L))),
+  "univariate or diagonal")
+# The resolved default must not silently convert that unstructured request:
+# 'auto' selects log-Cholesky coordinates and keeps every covariance parameter.
+auto_joint <- gt_fit(d, c("y", "z"), design, gt_family("binary", "logit"),
+                     covariance = "unstructured", control = control)
+stopifnot(identical(auto_joint$diagnostics$covariance_parameterization, "log_cholesky"),
+          identical(auto_joint$diagnostics$covariance_parameterization_requested, "auto"),
+          length(auto_joint$diagnostics$starting_parameters) == 5L)
 expect_error(gt_fit(d, "y", design, gt_family("binary"),
   control = gt_control(discrete = list(covariance_parameterization = "typo"))),
   "covariance_parameterization")

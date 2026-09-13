@@ -21,6 +21,28 @@ def sanitize(value, work):
     return value
 
 
+def vignette_toolchain(rscript, environment):
+    """Report whether knitr, rmarkdown, and pandoc are all usable here.
+
+    This decides only whether the gate can build and check vignettes. It is not
+    a statement about the package's own dependencies, which never include them.
+    """
+    probe = ('cat(paste(c('
+             'if (requireNamespace("knitr", quietly = TRUE)) "knitr", '
+             'if (requireNamespace("rmarkdown", quietly = TRUE)) "rmarkdown", '
+             'if (requireNamespace("rmarkdown", quietly = TRUE) && '
+             'rmarkdown::pandoc_available()) "pandoc"), collapse = ","))')
+    try:
+        found = subprocess.run([rscript, '--vanilla', '-e', probe], env=environment,
+                               capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError) as failure:
+        return {'available': False, 'present': [], 'reason': 'probe failed: ' + str(failure)}
+    present = [name for name in found.stdout.strip().split(',') if name]
+    missing = [name for name in ('knitr', 'rmarkdown', 'pandoc') if name not in present]
+    return {'available': not missing, 'present': present,
+            'reason': '' if not missing else 'missing ' + ', '.join(missing)}
+
+
 def check_status(log, as_cran=False):
     errors = len(re.findall(r"^\* checking .*\.\.\. (?:\[[^]]+\] )?ERROR\s*$", log, re.M))
     warnings = len(re.findall(r"^\* checking .*\.\.\. (?:\[[^]]+\] )?WARNING\s*$", log, re.M))
@@ -73,7 +95,22 @@ def main():
             raise RuntimeError(name + ' failed')
     try:
         run('package_data', [args.rscript, '--vanilla', str(ROOT / 'scripts/build_package_data.R'), '--verify-only'], directory=ROOT)
-        run('build', [r, 'CMD', 'build', '--no-build-vignettes', str(ROOT)])
+        # The distributed archive contains built vignettes, and the installed
+        # tutorial script and HTML are vignette build products. Build them here
+        # whenever the toolchain is present so the gate checks the real archive.
+        # knitr, rmarkdown, and pandoc are build-time tools, not runtime model
+        # dependencies, so a restored library that pins only the numerical stack
+        # may not carry them. Report which path ran instead of failing closed on
+        # a missing documentation toolchain.
+        toolchain = vignette_toolchain(args.rscript, environment)
+        (work / 'vignette_toolchain.log').write_text(json.dumps(toolchain, indent=2))
+        report['vignette_toolchain'] = toolchain
+        build_command = [r, 'CMD', 'build', str(ROOT)]
+        if not toolchain['available']:
+            build_command.insert(3, '--no-build-vignettes')
+            print('Vignette toolchain unavailable (' + toolchain['reason'] +
+                  '); building and checking without vignettes.', flush=True)
+        run('build', build_command)
         archive = work / f'{package}_{version}.tar.gz'
         if not archive.is_file(): raise RuntimeError('Expected package source archive: '+str(archive))
         with tarfile.open(archive) as stream:
@@ -84,16 +121,20 @@ def main():
             violations += [str(p) for p in paths if len(p.parts)==2 and p.suffix.lower() in {'.zip','.patch'}]
             violations += [str(p) for p in paths if p.is_absolute() or '..' in p.parts]
             if violations: raise RuntimeError('Non-package content in build: '+str(violations))
-            required = ['DESCRIPTION','NAMESPACE','R/fit.R','tests/package-smoke.R','inst/CITATION']
+            required = ['DESCRIPTION','NAMESPACE','R/fit.R','tests/package-smoke.R','inst/CITATION',
+                        'vignettes/LLM-workflow.Rmd']
+            if toolchain['available']:
+                required += ['inst/doc/LLM-workflow.R', 'inst/doc/LLM-workflow.html']
             for p in required:
                 if package+'/'+p not in names: raise RuntimeError('Missing required package file: '+p)
         report['archive_audit'] = {'members': len(names), 'forbidden_content': [], 'required_files_present': True}
         check_command = [r, 'CMD', 'check', '--no-manual', '--library='+str(installed)]
+        if not toolchain['available']: check_command.append('--ignore-vignettes')
         if args.as_cran: check_command.append('--as-cran')
         run('check', check_command + [str(archive)])
         log = (work/(package+'.Rcheck')/'00check.log').read_text()
         report['r_cmd_check'] = check_status(log, args.as_cran)
-        report['r_cmd_check'].update({'as_cran':args.as_cran,'manual_built':False,'installed_tests_run':True})
+        report['r_cmd_check'].update({'as_cran':args.as_cran,'manual_built':False,'installed_tests_run':True,'vignettes_built':toolchain['available']})
         report['archive'] = str(archive)
         report['success'] = True
     except Exception as error:

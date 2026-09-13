@@ -1,3 +1,7 @@
+# Documentation policy: man/*.Rd and NAMESPACE are hand written and are
+# the only source of truth. These comments describe the code for readers;
+# they are deliberately not roxygen, so running roxygen2 cannot replace the
+# richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # General G-theory specification construction. No model fitting occurs here.
 
 .gt_design_abort <- function(...) stop(..., call. = FALSE)
@@ -113,49 +117,55 @@
   walk(random[[2L]])
 }
 
-#' Construct a flexible G-theory random-source specification
-#'
-#' The object of measurement is separate from the N instrumentation facets.
-#' Choose any nonempty subset as crossed roots and explicitly declare the
-#' remaining facets' nesting parents. Nesting scopes instrumentation within
-#' instrumentation; these groups remain shared across objects. This constructor
-#' validates the specification only. It does not inspect data or fit a model.
-#'
-#' @param object One object-of-measurement column name.
-#' @param facets Unique instrumentation column names, excluding the object.
-#' @param crossed Any nonempty subset of facets. Defaults to all facets.
-#' @param nested Named list mapping each non-crossed facet to its parent facets.
-#'   Multiple parents mean their joint group. Ancestors are expanded recursively;
-#'   input list order does not define nesting. Object-level nesting is unsupported
-#'   in this automatic generator; use an explicit custom specification if needed.
-#' @param item_interactions "complete", "additive", or a maximum number of
-#'   crossed facets in an object interaction. "additive" adds only object-by-
-#'   individual-crossed-facet interactions. The object is not counted in the order.
-#' @param instrument_interactions "complete", "additive", or maximum interaction
-#'   order among crossed instrumentation facets. Does not remove declared nested
-#'   components. Instrument interactions and object interactions are independent.
-#' @param item_nested Names of nested children whose full ancestor-expanded
-#'   groups also interact with the object. Does not imply ancestor object terms.
-#' @param random Optional explicit one-sided formula or character vector of
-#'   grouping terms. Cannot be combined with explicit automatic selector options.
-#'   Formula grammar is restricted to names, +, :, *, parentheses, and 0/1.
-#' @param replicates Declared observations per complete object-by-facets cell.
-#'   Requested sources are retained here. Fitting validates observed cell counts
-#'   and resolves any residual alias according to the response family.
-#' @param max_terms Upper bound on source expansion, checked before allocation.
-#' @return A gt_design object retaining all requested terms, expanded nested
-#'   groups, and pending family-specific alias and data validation metadata.
-#' @export
+# Construct a flexible G-theory random-source specification
+#
+# The object of measurement is separate from the N instrumentation facets.
+# Choose any nonempty subset as crossed roots and explicitly declare the
+# remaining facets' nesting parents. Nesting scopes instrumentation within
+# instrumentation; these groups remain shared across objects. This constructor
+# validates the specification only. It does not inspect data or fit a model.
+#
+# object: One object-of-measurement column name.
+# facets: Unique instrumentation column names, excluding the object.
+# crossed: Any nonempty subset of facets. Defaults to all facets.
+# nested: Named list mapping each non-crossed facet to its parent facets.
+#   Multiple parents mean their joint group. Ancestors are expanded recursively;
+#   input list order does not define nesting. Object-level nesting is unsupported
+#   in this automatic generator; use an explicit custom specification if needed.
+# item_interactions: "complete", "additive", or a maximum number of
+#   crossed facets in an object interaction. "additive" adds only object-by-
+#   individual-crossed-facet interactions. The object is not counted in the order.
+# instrument_interactions: "complete", "additive", or maximum interaction
+#   order among crossed instrumentation facets. Does not remove declared nested
+#   components. Instrument interactions and object interactions are independent.
+# item_nested: Names of nested children whose full ancestor-expanded
+#   groups also interact with the object. Does not imply ancestor object terms.
+# random: Optional explicit one-sided formula or character vector of
+#   grouping terms. Cannot be combined with explicit automatic selector options.
+#   Formula grammar is restricted to names, +, :, *, parentheses, and 0/1.
+# full_cell: Retain the object-by-all-facets source when the requested
+#   expansion contains it. FALSE removes exactly that one term and changes
+#   nothing else, which is how a binary/ordinal study with one observation per
+#   cell declares the same design without an unidentified observation-level
+#   source. Combinable with random.
+# replicates: Declared observations per complete object-by-facets cell.
+#   Requested sources are retained here. Fitting validates observed cell counts
+#   and resolves any residual alias according to the response family.
+# max_terms: Upper bound on source expansion, checked before allocation.
+# Returns: A gt_design object retaining all requested terms, expanded nested
+#   groups, and pending family-specific alias and data validation metadata.
 gt_design <- function(object, facets, crossed = facets, nested = NULL,
                       item_interactions = "complete",
                       instrument_interactions = "complete",
                       item_nested = character(), random = NULL,
-                      replicates = 1L, max_terms = 4096L) {
+                      full_cell = TRUE, replicates = 1L, max_terms = 4096L) {
   custom <- !is.null(random)
   explicit_selectors <- !missing(crossed) || !missing(nested) ||
     !missing(item_interactions) || !missing(instrument_interactions) || !missing(item_nested)
   if (custom && explicit_selectors)
     .gt_design_abort("Use either random or the automatic crossed/nested/interaction selectors, not both.")
+  if (!is.logical(full_cell) || length(full_cell) != 1L || is.na(full_cell))
+    .gt_design_abort("full_cell must be TRUE or FALSE.")
   object <- .gt_design_names(object, "object")
   if (length(object) != 1L) .gt_design_abort("object must name one column.")
   facets <- .gt_design_names(facets, "facets")
@@ -218,6 +228,15 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
   keep <- !duplicated(keys)
   groups <- groups[keep]
   keys <- keys[keep]
+  full_cell_term <- paste(variables, collapse = ":")
+  if (!full_cell && full_cell_term %in% keys) {
+    keep <- keys != full_cell_term
+    groups <- groups[keep]
+    keys <- keys[keep]
+    notes <- c(notes, paste0("full_cell = FALSE removed the requested object-by-all-facets source ",
+      full_cell_term, " before any data or family check. No other requested source changed."))
+  }
+  if (!length(keys)) .gt_design_abort("full_cell = FALSE removed every requested source; declare additional random terms.")
   if (!object %in% keys) .gt_design_abort("The object main-effect component is required.")
   if (length(keys) > max_terms) .gt_design_abort("Source terms exceed max_terms.")
   # Store deterministic order while preserving actual column-name identity.
@@ -236,7 +255,7 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
     object = object, facets = facets, n_facets = length(facets),
     crossed = crossed, direct_facets = direct, nested = expanded$parents,
     nested_groups = vapply(expanded$members, paste, collapse = ":", FUN.VALUE = character(1)),
-    item_nested = if (custom) character() else item_nested,
+    item_nested = if (custom) character() else item_nested, full_cell = full_cell,
     interaction_orders = orders, terms_requested = keys,
     terms = keys, term_members = groups, term_members_requested = groups,
     potential_aliases = potential_alias, alias_resolution = "pending_family_and_data",
@@ -261,7 +280,11 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
   observation_source <- if (design$replicates == 1L) intersect(requested, full) else character()
   if (family != "gaussian" && length(observation_source))
     stop("Requested observation-level source '", observation_source,
-      "' is unsupported for discrete outcomes with one observation per cell; it cannot be silently combined with an identified discrete residual. Declare an explicit reduced random model if this source is not intended.", call. = FALSE)
+      "' is unsupported for discrete outcomes with one observation per cell; it cannot be silently combined with an identified discrete residual. ",
+      "It is not removed automatically because dropping a source changes the model. ",
+      "Add full_cell = FALSE to the same gt_design() call to drop exactly this source and keep every other requested source, ",
+      "or declare the reduced model explicitly, for example ",
+      "gt_design('item', 'rater', random = ~ item + rater); adapt names and retain the interactions required by your study.", call. = FALSE)
   design$aliased_terms <- if (family == "gaussian") observation_source else character()
   design$terms <- setdiff(requested, design$aliased_terms)
   design$term_members <- members[design$terms]
@@ -271,5 +294,22 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
   design$notes <- unique(c(design$notes, if (length(design$aliased_terms))
     "Gaussian full-cell source and free residual have identical observed kernels and are combined as Residual." else
     "No requested source was dropped for this observation family."))
+  design
+}
+
+# Replace pending constructor notes only after an engine completes its data
+# checks. The scope records what was checked without claiming identification.
+.gt_design_validated <- function(design, scope) {
+  pending <- c(
+    "Specification only: actual data balance, level counts, nesting, kernel rank, and replication have not been validated.",
+    "Custom source terms do not infer physical crossing or nesting; the sampling design requires a separate data check.",
+    paste0("Requested full-cell source ", paste(c(design$object, design$facets), collapse = ":"),
+      " requires family-specific resolution after observed replication is checked."))
+  design$notes <- setdiff(design$notes, pending)
+  if (identical(design$construction, "custom"))
+    design$notes <- unique(c(design$notes,
+      "Custom source terms do not infer physical crossing or nesting; sampling-design interpretation remains the user's responsibility."))
+  design$validation_scope <- scope
+  design$validated_data <- TRUE
   design
 }
