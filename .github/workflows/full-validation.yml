@@ -32,6 +32,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # scripts/build_manual.R is the only gate that rejects overfull boxes in
+      # the reference manual; R CMD check runs --no-manual and would accept
+      # them. Give this job a LaTeX engine so the gate actually runs here.
+      - uses: r-lib/actions/setup-tinytex@v2
+      - name: Install reference-manual fonts
+        run: tlmgr install inconsolata helvetic times courier collection-latexrecommended
       - name: Install compilation dependencies
         # libuv1-dev is needed by fs, which rmarkdown reaches through sass and
         # bslib. Without it the vignette toolchain silently fails to install and

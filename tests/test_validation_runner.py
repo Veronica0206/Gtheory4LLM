@@ -16,13 +16,39 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class ValidationRunnerTests(unittest.TestCase):
+    def test_reference_manual_stage_runs_only_where_latex_exists(self):
+        # The manual gate is the only check that rejects overfull boxes, so it
+        # belongs in the source scope. It is omitted rather than faked where no
+        # LaTeX engine exists, and the report distinguishes the two.
+        lock = {"R": {"Version": "4.5.3"}, "Packages": {}}
+        with patch.object(RUNNER, "tex_available", return_value=True):
+            names = [name for name, _ in RUNNER.commands(RUNNER.ROOT, "Rscript", lock, False, "source")]
+        self.assertIn("reference_manual", names)
+        self.assertLess(names.index("reference_manual"), names.index("package_build_install_check"))
+        with patch.object(RUNNER, "tex_available", return_value=False):
+            without = [name for name, _ in RUNNER.commands(RUNNER.ROOT, "Rscript", lock, False, "source")]
+        self.assertNotIn("reference_manual", without)
+        # The artifact scope checks a built bundle and does not rebuild docs.
+        with patch.object(RUNNER, "tex_available", return_value=True):
+            artifact = [name for name, _ in RUNNER.commands(RUNNER.ROOT, "Rscript", lock, False, "artifact")]
+        self.assertNotIn("reference_manual", artifact)
+
+    def test_manual_stage_invokes_the_overfull_gate(self):
+        stage, command = RUNNER.manual_stage(RUNNER.ROOT, "Rscript")
+        self.assertEqual(stage, "reference_manual")
+        self.assertTrue(command[-2].endswith("Gtheory4LLM-manual.pdf"))
+        self.assertIn("build_manual.R", " ".join(command))
+
     def setUp(self):
         self.lock = json.loads((ROOT / "renv.lock").read_text())
 
     def test_every_r_test_and_example_gets_a_clean_process(self):
         plan = RUNNER.commands(ROOT, "Rscript", self.lock, False)
         r_commands = [command for _, command in plan if command[0] == "Rscript"]
-        self.assertEqual(len(r_commands), len(list((ROOT / "tests").glob("test_*.R"))) + 2)
+        # Every R test file, plus the preflight, the standalone example, and the
+        # reference-manual gate where a LaTeX engine exists to run it.
+        expected = len(list((ROOT / "tests").glob("test_*.R"))) + 2 + int(RUNNER.tex_available())
+        self.assertEqual(len(r_commands), expected)
         self.assertTrue(all(command[1] == "--vanilla" for command in r_commands))
         self.assertIn("standalone_example", [name for name, _ in plan])
         if (ROOT / "DESCRIPTION").exists():

@@ -4,6 +4,9 @@ args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 1L || length(args) > 2L)
   stop("Usage: Rscript scripts/build_manual.R output.pdf [build-directory]")
 script <- sub("^--file=", "", grep("^--file=", commandArgs(), value = TRUE)[1L])
+# Some Rscript builds encode spaces in --file as ~+~, so an absolute invocation
+# from a path containing a space resolves to a file that does not exist.
+if (!file.exists(script)) script <- gsub("~+~", " ", script, fixed = TRUE)
 root <- dirname(dirname(normalizePath(script, mustWork = TRUE)))
 output <- normalizePath(args[1L], mustWork = FALSE)
 work <- if (length(args) == 2L) args[2L] else tempfile("gtheory-manual-")

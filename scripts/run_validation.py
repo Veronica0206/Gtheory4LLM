@@ -24,6 +24,24 @@ REQUIRED = ("OpenMx", "lme4", "ordinal")
 COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R", "test_discrete.R"}
 
 
+def tex_available() -> bool:
+    """Whether a LaTeX engine is present to render the reference manual.
+
+    R CMD check runs with --no-manual so the package check does not require TeX
+    on every platform, and R CMD check would accept overfull boxes in any case.
+    scripts/build_manual.R is the only gate that rejects them, so it runs here
+    wherever it can rather than only by hand at release time.
+    """
+    return shutil.which("pdflatex") is not None
+
+
+def manual_stage(root: Path, rscript: str) -> tuple[str, list[str]]:
+    directory = os.environ.get("GTHEORY_MANUAL_CHECK_DIR")
+    target = Path(directory) if directory else Path(tempfile.mkdtemp(prefix="gtheory-manual-"))
+    return ("reference_manual", [rscript, "--vanilla", str(root / "scripts/build_manual.R"),
+                                 str(target / "Gtheory4LLM-manual.pdf"), str(target / "work")])
+
+
 def preflight_code(lock: dict, allow_version_drift: bool) -> str:
     required = ",".join(json.dumps(p) for p in REQUIRED)
     expected = ",".join(f"{json.dumps(p)}={json.dumps(info['Version'])}"
@@ -68,6 +86,11 @@ def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
         result.extend((str(p.relative_to(root)), [rscript, "--vanilla", str(p)]) for p in r_tests)
         if not compact:
             result.append(("standalone_example", [rscript, "--vanilla", str(root / "examples/standalone_usage.R")]))
+        # Rendered documentation is source, so it is gated with the sources. The
+        # stage is omitted rather than faked where no LaTeX engine exists; the
+        # report says which happened so a skipped run is not read as a pass.
+        if tex_available():
+            result.append(manual_stage(root, rscript))
         package_command = [sys.executable, str(root / "scripts/check_package.py"), "--rscript", rscript]
         if as_cran: package_command.append("--as-cran")
         result.append(("package_build_install_check", package_command))
@@ -150,6 +173,9 @@ def main(argv: list[str] | None = None) -> int:
             break
     done = {step["name"] for step in report["stages"] if step["exit_code"] == 0}
     report.update({"finished_utc": datetime.now(timezone.utc).isoformat(), "success": passed,
+                   "reference_manual_checked": "reference_manual" in done,
+                   "reference_manual_skipped_reason": None if tex_available() else
+                       "No LaTeX engine (pdflatex) on PATH; scripts/build_manual.R was not run.",
                    "source_validation_passed": "package_build_install_check" in done,
                    "committed_artifact_validation_passed": "committed_artifact_integrity_install_smoke" in done,
                    "full_locked_validation_passed": passed and mode == "locked" and options.scope == "all" and not options.compact})

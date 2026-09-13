@@ -32,8 +32,15 @@ workflow really is unverified in that run.
 `--as-cran` adds CRAN incoming checks. Only a CRAN incoming NOTE consisting of the
 maintainer line and `New submission` is classified as expected. It remains counted
 and reported. Other notes, warnings, errors, or incomplete checks fail validation.
-PDF manual generation is separate through `scripts/build_manual.R`; the automated
-package check uses `--no-manual` so it does not require TeX on every platform.
+The package check uses `--no-manual` so it does not require TeX on every platform,
+and R CMD check would accept overfull boxes in any case. `scripts/build_manual.R`
+is the only gate that rejects them, so the source scope runs it as the
+`reference_manual` stage wherever `pdflatex` is on PATH and omits it otherwise.
+The report distinguishes the two through `reference_manual_checked` and
+`reference_manual_skipped_reason`, so a run that could not render the manual is
+not read as one that rendered it cleanly. The locked Linux workflow installs
+TinyTeX so the gate is enforced there; set `GTHEORY_MANUAL_CHECK_DIR` to keep the
+rendered manual and its build log.
 
 The locked full gate uses R 4.5.3 and all versions in `renv.lock`, with one
 stated exception: knitr and rmarkdown are installed from current CRAN beside the
