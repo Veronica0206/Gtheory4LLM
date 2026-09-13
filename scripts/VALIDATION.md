@@ -28,7 +28,7 @@ compares to its recorded source commit, not to a later checkout. Check the local
 release tag's DESCRIPTION and manifest explicitly before publication:
 
 ```sh
-python3 scripts/check_committed_artifact.py --verify-only --check-release-identity --release-tag v0.0.7
+python3 scripts/check_committed_artifact.py --verify-only --check-release-identity --release-tag v0.1.0
 ```
 
 The tag example must be updated for a new release. The ordinary gate reports
@@ -39,7 +39,9 @@ release as verified. See [the release checklist](../docs/RELEASE_CHECKLIST.md).
 The package build now knits `vignettes/LLM-workflow.Rmd`, so the source stage
 needs knitr, rmarkdown, and pandoc in addition to the numerical stack. These are
 documentation build tools rather than runtime dependencies, so they are not
-recorded in `renv.lock`; the workflows install them beside the restored library.
+recorded in the numerical `renv.lock`; the locked workflow restores their
+versions from the combined `scripts/dependency-locks/documentation.lock`.
+Current-R compatibility and candidate checks resolve compatible CRAN versions.
 When they are absent, `scripts/check_package.py` records that fact under
 `vignette_toolchain`, builds with `--no-build-vignettes`, and checks with
 `--ignore-vignettes`. The installed-tutorial stage of `tests/package-preflight.R`

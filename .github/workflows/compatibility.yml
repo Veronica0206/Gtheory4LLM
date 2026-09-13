@@ -41,6 +41,9 @@ jobs:
       MAKEFLAGS: '-j2'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Release correspondence reads the artifact's recorded source commit.
+          fetch-depth: 0
       - uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           r-version: ${{ matrix.r }}

@@ -301,7 +301,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--verify-only", action="store_true", help="Check integrity and source correspondence without installing; this is not a smoke-test pass.")
     parser.add_argument("--check-release-identity", action="store_true", help="Also check current DESCRIPTION and release summaries against the manifest.")
-    parser.add_argument("--release-tag", help="Also verify this locally available release tag, e.g. v0.0.7.")
+    parser.add_argument("--release-tag", help="Also verify this locally available release tag, e.g. v0.1.0.")
     args = parser.parse_args(argv)
     work = args.output_dir.resolve() if args.output_dir else Path(tempfile.mkdtemp(prefix="gtheory-committed-artifact-"))
     work.mkdir(parents=True, exist_ok=True)

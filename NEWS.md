@@ -1,21 +1,68 @@
-# Gtheory4LLM 0.0.7
+# Gtheory4LLM 0.1.0
 
 <!-- release-identity:start -->
-Current artifact bundle: **0.0.7**.
+Current artifact bundle: **0.1.0**.
 The published files are preserved against the source commit in the manifest;
 subsequent repository refinements below do not replace those release files.
 <!-- release-identity:end -->
 
-## Repository refinements after release
+## Release scope
+
+- Consolidates the reviewed development API for univariate and multivariate
+  Gaussian models and small binary, ordinal, and unordered categorical models.
+  Designs support explicit crossed/nested random sources, selected item
+  interactions, and source-specific covariance. The numerical engines and
+  fitting limits are unchanged from 0.0.7.
+- Retains exact balanced Gaussian ML/REML, Gaussian variance standard errors
+  and coefficient intervals, supported fixed-facet reliability, and balanced
+  decision studies. Discrete likelihood uses first-order Laplace integration
+  with Gaussian random effects; binary/ordinal coefficients require the latent
+  scale, and discrete uncertainty intervals are not implemented.
+- Includes the three public LLM annotation panels and an executable real-data
+  and failure tutorial explaining native outcomes, model choices, numerical
+  diagnostics, and full-panel discrete fitting limits.
+
+## Reproducible statistical pilots
+
+- Adds protocols, seeds, source fingerprints, environment records, all
+  attempted replicates, and summaries outside the installable package.
+- Records 320 Gaussian fits across four univariate settings and ML/REML, with
+  40 replicates per setting/estimator. Observed coefficient coverage was
+  90--100%, with wide Monte Carlo intervals; these pilots do not establish a
+  general coverage guarantee or validate boundary-conditioned inference.
+- Records 180 fixed-parameter discrete panels across binary and ordinal
+  logit/probit and nominal softmax models. Independently integrated references
+  converged under refinement; 165 package comparisons were available and 15
+  were unavailable because a declared category was absent. Nonzero Laplace
+  errors are retained rather than treated as software-test failures.
+- Records 40 binary recovery fits across four settings. All were numerically
+  accepted, but short panels produced variable variance estimates and boundary
+  solutions. Numerical acceptance does not establish accurate recovery.
+- These results were generated against the recorded 0.0.7 source. Their
+  original provenance remains unchanged; the 0.1.0 release does not imply a
+  new simulation campaign or expanded statistical operating range.
+
+## Release and validation infrastructure
 
 - Corrects release-version prose and checks DESCRIPTION, the archive manifest,
   release summaries, and optionally the release tag for consistency.
 - Covers all pull-request and main-branch changes in CRAN candidate readiness,
   pins external Actions to verified commits, and cancels superseded runs.
+- Makes compatibility checks retrieve the recorded release source history
+  needed to verify committed artifacts.
+- Adds a documentation dependency lock and drift checks while preserving the
+  numerical dependency versions. The locked workflow restores both stacks;
+  current-R candidate checks retain their separate environment.
 - Clarifies parameter uncertainty versus new-panel prediction, fixed-facet
   choices, and what temperature-specific agreement can establish.
 - Adds contribution, release, and statistical-validation scope guidance.
 
+The version change does not add sparse fitting, unbalanced Gaussian estimation
+or reliability, cost-aware planning, bootstrap/jackknife, or discrete intervals.
+GitHub publication and package checks are separate from CRAN submission and
+acceptance.
+
+# Gtheory4LLM 0.0.7
 
 ## Fixes found in review of this release
 
@@ -149,8 +196,8 @@ subsequent repository refinements below do not replace those release files.
   Explicit choices and numerical acceptance criteria remain available.
 - Corrects the public package citation and explains full-panel discrete limits,
   mental-health preprocessing, and coefficient interpretation more directly.
-- The 0.0.7 source archive and reference manual are identified by
-  `artifacts/manifest.json`; older release files remain on their GitHub releases.
+- The 0.0.7 source archive and reference manual remain available in the
+  [v0.0.7 GitHub release](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.0.7).
 
 # Gtheory4LLM 0.0.6
 

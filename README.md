@@ -7,7 +7,7 @@ sources matter for your study, fit their variation, and compare projected
 reliability across alternative numbers of evaluators and prompts.
 
 <!-- release-identity:start -->
-Checkout version: **0.0.7**. Current artifact bundle: **0.0.7**.
+Checkout version: **0.1.0**. Current artifact bundle: **0.1.0**.
 The archive and manual in `artifacts/` are the published release, identified by
 its [manifest](artifacts/manifest.json). Later checkout changes are recorded in
 `NEWS.md`; the archive remains tied to the manifest's source commit.
@@ -33,13 +33,13 @@ imposes no version requirement. Install the source archive from the
 
 ```r
 install.packages("OpenMx")
-install.packages("Gtheory4LLM_0.0.7.tar.gz", repos = NULL, type = "source")
+install.packages("Gtheory4LLM_0.1.0.tar.gz", repos = NULL, type = "source")
 library(Gtheory4LLM)
 ```
 
 Use the archive name that the release page actually offers; older releases are
 kept there. For a checkout, build and install with `R CMD build .` followed by
-`R CMD INSTALL Gtheory4LLM_0.0.7.tar.gz`. Building the vignette needs knitr,
+`R CMD INSTALL Gtheory4LLM_0.1.0.tar.gz`. Building the vignette needs knitr,
 rmarkdown, and pandoc; nothing else does. CRAN availability is separate from
 GitHub availability; this repository does not imply CRAN acceptance.
 

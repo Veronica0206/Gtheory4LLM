@@ -52,6 +52,19 @@ def assert_pinned_actions(text):
             raise AssertionError(f"Action needs a reviewed full SHA and major comment: {value}")
 
 
+def assert_source_checkout_has_history(text):
+    # Every first job verifies source/artifact ancestry or audits public history.
+    # R-devel's later downloaded-archive job needs only its own source commit.
+    checkout = re.search(r"(?m)^( +)- uses: actions/checkout@[^\n]+\n", text)
+    if checkout is None:
+        raise AssertionError("Missing source checkout")
+    tail = text[checkout.end():]
+    next_step = re.search(rf"(?m)^{checkout[1]}- ", tail)
+    settings = tail[:next_step.start()] if next_step else tail
+    if not re.search(r"(?m)^\s+fetch-depth:\s+0\s*$", settings):
+        raise AssertionError("Source release verification requires full checkout history")
+
+
 class WorkflowContractTests(unittest.TestCase):
     def test_current_workflows_cover_all_changed_files_and_pin_actions(self):
         self.assertEqual({p.name for p in WORKFLOWS.glob("*.yml")}, EXPECTED)
@@ -60,6 +73,7 @@ class WorkflowContractTests(unittest.TestCase):
                 text = (WORKFLOWS / name).read_text(encoding="utf-8")
                 assert_all_change_triggers(text)
                 assert_pinned_actions(text)
+                assert_source_checkout_has_history(text)
                 self.assertEqual(block(text, "permissions"), ["  contents: read"])
                 self.assertEqual(block(text, "concurrency"), [
                     "  group: ${{ github.workflow }}-${{ github.ref }}",
@@ -85,6 +99,14 @@ class WorkflowContractTests(unittest.TestCase):
                       f"actions/checkout@{sha} # v5", f"actions/checkout@{sha}"]:
             with self.subTest(value=value), self.assertRaises(AssertionError):
                 assert_pinned_actions(f"      - uses: {value}\n")
+
+    def test_shallow_source_checkouts_are_rejected(self):
+        for name in sorted(EXPECTED):
+            original = (WORKFLOWS / name).read_text(encoding="utf-8")
+            for changed in (original.replace("fetch-depth: 0", "fetch-depth: 1", 1),
+                            original.replace("          fetch-depth: 0\n", "", 1)):
+                with self.subTest(workflow=name), self.assertRaisesRegex(AssertionError, "full checkout history"):
+                    assert_source_checkout_has_history(changed)
 
 
 if __name__ == "__main__":

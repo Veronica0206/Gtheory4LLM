@@ -1,6 +1,6 @@
 # Validation scope
 
-This document separates implemented checks from the scientific validation still needed. It describes the v0.0.7 implementation; it is not a new test-run report or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
+This document separates implemented checks from the scientific validation still needed. It describes the v0.1.0 implementation (numerical engines unchanged from v0.0.7); it is not a new test-run report or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
 
 ## What the existing checks establish
 

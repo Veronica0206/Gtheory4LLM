@@ -28,7 +28,7 @@ silently replace those files.
 
    ```sh
    python3 scripts/check_committed_artifact.py --verify-only \
-     --check-release-identity --release-tag v0.0.7
+     --check-release-identity --release-tag v0.1.0
    ```
 
    Replace the example tag for a new release. A deliberately mismatched version,
@@ -48,8 +48,11 @@ Before merging statistical changes, review the completed full numerical,
 platform compatibility, and exact candidate jobs. Before publishing, review the
 artifact and tag checks as well. Branch protection/required-check settings are a
 separate repository-admin configuration; this document does not assert that
-GitHub enforces them. The R numerical lock does not freeze the documentation
-build stack or current-R candidate environment; preserve their session metadata.
+GitHub enforces them. The numerical and documentation locks pin the R packages
+used by the locked validation job, with a drift check preserving the numerical
+versions. Pandoc, TeX, the operating system and system libraries remain outside
+these locks. The current-R candidate environment is also separate; preserve its
+session metadata and the documentation tool versions used for every build.
 
 CRAN upload, maintainer email confirmation, CRAN review, and acceptance are
 separate statuses. Publishing a GitHub release establishes none of the latter.
