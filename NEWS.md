@@ -11,6 +11,12 @@
   projected onto it; a coordinate meaningfully below zero still stops. This
   rejected fits whose estimates were already correct, including the ordinal fit
   in `examples/standalone_usage.R`.
+- The same rounding noise could also appear in the parameter vector a bounded
+  optimizer returns, not only in the points it evaluates. A converged result
+  reported a few ulps outside its bound was discarded as "no usable finite
+  result", which failed the fit. Returned parameters are now projected onto
+  their bounds with a tolerance that scales with each bound's own magnitude, so
+  a point meaningfully outside is still refused.
 - A source variance resting on the boundary now reports `NA` rather than a
   number whenever the joint Hessian happened to stay invertible, matching what
   it already reported when the Hessian did not. No symmetric interval follows

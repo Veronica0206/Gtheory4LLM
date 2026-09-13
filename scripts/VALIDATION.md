@@ -35,7 +35,14 @@ and reported. Other notes, warnings, errors, or incomplete checks fail validatio
 PDF manual generation is separate through `scripts/build_manual.R`; the automated
 package check uses `--no-manual` so it does not require TeX on every platform.
 
-The locked full gate uses R 4.5.3 and all versions in `renv.lock`. Restore into an
+The locked full gate uses R 4.5.3 and all versions in `renv.lock`, with one
+stated exception: knitr and rmarkdown are installed from current CRAN beside the
+restored library rather than pinned in the lockfile, in the same way renv itself
+is bootstrapped separately. They build the vignette and are never loaded by the
+package, so no numerical result depends on their versions; the workflow log
+records which versions were used. The lock therefore pins the numerical stack,
+not the documentation toolchain, and the gate reports `vignettes_built` so a run
+that skipped them is distinguishable from one that did not. Restore into an
 explicit library and pass that library to every clean R process:
 
 ```sh

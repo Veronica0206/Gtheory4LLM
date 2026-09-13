@@ -325,3 +325,34 @@ near(ordinal_boundary$covariance_components$item[[1L]], 1.020897, 1e-4)
 near(ordinal_boundary$covariance_components$rater[[1L]], 0.2607966, 1e-4)
 stopifnot(is.finite(gt_reliability(ordinal_boundary, scale = "latent")$per_trait$Erho2))
 cat("PASS: variance coordinates project rounding noise onto the zero boundary instead of rejecting the fit.\n")
+
+# The same rounding noise can appear in the parameter vector a bounded optimizer
+# returns, not only in the points it evaluates. A converged result reported a few
+# ulps outside its bound was discarded as "no usable finite result", which failed
+# the whole fit. Drive that deterministically through the injected-optimizer hook
+# rather than hoping a platform's L-BFGS-B reproduces it.
+project <- internal(".gt_d_project_bounds")
+stopifnot(identical(project(-5.551115e-17, 0, 10), 0),
+          identical(project(c(0, 5), c(0, 0), c(10, 10)), c(0, 5)),
+          identical(project(10 + 1e-9, 0, 10), 10),
+          is.null(project(-0.01, 0, 10)),
+          is.null(project(10.5, 0, 10)),
+          is.null(project(c(NA_real_, 1), c(0, 0), c(10, 10))),
+          is.null(project(c(1, 2), 0, 10)))
+# A bound of zero must not inherit a tolerance from some other bound's scale:
+# 1e-6 below zero is a real violation even when the upper bound is huge.
+stopifnot(is.null(project(-1e-6, 0, exp(10))))
+
+quadratic <- function(p) sum((p - 0.5)^2)
+converged_below_bound <- function(par, fn, method, lower, upper, control)
+  list(par = -5.551115e-17, value = fn(0), convergence = 0L, message = NULL)
+snapped <- optimize(c(v = 0.2), quadratic, 0, 10, list(maxit = 20), "noisy",
+                    converged_below_bound)
+stopifnot(isTRUE(snapped$result_available), identical(snapped$par, 0),
+          identical(snapped$convergence, 0L), is.null(snapped$attempt$error))
+far_outside <- function(par, fn, method, lower, upper, control)
+  list(par = -0.01, value = fn(0), convergence = 0L, message = NULL)
+refused <- optimize(c(v = 0.2), quadratic, 0, 10, list(maxit = 20), "outside", far_outside)
+stopifnot(isFALSE(refused$result_available),
+          identical(refused$attempt$error, "Optimizer returned no usable finite result."))
+cat("PASS: a converged parameter vector reported just outside its bound is projected, not discarded.\n")

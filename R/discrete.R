@@ -84,6 +84,19 @@
        elapsed_seconds = unname(proc.time()[["elapsed"]] - started))
 }
 
+# A bounded optimizer can converge to a bound and still report the point a few
+# ulps outside it. Snap that rounding noise back onto the bound so a converged
+# result is not discarded as unusable; the tolerance scales with each bound's
+# own magnitude, so a point meaningfully outside is left alone and still fails
+# the availability check. Returns NULL when no projection is defensible.
+.gt_d_project_bounds <- function(par, lower, upper) {
+  if (!is.numeric(par) || any(!is.finite(par)) ||
+      length(par) != length(lower) || length(par) != length(upper)) return(NULL)
+  slack <- function(bound) 1e-10 * pmax(1, abs(bound))
+  if (any(par < lower - slack(lower)) || any(par > upper + slack(upper))) return(NULL)
+  pmin(pmax(par, lower), upper)
+}
+
 .gt_d_optimize <- function(at, objective, lower, upper, optimizer_control,
                             label, optimizer = "L-BFGS-B") {
   # A function is allowed internally for failure-injection tests only. Public
@@ -108,6 +121,13 @@
   raw_result <- captured$value
   fit <- raw_result
   if (identical(optimizer_name, "nlminb") && is.list(fit)) fit$value <- fit$objective
+  # The objective is not re-evaluated at the projected point: the move is below
+  # 1e-10 relative, far under every acceptance tolerance, and each downstream
+  # check recomputes the likelihood at these parameters anyway.
+  if (is.list(fit) && is.numeric(fit$par) && length(fit$par) == length(at)) {
+    projected <- .gt_d_project_bounds(fit$par, lower, upper)
+    if (!is.null(projected)) fit$par <- projected
+  }
   available <- is.list(fit) && is.numeric(fit$par) &&
     length(fit$par) == length(at) && all(is.finite(fit$par)) &&
     all(fit$par >= lower & fit$par <= upper) &&
