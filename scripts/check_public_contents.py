@@ -21,7 +21,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "Gtheory4LLM"
-VERSION = "0.0.7"
+VERSION = "0.1.0"
 PUBLIC_DATA_KINDS = ("synthetic", "public_llm_annotations")
 CURRENT_ARTIFACTS = {
     f"{PACKAGE}_{VERSION}.tar.gz", f"{PACKAGE}-manual.pdf", "manifest.json", "README.md"

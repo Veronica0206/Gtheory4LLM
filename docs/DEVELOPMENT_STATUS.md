@@ -1,5 +1,10 @@
 # Improvement-plan status for 0.1.0
 
+Version 0.1.0 is prepared locally. Its local R 4.5.3 archive checks passed;
+GitHub publication and the exact hosted current-R/R-devel candidate check are
+pending. The confirmed 0.0.6 CRAN submission is awaiting a decision, so 0.1.0
+has not been submitted as a duplicate. These are separate completion states.
+
 This describes implementation and evidence, not a promise that every reviewer
 recommendation has been completed.
 
