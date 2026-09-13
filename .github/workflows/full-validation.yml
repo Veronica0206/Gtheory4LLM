@@ -33,7 +33,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install compilation dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev pandoc
+        # libuv1-dev is needed by fs, which rmarkdown reaches through sass and
+        # bslib. Without it the vignette toolchain silently fails to install and
+        # the gate falls back to checking without vignettes.
+        run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev pandoc
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/gtheory-validation-library
@@ -44,8 +47,23 @@ jobs:
       # not part of the numerical stack the lockfile pins, so install them
       # beside the restored library rather than recording them in renv.lock.
       - name: Install the vignette build toolchain beside the locked library
+        # install.packages() only warns when a package fails to build, so assert
+        # the result. The gate degrades gracefully without these, but that would
+        # silently stop exercising the vignette in the locked environment.
         run: |
-          Rscript --vanilla -e 'install.packages(c("knitr","rmarkdown"), lib=Sys.getenv("R_LIBS_TARGET"), repos="https://cloud.r-project.org")'
+          Rscript --vanilla -e '
+            target <- Sys.getenv("R_LIBS_TARGET")
+            install.packages(c("knitr", "rmarkdown"), lib = target,
+                             repos = "https://cloud.r-project.org")
+            .libPaths(c(target, .libPaths()))
+            missing <- Filter(function(p) !requireNamespace(p, quietly = TRUE),
+                              c("knitr", "rmarkdown"))
+            if (length(missing)) stop("Vignette toolchain unavailable: ",
+                                      paste(missing, collapse = ", "))
+            cat("Vignette toolchain installed:",
+                paste(vapply(c("knitr", "rmarkdown"),
+                             function(p) paste0(p, " ", packageVersion(p)), character(1)),
+                      collapse = ", "), "\n")'
         env:
           R_LIBS_TARGET: ${{ runner.temp }}/gtheory-validation-library
       - name: Run clean-session validation with required independent comparisons

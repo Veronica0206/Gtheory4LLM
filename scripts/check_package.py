@@ -43,13 +43,21 @@ def vignette_toolchain(rscript, environment):
             'reason': '' if not missing else 'missing ' + ', '.join(missing)}
 
 
-def check_status(log, as_cran=False):
+NO_VIGNETTE_INDEX_NOTE = "Package has a VignetteBuilder field but no prebuilt vignette index."
+
+
+def check_status(log, as_cran=False, vignettes_built=True):
     errors = len(re.findall(r"^\* checking .*\.\.\. (?:\[[^]]+\] )?ERROR\s*$", log, re.M))
     warnings = len(re.findall(r"^\* checking .*\.\.\. (?:\[[^]]+\] )?WARNING\s*$", log, re.M))
     note_blocks = re.findall(r"^\* checking ([^\n]+)\.\.\. (?:\[[^]]+\] )?NOTE\s*\n(.*?)(?=^\* checking |^\* DONE|\Z)", log, re.M | re.S)
     allowed = []
     for title, body in note_blocks:
         lines = [line.strip() for line in body.splitlines() if line.strip()]
+        # An archive built without vignettes carries no vignette index, and
+        # --as-cran says so. Accept that one extra line only when vignettes were
+        # actually skipped, so it can never excuse a real missing index.
+        if not vignettes_built and lines and lines[-1] == NO_VIGNETTE_INDEX_NOTE:
+            lines = lines[:-1]
         if (as_cran and title.strip() == "CRAN incoming feasibility" and
                 len(lines) == 2 and lines[0].startswith("Maintainer:") and lines[1] == "New submission"):
             allowed.append("CRAN incoming feasibility: New submission")
@@ -86,8 +94,9 @@ def main():
         args.rscript, '--vanilla', str(runtime_script), str(ROOT / 'DESCRIPTION')],
         env=environment, text=True).strip().splitlines()
     report = {'package': package, 'version': version, 'workspace': str(work), 'steps': [], 'success': False}
-    def run(name, command, directory=work):
-        result = subprocess.run(command, cwd=directory, env=environment, capture_output=True, text=True)
+    def run(name, command, directory=work, extra_env=None):
+        step_environment = {**environment, **(extra_env or {})}
+        result = subprocess.run(command, cwd=directory, env=step_environment, capture_output=True, text=True)
         (work / (name + '.log')).write_text(sanitize(result.stdout + result.stderr, work))
         report['steps'].append({'name': name, 'exit_code': result.returncode})
         print(sanitize(result.stdout + result.stderr, work), flush=True)
@@ -129,12 +138,21 @@ def main():
                 if package+'/'+p not in names: raise RuntimeError('Missing required package file: '+p)
         report['archive_audit'] = {'members': len(names), 'forbidden_content': [], 'required_files_present': True}
         check_command = [r, 'CMD', 'check', '--no-manual', '--library='+str(installed)]
-        if not toolchain['available']: check_command.append('--ignore-vignettes')
+        check_environment = {}
+        if not toolchain['available']:
+            check_command.append('--ignore-vignettes')
+            # knitr and rmarkdown are suggested only to build the vignette. When
+            # they are absent R CMD check fails the dependency check outright,
+            # which would report a missing documentation toolchain as a package
+            # defect. Checking without them is the documented way to run in that
+            # environment; the report records that it happened.
+            check_environment['_R_CHECK_FORCE_SUGGESTS_'] = 'false'
         if args.as_cran: check_command.append('--as-cran')
-        run('check', check_command + [str(archive)])
+        run('check', check_command + [str(archive)], extra_env=check_environment)
         log = (work/(package+'.Rcheck')/'00check.log').read_text()
-        report['r_cmd_check'] = check_status(log, args.as_cran)
-        report['r_cmd_check'].update({'as_cran':args.as_cran,'manual_built':False,'installed_tests_run':True,'vignettes_built':toolchain['available']})
+        report['r_cmd_check'] = check_status(log, args.as_cran, toolchain['available'])
+        report['r_cmd_check'].update({'as_cran':args.as_cran,'manual_built':False,'installed_tests_run':True,'vignettes_built':toolchain['available'],
+                                     'suggests_forced':toolchain['available']})
         report['archive'] = str(archive)
         report['success'] = True
     except Exception as error:

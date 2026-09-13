@@ -26,6 +26,16 @@
   next release. Both now account for them, and `inst/doc/` products are derived
   from the vignettes declared in the source commit rather than excused by
   prefix, so an unexpected file there still fails.
+- When knitr, rmarkdown, or pandoc is absent, `R CMD check` failed the whole
+  package on `Packages suggested but not available`, reporting a missing
+  documentation toolchain as a package defect. The gate now checks with
+  `_R_CHECK_FORCE_SUGGESTS_=false` in exactly that case, and accepts the single
+  extra `--as-cran` line about a missing vignette index only when vignettes
+  were genuinely skipped, so it can never excuse a real one.
+- The locked Linux environment could not build rmarkdown because `fs` needs
+  libuv headers, and `install.packages()` only warns when a build fails, so the
+  step passed while the toolchain was absent. The workflow installs `libuv1-dev`
+  and the step now asserts the result instead of reporting success either way.
 - Corrects the temperature guidance. Declaring `fixed = "temp"` fixes the
   estimand but not the misspecification: the G study has already pooled one
   seed variance across all six temperatures before any coefficient is formed.
