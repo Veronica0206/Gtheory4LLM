@@ -26,6 +26,12 @@ PUBLIC_DATA_KINDS = ("synthetic", "public_llm_annotations")
 CURRENT_ARTIFACTS = {
     f"{PACKAGE}_{VERSION}.tar.gz", f"{PACKAGE}-manual.pdf", "manifest.json", "README.md"
 }
+# A commit made before a release bump legitimately contains the artifact set that
+# was current then, so applying today's VERSION to history would fail the audit
+# on every release. Historical trees accept any well-formed release archive name
+# for this package; the working tree and built archives stay pinned to VERSION.
+RELEASE_ARCHIVE = re.compile(rf"^{re.escape(PACKAGE)}_[0-9]+(?:[.-][0-9]+)*\.tar\.gz$")
+HISTORICAL_ARTIFACTS = {f"{PACKAGE}-manual.pdf", "manifest.json", "README.md"}
 PUBLIC_DIRECTORIES = {
     ".github", "R", "man", "inst", "data", "src", "tests", "vignettes",
     "scripts", "examples", "docs", "artifacts"
@@ -132,7 +138,7 @@ class PublicAudit:
             raise ValueError("Finding limit reached; publication is blocked.")
 
     def allowed_path(self, relative: str, label: str, *, archive: bool = False,
-                     directory: bool = False) -> bool:
+                     directory: bool = False, historical: bool = False) -> bool:
         path = PurePosixPath(relative)
         parts = relative.split("/")
         if (not relative or path.is_absolute() or "\\" in relative or
@@ -154,9 +160,14 @@ class PublicAudit:
             self.fail(label, "Unexpected top-level package content.")
             return False
         if parts[0] == "artifacts":
+            permitted = CURRENT_ARTIFACTS if not historical else (
+                HISTORICAL_ARTIFACTS | {parts[1]} if len(parts) == 2 and
+                RELEASE_ARCHIVE.match(parts[1]) else HISTORICAL_ARTIFACTS)
             if archive or not (directory and len(parts) == 1 or
-                               len(parts) == 2 and parts[1] in CURRENT_ARTIFACTS):
-                self.fail(label, "Only the current public release artifact set is permitted.")
+                               len(parts) == 2 and parts[1] in permitted):
+                self.fail(label, "Only the current public release artifact set is permitted."
+                          if not historical else
+                          "Only released package archives and their manifest belong in artifacts/.")
                 return False
         if directory:
             return True
@@ -167,7 +178,14 @@ class PublicAudit:
         if lower.endswith((".csv", ".tsv")) and relative != "inst/extdata/manifest.csv":
             self.fail(label, "Only the bundled-resource manifest CSV is permitted.")
             return False
-        if lower.endswith((".gz", ".tgz", ".tar", ".bz2", ".xz", ".7z")) and relative != f"artifacts/{PACKAGE}_{VERSION}.tar.gz":
+        # A previous release's archive is legitimate where it actually lived: in
+        # artifacts/ at a commit made before the version bump. Everywhere else,
+        # and in the working tree, only the current release archive is allowed.
+        release_archive = f"artifacts/{PACKAGE}_{VERSION}.tar.gz"
+        superseded = (historical and len(parts) == 2 and parts[0] == "artifacts" and
+                      bool(RELEASE_ARCHIVE.match(parts[1])))
+        if (lower.endswith((".gz", ".tgz", ".tar", ".bz2", ".xz", ".7z")) and
+                relative != release_archive and not superseded):
             self.fail(label, "Unexpected or historical archive is forbidden.")
             return False
         if lower.endswith(".pdf") and relative != f"artifacts/{PACKAGE}-manual.pdf":
@@ -320,7 +338,7 @@ class PublicAudit:
                     if mode not in {"100644", "100755"} or kind != "blob":
                         self.fail(label, "History contains a symbolic link, submodule, or special file.")
                         continue
-                    if not self.allowed_path(relative, label):
+                    if not self.allowed_path(relative, label, historical=True):
                         continue
                 elif mode not in {"100644", "100755"} or not self.allowed_path_silent(relative):
                     continue
@@ -341,7 +359,7 @@ class PublicAudit:
         # History repeats filenames. Cache allowed paths independently from
         # blobs so a repeated forbidden path cannot trigger data extraction.
         probe = PublicAudit(self.root, self.expected_data_kind)
-        return probe.allowed_path(relative, relative)
+        return probe.allowed_path(relative, relative, historical=True)
 
     def report(self) -> dict:
         return {"passed": not self.findings, "scopes_requested": self.scopes_requested,

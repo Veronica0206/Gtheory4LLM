@@ -141,6 +141,28 @@ class PublicContentsTests(unittest.TestCase):
         self.assertEqual(len(stray.findings), 1)
         self.assertIn("generated package-build file", stray.findings[0]["reason"])
 
+    def test_a_superseded_release_archive_is_historical_only(self):
+        # Bumping VERSION must not fail the audit on every commit made before
+        # the bump: those commits legitimately contain the release that was
+        # current then. The working tree stays pinned to the current one.
+        previous = f"artifacts/{module.PACKAGE}_0.0.1.tar.gz"
+        audit = module.PublicAudit(self.root, "synthetic")
+        self.assertTrue(audit.allowed_path(previous, previous, historical=True))
+        self.assertEqual(audit.findings, [])
+
+        current = module.PublicAudit(self.root, "synthetic")
+        self.assertFalse(current.allowed_path(previous, previous))
+        self.assertEqual(len(current.findings), 1)
+
+        # "Historical" excuses a superseded release, not arbitrary archives or
+        # archives parked outside artifacts/.
+        for rejected in (f"{module.PACKAGE}_0.0.1.tar.gz",
+                         "artifacts/private-notes.tar.gz",
+                         "artifacts/Something_0.0.1.tar.gz"):
+            probe = module.PublicAudit(self.root, "synthetic")
+            self.assertFalse(probe.allowed_path(rejected, rejected, historical=True), rejected)
+            self.assertTrue(probe.findings, rejected)
+
     def test_archive_members_are_audited_without_extraction(self):
         buffer = io.BytesIO()
         with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
