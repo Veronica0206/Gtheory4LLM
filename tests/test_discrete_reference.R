@@ -15,7 +15,12 @@ TOLERANCE <- list(
   exact      = c(relative = 0,     absolute = 0),
   algebraic  = c(relative = 1e-12, absolute = 1e-14),
   objective  = c(relative = 1e-8,  absolute = 1e-10),
-  mode       = c(relative = 1e-6,  absolute = 1e-9),
+  # The mode is solved only to the inner tolerance, so coordinates near zero
+  # need an absolute floor of the same size rather than a relative one.
+  mode       = c(relative = 1e-6,  absolute = 1e-6),
+  # Curvature is a smooth function of the predictor, so its error is first
+  # order in the mode error rather than smaller.
+  curvature  = c(relative = 1e-6,  absolute = 1e-6),
   # A quantity whose intended value is zero cannot be compared relatively: the
   # assertion is that it is small, not that it reproduces digit for digit.
   stationary = c(relative = NA,    absolute = 1e-6))
