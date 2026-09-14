@@ -7,12 +7,23 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 EXPECTED = {"full-validation.yml", "compatibility.yml", "cran-readiness.yml"}
+REVIEWED_SHAS = {
+    "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "actions/setup-python": "5fda3b95a4ea91299a34e894583c3862153e4b97",
+    "actions/cache": "55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+    "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+    "r-lib/actions/setup-r": "465b7d8e732ca3921382b1674c59bada9cbf3399",
+    "r-lib/actions/setup-tinytex": "465b7d8e732ca3921382b1674c59bada9cbf3399",
+    "r-lib/actions/setup-pandoc": "465b7d8e732ca3921382b1674c59bada9cbf3399",
+    "r-lib/actions/setup-r-dependencies": "465b7d8e732ca3921382b1674c59bada9cbf3399",
+}
 MAJORS = {
-    "actions/checkout": "v4",
-    "actions/setup-python": "v5",
-    "actions/cache": "v4",
-    "actions/upload-artifact": "v4",
-    "actions/download-artifact": "v4",
+    "actions/checkout": "v7",
+    "actions/setup-python": "v7",
+    "actions/cache": "v6",
+    "actions/upload-artifact": "v7",
+    "actions/download-artifact": "v8",
     "r-lib/actions/setup-r": "v2",
     "r-lib/actions/setup-tinytex": "v2",
     "r-lib/actions/setup-pandoc": "v2",
@@ -48,8 +59,9 @@ def assert_pinned_actions(text):
         raise AssertionError("Workflow contains no checked actions")
     for value in uses:
         match = re.fullmatch(r"([^@\s]+)@([0-9a-f]{40})\s+# (v\d+)", value)
-        if match is None or MAJORS.get(match[1]) != match[3]:
-            raise AssertionError(f"Action needs a reviewed full SHA and major comment: {value}")
+        if (match is None or MAJORS.get(match[1]) != match[3]
+                or REVIEWED_SHAS.get(match[1]) != match[2]):
+            raise AssertionError(f"Action must match its reviewed full SHA and major comment: {value}")
 
 
 def assert_source_checkout_has_history(text):
@@ -95,8 +107,9 @@ class WorkflowContractTests(unittest.TestCase):
 
     def test_movable_refs_and_major_upgrades_are_rejected(self):
         sha = "a" * 40
-        for value in ["actions/checkout@v4", "actions/checkout@abcdef0 # v4",
-                      f"actions/checkout@{sha} # v5", f"actions/checkout@{sha}"]:
+        for value in ["actions/checkout@v7", "actions/checkout@abcdef0 # v7",
+                      f"actions/checkout@{sha} # v8", f"actions/checkout@{sha}",
+                      f"actions/checkout@{sha} # v7"]:
             with self.subTest(value=value), self.assertRaises(AssertionError):
                 assert_pinned_actions(f"      - uses: {value}\n")
 

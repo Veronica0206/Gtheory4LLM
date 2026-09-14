@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
@@ -35,7 +35,7 @@ jobs:
           r-version: release
           use-public-rspm: false
           cran: https://cran.r-project.org
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
       # Building a CRAN candidate now installs the package and knits its
@@ -52,7 +52,7 @@ jobs:
       - name: Build one candidate from audited, committed public sources
         run: python scripts/cran_readiness.py build --expected-data-kind public_llm_annotations --output-dir "$RUNNER_TEMP/cran-candidate"
       - name: Preserve exact release-built candidate for the next job
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: cran-candidate-built-${{ github.sha }}
           path: |
@@ -62,7 +62,7 @@ jobs:
           retention-days: 30
       - name: Preserve build and public-content audit evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: cran-candidate-build-evidence-${{ github.sha }}
           path: |
@@ -75,13 +75,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           r-version: devel
           use-public-rspm: false
           cran: https://cran.r-project.org
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
       - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
@@ -95,14 +95,14 @@ jobs:
           packages: any::OpenMx, any::lme4, any::ordinal, any::knitr, any::rmarkdown
           dependencies: 'c("Depends", "Imports", "LinkingTo")'
           upgrade: 'TRUE'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: cran-candidate-built-${{ github.sha }}
           path: ${{ runner.temp }}/downloaded-cran-candidate
       - name: Check the downloaded archive with R-devel, CRAN incoming checks, and its PDF manual
         run: python scripts/cran_readiness.py check --require-devel --expected-data-kind public_llm_annotations --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked"
       - name: Preserve the exact successfully checked candidate
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: cran-candidate-checked-${{ github.sha }}
           path: |
@@ -114,7 +114,7 @@ jobs:
           retention-days: 30
       - name: Preserve full check evidence, including failures
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: cran-candidate-check-evidence-${{ github.sha }}
           path: |

@@ -62,29 +62,52 @@ gh api -X PUT repos/Veronica0206/Gtheory4LLM/branches/main/protection \
 `docs/branch-protection.json` is the exact payload for the table above. Review
 it before applying; it is the settings, not a suggestion about them.
 
-### Action versions, and why they are behind
+### Reviewed action runtimes
 
-The runners report that Node 20 is deprecated and already run these actions on
-Node 24, so nothing here is broken; the pins are behind the current majors:
+Verified against official release tags and the `action.yml` at each immutable
+commit on 2026-09-15. The five GitHub-maintained actions below declare
+`runs.using: node24`; upgrading the action runtime does not change our R or
+Python versions, dependency locks, required job names, or candidate archives.
 
-| Action | Pinned | Current major |
+| Action | Reviewed version | Full commit SHA |
 |---|---|---|
-| `actions/checkout` | v4 | v7 |
-| `actions/setup-python` | v5 | v7 |
-| `actions/cache` | v4 | v6 |
-| `actions/upload-artifact` | v4 | v7 |
-| `actions/download-artifact` | v4 | v8 |
-| `r-lib/actions/*` | v2 | v2 |
+| `actions/checkout` | [v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1) | `3d3c42e5aac5ba805825da76410c181273ba90b1` |
+| `actions/setup-python` | [v7.0.0](https://github.com/actions/setup-python/releases/tag/v7.0.0) | `5fda3b95a4ea91299a34e894583c3862153e4b97` |
+| `actions/cache` | [v6.1.0](https://github.com/actions/cache/releases/tag/v6.1.0) | `55cc8345863c7cc4c66a329aec7e433d2d1c52a9` |
+| `actions/upload-artifact` | [v7.0.1](https://github.com/actions/upload-artifact/releases/tag/v7.0.1) | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` |
+| `actions/download-artifact` | [v8.0.1](https://github.com/actions/download-artifact/releases/tag/v8.0.1) | `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c` |
+| `r-lib/actions/*` | [v2](https://github.com/r-lib/actions/tree/465b7d8e732ca3921382b1674c59bada9cbf3399) (unchanged) | `465b7d8e732ca3921382b1674c59bada9cbf3399` |
 
-This is a deliberate deferral, recorded here so that it stays a decision rather
-than becoming drift. Bumping five actions across three workflows means five new
-reviewed SHAs and, for the artifact pair, behaviour changes across several
-majors at once — worth doing carefully, and not worth doing between a green
-matrix and a release. `tests/test_workflow_contract.py` pins both the SHA and
-the expected major, so an upgrade cannot happen by accident: update the pins,
-the majors in that test, and the table above together, and record the evidence.
+The R setup actions `setup-r`, `setup-tinytex`, and `setup-pandoc` already
+specify Node 24 at the retained commit. `setup-r-dependencies` is a composite
+action, not a Node action: its nested cache action is pinned at
+[`27d5ce7f`](https://github.com/actions/cache/blob/27d5ce7f107fe9357f9df03efb73ab90386fccae/action.yml)
+and its optional nested pandoc action at
+[`9f58233a`](https://github.com/r-lib/actions/blob/9f58233a78a2a9fd874714be10f8bba627233339/setup-pandoc/action.yml),
+both declaring Node 24. Its conditional Quarto installer is not used by the
+current repository, which has no Quarto documents. This is a review of our
+active actions, not a claim about every action in those upstream repositories.
 
-Do it before the Node 20 runtime is actually withdrawn, not after.
+Relevant upgrade behavior was reviewed:
+
+- Checkout v7 restricts unsafe fork checkouts under `pull_request_target` and
+  `workflow_run`. Our ordinary `pull_request`, push, and manual triggers remain
+  supported; we do not enable its unsafe-checkout override.
+- Setup-python v7 removes the `pip-install` input; we do not use it. Python
+  remains 3.12. Node 24 requires runner v2.327.1 or newer; these workflows use
+  GitHub-hosted runners.
+- Upload-artifact v7 retains zipped, named multi-file uploads by default. We
+  do not enable its new direct single-file mode. Download-artifact v8 extracts
+  those archives and now fails on digest mismatches by default; this agrees
+  with the candidate's independent checksum verification.
+- Cache v6 changes its JavaScript module format. Existing cache keys, paths,
+  and the locked dependency restore commands are unchanged.
+
+`tests/test_workflow_contract.py` checks the exact reviewed SHAs and majors,
+full source history, triggers, read-only permissions, and concurrency. Local
+contract checks cannot establish runner compatibility; hosted checks must pass
+on the maintenance pull request before merge. Future upgrades require another
+upstream runtime/input review and corresponding pin, test, and table updates.
 
 ## Tags and releases
 
