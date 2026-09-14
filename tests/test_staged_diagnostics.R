@@ -76,6 +76,30 @@ expect(identical(status(stuck, "stationarity"), "failed"), "stationarity failure
 expect(identical(status(stuck, "restart_stability"), "failed"), "instability is reported")
 expect(identical(status(stuck, "numerical_acceptance"), "failed"), "rejection is reported")
 
+# --- A tight final mode retained under a coarse attempt label -----------------
+# The engine can evaluate a coarse candidate under the validation controls and
+# retain that candidate, so the selected attempt is named "primary" while the
+# final mode really was solved at the validation tolerance. Reading the label
+# would report the ordinary tolerance and call that solve loose.
+coarse_label <- base_fit(diagnostics = modifyList(base_fit()$diagnostics, list(
+  tight_final_mode = TRUE, selected_attempt = "primary",
+  inner_gradient = 8.9e-09, inner_iterations = 60L,
+  stability = list(checked = TRUE, stable = TRUE, alternative_starts = 1L,
+                   validation_inner_tol = 1e-9, inner_tol = 1e-7, inner_maxit = 60L))))
+expect(identical(measure(coarse_label, "conditional_mode", "inner_requested_tolerance"), 1e-9),
+       "a tight final mode uses the validation tolerance even under a coarse attempt label")
+expect(isTRUE(measure(coarse_label, "conditional_mode", "inner_solve_tightened")),
+       "tightening is read from retained evidence, not from the attempt name")
+expect(isFALSE(measure(coarse_label, "conditional_mode", "inner_strict_tolerance_met")),
+       "against the validation tolerance that gradient is not strict")
+# And an untightened solve keeps the ordinary tolerance.
+loose <- base_fit(diagnostics = modifyList(base_fit()$diagnostics, list(
+  tight_final_mode = FALSE, selected_attempt = "primary_tight",
+  stability = list(checked = TRUE, stable = TRUE, alternative_starts = 1L,
+                   validation_inner_tol = 1e-9, inner_tol = 1e-7, inner_maxit = 60L))))
+expect(identical(measure(loose, "conditional_mode", "inner_requested_tolerance"), 1e-7),
+       "a label ending in _tight does not override retained evidence to the contrary")
+
 # --- Absent evidence is never a pass ------------------------------------------
 for (field in c("inner_converged", "outer_stationarity", "stability")) {
   # Removed after construction: modifyList merges into the defaults, so

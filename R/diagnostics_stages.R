@@ -84,8 +84,16 @@
   # so reading control$inner_tol alone would compare the retained gradient with
   # a tolerance that never governed it and call a missed solve strict.
   validation <- .gt_stage_number(d$stability$validation_inner_tol)
-  tightened <- is.character(d$selected_attempt) && length(d$selected_attempt) == 1L &&
-    grepl("_tight$", d$selected_attempt)
+  # Whether the final mode was solved at the validation tolerance is retained
+  # evidence; the attempt label only usually agrees with it. The engine can
+  # evaluate a coarse candidate under the validation controls and retain that
+  # candidate, leaving a selected attempt named "primary" whose final mode was
+  # nevertheless tight. Reading the label would then report the ordinary
+  # tolerance and call a tight solve loose.
+  tight_flag <- .gt_stage_flag(d$tight_final_mode)
+  tightened <- if (!is.null(tight_flag)) tight_flag else
+    is.character(d$selected_attempt) && length(d$selected_attempt) == 1L &&
+      grepl("_tight$", d$selected_attempt)
   # Read from retained evidence first. A public fit stores the gt_control
   # object, whose discrete settings are empty unless the caller set one, so
   # fit$control$inner_tol is NULL for an ordinary discrete fit and reading it
