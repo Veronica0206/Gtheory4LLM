@@ -24,8 +24,8 @@ continues to accept that legacy format.
    python3 scripts/prepare_release.py
    ```
 
-   The script builds into temporary staging, verifies archive/source
-   correspondence and release identity, runs source validation, and audits
+   The script builds into temporary staging, verifies archive correspondence
+   with source and release identity, runs source validation, and audits
    public content before copying the bundle into `artifacts/`. Source validation
    uses the staged manifest, so the previous committed bundle cannot falsely
    block a new release version. It never rewrites README or NEWS, tags, pushes,
