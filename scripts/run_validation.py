@@ -21,7 +21,12 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = ("OpenMx", "lme4", "ordinal")
-COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R", "test_discrete.R"}
+COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
+                 "test_discrete.R",
+                 # The frozen fixed-parameter targets are the contract a sparse
+                 # backend will be judged against, so whether they reproduce off
+                 # Linux has to be measured rather than assumed.
+                 "test_discrete_reference.R"}
 
 
 MANUAL_TOOLS = ("pdflatex", "makeindex")

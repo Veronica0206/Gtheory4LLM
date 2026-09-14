@@ -24,8 +24,11 @@ worth stating precisely. The outer optimizer cannot reach them. The inner
 conditional-mode solver still does: the frozen mode, predictor, curvature and
 objectives are all produced by it. If the portability problem turns out to live
 in the inner solve rather than the outer search, it would reach these values
-too. That these targets currently reproduce across Linux, macOS and Windows is
-evidence for the inner solve being portable, not a proof of it.
+too. That these targets reproduce across Linux, macOS and Windows is evidence for
+the inner solve being portable, not a proof of it. The compatibility matrix
+runs this reference test on all three, so that sentence is a measurement
+rather than an inference; it was the latter until the test was added to the
+compact source set.
 
 The consequence is also a limit. Agreement here establishes that two backends
 compute the same conditional problem, log determinant and marginal objective at
