@@ -238,9 +238,16 @@ DEVELOPMENT_VERSION = re.compile(r"(?P<target>[0-9]+(?:\.[0-9]+)*)\.(?P<series>9
 def release_order(version: str) -> tuple[int, ...]:
     """Order release versions numerically rather than as text.
 
-    "0.10.0" follows "0.9.0"; string comparison would put it before.
+    "0.10.0" follows "0.9.0"; string comparison would put it before. The
+    accepted syntax allows a variable number of components, so trailing zero
+    components are dropped before comparing: otherwise tuple comparison makes
+    "0.2" precede "0.2.0", and two spellings of one release would not compare
+    equal.
     """
-    return tuple(int(part) for part in version.split("."))
+    parts = [int(part) for part in version.split(".")]
+    while len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    return tuple(parts)
 
 
 def verify_release_identity(root: Path, manifest_path: Path,

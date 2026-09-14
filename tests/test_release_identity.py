@@ -177,6 +177,15 @@ class ReleaseIdentityTests(unittest.TestCase):
         self.assertGreater(CHECK.release_order("0.10.0"), CHECK.release_order("0.9.0"))
         self.assertGreater(CHECK.release_order("1.0.0"), CHECK.release_order("0.10.0"))
         self.assertEqual(CHECK.release_order("0.1.0"), CHECK.release_order("0.1.0"))
+        # The accepted syntax allows a variable component count, so two
+        # spellings of one release must compare equal rather than letting the
+        # shorter tuple sort first.
+        self.assertEqual(CHECK.release_order("0.2"), CHECK.release_order("0.2.0"))
+        self.assertEqual(CHECK.release_order("1.0"), CHECK.release_order("1.0.0"))
+        self.assertEqual(CHECK.release_order("0.2.0.0"), CHECK.release_order("0.2"))
+        self.assertGreater(CHECK.release_order("0.2.1"), CHECK.release_order("0.2"))
+        self.assertGreater(CHECK.release_order("0.2"), CHECK.release_order("0.1.9"))
+        self.assertEqual(CHECK.release_order("0"), CHECK.release_order("0.0.0"))
 
     def test_each_declared_version_is_checked_independently(self):
         for filename, old, new, message in (
