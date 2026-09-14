@@ -195,6 +195,35 @@ def local_release_tag(root: Path, tag: str) -> bool:
                               capture_output=True).returncode
 
 
+def verify_published_prose(root: Path, version: str) -> None:
+    """Catch known stale publication claims outside the identity markers.
+
+    README and development status describe the present. NEWS and archived
+    release documents retain history and are deliberately outside this check.
+    This is a regression guard for known contradictions, not a language parser.
+    """
+    release = r"v?" + re.escape(version) + r"(?![\d.])"
+    patterns = (
+        rf"\buntil (?:the )?{release}(?: release)? is published\b",
+        rf"\b{release}(?: release)? (?:is not|isn't|has not been|hasn't been) published\b",
+        rf"\bno {release} (?:release|tag)(?: exists)?\b",
+        r"\bno (?:github )?release (?:is published|exists)\b",
+        r"\bonce releases exist\b",
+    )
+    for name in ("README.md", "docs/DEVELOPMENT_STATUS.md"):
+        path = root / name
+        if not path.is_file():
+            continue
+        prose = path.read_text(encoding="utf-8")
+        prose = re.sub(r"(?ms)^```[^\n]*\n.*?^```[^\n]*$", "", prose)
+        prose = re.sub(r"(?m)^>.*$", "", prose)
+        prose = re.sub(r"[`*_]", "", prose)
+        prose = " ".join(prose.split())
+        if any(re.search(pattern, prose, re.I) for pattern in patterns):
+            raise ValueError(f"{name}: stale unpublished-release prose contradicts "
+                             f"the published {version} bundle")
+
+
 def verify_release_identity(root: Path, manifest_path: Path,
                             release_tag: str | None = None) -> dict:
     """Check current release prose without rewriting historical archive contents.
@@ -242,6 +271,8 @@ def verify_release_identity(root: Path, manifest_path: Path,
             current = re.findall(r"Checkout version: \*\*([^*]+)\*\*\.", blocks[0])
             if current != [source_version]:
                 raise ValueError("README.md: checkout version mismatch with DESCRIPTION")
+    if state == "published":
+        verify_published_prose(root, version)
     heading = (manifest_path.parent / "README.md").read_text(encoding="utf-8").splitlines()[0]
     if heading != f"# {package} {version} release":
         raise ValueError("artifacts/README.md: release version mismatch with manifest")

@@ -144,6 +144,36 @@ class ReleaseIdentityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "tag manifest differs"):
             self.verify("v0.0.1")
 
+    def test_stale_install_and_status_prose_fails_outside_identity_block(self):
+        self.publish()
+        cases = (
+            ("README.md", "Until the `v0.0.1` release is\npublished, use the bundle."),
+            ("README.md", "Once releases exist, download the archive."),
+            ("docs/DEVELOPMENT_STATUS.md", "**No release is published.** No `v0.0.1` tag."),
+            ("docs/DEVELOPMENT_STATUS.md", "No 0.0.1 release exists."),
+            ("docs/DEVELOPMENT_STATUS.md", "v0.0.1 has not been published."),
+        )
+        for name, text in cases:
+            with self.subTest(name=name, text=text):
+                path = self.root / name
+                path.parent.mkdir(exist_ok=True)
+                original = path.read_text() if path.exists() else ""
+                path.write_text(original + "\n" + text + "\n")
+                with self.assertRaisesRegex(ValueError, "stale unpublished-release prose"):
+                    self.verify()
+                path.write_text(original)
+
+    def test_prose_guard_preserves_history_examples_and_distinct_versions(self):
+        self.publish()
+        news = self.root / "NEWS.md"
+        news.write_text(news.read_text() + "\n# Preparation history\nNo release is published.\n")
+        readme = self.root / "README.md"
+        readme.write_text(readme.read_text() +
+                          "\nNo 0.0.1.9000 release exists.\nNo 0.0.2 release exists.\n" +
+                          "> Historical quote: no release is published.\n" +
+                          "```text\nOnce releases exist, use the archive.\n```\n")
+        self.assertTrue(self.verify()["published"])
+
 
 if __name__ == "__main__":
     unittest.main()

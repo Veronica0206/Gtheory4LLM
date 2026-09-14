@@ -14,7 +14,7 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Checkout version: **0.1.0**. Current artifact bundle: **0.1.0**.
+Checkout version: **0.1.0.9000**. Current artifact bundle: **0.1.0**.
 Release state: **published**.
 The archive and manual in `artifacts/` are the published release, built from the
 source commit recorded in their [manifest](artifacts/manifest.json) and tagged
@@ -33,23 +33,25 @@ pass these checks but are not part of the validated gate; to use one, install
 from source with a relaxed floor, or `source("load_functions.R")`, which
 imposes no version requirement.
 
-Until the `v0.1.0` release is published, install from the prepared bundle in
-[`artifacts/`](artifacts/), which is verified against the source commit in its
-manifest, or from a checkout:
+Install the published [v0.1.0 release](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0):
 
 ```r
 install.packages("OpenMx")
-# From the prepared bundle in this repository:
-install.packages("artifacts/Gtheory4LLM_0.1.0.tar.gz", repos = NULL, type = "source")
+install.packages(
+  "https://github.com/Veronica0206/Gtheory4LLM/releases/download/v0.1.0/Gtheory4LLM_0.1.0.tar.gz",
+  repos = NULL, type = "source"
+)
 library(Gtheory4LLM)
 ```
 
-For a checkout, build and install with `R CMD build .` followed by
-`R CMD INSTALL Gtheory4LLM_0.1.0.tar.gz`. Once releases exist, take the archive
-name the [release page](https://github.com/Veronica0206/Gtheory4LLM/releases)
-actually offers; older releases are kept there. Building the vignette needs knitr,
-rmarkdown, and pandoc; nothing else does. CRAN availability is separate from
-GitHub availability; this repository does not imply CRAN acceptance.
+The same checksummed release bundle is kept in [`artifacts/`](artifacts/).
+The development checkout is **0.1.0.9000**. To install its current sources,
+use `R CMD build .` followed by `R CMD INSTALL Gtheory4LLM_0.1.0.9000.tar.gz`;
+that build is separate from the published 0.1.0 archive. Building the vignette
+needs knitr, rmarkdown, and pandoc; using the installed package does not.
+CRAN availability is separate from GitHub availability. The earlier 0.0.6
+submission was confirmed and is awaiting a decision; 0.1.0 has not been
+submitted to CRAN.
 
 ## A complete LLM reliability workflow
 

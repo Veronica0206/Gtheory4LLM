@@ -1,7 +1,8 @@
 # Roadmap
 
-Planned work, in the order it is planned, with the reason for that order. None
-of it is done; what is done is in [NEWS.md](../NEWS.md) and
+Release milestones and planned work, with the reason for their order. Version
+0.1.0 is published; the later milestones remain planned. Completed work is
+recorded in [NEWS.md](../NEWS.md), and current evidence is in
 [development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
 
 The ordering rule this follows is worth stating once, because it explains most
@@ -11,8 +12,8 @@ moves, it must be obvious which of those caused it.
 
 | Release | Goal |
 |---|---|
-| 0.1.0 | Credible research beta: release identity, scope wording, governance, missing tests |
-| 0.1.1 | Engineering hardening: retry controller, standard generics, retention controls, memory guard, release automation |
+| 0.1.0 (published) | Research beta with retry controller, standard methods, retention controls, memory guard, characterization tests and release automation |
+| 0.1.x | Maintenance: release/documentation consistency, repository protection, Action-runtime updates and fixes that preserve statistical scope |
 | 0.2.0 | Scalable discrete architecture: sparse backend, warm starts, gradients, modular engines, tiered diagnostics |
 | 0.3.x | Broader statistical operating range: unbalanced designs, larger validation campaigns, cost-aware D studies, discrete uncertainty |
 | 1.0 | Stable general research package: defined API stability, broad validation envelope, mature Gaussian and discrete implementations |
@@ -20,7 +21,18 @@ moves, it must be obvious which of those caused it.
 The sparse backend, unbalanced designs, and complete engine modularization are
 deliberately **not** requirements for 0.1.x.
 
-## Before anything else: the numerical baseline
+The 0.2.0 work is tracked as separate reviewable changes:
+[engine extraction](https://github.com/Veronica0206/Gtheory4LLM/issues/2),
+[sparse prototype](https://github.com/Veronica0206/Gtheory4LLM/issues/3),
+[dense-sparse equivalence](https://github.com/Veronica0206/Gtheory4LLM/issues/4),
+[warm starts](https://github.com/Veronica0206/Gtheory4LLM/issues/5),
+[automatic differentiation](https://github.com/Veronica0206/Gtheory4LLM/issues/6),
+[staged diagnostics](https://github.com/Veronica0206/Gtheory4LLM/issues/7), and
+[the full native-panel benchmark](https://github.com/Veronica0206/Gtheory4LLM/issues/8).
+The first extraction moves the discrete response functions unchanged; sparse
+fitting begins only after that baseline is preserved.
+
+## Existing numerical baseline
 
 `tests/package-characterization.R` pins what the current engines produce for ten
 canonical cases — Gaussian ML and REML, multivariate, a variance boundary, fixed
@@ -49,7 +61,7 @@ discrete_mode.R      discrete_laplace.R   discrete_optimizer.R
 discrete_acceptance.R
 ```
 
-`R/gaussian_retry.R` is the first of these, extracted in 0.1.1 because
+`R/gaussian_retry.R` is the first of these, extracted in 0.1.0 because
 replacing the retry accounting required it to be independently testable. The
 rest follow the same rule: extract, show the characterization baseline is
 unchanged, then build.
@@ -226,8 +238,9 @@ Remaining:
   supported. The runners already execute the current pins on Node 24, so this
   is maintenance rather than a fix; [repository policy](REPOSITORY_POLICY.md)
   records the pinned and current majors and what an upgrade has to touch.
-- Enforce the declared branch protection on `main`, and consider a `v*` tag
-  protection rule so tag immutability is enforced rather than remembered.
+- Maintain the configured branch and `v*` tag protection and verify them after
+  policy changes. The active tag rule blocks updates and deletions with no
+  bypass actors; see [repository policy](REPOSITORY_POLICY.md).
 - Sign release commits and tags. Nothing depends on it today, and the artifact
   manifest already ties a bundle to a source commit, but a signature is the
   cheapest provenance improvement available once a release process is stable.
