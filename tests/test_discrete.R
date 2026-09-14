@@ -23,10 +23,15 @@ fixture_digest <- function(...) {
   # connection close must be named explicitly.
   connection <- file(path, "wb")
   tryCatch(for (value in list(...)) {
+    # Refuse rather than coerce. as.integer() would silently hash a factor's
+    # level codes or turn a character vector into NA, so an input mistake
+    # would produce a confident digest of the wrong thing.
+    if (!is.integer(value) && !is.double(value))
+      stop("fixture_digest needs integer or double input; got ", class(value)[[1L]], ".")
     real <- is.double(value)
     writeBin(c(if (real) 2L else 1L, length(value)), connection, size = 4L, endian = "big")
-    if (real) writeBin(as.double(value), connection, size = 8L, endian = "big")
-    else writeBin(as.integer(value), connection, size = 4L, endian = "big")
+    if (real) writeBin(value, connection, size = 8L, endian = "big")
+    else writeBin(value, connection, size = 4L, endian = "big")
   }, finally = base::close(connection))
   unname(tools::md5sum(path))
 }
@@ -79,6 +84,16 @@ check_acceptance <- function(fit) {
             identical(fit$numerically_accepted, expected))
   if (!expected) stopifnot(length(fit$diagnostics$acceptance_failures) > 0L)
 }
+# Golden vector: fixed input, fixed expected digest, independent of the RNG.
+# Every supported platform therefore verifies the canonical encoding itself
+# rather than only agreeing with its own earlier run, which is the property a
+# cross-run fixture comparison depends on.
+stopifnot(identical(fixture_digest(c(1L, -2L, 0L), c(0.5, -0.5, 0, 1e-300, 1e300)),
+                    "2e11c7b01501145c88a5da79b0aa67c3"))
+# Unsupported input is refused, never coerced into a confident wrong digest.
+for (unsupported in list(factor("a"), "a", TRUE, list(1)))
+  expect_error(fixture_digest(unsupported), "integer or double")
+
 design <- list(object = "item", facets = "rater",
                term_members = list(item = "item", rater = "rater"))
 
