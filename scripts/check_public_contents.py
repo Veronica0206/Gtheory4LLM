@@ -274,7 +274,16 @@ class PublicAudit:
         if self.files_checked > MAX_FILES or len(content) > MAX_FILE_BYTES:
             raise ValueError("File inspection size/count limit exceeded.")
         for reason, pattern in PRIVATE_PATTERNS.items():
-            if pattern.search(content):
+            scanned = content
+            if relative == "docs/RELEASE_CHECKLIST.md" and reason == "private research-relative path":
+                # This exact historical sentence uses a slash between two prose
+                # nouns. Excuse only those bytes in this file, including history;
+                # actual paths and every other pattern still undergo inspection.
+                sentence = (b"   The script builds into temporary staging, verifies archive"
+                            b"/source\n   correspondence and release identity, runs source validation, and audits\n"
+                            b"   public content before copying the bundle into `artifacts/`.")
+                scanned = content.replace(sentence, b"")
+            if pattern.search(scanned):
                 self.fail(label, reason)
         if relative in GENERATED_BUILD_FILES:
             # R CMD build owns these. vignette.rds is its index of built
@@ -396,7 +405,10 @@ class PublicAudit:
                         continue
                 elif mode not in {"100644", "100755"} or not self.allowed_path_silent(relative):
                     continue
-                cache_key = (oid, PurePosixPath(relative).suffix)
+                # The historical prose exception is specific to one document;
+                # its cached result must not excuse identical bytes elsewhere.
+                cache_scope = relative if relative == "docs/RELEASE_CHECKLIST.md" else PurePosixPath(relative).suffix
+                cache_key = (oid, cache_scope)
                 if cache_key in self.content_cache:
                     continue
                 self.content_cache.add(cache_key)

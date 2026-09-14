@@ -73,6 +73,45 @@ class PublicContentsTests(unittest.TestCase):
         self.write(Path("companion") / "draft.tex")
         self.assertTrue(any("Private research" in item["reason"] for item in self.check().findings))
 
+    def test_exact_release_checklist_sentence_is_prose_in_tree_and_history(self):
+        prose = ("   The script builds into temporary staging, verifies archive"
+                 "/source\n   correspondence and release identity, runs source validation, and audits\n"
+                 "   public content before copying the bundle into `artifacts/`. Source validation\n")
+        path = self.write("docs/RELEASE_CHECKLIST.md", prose)
+        self.assertFalse(self.check().findings)
+        self.git("init", "--quiet")
+        self.git("add", ".")
+        self.git("commit", "--quiet", "-m", "Release preparation prose")
+        path.write_text("Updated preparation prose.\n")
+        self.git("add", ".")
+        self.git("commit", "--quiet", "-m", "Clarify prose")
+        historical = module.PublicAudit(self.root, "synthetic")
+        historical.history()
+        self.assertFalse(historical.findings)
+        self.assertEqual(historical.commits_checked, 2)
+        for value in ("archive" + "/source.csv", "archive" + "/source/private.tex"):
+            path.write_text(prose + value + "\n")
+            self.assertTrue(any(x["reason"] == "private research-relative path"
+                                for x in self.check().findings))
+        path.write_text("Updated preparation prose.\n")
+        self.write("docs/OTHER.md", prose)
+        self.assertTrue(any(x["reason"] == "private research-relative path"
+                            for x in self.check().findings))
+
+    def test_history_prose_exception_does_not_share_cache_with_other_documents(self):
+        prose = ("   The script builds into temporary staging, verifies archive"
+                 "/source\n   correspondence and release identity, runs source validation, and audits\n"
+                 "   public content before copying the bundle into `artifacts/`.")
+        self.write("docs/RELEASE_CHECKLIST.md", prose)
+        self.write("docs/ZZ_OTHER.md", prose)
+        self.git("init", "--quiet")
+        self.git("add", ".")
+        self.git("commit", "--quiet", "-m", "Identical text in different contexts")
+        audit = module.PublicAudit(self.root, "synthetic")
+        audit.history()
+        self.assertTrue(any("ZZ_OTHER.md" in x["path"] and
+                            x["reason"] == "private research-relative path" for x in audit.findings))
+
     def test_symlink_targets_are_never_read(self):
         outside = Path(self.temporary.name) / "not-part-of-package"
         outside.mkdir()
