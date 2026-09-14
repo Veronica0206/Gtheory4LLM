@@ -78,7 +78,13 @@ class PublicContentsTests(unittest.TestCase):
                  "/source\n   correspondence and release identity, runs source validation, and audits\n"
                  "   public content before copying the bundle into `artifacts/`. Source validation\n")
         path = self.write("docs/RELEASE_CHECKLIST.md", prose)
-        self.assertFalse(self.check().findings)
+        for ending in (b"\n", b"\r\n"):
+            path.write_bytes(prose.encode().replace(b"\n", ending))
+            self.assertFalse(self.check().findings)
+            path.write_bytes(path.read_bytes() + b"archive" + b"/source.csv" + ending)
+            self.assertTrue(any(x["reason"] == "private research-relative path"
+                                for x in self.check().findings))
+        path.write_text(prose)
         self.git("init", "--quiet")
         self.git("add", ".")
         self.git("commit", "--quiet", "-m", "Release preparation prose")
