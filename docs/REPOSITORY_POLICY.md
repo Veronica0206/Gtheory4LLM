@@ -22,7 +22,7 @@ authentication, or without admin rights on the repository it reports
 
 | Setting | Required value | Why |
 |---|---|---|
-| Required status checks | The five contexts below, strict (branch up to date) | A merge must be validated against what it will actually become |
+| Required status checks | The six contexts below, strict (branch up to date) | A merge must be validated against what it will actually become |
 | Required pull request reviews | 1 approving review, stale reviews dismissed | Statistical changes need a reader, not only a green check |
 | Conversation resolution | Required | A raised numerical concern cannot be merged past silently |
 | Force pushes | Blocked | Published release history is the artifact manifest's anchor |
@@ -61,6 +61,30 @@ gh api -X PUT repos/Veronica0206/Gtheory4LLM/branches/main/protection \
 
 `docs/branch-protection.json` is the exact payload for the table above. Review
 it before applying; it is the settings, not a suggestion about them.
+
+### Action versions, and why they are behind
+
+The runners report that Node 20 is deprecated and already run these actions on
+Node 24, so nothing here is broken; the pins are behind the current majors:
+
+| Action | Pinned | Current major |
+|---|---|---|
+| `actions/checkout` | v4 | v7 |
+| `actions/setup-python` | v5 | v7 |
+| `actions/cache` | v4 | v6 |
+| `actions/upload-artifact` | v4 | v7 |
+| `actions/download-artifact` | v4 | v8 |
+| `r-lib/actions/*` | v2 | v2 |
+
+This is a deliberate deferral, recorded here so that it stays a decision rather
+than becoming drift. Bumping five actions across three workflows means five new
+reviewed SHAs and, for the artifact pair, behaviour changes across several
+majors at once — worth doing carefully, and not worth doing between a green
+matrix and a release. `tests/test_workflow_contract.py` pins both the SHA and
+the expected major, so an upgrade cannot happen by accident: update the pins,
+the majors in that test, and the table above together, and record the evidence.
+
+Do it before the Node 20 runtime is actually withdrawn, not after.
 
 ## Tags and releases
 

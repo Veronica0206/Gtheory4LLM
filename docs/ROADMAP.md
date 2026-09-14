@@ -220,6 +220,18 @@ Remaining:
    mutants have been checked by hand against the weighting code, the retry
    controller and the fuzz harness; the gap is automation, not intent.
 
+## Repository maintenance
+
+- Update the pinned GitHub Actions to majors whose runtime is natively
+  supported. The runners already execute the current pins on Node 24, so this
+  is maintenance rather than a fix; [repository policy](REPOSITORY_POLICY.md)
+  records the pinned and current majors and what an upgrade has to touch.
+- Enforce the declared branch protection on `main`, and consider a `v*` tag
+  protection rule so tag immutability is enforced rather than remembered.
+- Sign release commits and tags. Nothing depends on it today, and the artifact
+  manifest already ties a bundle to a source commit, but a signature is the
+  cheapest provenance improvement available once a release process is stable.
+
 ## Documentation
 
 Hand-written `NAMESPACE` and `man/*.Rd` are kept. They are richer than generated

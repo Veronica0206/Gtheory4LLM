@@ -50,22 +50,24 @@ tryCatch({
   supplied <- Sys.getenv("GTHEORY_RENV_BOOTSTRAP")
   cache_directory <- Sys.getenv("GTHEORY_RENV_BOOTSTRAP_CACHE")
   tarball <- file.path(bootstrap, basename(renv_url))
+  downloaded <- FALSE
+  cached <- NA_character_
   if (nzchar(supplied)) {
     if (!file.exists(supplied)) stop("GTHEORY_RENV_BOOTSTRAP does not exist: ", supplied)
     file.copy(supplied, tarball, overwrite = TRUE)
     cat("renv bootstrap source: supplied file ", supplied, "\n", sep = "")
   } else {
-    cached <- if (nzchar(cache_directory)) {
+    if (nzchar(cache_directory)) {
       dir.create(cache_directory, recursive = TRUE, showWarnings = FALSE)
-      file.path(cache_directory, basename(renv_url))
-    } else NA_character_
+      cached <- file.path(cache_directory, basename(renv_url))
+    }
     if (!is.na(cached) && file.exists(cached)) {
       file.copy(cached, tarball, overwrite = TRUE)
       cat("renv bootstrap source: cache ", cached, "\n", sep = "")
     } else {
       utils::download.file(renv_url, tarball, mode = "wb", quiet = TRUE)
+      downloaded <- TRUE
       cat("renv bootstrap source: ", renv_url, "\n", sep = "")
-      if (!is.na(cached)) file.copy(tarball, cached, overwrite = TRUE)
     }
   }
   observed <- unname(tools::sha256sum(tarball))
@@ -79,6 +81,11 @@ tryCatch({
   } else {
     cat("renv bootstrap SHA-256 verified against the recorded digest.\n")
   }
+  # Populate the cache only after the digest is settled, so a corrupted or
+  # substituted download is never written where a later run would find it.
+  # A run with no recorded digest to check against caches nothing.
+  if (downloaded && !is.na(cached) && !is.na(renv_sha256))
+    file.copy(tarball, cached, overwrite = TRUE)
   install.packages(tarball, repos = NULL, type = "source", lib = bootstrap, quiet = TRUE)
   .libPaths(c(bootstrap, .libPaths()))
   stopifnot(as.character(packageVersion("renv")) == renv_version)

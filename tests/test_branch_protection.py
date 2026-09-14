@@ -50,6 +50,19 @@ class PolicyContextTests(unittest.TestCase):
             with self.subTest(context=context):
                 self.assertIn(context, required)
 
+    def test_the_prose_counts_the_contexts_it_lists(self):
+        # The policy document is the authoritative admin instruction, so a count
+        # in it that disagrees with the payload is a defect in the instruction.
+        words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+                 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten"}
+        expected = words[len(POLICY["required_status_checks"]["contexts"])]
+        document = (ROOT / "docs/REPOSITORY_POLICY.md").read_text(encoding="utf-8")
+        self.assertIn(f"The {expected} contexts below", document,
+                      "the prose must count the contexts the payload actually lists")
+        for count, word in words.items():
+            if word != expected:
+                self.assertNotIn(f"The {word} contexts below", document)
+
     def test_matrix_job_names_are_expanded(self):
         produced = CHECK.workflow_job_names(ROOT)
         self.assertIn("ubuntu-22.04 / R 4.5.0", produced)

@@ -56,6 +56,17 @@ class BootstrapDescriptorTests(unittest.TestCase):
         self.assertIn("checksum mismatch", self.restore)
         self.assertIn("Refusing to install", self.restore)
 
+    def test_the_cache_is_written_only_after_the_digest_is_checked(self):
+        # A corrupted download that reaches the cache would be re-read by every
+        # later run on that machine. It cannot pass the digest check, but it
+        # should never be written there in the first place.
+        verify = self.restore.index("sha256sum")
+        cache_write = self.restore.index("file.copy(tarball, cached")
+        self.assertLess(verify, cache_write,
+                        "the cache must be populated after verification, not before")
+        self.assertIn("downloaded && !is.na(cached) && !is.na(renv_sha256)", self.restore,
+                      "only a verified download should be cached")
+
     def test_a_local_copy_is_preferred_over_the_network(self):
         for variable in ("GTHEORY_RENV_BOOTSTRAP", "GTHEORY_RENV_BOOTSTRAP_CACHE"):
             self.assertIn(variable, self.restore)
