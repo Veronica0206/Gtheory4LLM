@@ -23,7 +23,12 @@ TOLERANCE <- list(
   curvature  = c(relative = 1e-6,  absolute = 1e-6),
   # A quantity whose intended value is zero cannot be compared relatively: the
   # assertion is that it is small, not that it reproduces digit for digit.
-  stationary = c(relative = NA,    absolute = 1e-6))
+  stationary = c(relative = NA,    absolute = 1e-6),
+  # An algebraic identity is not a stationarity residual and must not borrow
+  # its allowance. These reconstruct exactly up to rounding in the same sums
+  # the objective tolerance already covers, so they are held an order tighter
+  # than that absolute figure rather than at the mode-gradient tolerance.
+  identity   = c(relative = NA,    absolute = 1e-10))
 
 frozen <- read.csv(file.path(DIRECTORY, "reference.csv"), stringsAsFactors = FALSE)
 current <- discrete_reference_rows()
@@ -71,7 +76,7 @@ for (i in seq_len(nrow(frozen))) {
 # --- A stationary residual is small, not merely reproduced --------------------
 # Freezing a near-zero score would otherwise let a future implementation match
 # a recorded non-solution exactly and call that agreement.
-for (i in which(frozen$kind == "stationary"))
+for (i in which(frozen$kind %in% c("stationary", "identity")))
   expect(abs(frozen$value[[i]]) <= TOLERANCE$stationary[["absolute"]],
          paste0("frozen ", frozen$case[[i]], " ", frozen$quantity[[i]],
                 " is a solved stationary residual, not an arbitrary recorded value"))

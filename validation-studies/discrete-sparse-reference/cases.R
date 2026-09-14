@@ -5,8 +5,10 @@
 # Both must evaluate the same fixtures, so neither defines them itself.
 #
 # Every quantity here is evaluated at a declared parameter vector. No outer
-# optimizer runs, so nothing recorded depends on optimizer behaviour and the
-# unresolved portability issue in #14 cannot reach these values. Tolerances are
+# optimizer runs, so nothing recorded depends on outer optimizer behaviour and
+# the unresolved portability issue in #14 cannot reach these values through
+# that path. The inner conditional-mode solver does produce them, so if that
+# issue lives in the inner solve it would reach them; see PROTOCOL.md. Tolerances are
 # declared in PROTOCOL.md from the solver's own tolerances and double
 # precision, before any sparse implementation exists to compare against.
 for (file in c("design.R", "family.R", "discrete_response.R", "discrete_dense.R",
@@ -161,7 +163,7 @@ for (case in cases) {
   record(case$key, "hessian_log_determinant", sum(log(eigenvalues)), "objective")
   record(case$key, "laplace_identity_residual",
          answer$nll - (answer$conditional_nll + sum(mode^2) / 2 + sum(log(eigenvalues)) / 2),
-         "stationary")
+         "identity")
   record(case$key, "hessian_trace", sum(diag(hessian)), "objective")
   record(case$key, "hessian_min_eigenvalue", min(eigenvalues), "objective")
 
@@ -177,7 +179,7 @@ for (case in cases) {
   # separately rather than stored twice.
   for (j in seq_len(ncol(hessian))) for (i in seq_len(j))
     record(case$key, paste0("hessian_", i, "_", j), hessian[[i, j]], "curvature")
-  record(case$key, "hessian_asymmetry", max(abs(hessian - t(hessian))), "stationary")
+  record(case$key, "hessian_asymmetry", max(abs(hessian - t(hessian))), "identity")
   record(case$key, "inner_gradient", answer$inner_gradient, "stationary")
   record(case$key, "inner_converged", isTRUE(answer$inner_converged), "exact")
 }
