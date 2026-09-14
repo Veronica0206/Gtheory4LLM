@@ -64,8 +64,9 @@ commit also do not establish that a later development checkout has passed.
   published release and development checkout.
 - Maintain release-tag protection and update pinned Actions to supported
   runtimes through a separate maintenance change.
-- Keep R-devel, exact published-archive checking and resubmission deferred
-  while the confirmed 0.0.6 CRAN submission is pending. Existing CI is unchanged.
+- Defer additional R-devel checking of the exact published archive and CRAN
+  resubmission while the confirmed 0.0.6 submission is pending. Existing
+  development CI is unchanged.
 - Begin the sparse discrete backend against the existing dense reference and
   characterization tests, as described in [the roadmap](ROADMAP.md).
 
