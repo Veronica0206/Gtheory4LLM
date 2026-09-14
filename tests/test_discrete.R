@@ -1,5 +1,6 @@
 # Run from the project directory with Rscript tests/test_discrete.R.
 source(file.path("R", "design.R"))
+source(file.path("R", "discrete_response.R"))
 source(file.path("R", "discrete.R"))
 
 expect_error <- function(expr, pattern) {

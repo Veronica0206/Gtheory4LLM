@@ -41,6 +41,7 @@ Collate:
     'gaussian_retry.R'
     'gaussian_engine.R'
     'gaussian.R'
+    'discrete_response.R'
     'discrete.R'
     'preflight.R'
     'fit.R'
