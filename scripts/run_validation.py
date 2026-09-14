@@ -26,7 +26,12 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # The frozen fixed-parameter targets are the contract a sparse
                  # backend will be judged against, so whether they reproduce off
                  # Linux has to be measured rather than assumed.
-                 "test_discrete_reference.R"}
+                 "test_discrete_reference.R",
+                 # The sparse mode solver runs the inner conditional solve, and
+                 # a platform-dependent inner solve is the open question in #14.
+                 # Comparing it against dense and against the frozen targets is
+                 # only informative off Linux if it actually runs there.
+                 "test_discrete_sparse_mode.R"}
 
 
 MANUAL_TOOLS = ("pdflatex", "makeindex")
