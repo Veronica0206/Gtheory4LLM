@@ -86,9 +86,17 @@
   validation <- .gt_stage_number(d$stability$validation_inner_tol)
   tightened <- is.character(d$selected_attempt) && length(d$selected_attempt) == 1L &&
     grepl("_tight$", d$selected_attempt)
-  requested <- if (tightened && !is.null(validation)) validation
-    else .gt_stage_number(fit$control$inner_tol)
-  budget <- .gt_stage_number(fit$control$inner_maxit)
+  # Read from retained evidence first. A public fit stores the gt_control
+  # object, whose discrete settings are empty unless the caller set one, so
+  # fit$control$inner_tol is NULL for an ordinary discrete fit and reading it
+  # alone would silently lose both values.
+  configured <- .gt_stage_number(d$stability$inner_tol)
+  if (is.null(configured)) configured <- .gt_stage_number(fit$control$inner_tol)
+  if (is.null(configured)) configured <- .gt_stage_number(fit$control$discrete$inner_tol)
+  requested <- if (tightened && !is.null(validation)) validation else configured
+  budget <- .gt_stage_number(d$stability$inner_maxit)
+  if (is.null(budget)) budget <- .gt_stage_number(fit$control$inner_maxit)
+  if (is.null(budget)) budget <- .gt_stage_number(fit$control$discrete$inner_maxit)
   strict <- if (!is.null(gradient) && !is.null(requested)) gradient <= requested else NULL
   exhausted <- if (!is.null(iterations) && !is.null(budget)) iterations >= budget else NULL
   measurements <- list(

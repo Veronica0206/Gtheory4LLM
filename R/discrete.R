@@ -816,7 +816,12 @@
     parameter_tolerance = control$stability_parameter_tol,
     alternative_starts = length(alternatives),
     validation_inner_tol = validation_control$inner_tol,
-    validation_reltol = validation_control$reltol)
+    validation_reltol = validation_control$reltol,
+    # Retained beside the validation tolerances they are compared against. A
+    # public fit stores the gt_control object, whose discrete settings are
+    # empty unless the caller set one, so these cannot be recovered from the
+    # fit's control afterwards.
+    inner_tol = control$inner_tol, inner_maxit = control$inner_maxit)
   components <- lapply(final$factors, function(L) {
     out <- tcrossprod(L)
     dimnames(out) <- list(prep$dimensions, prep$dimensions)

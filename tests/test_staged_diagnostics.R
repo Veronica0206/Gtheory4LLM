@@ -153,4 +153,29 @@ if (isFALSE(real$numerically_accepted))
   expect(any(vapply(live, function(s) identical(s$status, "failed"), logical(1))),
          "a rejected real fit names at least one failed stage")
 
+# --- A public fit, not only a direct engine call ------------------------------
+# gt_fit() stores the gt_control object, whose discrete settings are empty
+# unless the caller set one. Exercising only .gt_fit_discrete() would leave the
+# public path untested, and it is the path where these values were being lost.
+source("load_functions.R")
+set.seed(808)
+public <- expand.grid(item = seq_len(10), rater = seq_len(3))
+public$y <- rbinom(nrow(public), 1L, plogis(rnorm(10, sd = 0.8)[public$item]))
+public_fit <- gt_fit(public, "y", gt_design("item", "rater", full_cell = FALSE),
+                     gt_family("binary"))
+expect(is.null(public_fit$control$inner_tol),
+       "the public fit really does not expose inner_tol on its control")
+public_stages <- gt_diagnostics(public_fit)$stages
+mode_measurements <- public_stages$conditional_mode$measurements
+for (name in c("inner_requested_tolerance", "inner_final_acceptance_tolerance",
+               "inner_iteration_budget", "inner_iterations",
+               "inner_strict_tolerance_met", "inner_iteration_budget_exhausted"))
+  expect(!is.null(mode_measurements[[name]]),
+         paste0("a public discrete fit still reports ", name))
+expect(identical(mode_measurements$inner_final_acceptance_tolerance,
+                 mode_measurements$inner_requested_tolerance * 10),
+       "the relaxed final criterion is reported relative to the governing tolerance")
+expect(public_stages$conditional_mode$status %in% .GT_STAGE_STATES,
+       "the public fit reports a recognized conditional-mode state")
+
 cat("PASS: staged diagnostics report retained evidence without changing any acceptance decision.\n")
