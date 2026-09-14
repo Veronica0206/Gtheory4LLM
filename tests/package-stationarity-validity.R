@@ -12,8 +12,11 @@ expect_error <- function(expr, text) {
 
 make_probe <- function(kind) {
   env <- new.env(parent = ns)
+  # Rebind every layer between stationarity and the pure response kernel so
+  # failed conditional responses propagate through the real dense mode solver.
   for (name in c("gt_fit", ".gt_fit_discrete", ".gt_d_stationarity",
-                 ".gt_d_laplace", ".gt_d_response")) {
+                 ".gt_d_laplace", ".gt_d_dense_mode", ".gt_d_dense_evaluate",
+                 ".gt_d_response_kernel")) {
     fun <- internal(name)
     environment(fun) <- env
     env[[name]] <- fun
@@ -22,12 +25,12 @@ make_probe <- function(kind) {
   state$active <- FALSE
   state$invalid_response <- FALSE
   state$evaluations <- list()
-  original_response <- env$.gt_d_response
+  original_response <- env$.gt_d_response_kernel
   original_laplace <- env$.gt_d_laplace
   original_stationarity <- env$.gt_d_stationarity
-  env$.gt_d_response <- function(eta, parameters, prep, W = NULL) {
+  env$.gt_d_response_kernel <- function(eta, parameters, prep) {
     if (state$invalid_response) return(list(valid = FALSE))
-    original_response(eta, parameters, prep, W)
+    original_response(eta, parameters, prep)
   }
   env$.gt_d_laplace <- function(parameters, prep, groups, setup, control,
                                 details = FALSE, factors_override = NULL) {
