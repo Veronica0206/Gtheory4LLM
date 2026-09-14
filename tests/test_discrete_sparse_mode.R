@@ -80,6 +80,13 @@ solve_both <- function(case, control_override = list()) {
 # Both coordinates are inside what the package accepts. The intercept is a
 # declared binary mean and the factor gives a variance of 400 to 1600, against
 # a direct variance coordinate that admits exp(10), about 22026.
+#
+# This is a stress test of the conditional solver, not a supported fitted
+# design. One item level per observation is deliberate, because it makes the
+# penalty dominate cleanly, and the public fitter rejects observation-specific
+# random sources. Identifiability does not bear on exercising a
+# fixed-parameter Newton step and line search, which is all this is for, and
+# nothing here should be read as a claim that such a model can be fitted.
 saturating_case <- function(intercept, scale, items = 4L) {
   data <- data.frame(item = factor(seq_len(items)),
                      y = c(rep(1L, items - 1L), 0L))
@@ -163,6 +170,50 @@ for (case in cases) {
          paste(label, "conditional objective matches the frozen target"))
   expect(within(sparse$nll, frozen_value(case$key, "marginal_laplace_nll"), OBJECTIVE),
          paste(label, "marginal Laplace value matches the frozen target"))
+  # The penalised score, coordinatewise. inner_gradient is only the largest
+  # absolute component, and two different score vectors can share a maximum,
+  # so agreeing on it is not agreeing on the score. Both scores are taken at
+  # the sparse mode, so what is compared is the product with W rather than a
+  # difference in where the two solvers stopped.
+  #
+  # The three assertions below establish different things, and the difference
+  # matters. Only the first is coordinate-wise equivalence.
+  #
+  #   1. Against dense at 1e-10. This is the equivalence evidence. A permuted
+  #      score, or a flat one with the same maximum, differs here by 2.2e-08
+  #      and fails.
+  #   2. Against the frozen score_i at the declared stationary allowance. On
+  #      these fixtures the frozen scores are around 1e-08, two orders below
+  #      that 1e-06 absolute allowance, so this asserts that the score is
+  #      small and cannot distinguish one near-zero vector from another. That
+  #      is what the reference intends by the stationary kind, and it is not
+  #      evidence of reproduction. Tightening it would mean redeclaring a
+  #      frozen tolerance, which is not this PR's to do.
+  #   3. That the reported inner_gradient is the maximum of the vector just
+  #      compared. This catches a stale or unrelated reported diagnostic; a
+  #      permutation preserves the maximum, so it does not catch that.
+  kernel <- .gt_d_response_kernel(sparse$eta, at$parameters, at$prep)
+  expect(isTRUE(kernel$valid), paste(label, "evaluates at the returned mode"))
+  sparse_score <-
+    as.numeric(Matrix::crossprod(at$sparse_backend$W, kernel$gradient)) + sparse$mode
+  dense_score <-
+    as.vector(crossprod(at$dense_backend$W, kernel$gradient)) + sparse$mode
+  expect(length(sparse_score) == length(dense_score),
+         paste(label, "scores the same number of coordinates"))
+  expect(max(abs(sparse_score - dense_score)) <= AGAINST_DENSE,
+         paste0(label, " score matches dense coordinatewise; worst ",
+                format(max(abs(sparse_score - dense_score)), digits = 3)))
+  for (i in seq_along(sparse_score))
+    expect(abs(sparse_score[[i]] - frozen_value(case$key, paste0("score_", i)))
+             <= STATIONARY[["absolute"]],
+           paste0(label, " score_", i, " matches the frozen target"))
+  # The reported diagnostic must summarise the vector just compared, not some
+  # other one: a correct score reported alongside an unrelated maximum would
+  # otherwise pass both of the checks above.
+  expect(abs(max(abs(sparse_score)) - sparse$inner_gradient) <= 1e-14,
+         paste0(label, " reports the maximum of the score it actually leaves: ",
+                format(max(abs(sparse_score)), digits = 3), " against ",
+                format(sparse$inner_gradient, digits = 3)))
   expect(abs(sparse$inner_gradient) <= STATIONARY[["absolute"]],
          paste0(label, " leaves a solved penalised score; worst ",
                 format(sparse$inner_gradient, digits = 3)))
