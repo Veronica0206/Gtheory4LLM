@@ -1,5 +1,6 @@
 # Run from the project root: Rscript tests/test_gaussian.R
 source("R/design.R")
+source("R/gaussian_retry.R")
 source("R/gaussian_engine.R")
 source("R/gaussian.R")
 if (!requireNamespace("OpenMx", quietly = TRUE)) stop("OpenMx is required.")

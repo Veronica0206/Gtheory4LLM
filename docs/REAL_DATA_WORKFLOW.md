@@ -67,7 +67,7 @@ For that request, the observed output is:
 All six panels pass the complete/balanced description, but all six fitting requests are blocked. There are two distinct issues:
 
 1. At one observation per full cell, the requested observation-level random source is unsupported by the discrete engine. Source resolution fails; reported dimensions then describe the **requested model**, not a fitted model. No source is removed by this tutorial.
-2. The full panels exceed the default 1,200-observation and 200-random-dimension limits. Joint requests also exceed the 80-parameter limit. The byte estimate covers only one dense design matrix and one random-effect Hessian, not peak memory or runtime. Kernel checks are explicitly skipped after these earlier failures.
+2. The full panels exceed the default 1,200-observation and 200-random-dimension limits. Joint requests also exceed the 80-parameter limit, and all six exceed the default `max_dense_bytes` working-memory limit, which is checked before anything is allocated. The byte estimate in the table above covers only one dense design matrix and one random-effect Hessian; `$resources$dense_working_bytes_estimate` adds the temporaries that forming the Hessian materializes and a planning multiplier, and is the figure the guard compares. Neither is peak memory or a runtime prediction. Kernel checks are explicitly skipped after these earlier failures.
 
 Raising a size limit does not resolve the unsupported source or provide a scalable implementation. Removing the full-cell term, other interactions, or outcomes changes the model. Such changes require a substantive design or outcome rationale. A smaller study must have a defensible sampling/conditioning rule and enough replication for its intended sources; selecting a subset because it yields a passing fit is not such a rule. Fitting the intended full native models remains backend work.
 
@@ -102,6 +102,8 @@ For a refit of exactly the same discrete model, `fit$parameters` supplies named 
 ## Recorded execution and sources
 
 Executed on 2026-09-13 against the 0.0.7 source at base commit `137a9feb594aba648b55169b262e52298d694e25`, with this new example added. Environment: R 4.5.3, `aarch64-apple-darwin20`. The example completed in 1.66 seconds and exited successfully. Script SHA-256: `a20b65181e07746d3a9879fcc43865a5d30c878e54df8f55a4a2b5ce356734ac`.
+
+Re-run on the `0.1.0.9000` development checkout after the engineering changes recorded in `NEWS.md`: the script is unchanged (same SHA-256), and every number on this page reproduced — the same six preflight rows, the same two numerical verdicts, and the same synthetic latent coefficient of 0.7044082.
 
 Both synthetic optimizations completed. Disabling restart checks produced numerical rejection with `restart_or_tolerance_stability_failed`; the standard-check fit was accepted. Its latent G and Phi were both 0.7044082, with unavailable SEs and intervals. These are fixture outputs, not real-data results or acceptance targets for other platforms. The script preserves a different numerical verdict if one occurs and calculates no coefficient for a rejected fit. No full-panel discrete fit was attempted.
 

@@ -24,15 +24,28 @@ REQUIRED = ("OpenMx", "lme4", "ordinal")
 COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R", "test_discrete.R"}
 
 
+MANUAL_TOOLS = ("pdflatex", "makeindex")
+
+
+def missing_tex_tools() -> list[str]:
+    """TeX tools the manual build needs that are not on PATH.
+
+    Both are required: pdflatex typesets the manual and makeindex builds its
+    index. A machine with one and not the other cannot render the manual, and
+    reporting that as a failed gate rather than a skipped one would be wrong.
+    """
+    return [tool for tool in MANUAL_TOOLS if shutil.which(tool) is None]
+
+
 def tex_available() -> bool:
-    """Whether a LaTeX engine is present to render the reference manual.
+    """Whether the reference manual can be rendered here.
 
     R CMD check runs with --no-manual so the package check does not require TeX
     on every platform, and R CMD check would accept overfull boxes in any case.
     scripts/build_manual.R is the only gate that rejects them, so it runs here
     wherever it can rather than only by hand at release time.
     """
-    return shutil.which("pdflatex") is not None
+    return not missing_tex_tools()
 
 
 def manual_stage(root: Path, rscript: str) -> tuple[str, list[str]]:
@@ -79,6 +92,7 @@ def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
     if scope in {"source", "all"}:
         result.append(("release_identity", [sys.executable, str(root / "scripts/check_committed_artifact.py"),
                       "--verify-only", "--check-release-identity"]))
+        result.append(("source_style", [sys.executable, str(root / "scripts/check_style.py")]))
         result.append(("python_regressions", [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py", "-v"]))
         r_tests = sorted((root / "tests").glob("test_*.R"))
         if compact:
@@ -178,7 +192,8 @@ def main(argv: list[str] | None = None) -> int:
     report.update({"finished_utc": datetime.now(timezone.utc).isoformat(), "success": passed,
                    "reference_manual_checked": "reference_manual" in done,
                    "reference_manual_skipped_reason": None if tex_available() else
-                       "No LaTeX engine (pdflatex) on PATH; scripts/build_manual.R was not run.",
+                       "Missing TeX tool(s) on PATH (" + ", ".join(missing_tex_tools()) +
+                       "); scripts/build_manual.R was not run.",
                    "source_validation_passed": "package_build_install_check" in done,
                    "committed_artifact_validation_passed": "committed_artifact_integrity_install_smoke" in done,
                    "full_locked_validation_passed": passed and mode == "locked" and options.scope == "all" and not options.compact})

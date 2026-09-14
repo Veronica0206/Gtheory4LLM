@@ -185,6 +185,16 @@ def verify_bundle(root: Path, manifest_path: Path) -> tuple[dict, dict[str, byte
             "description_metadata_matches": True, "archive": str(manifest_path.parent / archive_name)}, files
 
 
+RELEASE_STATES = ("prepared", "published")
+
+
+def local_release_tag(root: Path, tag: str) -> bool:
+    """Whether this checkout can resolve the tag, without contacting a remote."""
+    return not subprocess.run(["git", "-C", str(root), "rev-parse", "--verify",
+                               "--quiet", f"refs/tags/{tag}^{{commit}}"],
+                              capture_output=True).returncode
+
+
 def verify_release_identity(root: Path, manifest_path: Path,
                             release_tag: str | None = None) -> dict:
     """Check current release prose without rewriting historical archive contents.
@@ -193,9 +203,18 @@ def verify_release_identity(root: Path, manifest_path: Path,
     that release, but must say which source and artifact versions it describes.
     A release-tag check additionally verifies the tag's metadata and manifest.
     Archive byte integrity/source correspondence remain verify_bundle's job.
+
+    The manifest also declares whether the bundle is only prepared locally or
+    actually published. A locally prepared bundle and a published release are
+    different states, and prose calling a bundle published while no version tag
+    exists is the drift this check exists to catch, in either direction.
     """
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     package, version = manifest["package"], manifest["version"]
+    state = manifest.get("release_state")
+    if state not in RELEASE_STATES:
+        raise ValueError("Artifact manifest must declare release_state as one of: " +
+                         ", ".join(RELEASE_STATES))
     description = read_dcf((root / "DESCRIPTION").read_bytes())
     source_version = description.get("Version")
     if description.get("Package") != package:
@@ -216,6 +235,9 @@ def verify_release_identity(root: Path, manifest_path: Path,
         declared = re.findall(r"Current artifact bundle: \*\*([^*]+)\*\*\.", blocks[0])
         if declared != [version]:
             raise ValueError(f"{name}: current artifact version mismatch with manifest ({version})")
+        declared_state = re.findall(r"Release state: \*\*([^*]+)\*\*\.", blocks[0])
+        if declared_state != [state]:
+            raise ValueError(f"{name}: release state mismatch with manifest ({state})")
         if name == "README.md":
             current = re.findall(r"Checkout version: \*\*([^*]+)\*\*\.", blocks[0])
             if current != [source_version]:
@@ -223,10 +245,18 @@ def verify_release_identity(root: Path, manifest_path: Path,
     heading = (manifest_path.parent / "README.md").read_text(encoding="utf-8").splitlines()[0]
     if heading != f"# {package} {version} release":
         raise ValueError("artifacts/README.md: release version mismatch with manifest")
-    if release_tag is not None:
-        if release_tag != f"v{version}" or development:
-            raise ValueError("Release tag/version mismatch with manifest or checkout")
-        ref = f"refs/tags/{release_tag}"
+    # A declared state is only worth as much as the git evidence behind it.
+    version_tag = f"v{version}"
+    tag_present = local_release_tag(root, version_tag)
+    if state == "published" and not tag_present:
+        raise ValueError(f"Release state 'published' requires the {version_tag} tag in this "
+                         "checkout; fetch tags, or declare release_state 'prepared'")
+    if state == "prepared" and tag_present and not development:
+        raise ValueError(f"Release state 'prepared' contradicts the existing {version_tag} tag; "
+                         "update release_state to 'published' after publication")
+    def check_tag(tag: str) -> None:
+        """Compare the tag's own metadata with the bundle it claims to publish."""
+        ref = f"refs/tags/{tag}"
         try:
             tagged = read_dcf(git(root, "show", ref + ":DESCRIPTION"))
             tagged_manifest = json.loads(git(root, "show", ref + ":artifacts/manifest.json"))
@@ -236,10 +266,24 @@ def verify_release_identity(root: Path, manifest_path: Path,
             raise ValueError("Release tag DESCRIPTION version/package mismatch")
         if tagged_manifest != manifest:
             raise ValueError("Release tag manifest differs from the distributed bundle manifest")
+
+    if release_tag is not None:
+        # An explicit tag asserts that this checkout is that release, so a
+        # development checkout cannot claim it.
+        if release_tag != version_tag or development:
+            raise ValueError("Release tag/version mismatch with manifest or checkout")
+        check_tag(release_tag)
+    elif state == "published":
+        # A published bundle is always tag-checked, including from a later
+        # development checkout that legitimately retains the prior release.
+        check_tag(version_tag)
+        release_tag = version_tag
     return {"package": package, "source_version": source_version,
             "artifact_version": version, "archive": archive_name,
             "source_commit": manifest["source_commit"], "development_checkout": development,
+            "release_state": state, "version_tag_present": tag_present,
             "release_tag": release_tag, "release_tag_checked": release_tag is not None,
+            "published": state == "published",
             "archive_matches_current_checkout": "not_asserted; compared to recorded source commit"}
 
 

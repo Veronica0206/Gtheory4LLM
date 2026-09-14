@@ -1,14 +1,18 @@
 \name{gt_diagnostics}
 \alias{gt_diagnostics}
+\alias{print.gt_diagnostics}
 \title{Inspect Numerical Acceptance and Backend Diagnostics}
 \description{Reports optimizer completion separately from numerical acceptance and likelihood-approximation adequacy.}
 \usage{
 gt_diagnostics(fit)
+\method{print}{gt_diagnostics}(x, ...)
 }
 \arguments{
 \item{fit}{A \code{gt_fit} object.}
+\item{x}{A \code{gt_diagnostics} object.}
+\item{...}{Reserved for additional print arguments.}
 }
-\value{A list with estimator, engine, optimizer and numerical acceptance status,
+\value{A \code{gt_diagnostics} list with estimator, engine, optimizer and numerical acceptance status,
 approximation status, engine-specific diagnostics, resolved aliases, and
 data-validation notes. Shared diagnostic fields include:
 \itemize{
@@ -26,12 +30,13 @@ data-validation notes. Shared diagnostic fields include:
 \details{Gaussian diagnostics include independent likelihood reconstruction, covariance-scale stationarity, boundary components, and optional Hessian diagnostics. Discrete diagnostics include covariance- and parameter-scale stationarity, bound locations, and tighter-tolerance alternative-start stability. Passing these checks does not prove structural identification, a global optimum, or adequate approximation in sparse or strongly dependent data.
 
 \code{selected_attempt} identifies the returned candidate using the engine's
-recorded trial identifier. It is \code{NA} when the Gaussian native transcript
-does not uniquely identify that trial. \code{acceptance_failures} gives reasons
+recorded trial identifier. It is \code{NA} when no trial is recorded as
+having produced the returned fit. \code{acceptance_failures} gives reasons
 for rejecting the returned fit; \code{attempt_failures} is a two-column data
 frame of recorded attempt identifiers and error or rejection reasons, including
-earlier attempts. An empty attempt-failure table does not certify every trial:
-some native candidates have no independent acceptance assessment.
+earlier attempts. An empty attempt-failure table means no recorded
+trial reported an error or a rejection reason; it is not a statement about
+trials that were never run.
 
 \code{standard_errors_available} is \code{TRUE} only for a Gaussian fit whose
 numerically differentiated Hessian was computed and is positive definite. The
@@ -49,7 +54,11 @@ components and does not by itself imply rejection. \code{parameter_bounds}
 lists artificial discrete-parameter bound contacts, which do prevent numerical
 acceptance. These shared fields summarize existing engine decisions without
 repeating or changing numerical checks. \code{summary(fit)} prints a concise
-version while retaining full diagnostics for programmatic inspection.}
+version while retaining full diagnostics for programmatic inspection.
+
+Printing a \code{gt_diagnostics} object reports the same decisions in the same
+words. It reads recorded fields only: no check is re-run, no rejection is
+re-evaluated, and every field remains available in the returned list.}
 \seealso{\code{\link{gt_control}}, \code{\link{gt_fit}}}
 \examples{
 d <- expand.grid(item = 1:12, rater = 1:3)
@@ -58,4 +67,5 @@ design <- gt_design("item", "rater", random = ~ item + rater)
 fit <- gt_fit(d, "score", design,
   control = gt_control(gaussian = list(check_hessian = FALSE, retry_seed = 42)))
 gt_diagnostics(fit)$numerically_accepted
+print(gt_diagnostics(fit))
 }

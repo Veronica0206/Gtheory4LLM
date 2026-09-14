@@ -1,0 +1,7 @@
+{
+  "tool": "renv",
+  "version": "1.1.5",
+  "url": "https://cran.r-project.org/src/contrib/Archive/renv/renv_1.1.5.tar.gz",
+  "sha256": "3ee996c65989bc5ea3914fbceb3794b00c7daab7eda49dce64048012ea0406b2",
+  "note": "renv restores the locked numerical environment; it is not a runtime dependency of the package. Pinning its version fixes which renv is used; this digest is what makes retrieving that exact file verifiable. The digest was computed from an independent download of the recorded URL and matches the one the locked CI workflow computed. scripts/restore_validation.R verifies it before installing and refuses on a mismatch; CI caches the verified file so a later restore does not depend on the CRAN Archive being reachable."
+}

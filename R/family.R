@@ -93,12 +93,40 @@ gt_family <- function(family = "gaussian", link = NULL, levels = NULL,
   list(data = encoded, families = families)
 }
 
+# Retained fit components. Every default is TRUE, so a fit keeps exactly what it
+# kept before these controls existed; a caller who does not want a component
+# must say so. The names describe what is dropped, not what is recomputed:
+# nothing here changes an estimate, a diagnostic decision, or a coefficient.
+.gt_retention_defaults <- c(data = TRUE, model = TRUE, retry_log = TRUE, session = TRUE)
+
+.gt_validate_retention <- function(retain) {
+  if (!is.list(retain) && !is.logical(retain))
+    stop("retain must be a named list or logical vector of retention switches.", call. = FALSE)
+  if (length(retain) && (is.null(names(retain)) || anyNA(names(retain)) ||
+      any(!nzchar(names(retain))) || anyDuplicated(names(retain))))
+    stop("retain must be uniquely named.", call. = FALSE)
+  unknown <- setdiff(names(retain), names(.gt_retention_defaults))
+  if (length(unknown))
+    stop("Unsupported retention setting(s): ", paste(unknown, collapse = ", "),
+         ". Supported: ", paste(names(.gt_retention_defaults), collapse = ", "), ".", call. = FALSE)
+  values <- .gt_retention_defaults
+  for (name in names(retain)) {
+    value <- retain[[name]]
+    if (!is.logical(value) || length(value) != 1L || is.na(value))
+      stop("Retention setting ", name, " must be TRUE or FALSE.", call. = FALSE)
+    values[[name]] <- value
+  }
+  values
+}
+
 # Separate controls for exact Gaussian and approximate discrete fitting
-gt_control <- function(gaussian = list(), discrete = list()) {
+# retain: which optional fit components to keep. See gt_control() documentation.
+gt_control <- function(gaussian = list(), discrete = list(), retain = list()) {
   for (x in list(gaussian, discrete)) {
     if (!is.list(x) || (length(x) && (is.null(names(x)) || anyNA(names(x)) ||
         any(!nzchar(names(x))) || anyDuplicated(names(x)))))
       stop("Each engine control must be a uniquely named list.", call. = FALSE)
   }
-  structure(list(gaussian = gaussian, discrete = discrete), class = "gt_control")
+  structure(list(gaussian = gaussian, discrete = discrete,
+                 retain = .gt_validate_retention(retain)), class = "gt_control")
 }

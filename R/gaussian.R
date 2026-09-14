@@ -4,6 +4,42 @@
 # richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Public dispatch is provided by gt_fit(); this file owns the Gaussian backend.
 
+# One definition of the Gaussian covariance and residual requests, so that
+# gt_preflight() and gt_fit() accept and reject exactly the same arguments.
+# A named override names a random source: the residual structure is chosen with
+# the residual argument, and accepting it in both places would mean silently
+# ignoring one of them.
+.gt_gaussian_covariance_choices <- c("diagonal", "unstructured")
+.gt_gaussian_residual_choices <- c("unstructured", "diagonal", "pooled")
+
+.gt_validate_covariance_request <- function(covariance, sources) {
+  if (!is.character(covariance) || !length(covariance) || anyNA(covariance) ||
+      any(!covariance %in% .gt_gaussian_covariance_choices))
+    stop("covariance must specify diagonal or unstructured.", call. = FALSE)
+  if (is.null(names(covariance))) {
+    if (length(covariance) != 1L)
+      stop("Multiple covariance types must be named.", call. = FALSE)
+    return(invisible(covariance))
+  }
+  if (anyNA(names(covariance)) || any(!nzchar(names(covariance))) ||
+      anyDuplicated(names(covariance)))
+    stop("Named covariance overrides must be uniquely named.", call. = FALSE)
+  if ("Residual" %in% names(covariance))
+    stop("The residual covariance structure is chosen with the residual argument, not with a named covariance override.", call. = FALSE)
+  unknown <- setdiff(names(covariance), sources)
+  if (length(unknown))
+    stop("Named covariance overrides must refer to retained random sources; unknown: ",
+         paste(unknown, collapse = ", "), ".", call. = FALSE)
+  invisible(covariance)
+}
+
+.gt_validate_residual_request <- function(residual) {
+  if (!is.character(residual) || length(residual) != 1L || is.na(residual) ||
+      !residual %in% .gt_gaussian_residual_choices)
+    stop("residual must be unstructured, diagonal, or pooled.", call. = FALSE)
+  invisible(residual)
+}
+
 .gt_gaussian_validate_control <- function(control) {
   allowed <- c("start", "optimizer", "max_iterations", "tolerance", "check_hessian",
                "threads", "silent", "extra_tries", "retry_seed", "max_preparation_bytes")

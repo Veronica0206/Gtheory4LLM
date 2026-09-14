@@ -1,10 +1,147 @@
-# Gtheory4LLM 0.1.0
+# Gtheory4LLM 0.1.0.9000 (development)
 
 <!-- release-identity:start -->
-Current artifact bundle: **0.1.0**.
-The published files are preserved against the source commit in the manifest;
-subsequent repository refinements below do not replace those release files.
+Current artifact bundle: **0.1.0**. Release state: **prepared**.
+The bundle in `artifacts/` was built from the source commit in its manifest and
+is not a build of these sources; this is a development checkout past it. No
+`v0.1.0` tag or GitHub release exists. Build a bundle from this checkout by
+setting a release version and running `scripts/prepare_release.py`.
 <!-- release-identity:end -->
+
+Engineering hardening. The statistical models are unchanged: every estimate,
+coefficient and acceptance decision in `tests/package-characterization.R`
+reproduces the 0.1.0 candidate's values within the tolerances recorded there.
+
+## Numerical baseline
+
+- Adds a characterization baseline over ten canonical cases (Gaussian ML and
+  REML, multivariate, a variance boundary, fixed facets, a nested design,
+  binary, ordinal and multinomial Laplace, and a deliberately rejected discrete
+  fit). Optimizer-dependent quantities are compared with tolerances, acceptance
+  decisions exactly. Regenerating it is deliberate and must be explained here.
+
+## Nested designs
+
+- Adds reliability, mixed fixed/nested weighting, and decision-study regression
+  tests for `p x (i:h)` and for `p x (i:h) x r` with a fixed facet, with every
+  expected coefficient written out from the published formulas rather than
+  produced by the code under test. Nested designs were previously exercised only
+  at the specification level: no nested model was fitted, and no nested
+  reliability or decision study was computed.
+- `help("gt_design")`, `help("gt_reliability")` and `help("gt_dstudy")` now
+  define *balanced coded panel* explicitly, with a worked contrast between
+  globally unique child labels and within-parent codes.
+
+## Optimizer retrying
+
+- Replaces transcript-parsing retry accounting with a retry controller that
+  drives the optimizer directly, in `R/gaussian_retry.R`. Every attempt now
+  records a real optimizer status; previously a trial run inside OpenMx's own
+  retry loop could be recorded with an unknown status, and a change in OpenMx's
+  message wording could fail an otherwise valid fit.
+- `fit$retry_attempts` gains `start_type` (replacing `start`) and
+  `optimizer_success`, and drops the transcript-specific `native_attempt`,
+  `invocation`, `continuation_reason` and `native_returned_fit` columns.
+  `attempt`, `optimizer`, `status`, `minus2loglik`, `external_accepted`,
+  `external_rejection_reason`, `error` and `returned_fit` are unchanged.
+  `fit$retry_settings$native_invocations` becomes `optimizer_runs`.
+- The retry policy itself is unchanged: at most `extra_tries + 1` runs, each
+  unsuccessful run followed by OpenMx's own bounded uniform perturbation of the
+  best model so far, stopping at the first externally accepted run.
+
+## Standard methods
+
+- Adds `logLik()`, `nobs()` and `coef()` methods for `gt_fit`, and a print
+  method for `gt_diagnostics()`, which now returns a classed object.
+- `AIC()` and `BIC()` reproduce the fit's own recorded conventions: an ML fit's
+  `ml_AIC` and `ml_BIC_response_vectors`, a REML fit's
+  `reml_AIC_variance_parameters`. A REML `logLik` carries `REML = TRUE`; a
+  discrete one is labelled as a first-order Laplace approximation.
+- Adds `gt_component_vcov()` for the sampling covariance of the estimated source
+  covariances, which is what `gt_reliability()` propagates into an interval.
+- `vcov()` on a fit raises an error rather than returning that matrix. In R,
+  `vcov(fit)` is the covariance of `coef(fit)`, and generic tooling relies on
+  the pairing; this package does not estimate it, because Gaussian outcome means
+  are profiled out of the likelihood and the discrete engine computes no
+  observed information. The error names the reason and points at
+  `gt_component_vcov()`.
+
+## Controls
+
+- `gt_control()` gains `retain`, choosing which optional components a fit keeps:
+  `data`, `model`, `retry_log` and `session`. Every default is `TRUE`, so an
+  existing call is unaffected. Dropping all four reduced a 600-row Gaussian fit
+  from 525 KB to 64 KB with every reported result identical, including
+  reliability, decision studies, diagnostics, correlations and the component
+  covariance.
+- Every fit now records a compact `panel` summary, so reliability and decision
+  studies remain available when the modelled data was not kept. Where the data
+  is kept it is still what the balanced-panel rules are checked against, so a
+  panel edited after fitting is still caught.
+- The discrete engine gains `max_dense_bytes` (default 512 MiB), checked before
+  allocation. The other discrete limits bound counts; this bounds the dense
+  algebra those counts imply, which is what protects a caller who raises them.
+  The refusal names the estimate, the limit, the observation count, the random
+  dimension, the size of the random-design matrix, and the alternatives. It does
+  not bind for any model the existing count limits already allow.
+
+## Release and repository
+
+- `artifacts/manifest.json` declares `release_state`, and the marked README and
+  NEWS blocks declare it too. Publication is now checked against git: a
+  `published` claim requires the version tag, and a `prepared` claim fails once
+  that tag exists. Nothing calls a bundle published before it is.
+- Adds `scripts/prepare_release.py`, which derives every version from
+  DESCRIPTION, validates, builds the archive and manual, writes the manifest,
+  rewrites the release blocks, verifies the result, and stops. It never tags,
+  pushes, uploads or submits.
+- `scripts/check_public_contents.py` no longer hard-codes the version: the
+  package name comes from DESCRIPTION and the bundle version from the manifest,
+  which is what lets a development checkout retain the preceding bundle.
+- Adds `docs/REPOSITORY_POLICY.md` with the required branch-protection state,
+  `docs/branch-protection.json` as the exact payload, and
+  `scripts/check_branch_protection.py` to verify it. `main` is currently
+  unprotected; applying the policy is a repository-admin action.
+- Adds `SECURITY.md` and `CODEOWNERS`.
+- The reference manual build falls back to plain `R CMD Rd2pdf` when R's
+  generated LaTeX is not the layout its customized cover knows how to reflow,
+  and reports which route it took and whether the overfull-box gate could run.
+  The manual gate now requires both `pdflatex` and `makeindex` before claiming
+  it can run, and names the missing tool when it skips.
+- The renv bootstrap is described by `scripts/dependency-locks/renv-bootstrap.json`,
+  verified by SHA-256 before installation, and preferentially taken from a cache
+  that both locked workflows now keep. Pinning a version says which renv is
+  used; the digest and the cache are what make retrieving it checkable and
+  possible.
+
+## Fixes
+
+- `plot()` on a decision study now reports an invalid `coefficient` instead of
+  failing on a zero-length condition.
+- `gt_preflight()` and `gt_fit()` now share one definition of the covariance and
+  residual rules, so a request one accepts is a request the other accepts.
+  Previously preflight admitted a `Residual` covariance override that fitting
+  refused, and fitting completed abbreviated residual names that preflight
+  rejected. Both now refuse both, with the same message.
+- A local variable named `T` in the discrete engine no longer shadows the `TRUE`
+  alias.
+- Four overfull boxes introduced by the new help pages are fixed in the Rd
+  content rather than by relaxing the gate that found them, and the locked
+  workflow now preserves the manual's LaTeX log and rendered PDF as build
+  evidence: the log is the only place that says which box overflowed.
+- The renv bootstrap digest is recorded and enforced. It was computed from an
+  independent download of the pinned URL and matches the digest the locked
+  workflow computed; a mismatch now refuses to install.
+- The install instructions no longer point at a release page that has no
+  release on it, and say where the prepared bundle actually is.
+- `docs/LIMITATIONS.md` collects every limitation in one place; the other
+  documents link to it. `docs/ROADMAP.md` records planned work.
+  `docs/DEVELOPMENT_STATUS.md` now holds only the current state.
+
+# Gtheory4LLM 0.1.0
+
+Prepared locally; never tagged or published. The bundled files are preserved
+against the source commit in the manifest.
 
 ## Release scope
 

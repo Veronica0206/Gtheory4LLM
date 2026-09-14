@@ -1,6 +1,6 @@
 # Validation scope
 
-This document separates implemented checks from the scientific validation still needed. It describes the v0.1.0 implementation (numerical engines unchanged from v0.0.7); it is not a new test-run report or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
+This document separates implemented checks from the scientific validation still needed. It is about *evidence*: what has been checked, how, and what that does not establish. The catalogue of what the software does not do is [limitations](LIMITATIONS.md), and is not repeated here. It describes the v0.1.0 implementation (numerical engines unchanged from v0.0.7); it is not a new test-run report or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
 
 ## What the existing checks establish
 
@@ -14,7 +14,7 @@ This document separates implemented checks from the scientific validation still 
 
 The discrete acceptance test includes six sparse-group replicates to exercise numerical behavior, not assess recovery or coverage. Separate [versioned pilot studies](../validation-studies/README.md) now retain 320 Gaussian fits, 180 discrete fixed-parameter likelihood comparisons and 40 binary recovery fits. Their protocols and individual records are public. These bounded initial studies do not establish a general operating range; no observed pilot coverage range is adopted as a guarantee.
 
-Gaussian intervals use a Wald/delta approximation. Boundary variance rows have unavailable SEs. If the joint curvature cannot support inference and the implementation uses an interior block, the remaining intervals are conditional on listed boundary components being held at zero. If full curvature remains usable, boundary caveats still apply. Neither branch establishes unconditional coverage after boundary selection. Inspect `$uncertainty`, not merely whether interval endpoints are finite.
+What the Gaussian intervals are, and what boundary contact does to them, is stated once in [limitations](LIMITATIONS.md). What remains unestablished about them is this document's subject: neither the full-curvature branch nor the interior-block branch has a demonstrated unconditional coverage rate after boundary selection, and no study here has estimated one. Inspect `$uncertainty`, not merely whether interval endpoints are finite.
 
 Likelihood uncertainty reflects estimation under the fitted random-effects sampling model. It is distinct from prediction variation in a fresh evaluator panel and does not quantify an incorrectly specified facet population. The [synthetic vignette](../vignettes/LLM-workflow.Rmd) demonstrates workflow and interpretation, not empirical method validity or labeling accuracy.
 

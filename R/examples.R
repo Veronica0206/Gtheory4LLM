@@ -86,7 +86,8 @@ gt_example <- function(name = NULL, coding = c("native", "manuscript"), director
     if (name == "mental_health_3group") flags <- list(
       stress = flags$stress,
       anxiety_depression = as.integer(flags$anxiety == 1 | flags$depression == 1),
-      bipolar_personality_suicidal = as.integer(flags$bipolar == 1 | flags$personality_disorder == 1 | flags$suicidal == 1))
+      bipolar_personality_suicidal = as.integer(
+      flags$bipolar == 1 | flags$personality_disorder == 1 | flags$suicidal == 1))
     for (trait in names(flags)) {
       data[[trait]] <- flags[[trait]]
       families[[trait]] <- if (coding == "native") gt_family("binary") else gt_family()

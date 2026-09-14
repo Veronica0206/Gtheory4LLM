@@ -13,6 +13,21 @@ gt_score <- function(weights) {
   structure(list(weights = weights, normalization = "as_supplied"), class = "gt_score")
 }
 
+# Panel facts for the balanced-panel rules, from the data where it was kept.
+.gt_reliability_panel <- function(fit, dimensions) {
+  if (is.data.frame(fit$data)) {
+    counts <- stats::setNames(vapply(fit$data[dimensions],
+      function(x) length(unique(x)), integer(1)), dimensions)
+    return(list(counts = counts, rows = nrow(fit$data),
+      cell_replication = as.integer(table(.gt_tuple_key(fit$data, dimensions)))))
+  }
+  panel <- fit$panel
+  if (!is.list(panel) || !identical(panel$dimensions, dimensions))
+    stop("This fit retains neither its modelled data nor a matching panel summary, so a balanced-panel coefficient cannot be checked. Refit with gt_control(retain = list(data = TRUE)).", call. = FALSE)
+  list(counts = panel$counts, rows = panel$rows,
+       cell_replication = panel$cell_replication)
+}
+
 .gt_reliability_context <- function(fit, scale) {
   if (!inherits(fit, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
   if (isFALSE(fit$converged) || isFALSE(fit$numerically_accepted) ||
@@ -30,13 +45,16 @@ gt_score <- function(weights) {
     stop("Unordered categorical outcomes have no default scalar G/Phi. Define a substantive score or category-probability estimand before computing reliability; this is not implemented yet.", call. = FALSE)
   if ((gaussian && scale != "observed") || (!gaussian && scale != "latent"))
     stop("This implementation supports observed Gaussian coefficients and identified latent binary/ordinal coefficients only.", call. = FALSE)
+  # Check the retained data when it is present, so a panel edited after fitting
+  # is still caught. When the caller asked not to keep it, fall back to the
+  # summary recorded at fitting time and apply exactly the same two rules.
   dimensions <- c(fit$design$object, fit$design$facets)
-  counts <- stats::setNames(vapply(fit$data[dimensions], function(x) length(unique(x)), integer(1)), dimensions)
-  if (nrow(fit$data) != prod(counts) * fit$design$replicates)
+  panel <- .gt_reliability_panel(fit, dimensions)
+  if (panel$rows != prod(panel$counts) * fit$design$replicates)
     stop("Analytic coefficients currently require a complete balanced coded panel; unbalanced allocations need separate D-study integration.", call. = FALSE)
-  cell_counts <- table(.gt_tuple_key(fit$data, dimensions))
-  if (any(cell_counts != fit$design$replicates))
+  if (any(panel$cell_replication != fit$design$replicates))
     stop("Analytic coefficients require the declared equal within-cell replication.", call. = FALSE)
+  counts <- panel$counts
   components <- fit$covariance_components
   if (!gaussian) {
     latent_variance <- vapply(fit$families, function(f)
@@ -47,7 +65,8 @@ gt_score <- function(weights) {
   expected <- c(fit$design$terms, "Residual")
   if (!all(expected %in% names(components))) stop("Missing fitted covariance components.", call. = FALSE)
   if (any(vapply(components[expected], function(x)
-    !is.matrix(x) || !identical(dim(x), c(length(fit$outcomes), length(fit$outcomes))) || any(!is.finite(x)), logical(1))))
+    !is.matrix(x) || !identical(dim(x), c(length(fit$outcomes), length(fit$outcomes))) ||
+      any(!is.finite(x)), logical(1))))
     stop("Source covariance dimensions do not match the outcome dimensions.", call. = FALSE)
   list(components = components, counts = counts[fit$design$facets], scale = scale,
        gaussian = gaussian, replicates = fit$design$replicates,
@@ -384,11 +403,13 @@ print.gt_dstudy <- function(x, ..., digits = 4L, max_rows = 12L) {
   # Format facets in one column so arbitrary facet names cannot overwrite
   # result columns such as outcome or Phi.
   allocation_text <- vapply(seq_len(nrow(allocation)), function(i)
-    paste(paste(names(allocation), unlist(allocation[i, ], use.names = FALSE), sep = "="), collapse = ", "), character(1))
+    paste(paste(names(allocation), unlist(allocation[i, ], use.names = FALSE), sep = "="),
+          collapse = ", "), character(1))
   shown <- .gt_drop_empty_columns(shown)
   shown$allocation <- allocation_text
   print(shown, row.names = FALSE, digits = digits)
-  if (nrow(x$results) > max_rows) cat("Showing", max_rows, "of", nrow(x$results), "rows; see $results and $allocations.\n")
+  if (nrow(x$results) > max_rows)
+    cat("Showing", max_rows, "of", nrow(x$results), "rows; see $results and $allocations.\n")
   cat("Erho2: relative comparisons; Phi: absolute decisions. Point projections.\n")
   .gt_print_uncertainty_note(x)
   if (identical(x$scale, "latent")) cat("Latent-response coefficients; not observed-score reliability.\n")
@@ -397,9 +418,14 @@ print.gt_dstudy <- function(x, ..., digits = 4L, max_rows = 12L) {
 }
 
 plot.gt_dstudy <- function(x, coefficient = "Erho2", interval = TRUE, ...) {
-  if (!coefficient %in% c("Erho2", "Phi")) stop("coefficient must be Erho2 or Phi.")
+  # Check the shape before the value: `NULL %in% choices` is logical(0), which
+  # would make `if` fail with "argument is of length zero" instead of saying
+  # what was wrong with the argument.
+  if (!is.character(coefficient) || length(coefficient) != 1L || is.na(coefficient) ||
+      !coefficient %in% c("Erho2", "Phi"))
+    stop("coefficient must be one of \"Erho2\" or \"Phi\".", call. = FALSE)
   if (!is.logical(interval) || length(interval) != 1L || is.na(interval))
-    stop("interval must be TRUE or FALSE.")
+    stop("interval must be TRUE or FALSE.", call. = FALSE)
   tab <- x$results
   series <- interaction(tab$kind, tab$outcome, drop = TRUE)
   colors <- seq_len(nlevels(series))

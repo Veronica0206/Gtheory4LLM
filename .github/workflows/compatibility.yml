@@ -62,10 +62,17 @@ jobs:
         with:
           path: ${{ runner.temp }}/gtheory-minimum-library
           key: ubuntu-22.04-source-R-4.5.0-${{ hashFiles('scripts/dependency-locks/R-4.5.0.lock') }}
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: matrix.minimum
+        with:
+          path: ${{ runner.temp }}/renv-bootstrap
+          key: renv-bootstrap-${{ hashFiles('scripts/dependency-locks/renv-bootstrap.json') }}
       - name: Restore R 4.5.0-compatible exact dependencies
         if: matrix.minimum
         shell: bash
         run: Rscript --vanilla scripts/restore_validation.R "$RUNNER_TEMP/gtheory-minimum-library" scripts/dependency-locks/R-4.5.0.lock
+        env:
+          GTHEORY_RENV_BOOTSTRAP_CACHE: ${{ runner.temp }}/renv-bootstrap
       - uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         if: ${{ !matrix.minimum }}
         with:

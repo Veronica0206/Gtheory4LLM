@@ -1,16 +1,27 @@
 \name{gt_control}
 \alias{gt_control}
 \title{Configure Gaussian and Discrete Fitting and Acceptance Checks}
-\description{Collects backend controls in separate named lists. Backend-specific names and values are checked when a model is fitted.}
+\description{Collects backend controls in separate named lists, together with which optional components a fitted object keeps. Backend-specific names and values are checked when a model is fitted.}
 \usage{
-gt_control(gaussian = list(), discrete = list())
+gt_control(gaussian = list(), discrete = list(), retain = list())
 }
 \arguments{
 \item{gaussian}{Uniquely named list of Gaussian settings, described below.}
 \item{discrete}{Uniquely named list of discrete settings, described below.}
+\item{retain}{Uniquely named list of logical retention switches, described below. Every default is \code{TRUE}.}
 }
-\value{A \code{gt_control} object with separate Gaussian and discrete control lists.}
-\details{Gaussian controls and their defaults are:
+\value{A \code{gt_control} object with separate Gaussian and discrete control lists and a resolved retention record.}
+\details{\strong{Retained components.} \code{retain} decides which optional parts of a fitted object are kept. All four default to \code{TRUE}, so a fit keeps exactly what it kept before these switches existed; dropping a component is always something the caller asked for.
+\itemize{
+\item \code{data}: the modelled data frame. Dropping it removes a full copy of the panel from the fit.
+\item \code{model}: the Gaussian OpenMx model and its factorial cross-products, and for a discrete fit the conditional predictors and probabilities held for every observation. The OpenMx model carries its own copy of the observations, so this is usually the largest component. The observed outcome variances are kept either way, so \code{gt_components(correlation = TRUE)} is unaffected.
+\item \code{retry_log}: the optimizer transcript and the bulky per-attempt payloads. Each attempt's label, error, optimizer code and message, and objective are kept, so \code{gt_diagnostics()} reports the same decisions and reasons.
+\item \code{session}: the \code{sessionInfo()} record. Keep it for reproducible research; it is worth its size when a result must be traced to an environment.
+}
+
+None of these components is used to compute an estimate, a diagnostic decision, a coefficient, or a decision study. \code{gt_reliability()} and \code{gt_dstudy()} work from the fitted source covariances, the resolved design, and either the retained data or the compact panel summary every fit records. With \code{data = TRUE} the balanced-panel rules are checked against the retained data, so a panel edited after fitting is still caught; with \code{data = FALSE} the same two rules are applied to the recorded summary. The fit keeps a \code{retained} record of what was dropped.
+
+\strong{Gaussian controls} and their defaults are:
 \itemize{
 \item \code{optimizer}: CSOLNP.
 \item \code{max_iterations}: 3000.
@@ -38,6 +49,7 @@ Discrete resource limits are:
 \item \code{max_random_dimension}: 200.
 \item \code{max_observations}: 1200.
 \item \code{max_parameters}: 80.
+\item \code{max_dense_bytes}: 512 * 1024^2.
 }
 Discrete optimizer controls are:
 \itemize{
@@ -138,6 +150,20 @@ retains the attempt records instead. Invalid input still fails before fitting.
 Warnings captured during numerical attempts are retained in these diagnostics;
 user interrupts are not swallowed.
 
+\code{max_dense_bytes} bounds the dense algebra that the other discrete limits
+imply, and is checked before anything is allocated. The estimate covers the
+random-design matrix, the conditional Hessian and its factor, the slices of the
+design matrix that forming that Hessian materializes, the linear predictor and
+gradient, and a planning multiplier for copy-on-modify. It is not peak resident
+memory: it excludes the caller's data, the optimizer's own state, and the
+allocation the finite-difference stationarity pass repeats, so it underestimates
+what a fit really uses. Its purpose is to refuse the obviously impossible with a
+message naming the observation count, the random dimension, and the size of the
+random-design matrix, rather than to certify that a permitted model is
+comfortable. \code{gt_preflight()} reports the same estimate and its breakdown
+under \code{$resources}. Raising this limit makes neither the dense algebra
+practical nor the approximation accurate.
+
 Optimizer completion, numerical acceptance, and approximation adequacy are separate. Tighter numerical tolerances do not establish the adequacy of a first-order Laplace approximation.}
 \seealso{\code{\link{gt_diagnostics}}, \code{\link{gt_fit}}}
 \examples{
@@ -146,4 +172,7 @@ gt_control(gaussian = list(retry_seed = 123, check_hessian = FALSE),
 # Auto selects boundary-capable coordinates when the covariance model permits.
 gt_control(discrete = list(covariance_parameterization = "auto"))
 gt_control(discrete = list(optimizer = "nlminb", alternative_starts = 2))
+# A lean fit for a large panel: estimates, diagnostics, reliability and
+# decision studies are unchanged; the stored copies of the data are not kept.
+gt_control(retain = list(data = FALSE, model = FALSE))
 }

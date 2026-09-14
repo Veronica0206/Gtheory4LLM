@@ -434,16 +434,9 @@ gtheory_deviance <- function(prepared, components, reml = TRUE) {
 }
 
 .gt_covariance_types <- function(groups, covariance) {
-  choices <- c("diagonal", "unstructured")
-  if (!is.character(covariance) || !length(covariance) || anyNA(covariance) ||
-      any(!covariance %in% choices))
-    .gt_error("covariance must specify diagonal or unstructured.")
-  if (is.null(names(covariance))) {
-    if (length(covariance) != 1L) .gt_error("Multiple covariance types must be named.")
+  .gt_validate_covariance_request(covariance, groups)
+  if (is.null(names(covariance)))
     return(setNames(rep(covariance, length(groups)), groups))
-  }
-  if (anyDuplicated(names(covariance)) || any(!names(covariance) %in% groups))
-    .gt_error("Named covariance overrides must refer to unique model components.")
   result <- setNames(rep("diagonal", length(groups)), groups)
   result[names(covariance)] <- covariance
   result
@@ -464,7 +457,8 @@ gtheory_deviance <- function(prepared, components, reml = TRUE) {
   # Invert the saturated expected mean cross-products to obtain moment starts.
   # They are only starts; all retained parameters are optimized by likelihood.
   pieces <- vector("list", .gt_full_mask)
-  pieces[[.gt_full_mask]] <- prepared$strata[[as.character(.gt_full_mask)]]$SSCP / prepared$strata[[as.character(.gt_full_mask)]]$df
+  saturated <- prepared$strata[[as.character(.gt_full_mask)]]
+  pieces[[.gt_full_mask]] <- saturated$SSCP / saturated$df
   for (a in seq.int(.gt_full_mask - 1L, 1L)) {
     s <- prepared$strata[[as.character(a)]]
     M <- s$SSCP / s$df - pieces[[.gt_full_mask]]
@@ -549,160 +543,6 @@ fit_openmx_gtheory <- function(data, outcome, facets = .gt_default_facets,
 # residual='pooled' imposes sigma^2 I; diagonal allows trait-specific variance;
 # unstructured also estimates residual covariance between traits in one cell.
 # This is a Gaussian observed-score model, including for numeric binary data.
-.gt_parse_tryhard_trials <- function(native_messages, optimizer, start_label,
-                                     max_trials) {
-  begins <- grep("Beginning (initial fit attempt|fit attempt [0-9]+)", native_messages)
-  if (!length(begins) || length(begins) > max_trials)
-    .gt_error("Could not verify the native mxTryHard optimization-trial count.")
-  do.call(rbind, lapply(seq_along(begins), function(i) {
-    end <- if (i < length(begins)) begins[i + 1L] - 1L else length(native_messages)
-    lines <- native_messages[begins[i]:end]
-    # Native final summaries repeat the selected fit's objective, even when
-    # the last optimization trial errored. Only a trial's own result block
-    # supplies its objective; never attribute the final summary to that trial.
-    summary_at <- grep("^(Solution found|Retry limit reached|Final run|Computing Hessian)", trimws(lines))
-    if (length(summary_at)) lines <- head(lines, summary_at[[1L]] - 1L)
-    result_at <- grep("^Attempt [0-9]+ result:", trimws(lines))
-    fit_line <- if (length(result_at)) grep("^fit value = ",
-      trimws(lines[seq.int(result_at[[1L]], length(lines))]), value = TRUE) else character()
-    status_line <- grep("OpenMx status code [0-9]+", lines, value = TRUE)
-    data.frame(attempt = i, optimizer = optimizer,
-      start = if (i == 1L) start_label else "native_uniform_perturbation",
-      status = if (length(status_line)) as.integer(sub(
-        ".*OpenMx status code ([0-9]+).*", "\\1", status_line[1L])) else NA_integer_,
-      minus2loglik = if (length(fit_line)) as.numeric(sub(
-        "^fit value = ", "", fit_line[1L])) else NA_real_,
-      returned_fit = FALSE,
-      error = if (any(grepl("Fit attempt generated errors", lines, fixed = TRUE)))
-        "Native trial failed; see retry_log." else "", stringsAsFactors = FALSE)
-  }))
-}
-
-.gt_tryhard_fit <- function(model, optimizer, extra_tries, tolerance,
-                            max_iterations, start_label, silent) {
-  # Keep OpenMx's retry machinery intact. Its message transcript provides the
-  # attempted-trial count even when a trial errors before returning a fit.
-  native_messages <- character()
-  output <- capture.output(fitted <- withCallingHandlers(
-    OpenMx::mxTryHard(model, extraTries = extra_tries, greenOK = FALSE,
-      OKstatuscodes = 0L, jitterDistrib = "runif", loc = 1, scale = 0.25,
-      finetuneGradient = FALSE, exhaustive = FALSE, checkHess = FALSE,
-      initialTolerance = tolerance, maxMajorIter = max_iterations,
-      iterationSummary = TRUE, bestInitsOutput = FALSE, showInits = FALSE,
-      intervals = FALSE, silent = FALSE),
-    message = function(m) {
-      native_messages <<- c(native_messages, conditionMessage(m))
-      if (silent) invokeRestart("muffleMessage")
-    }))
-  if (!silent && length(output)) cat(paste(output, collapse = "\n"), "\n")
-  attempts <- .gt_parse_tryhard_trials(native_messages, optimizer, start_label,
-    extra_tries + 1L)
-  transcript <- c(native_messages, if (length(output)) c("Native standard output:", output))
-  if (inherits(fitted, "try-error") || !inherits(fitted, "MxModel"))
-    stop(structure(list(message = "All native mxTryHard trials failed; inspect retry_log.",
-      call = NULL, retry_attempts = attempts, retry_log = transcript,
-      optimization_trials = nrow(attempts)),
-      class = c("gt_native_retry_failure", "error", "condition")))
-  if (any(is.finite(attempts$minus2loglik))) {
-    delta <- abs(attempts$minus2loglik - as.numeric(fitted$output$fit))
-    delta[!is.finite(delta)] <- Inf
-    matched <- which(delta < 1e-8 + 1e-12 * abs(as.numeric(fitted$output$fit)))
-    # Native text output may round distinct trials to the same objective.
-    # Never assign final-fit status to an arbitrary member of an ambiguous tie.
-    if (length(matched) == 1L) {
-      selected <- matched[[1L]]
-      attempts$returned_fit[selected] <- TRUE
-      attempts$status[selected] <- as.integer(fitted$output$status$code)
-    }
-  }
-  list(model = fitted, attempts = attempts, log = transcript)
-}
-
-.gt_native_uniform_start <- function(model) {
-  parameters <- OpenMx::omxGetParameters(model)
-  lower <- OpenMx::omxGetParameters(model, fetch = "lbound")
-  upper <- OpenMx::omxGetParameters(model, fetch = "ubound")
-  lower[is.na(lower)] <- -Inf
-  upper[is.na(upper)] <- Inf
-  OpenMx::omxSetParameters(model, labels = names(parameters),
-    values = OpenMx::imxJiggle(parameters, lower, upper, dsn = "runif", loc = 1, scale = 0.25))
-}
-
-.gt_complete_tryhard_fit <- function(model, optimizer, extra_tries, tolerance,
-    max_iterations, start_label, silent, assess) {
-  # mxTryHard has no callback for the covariance-scale acceptance check.
-  # Continue on this same model/data with only the unused optimization budget;
-  # all continuation perturbations use OpenMx's own bounded uniform helper.
-  budget <- as.integer(extra_tries) + 1L
-  used <- 0L
-  invocation <- 0L
-  history <- list()
-  logs <- character()
-  best <- NULL
-  next_model <- model
-  continuation_reason <- "initial MoM fit"
-  while (used < budget) {
-    invocation <- invocation + 1L
-    remaining <- budget - used
-    native_error <- NULL
-    native <- tryCatch(.gt_tryhard_fit(next_model, optimizer, remaining - 1L,
-      tolerance, max_iterations, if (used == 0L) start_label else
-        "native_uniform_perturbation", silent), gt_native_retry_failure = function(e) {
-          native_error <<- e
-          list(model = NULL, attempts = e$retry_attempts, log = e$retry_log)
-        })
-    rows <- native$attempts
-    if (!nrow(rows) || nrow(rows) > remaining)
-      .gt_error("Native retries returned an invalid consumed-trial count.")
-    rows$native_attempt <- rows$attempt
-    rows$attempt <- used + seq_len(nrow(rows))
-    rows$invocation <- invocation
-    rows$continuation_reason <- continuation_reason
-    rows$native_returned_fit <- rows$returned_fit
-    rows$returned_fit <- FALSE
-    rows$external_accepted <- NA
-    rows$external_rejection_reason <- ""
-    used <- used + nrow(rows)
-    evaluation <- if (!is.null(native$model)) tryCatch(assess(native$model),
-      error = function(e) list(accepted = FALSE, reason = conditionMessage(e))) else
-        list(accepted = FALSE, reason = conditionMessage(native_error))
-    if (any(rows$native_returned_fit)) {
-      rows$external_accepted[rows$native_returned_fit] <- isTRUE(evaluation$accepted)
-      rows$external_rejection_reason[rows$native_returned_fit] <- evaluation$reason
-    }
-    history[[invocation]] <- rows
-    logs <- c(logs, sprintf("Native invocation %d; %d trials remaining; %s",
-      invocation, remaining, continuation_reason), native$log,
-      paste("External acceptance:", isTRUE(evaluation$accepted), evaluation$reason))
-    if (!is.null(native$model)) {
-      value <- as.numeric(native$model$output$fit)
-      usable <- is.finite(value) && !is.null(evaluation$components)
-      if (usable && (is.null(best) || isTRUE(evaluation$accepted) ||
-          (!isTRUE(best$assessment$accepted) && value < best$value)))
-        best <- list(model = native$model, assessment = evaluation,
-          invocation = invocation, value = value)
-    }
-    if (isTRUE(evaluation$accepted) || used >= budget) break
-    continuation_reason <- evaluation$reason
-    base_model <- if (!is.null(best)) best$model else model
-    next_model <- tryCatch(.gt_native_uniform_start(base_model), error = function(e) {
-      message <- paste("Native continuation initialization failed:", conditionMessage(e))
-      stop(structure(list(message = message, call = NULL,
-        retry_attempts = do.call(rbind, history), retry_log = c(logs, message),
-        optimization_trials = used), class = c("gt_native_retry_failure", "error", "condition")))
-    })
-  }
-  attempts <- do.call(rbind, history)
-  rownames(attempts) <- NULL
-  if (is.null(best)) stop(structure(list(
-    message = "No native fit supplied usable covariance estimates within the total trial budget.",
-    call = NULL, retry_attempts = attempts, retry_log = logs,
-    optimization_trials = used), class = c("gt_native_retry_failure", "error", "condition")))
-  attempts$returned_fit <- attempts$invocation == best$invocation & attempts$native_returned_fit
-  list(model = best$model, assessment = best$assessment, attempts = attempts,
-    log = logs, budget = budget, invocations = invocation)
-}
-
 fit_openmx_multivariate <- function(
     data, outcomes, facets = .gt_default_facets, spec,
     reml = TRUE, covariance = "unstructured", residual = "unstructured",
@@ -752,7 +592,9 @@ fit_openmx_multivariate <- function(
       .gt_error("threads and max_iterations must be positive integers.")
   }
   types <- .gt_covariance_types(groups, covariance)
-  residual <- match.arg(residual, c("unstructured", "diagonal", "pooled"))
+  # Exact, not abbreviated: gt_preflight() checks the same names exactly, and a
+  # request it rejects must not be quietly accepted here.
+  .gt_validate_residual_request(residual)
   types <- c(types, Residual = residual)
   if (prepared$D == 1L) types[] <- "diagonal"
   component_names <- names(types)
@@ -947,7 +789,7 @@ fit_openmx_multivariate <- function(
       likelihood_matches = likelihood_matches, reason = paste(reason, collapse = " | "))
   }
   timing <- system.time({
-    retried <- .gt_complete_tryhard_fit(model, optimizer, as.integer(extra_tries), tolerance,
+    retried <- .gt_gaussian_retry(model, optimizer, as.integer(extra_tries), tolerance,
       as.integer(max_iterations), start_label, silent, assess)
     model <- retried$model
   })
@@ -1087,12 +929,11 @@ fit_openmx_multivariate <- function(
     returned_trial_identified = any(retried$attempts$returned_fit),
     retry_log = retried$log,
     retry_settings = list(optimizer = optimizer, extraTries = as.integer(extra_tries),
-      jitterDistrib = "runif", loc = 1, scale = 0.25, finetuneGradient = FALSE,
-      exhaustive = FALSE, OKstatuscodes = 0L, greenOK = FALSE,
+      jitterDistrib = "runif", loc = 1, scale = 0.25, OKstatuscodes = 0L,
       start = start_label, retry_seed = retry_seed, rng = RNGkind(),
-      protocol = "native_uniform_full_acceptance_v2",
+      protocol = "direct_optimizer_uniform_perturbation_v3",
       acceptance = "optimizer0_covariance_stationarity_likelihood",
-      total_trial_budget = retried$budget, native_invocations = retried$invocations,
+      total_trial_budget = retried$budget, optimizer_runs = retried$optimizer_runs,
       continuation_perturbation = "OpenMx::imxJiggle(runif, loc=1, scale=0.25)"),
     elapsed_seconds = unname(timing[["elapsed"]]) + diagnostic_seconds,
     diagnostic_seconds = diagnostic_seconds, model = model,

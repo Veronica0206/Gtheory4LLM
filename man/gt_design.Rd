@@ -24,7 +24,11 @@ gt_design(object, facets, crossed = facets, nested = NULL,
 \value{A \code{gt_design} list containing the object, facets, requested terms and their members, nesting metadata, and pending data-validation information.}
 \details{The object main effect is always present. With all facets crossed, complete object and instrumentation interactions retain the full hierarchy. At one observation per cell, a Gaussian full-cell source is indistinguishable from a free residual and is combined with it during fitting. A requested observation-level source is rejected for discrete families, because it cannot be separated from the identified discrete observation model. It is never dropped silently: declare the reduced model with \code{full_cell = FALSE}, which removes only that source, or write the intended terms with \code{random}.
 
-Nesting defines parent-scoped groups shared across objects. It does not establish that a physical sampling design is balanced or identifiable. The exact Gaussian backend currently requires a complete coded Cartesian panel with one observation per cell. Arbitrary design declaration does not imply that every backend supports every resulting model.}
+Nesting defines parent-scoped groups shared across objects. It does not establish that a physical sampling design is balanced or identifiable. Arbitrary design declaration does not imply that every backend supports every resulting model.
+
+\strong{Balanced coded panel.} Gaussian fitting, \code{gt_reliability()} and \code{gt_dstudy()} all require one. It is the complete Cartesian product of the observed coded levels of the object and of every instrumentation facet, carrying exactly \code{replicates} rows in each of those cells, with no missing outcome. Nothing is imputed, aggregated or dropped to reach it.
+
+\emph{Coded} is what makes a nested facet fit this description. A nested child is identified by its code within its parent, so child codes repeat across parents and the Cartesian product stays complete; the child's real identity is then the child-by-parent source, not the child column on its own. Globally unique child labels describe the same study but leave most child-by-parent cells structurally empty, and this backend rejects that panel instead of guessing which cells were never possible. The example below shows both codings of one six-item design.}
 \seealso{\code{\link{gt_fit}}, \code{\link{gt_family}}}
 \examples{
 complete <- gt_design("item", c("evaluator", "prompt", "temp", "seed"))
@@ -36,7 +40,28 @@ selected$terms_requested
 reduced <- gt_design("item", c("rater", "occasion"), random = ~ item + rater)
 reduced$terms_requested
 # The same crossed design without the observation-level source, which a
-# binary or ordinal fit at one observation per cell cannot identify.
+# binary or ordinal fit at one observation per cell cannot identify. This is
+# where a first discrete fit should start; see the worked script in
+# system.file("examples", "discrete-first.R", package = "Gtheory4LLM").
 discrete_ready <- gt_design("item", "rater", full_cell = FALSE)
 discrete_ready$terms_requested
+
+# Globally unique child labels versus within-parent codes, for six items
+# nested in two questions and rated by four people.
+coded_cells <- function(data, columns)
+  prod(vapply(data[columns], function(x) length(unique(x)), integer(1)))
+physical <- expand.grid(person = 1:4, item = 1:6)
+physical$question <- 1 + (physical$item > 3)
+# Unique labels 1-6 imply 48 coded cells but supply 24: item 4 never appears
+# in question 1, so the coded panel is structurally incomplete.
+c(rows = nrow(physical),
+  cells = coded_cells(physical, c("person", "item", "question")))
+physical$item_code <- physical$item - 3 * (physical$question - 1)
+# The within-parent code describes the same six items as a complete panel.
+c(rows = nrow(physical),
+  cells = coded_cells(physical, c("person", "item_code", "question")))
+nested_design <- gt_design("person", c("item_code", "question"),
+  crossed = "question", nested = list(item_code = "question"))
+nested_design$terms_requested   # item_code:question identifies the six items
+nested_design$nested_groups
 }

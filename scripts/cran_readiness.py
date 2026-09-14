@@ -163,7 +163,11 @@ def main() -> int:
             library.mkdir()
             run("check", [r, "CMD", "check", "--as-cran", "--timings", "--library=" + str(library), str(archive)])
             log = (work / (manifest["package"] + ".Rcheck") / "00check.log").read_text()
-            report["r_cmd_check"] = check_status(log, as_cran=True)
+            # Pass the candidate's own version: a development checkout is
+            # legitimately flagged for its fourth component, and that one line
+            # is excused only for a version that really is a development one.
+            report["r_cmd_check"] = check_status(log, as_cran=True,
+                                                 version=manifest.get("version"))
             if not manual_checked(log):
                 raise ValueError("R CMD check did not confirm successful PDF manual generation.")
             if digest(archive) != manifest["sha256"] or digest(incoming) != manifest["sha256"]:

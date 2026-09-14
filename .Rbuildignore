@@ -19,6 +19,7 @@
 ^review$
 ^scripts$
 ^tests/test_.*$
+^tests/README[.]md$
 ^tests/__pycache__$
 ^.*\.Rcheck$
 ^(gtheoryflex|Gtheory4LLM)_.*\.tar\.gz$
@@ -29,6 +30,8 @@
 ^[^/]+[.](patch|zip)$
 
 ^LICENSE$
+^SECURITY[.]md$
+^CODEOWNERS$
 ^cran-comments[.]md$
 ^CRAN-SUBMISSION$
 ^release$

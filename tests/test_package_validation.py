@@ -39,6 +39,40 @@ class PackageValidationTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             CHECK.check_status(with_extra, as_cran=True, vignettes_built=False)
 
+    def test_a_development_version_note_is_excused_only_for_a_development_version(self):
+        # CRAN flags a .9000 fourth component, correctly: such a checkout is not
+        # a submission candidate. The excuse is keyed to the exact version, so a
+        # release candidate cannot inherit it.
+        log = ("* checking CRAN incoming feasibility ... NOTE\n"
+               "Maintainer: 'Example <a@example.invalid>'\n\nNew submission\n\n"
+               "Version contains large components (0.1.0.9000)\n"
+               "* checking package namespace information ... OK\n* DONE\nStatus: 1 NOTE\n")
+        report = CHECK.check_status(log, as_cran=True, version="0.1.0.9000")
+        self.assertEqual(len(report["allowed_notes"]), 1)
+        self.assertIn("development version 0.1.0.9000", report["allowed_notes"][0])
+        # Not a development version: the note stands and the check fails.
+        with self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+            CHECK.check_status(log, as_cran=True, version="0.1.0")
+        with self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+            CHECK.check_status(log, as_cran=True)
+        # A different version in the line is not this version's excuse.
+        with self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+            CHECK.check_status(log.replace("(0.1.0.9000)", "(0.2.0.9000)"),
+                               as_cran=True, version="0.1.0.9000")
+        # The excuse removes exactly that line and nothing else.
+        with_extra = log.replace("* checking package namespace information",
+                                 "Invalid URL found.\n* checking package namespace information")
+        with self.assertRaises(RuntimeError):
+            CHECK.check_status(with_extra, as_cran=True, version="0.1.0.9000")
+
+    def test_a_release_version_never_matches_the_development_pattern(self):
+        for version in ("0.1.0", "1.0", "0.1.0.1", "0.1.0.900", "0.1.09000"):
+            with self.subTest(version=version):
+                self.assertIsNone(CHECK.DEVELOPMENT_VERSION.fullmatch(version))
+        for version in ("0.1.0.9000", "1.2.3.9001", "0.1.0.90000"):
+            with self.subTest(version=version):
+                self.assertIsNotNone(CHECK.DEVELOPMENT_VERSION.fullmatch(version))
+
     def test_toolchain_probe_reports_what_is_missing(self):
         import subprocess
         from unittest.mock import patch
