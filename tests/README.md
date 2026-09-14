@@ -52,6 +52,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_reference.R` | Frozen fixed-parameter targets and declared rejections still hold |
 | `test_discrete_sparse.R` | Sparse design construction reproduces the dense coordinate system |
 | `test_discrete_sparse_hessian.R` | Sparse Hessian assembly reproduces the dense matrix and frozen targets |
+| `test_discrete_sparse_factor.R` | Sparse factor solves and log determinants match the frozen targets |
 | `test_examples.R` | Bundled example loading |
 
 ## Tooling tests

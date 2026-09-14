@@ -149,3 +149,62 @@
   # frozen reference records the symmetrized matrix.
   (H + Matrix::t(H)) / 2
 }
+
+# Sparse factorization, solves, and log determinant.
+#
+# Fixed parameters only: this factorizes a conditional Hessian that was already
+# assembled, solves against it, and reports its log determinant. No mode solve,
+# no optimizer, no fitting.
+#
+# Two properties matter more than the arithmetic. A fill-reducing permutation
+# reorders the factor, so every solve must go through the factor object, which
+# applies and undoes that permutation itself; a solve written against the raw
+# factor would return a plausible vector in the wrong order. And the log
+# determinant must come from the factor, never from densifying it, because
+# densifying restores exactly the allocation the sparse path exists to avoid.
+.gt_d_sparse_factor <- function(H, permute = TRUE) {
+  if (!methods::is(H, "sparseMatrix"))
+    .gt_d_stop("Sparse factorization needs a sparse conditional Hessian.")
+  if (nrow(H) != ncol(H)) .gt_d_stop("A conditional Hessian must be square.")
+  if (!is.logical(permute) || length(permute) != 1L || is.na(permute))
+    .gt_d_stop("The permutation choice must be TRUE or FALSE.")
+  symmetric <- Matrix::forceSymmetric(H)
+  factor <- tryCatch(Matrix::Cholesky(symmetric, perm = permute, LDL = FALSE, super = FALSE),
+                     error = function(e) NULL)
+  if (is.null(factor))
+    .gt_d_stop("The conditional Hessian is not positive definite; it has no Cholesky factor.")
+  structure(list(factor = factor, dimension = as.integer(nrow(H)), permuted = permute,
+                 # Fill is counted on the sparse factor, not a dense copy of it,
+                 # and against the triangle it corresponds to. Comparing a
+                 # triangular factor with a symmetric matrix stored in both
+                 # triangles reports a reduction where there is fill.
+                 factor_entries = as.integer(Matrix::nnzero(methods::as(factor, "CsparseMatrix"))),
+                 hessian_entries = as.integer(Matrix::nnzero(H)),
+                 hessian_triangle_entries =
+                   as.integer(Matrix::nnzero(Matrix::tril(Matrix::forceSymmetric(H))))),
+            class = "gt_discrete_sparse_factor")
+}
+
+.gt_d_sparse_logdet <- function(factorization) {
+  if (!inherits(factorization, "gt_discrete_sparse_factor"))
+    .gt_d_stop("A sparse log determinant needs a factorization from .gt_d_sparse_factor().")
+  # sqrt = FALSE is passed explicitly and must stay explicit. The default
+  # returns the log determinant of the factor rather than of the matrix, which
+  # is half the value wanted, and Matrix warns that this default may change.
+  # Relying on it would put a silent factor of two into the Laplace correction,
+  # in one direction now and the other after an upgrade.
+  as.numeric(Matrix::determinant(factorization$factor, logarithm = TRUE, sqrt = FALSE)$modulus)
+}
+
+.gt_d_sparse_solve <- function(factorization, b) {
+  if (!inherits(factorization, "gt_discrete_sparse_factor"))
+    .gt_d_stop("A sparse solve needs a factorization from .gt_d_sparse_factor().")
+  if (!is.numeric(b) || !length(b) || any(!is.finite(b)))
+    .gt_d_stop("A sparse solve needs a finite numeric right-hand side.")
+  if (length(b) != factorization$dimension)
+    .gt_d_stop("The right-hand side does not match the factorized dimension.")
+  # system = "A" solves against the original matrix, so the factor object
+  # applies its own permutation and undoes it. Solving against the raw factor
+  # would return a correctly sized vector in the wrong order.
+  as.numeric(Matrix::solve(factorization$factor, b, system = "A"))
+}
