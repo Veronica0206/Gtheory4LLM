@@ -1,8 +1,8 @@
 # Repository protection and required checks
 
 The three workflows in `.github/workflows/` run on every push and pull request.
-GitHub branch protection enforces the required checks and review on `main`,
-including for administrators. The authenticated verifier confirmed the settings
+GitHub branch protection enforces the required checks on `main`, including for
+administrators. It does not enforce review: see the note below the table. The authenticated verifier confirmed the settings
 below after v0.1.0 publication. This file declares the required state, how to
 apply it, and how to verify it; repository files alone cannot enforce settings.
 
@@ -23,12 +23,30 @@ authentication, or without admin rights on the repository it reports
 | Setting | Required value | Why |
 |---|---|---|
 | Required status checks | The six contexts below, strict (branch up to date) | A merge must be validated against what it will actually become |
-| Required pull request reviews | 1 approving review, stale reviews dismissed | Statistical changes need a reader, not only a green check |
+| Required pull request reviews | A pull request is required; 0 approving reviews, stale reviews dismissed | GitHub cannot enforce review for a solo maintainer; see below |
 | Conversation resolution | Required | A raised numerical concern cannot be merged past silently |
 | Force pushes | Blocked | Published release history is the artifact manifest's anchor |
 | Deletions | Blocked | Tags and release commits must stay reachable |
 | Linear history | Required | A release manifest names one source commit |
 | Enforce for administrators | Enabled | The maintainer is the most likely person to bypass this |
+
+### Why review is not machine-enforced
+
+A pull request is required for every change to `main`, but no approving review
+is. This is a deliberate, and unsatisfying, consequence of a single maintainer:
+GitHub refuses to count an author's approval of their own pull request, so a
+one-review requirement combined with administrator enforcement cannot be
+satisfied by anyone and permanently blocks the repository. The requirement was
+set to one review after v0.1.0 and had to be lowered for exactly that reason.
+
+Review is therefore a maintainer discipline rather than a gate this repository
+can enforce: substantive changes are read before merge, and a green check is
+not by itself a reason to merge. Recording the rule here does not make it
+enforceable, which is why this section says plainly that it is not.
+
+This is the setting to revisit first if a second person ever gains write
+access. Restoring it is a one-line change to the payload below, and the
+verifier already fails when the live count falls below the declared one.
 
 ### Required status check contexts
 
