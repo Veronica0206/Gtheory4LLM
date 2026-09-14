@@ -10,7 +10,8 @@ thing it is meant to judge.
 - `cases.R` — the fixtures and their evaluation, shared by the generator and
   the test so the two cannot drift
 - `run.R` — regenerates the frozen files
-- `reference.csv` — 205 frozen quantities across 8 cases
+- `reference.csv` — 1354 frozen quantities across 8 cases, coordinate-wise
+  rather than summarised
 - `rejections.csv` — 6 declared refusals, recorded as outcome classes
 - `source-hashes.csv` — provenance for the files that produced them
 

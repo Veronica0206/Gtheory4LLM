@@ -152,15 +152,32 @@ for (case in cases) {
 
   record(case$key, "conditional_objective", answer$conditional_nll, "objective")
   record(case$key, "marginal_laplace_nll", answer$nll, "objective")
-  record(case$key, "log_determinant", 2 * (answer$nll - answer$conditional_nll), "objective")
+  # The solver's marginal value is response nll + sum(u^2)/2 + sum(log(diag(R))),
+  # while conditional_nll is the response term alone. Their difference is
+  # therefore the mode penalty plus half the log determinant, not the log
+  # determinant: record the two Laplace correction terms separately and check
+  # the identity that relates them, rather than mislabelling their sum.
+  record(case$key, "mode_penalty", sum(mode^2) / 2, "objective")
   record(case$key, "hessian_log_determinant", sum(log(eigenvalues)), "objective")
+  record(case$key, "laplace_identity_residual",
+         answer$nll - (answer$conditional_nll + sum(mode^2) / 2 + sum(log(eigenvalues)) / 2),
+         "stationary")
   record(case$key, "hessian_trace", sum(diag(hessian)), "objective")
   record(case$key, "hessian_min_eigenvalue", min(eigenvalues), "objective")
-  record(case$key, "predictor_norm", sqrt(sum(eta^2)), "mode")
-  record(case$key, "predictor_max_abs", max(abs(eta)), "mode")
-  record(case$key, "mode_norm", sqrt(sum(mode^2)), "mode")
-  record(case$key, "mode_max_abs", max(abs(mode)), "mode")
-  record(case$key, "score_max_abs", max(abs(penalised_score)), "stationary")
+
+  # Coordinate-wise, not summarised. Two different implementations can share a
+  # norm, a maximum and a trace while disagreeing everywhere underneath; only
+  # elementwise targets make that disagreement fail. The fixtures are small
+  # precisely so this is affordable.
+  for (i in seq_along(eta)) record(case$key, paste0("eta_", i), eta[[i]], "mode")
+  for (i in seq_along(mode)) record(case$key, paste0("mode_", i), mode[[i]], "mode")
+  for (i in seq_along(penalised_score))
+    record(case$key, paste0("score_", i), penalised_score[[i]], "stationary")
+  # Symmetric, so the upper triangle determines it; symmetry itself is asserted
+  # separately rather than stored twice.
+  for (j in seq_len(ncol(hessian))) for (i in seq_len(j))
+    record(case$key, paste0("hessian_", i, "_", j), hessian[[i, j]], "curvature")
+  record(case$key, "hessian_asymmetry", max(abs(hessian - t(hessian))), "stationary")
   record(case$key, "inner_gradient", answer$inner_gradient, "stationary")
   record(case$key, "inner_converged", isTRUE(answer$inner_converged), "exact")
 }
