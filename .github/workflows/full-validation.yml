@@ -26,7 +26,7 @@ jobs:
       RENV_CONFIG_CACHE_SYMLINKS: "FALSE"
       MAKEFLAGS: "-j2"
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Release manifests record the source commit preceding the bundle.
           fetch-depth: 0
@@ -34,7 +34,7 @@ jobs:
         with:
           r-version: "4.5.3"
           use-public-rspm: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
       # scripts/build_manual.R is the only gate that rejects overfull boxes in
@@ -48,13 +48,13 @@ jobs:
         # bslib. Without it the vignette toolchain silently fails to install and
         # the gate falls back to checking without vignettes.
         run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev pandoc
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/gtheory-validation-library
           key: ubuntu-24.04-source-v3-R-4.5.3-${{ hashFiles('renv.lock', 'scripts/dependency-locks/documentation.lock') }}
       - name: Check documentation lock preserves the numerical environment
         run: python3 scripts/check_documentation_lock.py
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/renv-bootstrap
           key: renv-bootstrap-${{ hashFiles('scripts/dependency-locks/renv-bootstrap.json') }}
@@ -85,7 +85,7 @@ jobs:
           python3 scripts/run_validation.py --scope all --as-cran --library "$RUNNER_TEMP/gtheory-validation-library" --output "$RUNNER_TEMP/full-validation.json" 2>&1 | tee "$RUNNER_TEMP/full-validation.log"
       - name: Preserve validation summary and detailed package logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: full-validation-evidence
           path: |
