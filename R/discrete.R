@@ -395,20 +395,6 @@
   }), setup$sources)
 }
 
-.gt_d_W <- function(groups, factors, n, q) {
-  dimension <- sum(vapply(groups, `[[`, integer(1), "nlevels")) * q
-  W <- matrix(0, n * q, dimension)
-  offset <- 0L
-  for (s in seq_along(groups)) {
-    group <- groups[[s]]
-    L <- factors[[s]]
-    for (a in seq_len(q)) for (b in seq_len(q)) if (L[a, b] != 0)
-      W[cbind((a - 1L) * n + seq_len(n), offset + (b - 1L) * group$nlevels + group$index)] <- L[a, b]
-    offset <- offset + q * group$nlevels
-  }
-  W
-}
-
 .gt_d_kernel_rank <- function(groups) {
   # <Z_s Z_s', Z_t Z_t'> is the sum of squared joint group counts.
   # This checks source-kernel linear dependence without allocating n by n K's.
@@ -430,54 +416,11 @@
   fixed_length <- length(prep$start)
   factors <- if (is.null(factors_override))
     .gt_d_covariance_factors(parameters[-seq_len(fixed_length)], setup) else factors_override
-  W <- .gt_d_W(groups, factors, prep$n, prep$q)
-  baseline <- .gt_d_baseline(parameters, prep)
-  u <- numeric(ncol(W))
-  converged <- FALSE
-  last_gradient <- Inf
-  for (iter in seq_len(control$inner_maxit)) {
-    eta <- baseline + matrix(W %*% u, prep$n, prep$q)
-    response <- .gt_d_response(eta, parameters, prep, W)
-    if (!response$valid) return(if (details) list(valid = FALSE) else 1e100)
-    gradient <- as.vector(crossprod(W, response$gradient)) + u
-    last_gradient <- max(abs(gradient))
-    if (last_gradient <= control$inner_tol) { converged <- TRUE; break }
-    R <- tryCatch(chol(response$H), error = function(e) NULL)
-    if (is.null(R)) return(if (details) list(valid = FALSE) else 1e100)
-    step <- backsolve(R, forwardsolve(t(R), gradient))
-    objective <- response$nll + sum(u^2) / 2
-    descent <- sum(gradient * step)
-    multiplier <- 1
-    accepted <- FALSE
-    for (line in seq_len(30L)) {
-      candidate <- u - multiplier * step
-      next_eta <- baseline + matrix(W %*% candidate, prep$n, prep$q)
-      next_response <- .gt_d_response(next_eta, parameters, prep)
-      if (next_response$valid && next_response$nll + sum(candidate^2) / 2 <=
-          objective - 1e-4 * multiplier * descent + 1e-12) {
-        u <- as.vector(candidate)
-        accepted <- TRUE
-        break
-      }
-      multiplier <- multiplier / 2
-    }
-    if (!accepted) break
-  }
-  # Always recompute at the final mode, including when max iterations was hit.
-  eta <- baseline + matrix(W %*% u, prep$n, prep$q)
-  response <- .gt_d_response(eta, parameters, prep, W)
-  if (!response$valid) return(if (details) list(valid = FALSE) else 1e100)
-  last_gradient <- max(abs(as.vector(crossprod(W, response$gradient)) + u))
-  converged <- is.finite(last_gradient) && last_gradient <= control$inner_tol * 10
-  R <- tryCatch(chol(response$H), error = function(e) NULL)
-  if (is.null(R) || !converged) return(if (details)
-    list(valid = FALSE, inner_converged = converged, inner_gradient = last_gradient) else 1e100)
-  value <- response$nll + sum(u^2) / 2 + sum(log(diag(R)))
-  if (!details) return(value)
-  list(valid = TRUE, nll = value, factors = factors, mode = u, eta = eta,
-       conditional_nll = response$nll, inner_iterations = iter,
-       inner_converged = converged, inner_gradient = last_gradient,
-       random_dimension = length(u))
+  backend <- .gt_d_dense_backend(groups, factors, prep$n, prep$q)
+  answer <- .gt_d_dense_mode(parameters, prep, backend, control, details)
+  if (details && isTRUE(answer$valid))
+    answer <- append(answer, list(factors = factors), after = 2L)
+  answer
 }
 
 .gt_d_psd <- function(S) {

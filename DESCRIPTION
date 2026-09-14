@@ -42,6 +42,8 @@ Collate:
     'gaussian_engine.R'
     'gaussian.R'
     'discrete_response.R'
+    'discrete_dense.R'
+    'discrete_mode.R'
     'discrete.R'
     'preflight.R'
     'fit.R'

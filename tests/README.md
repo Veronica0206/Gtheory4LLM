@@ -27,6 +27,7 @@ into subdirectories without silently removing them from the release gate.
 | `package-standard-methods.R` | `logLik`/`nobs`/`coef`/`vcov`, criteria, retention controls |
 | `package-discrete-controls.R` | Discrete control surface and trial budgets |
 | `package-discrete-safety.R` | Discrete failure handling |
+| `package-discrete-backend.R` | Independent dense matrix, curvature and mode contracts |
 | `package-dense-memory-guard.R` | The dense working-memory guard |
 | `package-binary-probabilities.R` | Binary tail probabilities |
 | `package-stationarity-validity.R` | Rejection of invalid stationarity probes |

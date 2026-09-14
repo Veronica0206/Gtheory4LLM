@@ -2,7 +2,7 @@
 # Interface tests exercise real encoding and Gaussian dispatch, and verify
 # reliability against dense covariance aggregation independently of its formula.
 for (file in c("design.R", "family.R", "gaussian_retry.R", "gaussian_engine.R", "gaussian.R",
-                "discrete_response.R", "discrete.R", "fit.R", "reliability.R"))
+                "discrete_response.R", "discrete_dense.R", "discrete_mode.R", "discrete.R", "fit.R", "reliability.R"))
   source(file.path("R", file))
 near <- function(a, b, tolerance = 1e-8, label = "comparison") {
   if (!isTRUE(all.equal(unname(a), unname(b), tolerance = tolerance, check.attributes = FALSE)))
