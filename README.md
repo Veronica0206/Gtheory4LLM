@@ -306,6 +306,7 @@ Each document has one job, so that nothing has to be kept true in two places.
 | [docs/REAL_DATA_WORKFLOW.md](docs/REAL_DATA_WORKFLOW.md) | The bundled panels, their native outcomes, and their resource ceilings |
 | [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) | The current release state and what is being worked on |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned work beyond this release, in the order it is planned |
+| [docs/DISCRETE_BACKEND_CONTRACT.md](docs/DISCRETE_BACKEND_CONTRACT.md) | Private dense response, matrix and mode interfaces |
 | [NEWS.md](NEWS.md) | Version history |
 | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md), [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md), [docs/REPOSITORY_POLICY.md](docs/REPOSITORY_POLICY.md), [SECURITY.md](SECURITY.md) | Working on the package itself |
 

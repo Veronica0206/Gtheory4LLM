@@ -48,7 +48,7 @@
   if (log) probabilities else exp(probabilities)
 }
 
-.gt_d_response <- function(eta, parameters, prep, W = NULL) {
+.gt_d_response_kernel <- function(eta, parameters, prep) {
   n <- prep$n
   gradient <- matrix(0, n, prep$q)
   curvature <- vector("list", length(prep$blocks))
@@ -115,29 +115,5 @@
       return(list(valid = FALSE))
   }
   ans <- list(valid = TRUE, nll = nll, gradient = as.vector(gradient), curvature = curvature)
-  if (!is.null(W)) {
-    H <- diag(ncol(W))
-    for (curv in curvature) {
-      if (!is.null(curv$diagonal)) {
-        row <- (curv$dims - 1L) * n + seq_len(n)
-        A <- W[row, , drop = FALSE]
-        H <- H + crossprod(A, A * pmax(0, curv$diagonal))
-      } else {
-        p <- curv$probability
-        for (a in seq_along(curv$dims)) {
-          ia <- (curv$dims[[a]] - 1L) * n + seq_len(n)
-          A <- W[ia, , drop = FALSE]
-          for (bb in seq_along(curv$dims)) {
-            ib <- (curv$dims[[bb]] - 1L) * n + seq_len(n)
-            B <- W[ib, , drop = FALSE]
-            weight <- (as.integer(a == bb) * p[, a]) - p[, a] * p[, bb]
-            H <- H + crossprod(A, B * weight)
-          }
-        }
-      }
-    }
-    ans$H <- (H + t(H)) / 2
-  }
   ans
 }
-
