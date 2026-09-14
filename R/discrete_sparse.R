@@ -178,7 +178,7 @@
                  # and against the triangle it corresponds to. Comparing a
                  # triangular factor with a symmetric matrix stored in both
                  # triangles reports a reduction where there is fill.
-                 factor_entries = as.integer(Matrix::nnzero(as(factor, "CsparseMatrix"))),
+                 factor_entries = as.integer(Matrix::nnzero(methods::as(factor, "CsparseMatrix"))),
                  hessian_entries = as.integer(Matrix::nnzero(H)),
                  hessian_triangle_entries =
                    as.integer(Matrix::nnzero(Matrix::tril(Matrix::forceSymmetric(H))))),
