@@ -148,6 +148,36 @@ class ReleaseIdentityTests(unittest.TestCase):
         self.write_summaries(source="0.0.1.9000", state="published")
         self.assertTrue(self.verify()["development_checkout"])
 
+    def test_development_may_target_a_later_release_but_never_an_earlier_one(self):
+        # A development checkout is labelled <target>.9000 for the release it
+        # works towards. After 0.0.1 ships, continuing on 0.0.1.9000 and opening
+        # 0.0.2.9000 are both ordinary; a target behind the published bundle is
+        # not, because the bundle would then claim to precede its own source.
+        self.publish()
+        path = self.root / "DESCRIPTION"
+        original = path.read_text()
+        for target in ("0.0.1.9000", "0.0.2.9000", "0.1.0.9000", "0.10.0.9000", "1.0.0.9001"):
+            with self.subTest(target=target):
+                path.write_text(original.replace("Version: 0.0.1", "Version: " + target))
+                self.write_summaries(source=target, state="published")
+                self.assertTrue(self.verify()["development_checkout"])
+        for behind in ("0.0.0.9000", "0.0.1", "0.0.2"):
+            with self.subTest(behind=behind):
+                path.write_text(original.replace("Version: 0.0.1", "Version: " + behind))
+                self.write_summaries(source=behind, state="published")
+                if behind == "0.0.1":
+                    self.assertFalse(self.verify()["development_checkout"])
+                else:
+                    with self.assertRaisesRegex(ValueError, "version mismatch"):
+                        self.verify()
+
+    def test_release_versions_are_ordered_numerically_not_as_text(self):
+        # "0.10.0" follows "0.9.0"; comparing as text would place it before and
+        # reject a legitimate development line.
+        self.assertGreater(CHECK.release_order("0.10.0"), CHECK.release_order("0.9.0"))
+        self.assertGreater(CHECK.release_order("1.0.0"), CHECK.release_order("0.10.0"))
+        self.assertEqual(CHECK.release_order("0.1.0"), CHECK.release_order("0.1.0"))
+
     def test_each_declared_version_is_checked_independently(self):
         for filename, old, new, message in (
             ("DESCRIPTION", "Version: 0.0.1", "Version: 0.0.2", "DESCRIPTION"),

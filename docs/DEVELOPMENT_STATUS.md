@@ -8,7 +8,7 @@ in [limitations](LIMITATIONS.md).
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.1.0.9000` (development) |
+| Checkout version | `0.2.0.9000` (development) |
 | Bundle in `artifacts/` | `0.1.0`, **published** |
 | Bundle source commit | `1068ca8aa7211eaee1e3f5329e14517ff49cc0e0`, recorded in the manifest |
 | `v0.1.0` tag | Publication commit `2332d40` |

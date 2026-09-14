@@ -232,6 +232,17 @@ def verify_published_prose(root: Path, version: str, *, neutral_source: bool = F
             raise ValueError(f"{name}: stale unpublished-release prose contradicts {context}")
 
 
+DEVELOPMENT_VERSION = re.compile(r"(?P<target>[0-9]+(?:\.[0-9]+)*)\.(?P<series>9[0-9]{3,})")
+
+
+def release_order(version: str) -> tuple[int, ...]:
+    """Order release versions numerically rather than as text.
+
+    "0.10.0" follows "0.9.0"; string comparison would put it before.
+    """
+    return tuple(int(part) for part in version.split("."))
+
+
 def verify_release_identity(root: Path, manifest_path: Path,
                             release_tag: str | None = None) -> dict:
     """Check current release prose without rewriting historical archive contents.
@@ -256,7 +267,13 @@ def verify_release_identity(root: Path, manifest_path: Path,
     source_version = description.get("Version")
     if description.get("Package") != package:
         raise ValueError("Release package mismatch: DESCRIPTION versus artifact manifest")
-    development = bool(re.fullmatch(re.escape(version) + r"\.9[0-9]{3,}", source_version or ""))
+    # A development checkout is labelled <target>.9000, where <target> is the
+    # release it is working towards. That target may be the released version
+    # (0.1.0 -> 0.1.0.9000) or a later one (0.1.0 -> 0.2.0.9000); both are
+    # ordinary R practice. It may never be earlier than the released bundle.
+    labelled = DEVELOPMENT_VERSION.fullmatch(source_version or "")
+    development = bool(labelled) and (
+        release_order(labelled.group("target")) >= release_order(version))
     if source_version != version and not development:
         raise ValueError("Release version mismatch: DESCRIPTION versus artifact manifest; "
                          "use an explicitly labelled .9000 checkout for development")

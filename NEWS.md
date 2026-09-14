@@ -1,3 +1,18 @@
+# Gtheory4LLM 0.2.0.9000 (development)
+
+- Opens the 0.2.0 development line. No functional, model or numerical
+  change accompanies this version; it separates post-0.1.0 maintenance,
+  recorded below, from development of the scalable discrete backend.
+
+<!-- release-identity:start -->
+Source version: **0.2.0.9000**.
+For versioned archives, manuals and publication status, see the
+[repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
+and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
+These repository records are excluded from the package archive; this source
+version does not assert that a corresponding release has been published.
+<!-- release-identity:end -->
+
 # Gtheory4LLM 0.1.0.9000 (development)
 
 - Keeps archive source-version summaries publication-neutral; publication
@@ -12,15 +27,6 @@
   candidate-check evidence applies to the file actually checked.
 - Catches stale publication claims outside the release summary blocks and
   records the active rule preventing release-tag updates and deletions.
-
-<!-- release-identity:start -->
-Source version: **0.1.0.9000**.
-For versioned archives, manuals and publication status, see the
-[repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
-and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
-These repository records are excluded from the package archive; this source
-version does not assert that a corresponding release has been published.
-<!-- release-identity:end -->
 
 # Gtheory4LLM 0.1.0
 
