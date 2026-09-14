@@ -1,6 +1,8 @@
-# Every change needs the maintainer's review. This file is the default; the
-# entries below exist so that a reviewer can see at a glance which parts of the
-# tree carry statistical or release consequences rather than only code style.
+# Which parts of the tree carry statistical or release consequences rather than
+# only code style. Code-owner review is not required by branch protection and
+# this file does not make it so: with one maintainer GitHub cannot enforce
+# review at all, as docs/REPOSITORY_POLICY.md explains. These entries mark
+# where a careful read matters most.
 *                               @Veronica0206
 
 # Numerical engines: a change here can move a published estimate.

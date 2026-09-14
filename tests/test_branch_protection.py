@@ -25,8 +25,10 @@ def compliant() -> dict:
     return {
         "required_status_checks": {"strict": True,
                                    "contexts": list(POLICY["required_status_checks"]["contexts"])},
-        "required_pull_request_reviews": {"required_approving_review_count": 1,
-                                          "dismiss_stale_reviews": True},
+        "required_pull_request_reviews": {
+            "required_approving_review_count":
+                POLICY["required_pull_request_reviews"]["required_approving_review_count"],
+            "dismiss_stale_reviews": True},
         "enforce_admins": {"enabled": True},
         "required_linear_history": {"enabled": True},
         "required_conversation_resolution": {"enabled": True},
@@ -79,8 +81,6 @@ class ComparisonTests(unittest.TestCase):
              "required status checks missing"),
             (lambda live: live["required_status_checks"].update(strict=False),
              "not strict"),
-            (lambda live: live["required_pull_request_reviews"].update(required_approving_review_count=0),
-             "approving reviews below policy"),
             (lambda live: live["required_pull_request_reviews"].update(dismiss_stale_reviews=False),
              "stale reviews are not dismissed"),
             (lambda live: live["enforce_admins"].update(enabled=False),
@@ -99,6 +99,20 @@ class ComparisonTests(unittest.TestCase):
                 mutate(live)
                 self.assertTrue(any(expected in problem for problem in CHECK.compare(POLICY, live)),
                                 f"relaxation not reported: {expected}")
+
+    def test_a_live_review_count_below_the_declared_one_is_reported(self):
+        # The declared count is currently zero, so no live value can fall below
+        # it and the table above cannot exercise this. The comparison still has
+        # to work, because the count is the setting most likely to be raised
+        # again once a second person can review.
+        policy = json.loads(json.dumps(POLICY))
+        policy["required_pull_request_reviews"]["required_approving_review_count"] = 1
+        live = compliant()
+        live["required_pull_request_reviews"]["required_approving_review_count"] = 0
+        self.assertTrue(any("approving reviews below policy" in problem
+                            for problem in CHECK.compare(policy, live)))
+        live["required_pull_request_reviews"]["required_approving_review_count"] = 1
+        self.assertEqual(CHECK.compare(policy, live), [])
 
 
 class ReportingTests(unittest.TestCase):
