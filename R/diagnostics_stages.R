@@ -13,6 +13,10 @@
 
 .GT_STAGE_STATES <- c("passed", "failed", "not_assessed", "inconclusive")
 
+# Adequacy labels that mean the likelihood is exact rather than approximated.
+.GT_EXACT_LIKELIHOODS <- c("exact", "exact_balanced_gaussian_likelihood",
+                           "exact_no_random_variation")
+
 .gt_stage <- function(status, reason, measurements = list()) {
   if (!isTRUE(status %in% .GT_STAGE_STATES))
     stop("Unknown diagnostic stage state: ", status, call. = FALSE)
@@ -125,6 +129,11 @@
                      measurements))
   if (!converged)
     return(.gt_stage("failed", "The conditional mode did not converge.", measurements))
+  if (is.null(strict))
+    return(.gt_stage("inconclusive",
+                     paste("The conditional mode was recorded as converged, but the evidence",
+                           "needed to check it against the requested tolerance was not retained."),
+                     measurements))
   if (isFALSE(strict) || isTRUE(exhausted)) {
     reason <- paste(c(
       if (isFALSE(strict)) "the final gradient missed the requested tolerance and met only the relaxed final criterion",
@@ -187,6 +196,10 @@
                      measurements))
   if (is.null(stable))
     return(.gt_stage("not_assessed", "No stability verdict was recorded.", measurements))
+  if (is.null(checked))
+    return(.gt_stage("inconclusive",
+                     paste("A stability verdict was recorded, but whether the comparison",
+                           "actually ran was not."), measurements))
   if (!stable)
     return(.gt_stage("failed", "Restarts or tighter tolerances did not reproduce the retained solution.",
                      measurements))
@@ -225,7 +238,11 @@
   if (is.null(adequacy) || !length(adequacy))
     return(.gt_stage("not_assessed",
                      "No approximation assessment applies to this fit.", measurements))
-  if (identical(as.character(adequacy), "exact"))
+  # The labels a fit actually records, not a shorter one nothing writes. A
+  # balanced Gaussian fit records exact_balanced_gaussian_likelihood and a
+  # discrete fit with no random contribution records exact_no_random_variation;
+  # matching only "exact" reported both as unassessed.
+  if (as.character(adequacy)[[1L]] %in% .GT_EXACT_LIKELIHOODS)
     return(.gt_stage("passed", "The likelihood is exact for this design.", measurements))
   .gt_stage("not_assessed",
             paste0("Approximation adequacy is not established for this fit (", adequacy, ")."),

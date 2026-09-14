@@ -127,6 +127,37 @@ none <- base_fit(diagnostics = modifyList(base_fit()$diagnostics,
 expect(identical(status(none, "restart_stability"), "inconclusive"),
        "stability with no alternative start to disagree is inconclusive")
 
+# --- Absent evidence is never a pass, including in the middle of a stage -----
+# These three all reported "passed" once. Each is a case where the fit claims a
+# result but the evidence needed to check that claim was not retained, which is
+# exactly where a diagnostic summary is most tempted to flatter the fit.
+converged_unverifiable <- base_fit()
+converged_unverifiable$control <- list()
+converged_unverifiable$diagnostics$inner_gradient <- NULL
+converged_unverifiable$diagnostics$stability$inner_tol <- NULL
+expect(identical(status(converged_unverifiable, "conditional_mode"), "inconclusive"),
+       "a converged mode whose tolerance evidence is missing is inconclusive, not passed")
+
+verdict_without_check <- base_fit()
+verdict_without_check$diagnostics$stability <-
+  list(stable = TRUE, alternative_starts = 1L)
+expect(identical(status(verdict_without_check, "restart_stability"), "inconclusive"),
+       "a stability verdict without evidence the comparison ran is inconclusive")
+
+# --- The adequacy labels fits actually record --------------------------------
+# Nothing in the package ever writes the bare string "exact", so matching only
+# that reported every genuinely exact likelihood as unassessed.
+for (label in c("exact_balanced_gaussian_likelihood", "exact_no_random_variation", "exact")) {
+  exact <- list(approximation_adequacy = label, diagnostics = list())
+  expect(identical(.gt_staged_diagnostics(exact)$approximation_assessment$status, "passed"),
+         paste("an exact likelihood recorded as", label, "is reported as exact"))
+}
+approximate <- list(approximation_adequacy = "not_assessed_first_order_laplace",
+                    diagnostics = list())
+expect(identical(.gt_staged_diagnostics(approximate)$approximation_assessment$status,
+                 "not_assessed"),
+       "first-order Laplace adequacy is still never claimed")
+
 # --- Acceptance is reported, never decided ------------------------------------
 # The summary reads numerically_accepted; it must not compute its own verdict.
 for (accepted in c(TRUE, FALSE)) {
