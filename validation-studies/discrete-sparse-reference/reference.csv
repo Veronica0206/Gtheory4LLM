@@ -14,7 +14,7 @@ binary_logit_single_source,conditional_objective,17.6114000916877,objective
 binary_logit_single_source,marginal_laplace_nll,19.3283146395923,objective
 binary_logit_single_source,mode_penalty,1.02472947174884,objective
 binary_logit_single_source,hessian_log_determinant,1.3843701523114,objective
-binary_logit_single_source,laplace_identity_residual,0,stationary
+binary_logit_single_source,laplace_identity_residual,0,identity
 binary_logit_single_source,hessian_trace,11.4848908231505,objective
 binary_logit_single_source,hessian_min_eigenvalue,1.14279127087646,objective
 binary_logit_single_source,eta_1,-0.599280598479741,mode
@@ -122,7 +122,7 @@ binary_logit_single_source,hessian_7_10,0,curvature
 binary_logit_single_source,hessian_8_10,0,curvature
 binary_logit_single_source,hessian_9_10,0,curvature
 binary_logit_single_source,hessian_10_10,1.14938494914114,curvature
-binary_logit_single_source,hessian_asymmetry,0,stationary
+binary_logit_single_source,hessian_asymmetry,0,identity
 binary_logit_single_source,inner_gradient,2.22291868801072e-08,stationary
 binary_logit_single_source,inner_converged,1,exact
 binary_probit_crossed,n,30,exact
@@ -142,7 +142,7 @@ binary_probit_crossed,conditional_objective,14.6507984150661,objective
 binary_probit_crossed,marginal_laplace_nll,17.3075456968621,objective
 binary_probit_crossed,mode_penalty,1.239718307234,objective
 binary_probit_crossed,hessian_log_determinant,2.83405794912407,objective
-binary_probit_crossed,laplace_identity_residual,0,stationary
+binary_probit_crossed,laplace_identity_residual,0,identity
 binary_probit_crossed,hessian_trace,16.3763380702674,objective
 binary_probit_crossed,hessian_min_eigenvalue,1,objective
 binary_probit_crossed,eta_1,-1.07221163133756,mode
@@ -292,7 +292,7 @@ binary_probit_crossed,hessian_10_13,0.0485381550930085,curvature
 binary_probit_crossed,hessian_11_13,0,curvature
 binary_probit_crossed,hessian_12_13,0,curvature
 binary_probit_crossed,hessian_13_13,1.53534583208801,curvature
-binary_probit_crossed,hessian_asymmetry,0,stationary
+binary_probit_crossed,hessian_asymmetry,0,identity
 binary_probit_crossed,inner_gradient,1.0627054791712e-12,stationary
 binary_probit_crossed,inner_converged,1,exact
 binary_logit_crossed_interior,n,36,exact
@@ -312,7 +312,7 @@ binary_logit_crossed_interior,conditional_objective,22.0768788451119,objective
 binary_logit_crossed_interior,marginal_laplace_nll,25.3907892829262,objective
 binary_logit_crossed_interior,mode_penalty,1.38357061184537,objective
 binary_logit_crossed_interior,hessian_log_determinant,3.86067965193777,objective
-binary_logit_crossed_interior,laplace_identity_residual,-3.5527136788005e-15,stationary
+binary_logit_crossed_interior,laplace_identity_residual,-3.5527136788005e-15,identity
 binary_logit_crossed_interior,hessian_trace,19.7805296290682,objective
 binary_logit_crossed_interior,hessian_min_eigenvalue,1,objective
 binary_logit_crossed_interior,eta_1,0.524592494661693,mode
@@ -501,7 +501,7 @@ binary_logit_crossed_interior,hessian_12_15,0.0639854916027805,curvature
 binary_logit_crossed_interior,hessian_13_15,0,curvature
 binary_logit_crossed_interior,hessian_14_15,0,curvature
 binary_logit_crossed_interior,hessian_15_15,1.81134016776242,curvature
-binary_logit_crossed_interior,hessian_asymmetry,0,stationary
+binary_logit_crossed_interior,hessian_asymmetry,0,identity
 binary_logit_crossed_interior,inner_gradient,9.44799793956008e-14,stationary
 binary_logit_crossed_interior,inner_converged,1,exact
 ordinal_logit_crossed,n,30,exact
@@ -522,7 +522,7 @@ ordinal_logit_crossed,conditional_objective,26.7303737446081,objective
 ordinal_logit_crossed,marginal_laplace_nll,28.8546198546794,objective
 ordinal_logit_crossed,mode_penalty,0.874289387590356,objective
 ordinal_logit_crossed,hessian_log_determinant,2.49991344496192,objective
-ordinal_logit_crossed,laplace_identity_residual,-3.5527136788005e-15,stationary
+ordinal_logit_crossed,laplace_identity_residual,-3.5527136788005e-15,identity
 ordinal_logit_crossed,hessian_trace,15.9192697049265,objective
 ordinal_logit_crossed,hessian_min_eigenvalue,1,objective
 ordinal_logit_crossed,eta_1,0.27176992858197,mode
@@ -672,7 +672,7 @@ ordinal_logit_crossed,hessian_10_13,0.0447111646285996,curvature
 ordinal_logit_crossed,hessian_11_13,0,curvature
 ordinal_logit_crossed,hessian_12_13,0,curvature
 ordinal_logit_crossed,hessian_13_13,1.4855853435663,curvature
-ordinal_logit_crossed,hessian_asymmetry,0,stationary
+ordinal_logit_crossed,hessian_asymmetry,0,identity
 ordinal_logit_crossed,inner_gradient,5.81756864903582e-14,stationary
 ordinal_logit_crossed,inner_converged,1,exact
 ordinal_probit_crossed,n,30,exact
@@ -693,7 +693,7 @@ ordinal_probit_crossed,conditional_objective,28.9498468306635,objective
 ordinal_probit_crossed,marginal_laplace_nll,33.1172701864892,objective
 ordinal_probit_crossed,mode_penalty,1.91402268024489,objective
 ordinal_probit_crossed,hessian_log_determinant,4.50680135116172,objective
-ordinal_probit_crossed,laplace_identity_residual,0,stationary
+ordinal_probit_crossed,laplace_identity_residual,0,identity
 ordinal_probit_crossed,hessian_trace,18.8997864675821,objective
 ordinal_probit_crossed,hessian_min_eigenvalue,1,objective
 ordinal_probit_crossed,eta_1,-0.343011415726369,mode
@@ -843,7 +843,7 @@ ordinal_probit_crossed,hessian_10_13,0.132737824018164,curvature
 ordinal_probit_crossed,hessian_11_13,0,curvature
 ordinal_probit_crossed,hessian_12_13,0,curvature
 ordinal_probit_crossed,hessian_13_13,2.02739672381305,curvature
-ordinal_probit_crossed,hessian_asymmetry,0,stationary
+ordinal_probit_crossed,hessian_asymmetry,0,identity
 ordinal_probit_crossed,inner_gradient,7.73603403558809e-13,stationary
 ordinal_probit_crossed,inner_converged,1,exact
 ordinal_logit_tail_mass,n,30,exact
@@ -864,7 +864,7 @@ ordinal_logit_tail_mass,conditional_objective,20.4557867468699,objective
 ordinal_logit_tail_mass,marginal_laplace_nll,23.0731980814477,objective
 ordinal_logit_tail_mass,mode_penalty,1.28431314997744,objective
 ordinal_logit_tail_mass,hessian_log_determinant,2.66619636920071,objective
-ordinal_logit_tail_mass,laplace_identity_residual,0,stationary
+ordinal_logit_tail_mass,laplace_identity_residual,0,identity
 ordinal_logit_tail_mass,hessian_trace,16.13352810111,objective
 ordinal_logit_tail_mass,hessian_min_eigenvalue,1,objective
 ordinal_logit_tail_mass,eta_1,0.053381567360745,mode
@@ -1014,7 +1014,7 @@ ordinal_logit_tail_mass,hessian_10_13,0.0526772580388776,curvature
 ordinal_logit_tail_mass,hessian_11_13,0,curvature
 ordinal_logit_tail_mass,hessian_12_13,0,curvature
 ordinal_logit_tail_mass,hessian_13_13,1.49247118489976,curvature
-ordinal_logit_tail_mass,hessian_asymmetry,0,stationary
+ordinal_logit_tail_mass,hessian_asymmetry,0,identity
 ordinal_logit_tail_mass,inner_gradient,7.02049529621718e-13,stationary
 ordinal_logit_tail_mass,inner_converged,1,exact
 binary_logit_zero_source,n,30,exact
@@ -1032,7 +1032,7 @@ binary_logit_zero_source,conditional_objective,15.3760723725829,objective
 binary_logit_zero_source,marginal_laplace_nll,17.964634553477,objective
 binary_logit_zero_source,mode_penalty,1.27931331251298,objective
 binary_logit_zero_source,hessian_log_determinant,2.61849773676242,objective
-binary_logit_zero_source,laplace_identity_residual,-3.5527136788005e-15,stationary
+binary_logit_zero_source,laplace_identity_residual,-3.5527136788005e-15,identity
 binary_logit_zero_source,hessian_trace,15.9993898105327,objective
 binary_logit_zero_source,hessian_min_eigenvalue,1,objective
 binary_logit_zero_source,eta_1,0.502271608215071,mode
@@ -1182,7 +1182,7 @@ binary_logit_zero_source,hessian_10_13,0,curvature
 binary_logit_zero_source,hessian_11_13,0,curvature
 binary_logit_zero_source,hessian_12_13,0,curvature
 binary_logit_zero_source,hessian_13_13,1,curvature
-binary_logit_zero_source,hessian_asymmetry,0,stationary
+binary_logit_zero_source,hessian_asymmetry,0,identity
 binary_logit_zero_source,inner_gradient,5.24469356832924e-13,stationary
 binary_logit_zero_source,inner_converged,1,exact
 binary_probit_fixed_covariance,n,30,exact
@@ -1200,7 +1200,7 @@ binary_probit_fixed_covariance,conditional_objective,12.631335599004,objective
 binary_probit_fixed_covariance,marginal_laplace_nll,19.832040258659,objective
 binary_probit_fixed_covariance,mode_penalty,2.83807297001372,objective
 binary_probit_fixed_covariance,hessian_log_determinant,8.72526337928263,objective
-binary_probit_fixed_covariance,laplace_identity_residual,-3.5527136788005e-15,stationary
+binary_probit_fixed_covariance,laplace_identity_residual,-3.5527136788005e-15,identity
 binary_probit_fixed_covariance,hessian_trace,26.1999674736901,objective
 binary_probit_fixed_covariance,hessian_min_eigenvalue,1,objective
 binary_probit_fixed_covariance,eta_1,-0.276847218402891,mode
@@ -1350,6 +1350,6 @@ binary_probit_fixed_covariance,hessian_10_13,0.168173954034844,curvature
 binary_probit_fixed_covariance,hessian_11_13,0,curvature
 binary_probit_fixed_covariance,hessian_12_13,0,curvature
 binary_probit_fixed_covariance,hessian_13_13,2.31045994936688,curvature
-binary_probit_fixed_covariance,hessian_asymmetry,0,stationary
+binary_probit_fixed_covariance,hessian_asymmetry,0,identity
 binary_probit_fixed_covariance,inner_gradient,1.77635683940025e-15,stationary
 binary_probit_fixed_covariance,inner_converged,1,exact
