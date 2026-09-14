@@ -15,12 +15,11 @@ validated.
 
 <!-- release-identity:start -->
 Checkout version: **0.1.0**. Current artifact bundle: **0.1.0**.
-Release state: **prepared**.
-The archive and manual in `artifacts/` are built from the source commit recorded
-in their [manifest](artifacts/manifest.json). The bundle is prepared and
-verified; publication adds the `v0.1.0` tag and the release assets, and
-`scripts/check_committed_artifact.py --check-release-identity` refuses to call
-it published before that exists.
+Release state: **published**.
+The archive and manual in `artifacts/` are the published release, built from the
+source commit recorded in their [manifest](artifacts/manifest.json) and tagged
+`v0.1.0`. Later checkout changes are recorded in `NEWS.md`; the archive stays
+tied to that source commit and the tag is never moved.
 <!-- release-identity:end -->
 
 ## Install
