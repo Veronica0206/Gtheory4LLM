@@ -44,9 +44,18 @@ def vignette_toolchain(rscript, environment):
 
 
 NO_VIGNETTE_INDEX_NOTE = "Package has a VignetteBuilder field but no prebuilt vignette index."
+# CRAN flags a development version's fourth component. It is right to: a
+# `.9000` checkout is not a submission candidate. The line is excused only for
+# a version that really is a development version, and only with that exact
+# version in it, so a release candidate can never be excused by it.
+DEVELOPMENT_VERSION = re.compile(r"^[0-9]+(?:\.[0-9]+)*\.9[0-9]{3,}$")
 
 
-def check_status(log, as_cran=False, vignettes_built=True):
+def large_version_note(version):
+    return f"Version contains large components ({version})"
+
+
+def check_status(log, as_cran=False, vignettes_built=True, version=None):
     errors = len(re.findall(r"^\* checking .*\.\.\. (?:\[[^]]+\] )?ERROR\s*$", log, re.M))
     warnings = len(re.findall(r"^\* checking .*\.\.\. (?:\[[^]]+\] )?WARNING\s*$", log, re.M))
     note_blocks = re.findall(r"^\* checking ([^\n]+)\.\.\. (?:\[[^]]+\] )?NOTE\s*\n(.*?)(?=^\* checking |^\* DONE|\Z)", log, re.M | re.S)
@@ -58,9 +67,14 @@ def check_status(log, as_cran=False, vignettes_built=True):
         # actually skipped, so it can never excuse a real missing index.
         if not vignettes_built and lines and lines[-1] == NO_VIGNETTE_INDEX_NOTE:
             lines = lines[:-1]
+        development = bool(version and DEVELOPMENT_VERSION.fullmatch(version))
+        if development and lines and lines[-1] == large_version_note(version):
+            lines = lines[:-1]
         if (as_cran and title.strip() == "CRAN incoming feasibility" and
                 len(lines) == 2 and lines[0].startswith("Maintainer:") and lines[1] == "New submission"):
-            allowed.append("CRAN incoming feasibility: New submission")
+            allowed.append("CRAN incoming feasibility: New submission" +
+                           (f"; development version {version} flagged for its fourth component"
+                            if development else ""))
         else:
             raise RuntimeError("R CMD check reported a substantive NOTE: " + title.strip())
     if errors or warnings or "* DONE" not in log:
@@ -150,7 +164,7 @@ def main():
         if args.as_cran: check_command.append('--as-cran')
         run('check', check_command + [str(archive)], extra_env=check_environment)
         log = (work/(package+'.Rcheck')/'00check.log').read_text()
-        report['r_cmd_check'] = check_status(log, args.as_cran, toolchain['available'])
+        report['r_cmd_check'] = check_status(log, args.as_cran, toolchain['available'], version)
         report['r_cmd_check'].update({'as_cran':args.as_cran,'manual_built':False,'installed_tests_run':True,'vignettes_built':toolchain['available'],
                                      'suggests_forced':toolchain['available']})
         report['archive'] = str(archive)

@@ -76,6 +76,9 @@ jobs:
         env:
           GTHEORY_PACKAGE_CHECK_DIR: ${{ runner.temp }}/gtheory-package-check
           GTHEORY_ARTIFACT_CHECK_DIR: ${{ runner.temp }}/gtheory-committed-artifact
+          # The overfull-box gate reports which box overflowed only in the
+          # LaTeX log. Build somewhere the upload step can reach it.
+          GTHEORY_MANUAL_CHECK_DIR: ${{ runner.temp }}/gtheory-manual
         shell: bash
         run: |
           set -o pipefail
@@ -93,6 +96,9 @@ jobs:
             ${{ runner.temp }}/gtheory-package-check/*.Rcheck
             ${{ runner.temp }}/gtheory-committed-artifact/*.json
             ${{ runner.temp }}/gtheory-committed-artifact/*.log
+            ${{ runner.temp }}/gtheory-manual/*.pdf
+            ${{ runner.temp }}/gtheory-manual/work/*.log
+            ${{ runner.temp }}/gtheory-manual/work/*.tex
           if-no-files-found: ignore
       - name: Ensure verification and tests did not change tracked files
         run: git diff --exit-code

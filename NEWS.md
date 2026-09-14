@@ -51,16 +51,20 @@ reproduces the 0.1.0 candidate's values within the tolerances recorded there.
 
 ## Standard methods
 
-- Adds `logLik()`, `nobs()`, `coef()` and `vcov()` methods for `gt_fit`, and a
-  print method for `gt_diagnostics()`, which now returns a classed object.
+- Adds `logLik()`, `nobs()` and `coef()` methods for `gt_fit`, and a print
+  method for `gt_diagnostics()`, which now returns a classed object.
 - `AIC()` and `BIC()` reproduce the fit's own recorded conventions: an ML fit's
   `ml_AIC` and `ml_BIC_response_vectors`, a REML fit's
   `reml_AIC_variance_parameters`. A REML `logLik` carries `REML = TRUE`; a
   discrete one is labelled as a first-order Laplace approximation.
-- `vcov()` describes the estimated source covariances, not `coef()`. Gaussian
-  outcome means are profiled rather than freely estimated, and the discrete
-  engine computes no observed information, so `vcov()` raises the fit's own
-  recorded reason instead of returning an invented matrix.
+- Adds `gt_component_vcov()` for the sampling covariance of the estimated source
+  covariances, which is what `gt_reliability()` propagates into an interval.
+- `vcov()` on a fit raises an error rather than returning that matrix. In R,
+  `vcov(fit)` is the covariance of `coef(fit)`, and generic tooling relies on
+  the pairing; this package does not estimate it, because Gaussian outcome means
+  are profiled out of the likelihood and the discrete engine computes no
+  observed information. The error names the reason and points at
+  `gt_component_vcov()`.
 
 ## Controls
 
@@ -68,7 +72,8 @@ reproduces the 0.1.0 candidate's values within the tolerances recorded there.
   `data`, `model`, `retry_log` and `session`. Every default is `TRUE`, so an
   existing call is unaffected. Dropping all four reduced a 600-row Gaussian fit
   from 525 KB to 64 KB with every reported result identical, including
-  reliability, decision studies, diagnostics, correlations and `vcov()`.
+  reliability, decision studies, diagnostics, correlations and the component
+  covariance.
 - Every fit now records a compact `panel` summary, so reliability and decision
   studies remain available when the modelled data was not kept. Where the data
   is kept it is still what the balanced-panel rules are checked against, so a
@@ -120,6 +125,15 @@ reproduces the 0.1.0 candidate's values within the tolerances recorded there.
   rejected. Both now refuse both, with the same message.
 - A local variable named `T` in the discrete engine no longer shadows the `TRUE`
   alias.
+- Four overfull boxes introduced by the new help pages are fixed in the Rd
+  content rather than by relaxing the gate that found them, and the locked
+  workflow now preserves the manual's LaTeX log and rendered PDF as build
+  evidence: the log is the only place that says which box overflowed.
+- The renv bootstrap digest is recorded and enforced. It was computed from an
+  independent download of the pinned URL and matches the digest the locked
+  workflow computed; a mismatch now refuses to install.
+- The install instructions no longer point at a release page that has no
+  release on it, and say where the prepared bundle actually is.
 - `docs/LIMITATIONS.md` collects every limitation in one place; the other
   documents link to it. `docs/ROADMAP.md` records planned work.
   `docs/DEVELOPMENT_STATUS.md` now holds only the current state.

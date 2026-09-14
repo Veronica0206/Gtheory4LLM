@@ -28,10 +28,10 @@ class BootstrapDescriptorTests(unittest.TestCase):
         self.assertRegex(self.descriptor["version"], r"^\d+\.\d+\.\d+$")
         self.assertTrue(self.descriptor["url"].startswith("https://"))
         self.assertIn(self.descriptor["version"], self.descriptor["url"])
-        self.assertIn("sha256", self.descriptor, "the digest slot must exist even when unrecorded")
-        digest = self.descriptor["sha256"]
-        self.assertTrue(digest is None or re.fullmatch(r"[0-9a-f]{64}", digest),
-                        "a recorded digest must be a SHA-256 hex string")
+        digest = self.descriptor.get("sha256")
+        self.assertIsNotNone(digest, "the bootstrap digest must be recorded, not left null")
+        self.assertRegex(digest, r"^[0-9a-f]{64}$",
+                         "a recorded digest must be a SHA-256 hex string")
 
     def test_the_restore_script_reads_the_descriptor_instead_of_hard_coding(self):
         self.assertIn("renv-bootstrap.json", self.restore)
@@ -39,6 +39,15 @@ class BootstrapDescriptorTests(unittest.TestCase):
                          "the URL must come from the descriptor, not from the script")
         self.assertNotIn(f'"{self.descriptor["version"]}"', self.restore,
                          "the version must come from the descriptor, not from the script")
+
+    def test_a_recorded_digest_makes_a_mismatch_fatal(self):
+        # A digest that is recorded but not enforced is decoration. The restore
+        # script must stop, and must show both digests when it does.
+        self.assertIn("checksum mismatch", self.restore)
+        self.assertIn("expected: ", self.restore)
+        self.assertIn("observed: ", self.restore)
+        self.assertIn("stop(", self.restore[self.restore.index("checksum mismatch") - 200:
+                                            self.restore.index("checksum mismatch")])
 
     def test_the_digest_is_verified_before_installation(self):
         verify = self.restore.index("sha256sum")

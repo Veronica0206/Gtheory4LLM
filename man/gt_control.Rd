@@ -14,7 +14,7 @@ gt_control(gaussian = list(), discrete = list(), retain = list())
 \details{\strong{Retained components.} \code{retain} decides which optional parts of a fitted object are kept. All four default to \code{TRUE}, so a fit keeps exactly what it kept before these switches existed; dropping a component is always something the caller asked for.
 \itemize{
 \item \code{data}: the modelled data frame. Dropping it removes a full copy of the panel from the fit.
-\item \code{model}: the Gaussian OpenMx model and factorial cross-products, and the discrete per-observation conditional predictors and probabilities. The OpenMx model carries its own copy of the observations, so this is usually the largest component. The observed outcome variances are kept either way, so \code{gt_components(correlation = TRUE)} is unaffected.
+\item \code{model}: the Gaussian OpenMx model and its factorial cross-products, and for a discrete fit the conditional predictors and probabilities held for every observation. The OpenMx model carries its own copy of the observations, so this is usually the largest component. The observed outcome variances are kept either way, so \code{gt_components(correlation = TRUE)} is unaffected.
 \item \code{retry_log}: the optimizer transcript and the bulky per-attempt payloads. Each attempt's label, error, optimizer code and message, and objective are kept, so \code{gt_diagnostics()} reports the same decisions and reasons.
 \item \code{session}: the \code{sessionInfo()} record. Keep it for reproducible research; it is worth its size when a result must be traced to an environment.
 }

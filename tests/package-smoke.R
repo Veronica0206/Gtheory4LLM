@@ -1,7 +1,8 @@
 # Installed-package checks; no source(), repository paths, or raw CSV dependency.
 library(Gtheory4LLM)
 expected_exports <- c("gt_design", "gt_family", "gt_control", "gt_score", "gt_fit",
-                      "gt_components", "gt_reliability", "gt_dstudy", "gt_diagnostics", "gt_example", "gt_preflight")
+                      "gt_components", "gt_component_vcov", "gt_reliability", "gt_dstudy",
+                      "gt_diagnostics", "gt_example", "gt_preflight")
 stopifnot(setequal(getNamespaceExports("Gtheory4LLM"), expected_exports))
 stopifnot(is.function(getS3method("print", "gt_fit")),
           is.function(getS3method("summary", "gt_fit")),

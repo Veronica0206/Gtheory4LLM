@@ -36,7 +36,7 @@ probabilities.
 Gaussian fitting also computes asymptotic Wald standard errors for the source variance components from the numerically differentiated restricted- or profile-likelihood Hessian. These are large-sample quantities conditional on the declared model; they do not establish coverage in small designs and do not apply to a component resting on a variance boundary. \code{check_hessian = FALSE} disables them along with the other derivative diagnostics.
 
 Numerical acceptance includes optimizer completion and independent stationarity, bound, and tighter-tolerance restart checks. First-order stationarity does not establish a global optimum. A numerically accepted Laplace fit still requires an assessment of approximation adequacy for the intended analysis. Reliability and decision studies reject fits that fail numerical acceptance.}
-\seealso{\code{\link{gt_design}}, \code{\link{gt_control}}, \code{\link{gt_diagnostics}}. A worked first discrete fit is installed as \code{system.file(\"examples\", \"discrete-first.R\", package = \"Gtheory4LLM\")}.}
+\seealso{\code{\link{gt_design}}, \code{\link{gt_control}}, \code{\link{gt_diagnostics}}. The package installs a worked first discrete fit as \code{discrete-first.R}; the example below shows how to source it.}
 \examples{
 d <- expand.grid(item = 1:12, rater = 1:3)
 d$score <- sin(d$item) + d$rater / 5 + cos(d$item * d$rater) / 4
@@ -52,4 +52,8 @@ b$label <- as.integer((b$item + 2 * b$rater) \%\% 5 > 1)
 binary_fit <- gt_fit(b, "label", gt_design("item", "rater", full_cell = FALSE),
   gt_family("binary"))
 gt_diagnostics(binary_fit)$numerically_accepted
+# The installed worked example, start to finish:
+script <- system.file("examples", "discrete-first.R",
+                      package = "Gtheory4LLM")
+file.exists(script)
 }

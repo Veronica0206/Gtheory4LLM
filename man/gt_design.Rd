@@ -54,10 +54,12 @@ physical <- expand.grid(person = 1:4, item = 1:6)
 physical$question <- 1 + (physical$item > 3)
 # Unique labels 1-6 imply 48 coded cells but supply 24: item 4 never appears
 # in question 1, so the coded panel is structurally incomplete.
-c(rows = nrow(physical), cells = coded_cells(physical, c("person", "item", "question")))
+c(rows = nrow(physical),
+  cells = coded_cells(physical, c("person", "item", "question")))
 physical$item_code <- physical$item - 3 * (physical$question - 1)
 # The within-parent code describes the same six items as a complete panel.
-c(rows = nrow(physical), cells = coded_cells(physical, c("person", "item_code", "question")))
+c(rows = nrow(physical),
+  cells = coded_cells(physical, c("person", "item_code", "question")))
 nested_design <- gt_design("person", c("item_code", "question"),
   crossed = "question", nested = list(item_code = "question"))
 nested_design$terms_requested   # item_code:question identifies the six items

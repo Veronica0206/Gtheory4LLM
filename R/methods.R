@@ -80,36 +80,54 @@ coef.gt_fit <- function(object, ...) {
 
 # Sampling covariance of the estimated source covariances.
 #
-# This is deliberately not the covariance of coef(). The Gaussian outcome means
-# are profiled out of the likelihood rather than estimated as free parameters,
-# so no curvature for them exists to report, and the dense discrete engine
-# computes no observed information for anything. Where a quantity has no
-# estimated uncertainty in this implementation, this errors with the reason the
-# fit recorded instead of returning zeros or an invented matrix.
+# This is deliberately a package-specific function rather than vcov(). R's
+# convention is that vcov(fit) is the covariance of coef(fit), and generic
+# tooling relies on that pairing; returning something else under that name
+# would be surprising however carefully it were documented.
 #
 # type = "components" gives the delta-method covariance of the unique source
 # covariance entries, labelled source[row,column]; this is what a coefficient
 # interval is built from. type = "parameters" gives the underlying free
 # optimizer-parameter covariance, 2 H^-1 on the -2 log likelihood scale.
-vcov.gt_fit <- function(object, type = c("components", "parameters"), ...) {
-  .gt_require_fit(object)
+gt_component_vcov <- function(fit, type = c("components", "parameters"), ...) {
+  .gt_require_fit(fit)
   type <- match.arg(type)
-  record <- object$uncertainty
+  record <- fit$uncertainty
   if (!is.list(record) || !isTRUE(record$available)) {
     reason <- if (is.list(record) && length(record$reason) && !is.na(record$reason))
       record$reason else "This fit carries no parameter covariance matrix."
-    stop("No sampling covariance is available for this fit: ", reason,
+    stop("No source-covariance uncertainty is available for this fit: ", reason,
          " Use gt_components(fit) for the point estimates.", call. = FALSE)
   }
   value <- if (type == "components") record$entry_covariance else record$parameter_covariance
   if (!is.matrix(value))
     stop("This fit does not carry a ", type, " covariance matrix.", call. = FALSE)
   attr(value, "scope") <- if (type == "components")
-    "Unique source covariance entries; not the covariance of coef()." else
-    "Free optimizer parameters; not the covariance of coef()."
+    "Unique source covariance entries." else "Free optimizer parameters."
   attr(value, "method") <- record$method
   attr(value, "conditional_on_zero") <- record$fixed_components
   value
+}
+
+# The covariance of coef(), which this implementation does not estimate.
+#
+# Gaussian outcome means are profiled out of the likelihood rather than fitted
+# as free parameters, so there is no curvature for them to report; the discrete
+# engine computes no observed information for anything. Rather than return a
+# different matrix under a name that promises this one, this says so and points
+# at the function that does have a covariance matrix to give. Defining the
+# method at all is deliberate: without it, vcov() would reach vcov.default and
+# fail with a message about a missing summary component instead.
+vcov.gt_fit <- function(object, ...) {
+  .gt_require_fit(object)
+  detail <- if (.gt_is_gaussian(object))
+    paste("Gaussian outcome means are profiled out of the likelihood rather than",
+          "estimated as free parameters, so this engine computes no curvature for them.") else
+    paste("The dense first-order Laplace engine computes no observed information,",
+          "so its location parameters are point estimates only.")
+  stop("The sampling covariance of coef() is not available for a gt_fit: ", detail,
+       " For the covariance of the estimated source covariances, which is what",
+       " gt_reliability() propagates, use gt_component_vcov(fit).", call. = FALSE)
 }
 
 print.gt_diagnostics <- function(x, ...) {

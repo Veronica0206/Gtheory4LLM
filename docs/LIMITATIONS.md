@@ -47,6 +47,10 @@ scientifically sufficient. Those are separate questions with separate evidence.
   about how either branch performs is in [validation scope](VALIDATION_SCOPE.md).
 - Generic `AIC`/`BIC` are unavailable for REML fits. Restricted-likelihood
   criteria are provided under explicit names; see `help("gt_fit")`.
+- **No uncertainty for the location parameters.** Outcome means are profiled out
+  of the likelihood rather than fitted as free parameters, so `vcov()` has
+  nothing to return and says so. `gt_component_vcov()` gives the covariance that
+  does exist, of the estimated source covariances.
 - Numeric binary data fitted as Gaussian is an observed-score model, not a
   binary model.
 

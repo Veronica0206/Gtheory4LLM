@@ -33,18 +33,24 @@ Declaring it here turns a later, unexplained compilation failure into a clear
 refusal. Older pairings such as R 4.3 with OpenMx 2.21.11 have been reported to
 pass these checks but are not part of the validated gate; to use one, install
 from source with a relaxed floor, or `source("load_functions.R")`, which
-imposes no version requirement. Install the source archive from the
-[release page](https://github.com/Veronica0206/Gtheory4LLM/releases):
+imposes no version requirement.
+
+**There is no `v0.1.0` GitHub release yet.** The 0.1.0 bundle is prepared in
+[`artifacts/`](artifacts/) and verified against the source commit in its
+manifest; a release will be published once the release gates pass. Until then,
+install from that bundle or from a checkout:
 
 ```r
 install.packages("OpenMx")
-install.packages("Gtheory4LLM_0.1.0.tar.gz", repos = NULL, type = "source")
+# From the prepared bundle in this repository:
+install.packages("artifacts/Gtheory4LLM_0.1.0.tar.gz", repos = NULL, type = "source")
 library(Gtheory4LLM)
 ```
 
-Use the archive name that the release page actually offers; older releases are
-kept there. For a checkout, build and install with `R CMD build .` followed by
-`R CMD INSTALL Gtheory4LLM_0.1.0.tar.gz`. Building the vignette needs knitr,
+For a checkout, build and install with `R CMD build .` followed by
+`R CMD INSTALL Gtheory4LLM_0.1.0.tar.gz`. Once releases exist, take the archive
+name the [release page](https://github.com/Veronica0206/Gtheory4LLM/releases)
+actually offers; older releases are kept there. Building the vignette needs knitr,
 rmarkdown, and pandoc; nothing else does. CRAN availability is separate from
 GitHub availability; this repository does not imply CRAN acceptance.
 
@@ -92,7 +98,7 @@ restricted (REML) or profile (ML) likelihood Hessian:
 ```r
 summary(fit)$variances          # variance, std_error, boundary flag
 gt_reliability(fit)$per_trait   # Erho2, Erho2_se, Erho2_lower, Erho2_upper, ...
-logLik(fit); AIC(fit); vcov(fit)
+logLik(fit); AIC(fit); gt_component_vcov(fit)
 ```
 
 These are asymptotic Wald quantities conditional on the declared model and

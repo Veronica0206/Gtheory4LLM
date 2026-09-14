@@ -67,32 +67,41 @@ expect(identical(names(coef(joint)), c("y", "z")), "a joint fit reports one mean
 expect(!any(names(coef(reml)) %in% names(reml$covariance_components)),
        "variance components are not returned as coefficients")
 
-# --- vcov describes source covariances, and says so --------------------------
-V <- vcov(reml)
-expect(is.matrix(V) && nrow(V) == ncol(V), "vcov returns a square matrix")
+# --- vcov() keeps R's meaning by refusing ------------------------------------
+# In R, vcov(fit) is the covariance of coef(fit). This package does not estimate
+# that, so vcov() must say so and point at what does exist, rather than return
+# a different matrix under a name that promises this one.
+message <- expect_error(vcov(reml), "covariance of coef\\(\\) is not available",
+                        "vcov on a Gaussian fit")
+expect(grepl("profiled out of the likelihood", message, fixed = TRUE),
+       "the refusal says why the means have no curvature")
+expect(grepl("gt_component_vcov(fit)", message, fixed = TRUE),
+       "the refusal names the function that does have a covariance matrix")
+
+# --- gt_component_vcov describes the estimated source covariances -------------
+V <- gt_component_vcov(reml)
+expect(is.matrix(V) && nrow(V) == ncol(V), "the component covariance is square")
 expect(identical(rownames(V), rownames(reml$uncertainty$entry_covariance)),
-       "vcov is labelled by source covariance entry")
-expect(grepl("not the covariance of coef", attr(V, "scope")),
-       "vcov states that it is not the covariance of coef()")
+       "it is labelled by source covariance entry")
 expect(isTRUE(all.equal(V, unname(reml$uncertainty$entry_covariance), check.attributes = FALSE)),
-       "vcov is the fit's own delta-method entry covariance")
+       "it is the fit's own delta-method entry covariance")
 expect(isTRUE(all.equal(sqrt(diag(V)[paste0("item[y,y]")]),
                         reml$component_standard_errors$std_error[
                           reml$component_standard_errors$component == "item"],
                         check.attributes = FALSE)),
-       "vcov diagonal reproduces the reported component standard errors")
-parameters <- vcov(reml, "parameters")
+       "its diagonal reproduces the reported component standard errors")
+parameters <- gt_component_vcov(reml, "parameters")
 expect(is.matrix(parameters), "the parameter covariance matrix is available")
 expect(isTRUE(all.equal(parameters, unname(reml$uncertainty$parameter_covariance),
                         check.attributes = FALSE)),
        "the parameter covariance is the fit's own 2 H^-1")
-expect_error(vcov(reml, "nonsense"), "arg", "an unknown vcov type")
+expect_error(gt_component_vcov(reml, "nonsense"), "arg", "an unknown covariance type")
 
-# Disabling the Hessian removes the uncertainty, and vcov must say which.
+# Disabling the Hessian removes the uncertainty, and the refusal must say which.
 without <- gt_fit(panel, "y", design,
                   control = gt_control(gaussian = list(check_hessian = FALSE)))
-expect_error(vcov(without), "Hessian diagnostics were disabled",
-             "vcov on a fit without Hessian diagnostics")
+expect_error(gt_component_vcov(without), "Hessian diagnostics were disabled",
+             "component covariance on a fit without Hessian diagnostics")
 
 # --- Discrete fits have no observed information ------------------------------
 set.seed(4)
@@ -118,7 +127,9 @@ for (fit in list(binary, ordinal)) {
          "a discrete log likelihood is labelled as a Laplace approximation")
   expect(isFALSE(attr(value, "REML")), "a discrete fit is not restricted")
   expect(identical(nobs(fit), nrow(discrete_panel)), "a discrete fit counts its rows")
-  expect_error(vcov(fit), "no observed information",
+  expect_error(gt_component_vcov(fit), "no observed information",
+               "component covariance on a discrete fit")
+  expect_error(vcov(fit), "covariance of coef\\(\\) is not available",
                "vcov on a discrete fit")
 }
 expect(identical(names(coef(binary)), "b"), "a binary fit reports its intercept")
@@ -158,6 +169,8 @@ impostor <- structure(list(minus2loglik = 1, N = 1L), class = "not_a_fit")
 for (generic in c("logLik", "nobs", "coef", "vcov"))
   expect_error(getS3method(generic, "gt_fit")(impostor), "Expected a gt_fit",
                paste(generic, "on a foreign object"))
+expect_error(gt_component_vcov(impostor), "Expected a gt_fit",
+             "gt_component_vcov on a foreign object")
 
 cat("PASS: logLik, nobs, coef, vcov, information criteria, and diagnostics printing.\n")
 
@@ -188,7 +201,8 @@ expect(identical(summary(lean)$variances, summary(reml)$variances),
 expect(identical(gt_diagnostics(lean), gt_diagnostics(reml)),
        "every diagnostic decision and reason is unchanged by retention")
 expect(identical(logLik(lean), logLik(reml)), "the log likelihood is unchanged")
-expect(identical(vcov(lean), vcov(reml)), "the sampling covariance is unchanged")
+expect(identical(gt_component_vcov(lean), gt_component_vcov(reml)),
+       "the sampling covariance is unchanged")
 expect(identical(lean$panel$counts, c(item = 20L, rater = 4L)),
        "the panel summary records the observed level counts")
 
