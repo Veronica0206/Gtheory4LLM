@@ -2,15 +2,15 @@
   "package": "Gtheory4LLM",
   "version": "0.1.0",
   "release_state": "prepared",
-  "source_commit": "0871ff6c9dc683b16e590b883a6bf73e35e43811",
+  "source_commit": "1068ca8aa7211eaee1e3f5329e14517ff49cc0e0",
   "files": {
     "Gtheory4LLM_0.1.0.tar.gz": {
-      "bytes": 227734,
-      "sha256": "8d53b76311621f8a34e0f26b228e982a5acaca07223d6e72d3fcd1a16168e033"
+      "bytes": 268403,
+      "sha256": "401a10b0a56848d2d4d60ef48548ba483ec247920534594c2d573357d1a14f88"
     },
     "Gtheory4LLM-manual.pdf": {
-      "bytes": 181568,
-      "sha256": "1e8e835265e81372d6723058c1c2f066250228870b1615afc9b3a29004d260ab"
+      "bytes": 194456,
+      "sha256": "5b9054f9adff3e32bea73b45248cc778f44376a31848c5d8607b95481352c4ee"
     }
   }
 }
