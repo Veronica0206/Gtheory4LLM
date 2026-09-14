@@ -7,9 +7,11 @@ outputs <- c("scenarios.csv", "results.csv", "summary.csv", "generated-data.csv"
 if (any(file.exists(file.path(destination, outputs))))
   stop("Study output already exists; supply a new output directory to preserve earlier runs.")
 dir.create(destination, recursive = TRUE, showWarnings = FALSE)
-stopifnot(file.exists("R/discrete.R"), file.exists("R/design.R"))
+stopifnot(file.exists("R/discrete.R"), file.exists("R/discrete_response.R"),
+          file.exists("R/design.R"))
 engine <- new.env(parent = globalenv())
 sys.source("R/design.R", engine)
+sys.source("R/discrete_response.R", engine)
 sys.source("R/discrete.R", engine)
 RNGkind("Mersenne-Twister", "Inversion", "Rejection")
 
@@ -138,7 +140,7 @@ scenarios <- cbind(scenario = seq_len(nrow(grid)), specifications[grid$specifica
 rownames(scenarios) <- NULL
 write_table(scenarios, "scenarios.csv")
 
-source_files <- c("R/design.R", "R/discrete.R", "DESCRIPTION",
+source_files <- c("R/design.R", "R/discrete_response.R", "R/discrete.R", "DESCRIPTION",
   "validation-studies/discrete-laplace/run.R", "validation-studies/discrete-laplace/PROTOCOL.md")
 write_table(data.frame(file = source_files, md5 = unname(tools::md5sum(source_files))), "source-hashes.csv")
 source_commit <- system2("git", c("rev-parse", "HEAD"), stdout = TRUE)

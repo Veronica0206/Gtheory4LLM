@@ -1,5 +1,6 @@
 # Clean-session numerical acceptance, labeled-covariance, and integration tests.
 source(file.path("R", "design.R"))
+source(file.path("R", "discrete_response.R"))
 source(file.path("R", "discrete.R"))
 close <- function(a, b, tol = 1e-5) stopifnot(max(abs(a - b)) < tol)
 expect_error <- function(expr, pattern) {
