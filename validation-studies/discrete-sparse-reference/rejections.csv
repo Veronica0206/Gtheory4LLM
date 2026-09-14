@@ -1,0 +1,7 @@
+case,outcome
+nonfinite_parameter,penalty
+nonfinite_covariance_factor,error
+negative_direct_variance,error
+mismatched_backend_dimensions,error
+truncated_inner_solver,invalid
+nonfinite_predictor,invalid
