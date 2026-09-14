@@ -60,6 +60,16 @@ class PublicContentsTests(unittest.TestCase):
             archive.addfile(member, io.BytesIO(value))
         return buffer.getvalue()
 
+    def test_the_fixed_parameter_reference_csvs_are_declared_not_incidental(self):
+        # These carry synthetic fixtures and frozen numbers only, so declaring
+        # them is deliberate. An undeclared CSV under the same directory must
+        # still fail, so the allowlist stays a decision rather than a prefix.
+        for name in ("reference.csv", "rejections.csv", "source-hashes.csv"):
+            self.assertIn(f"validation-studies/discrete-sparse-reference/{name}",
+                          module.STUDY_CSV_FILES)
+        self.assertNotIn("validation-studies/discrete-sparse-reference/collected.csv",
+                         module.STUDY_CSV_FILES)
+
     def test_release_kind_must_be_explicit_and_known(self):
         with self.assertRaises(ValueError):
             module.PublicAudit(self.root, "unreviewed")
