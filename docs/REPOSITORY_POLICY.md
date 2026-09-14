@@ -164,3 +164,19 @@ actions. They are not performed by any workflow in this repository, and no
 workflow has write permissions: every workflow declares `permissions:
 contents: read`. See [contributing](CONTRIBUTING.md) for what a contributor is
 expected to run and report before proposing a merge.
+
+## Immutable release assets
+
+Immutable releases are enabled for **future releases** in the GitHub repository.
+This setting does not retroactively lock the existing 0.1.0 release, whose
+`immutable` property remains `false`. Its files, manifest and tag are preserved;
+the separate `v*` tag ruleset continues to block tag updates and deletion.
+
+Create each future release as a draft, attach and verify all three assets
+(archive, manual and manifest), then publish the complete draft. Publication
+locks its assets and tag and creates a release attestation. Verify the published
+release with `gh release verify v<version>` and downloaded assets with
+`gh release verify-asset v<version> <asset-path>`, in addition to checking the
+manifest's hashes. This is a provenance check, not a numerical or CRAN check.
+GitHub documents the [future-only setting](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/establish-provenance-and-integrity/prevent-release-changes)
+and [immutable releases and attestations](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases).

@@ -32,6 +32,15 @@ The 0.2.0 work is tracked as separate reviewable changes:
 The first extraction moves the discrete response functions unchanged; sparse
 fitting begins only after that baseline is preserved.
 
+These issues belong to the [0.2.0 milestone](https://github.com/Veronica0206/Gtheory4LLM/milestone/1).
+Issue #2 includes both the mechanical move in PR #11 and the remaining dense
+backend interface; the move alone does not complete it. Issue #3 then builds
+the prototype with its own fixed-parameter parity and limited fitted/rejection
+checks. Issue #4 follows with full qualification, so #3 does not depend on #4.
+Diagnostics can follow the interface independently; warm starts and AD require
+the qualified backend. The full-panel benchmark requires qualification and
+diagnostics, plus warm-start or AD qualification only if those features are used.
+
 ## Existing numerical baseline
 
 `tests/package-characterization.R` pins what the current engines produce for ten

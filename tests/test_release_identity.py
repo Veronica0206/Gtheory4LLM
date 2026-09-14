@@ -43,6 +43,53 @@ class ReleaseIdentityTests(unittest.TestCase):
     def verify(self, tag=None):
         return CHECK.verify_release_identity(self.root, self.manifest, tag)
 
+    def neutral_summaries(self, version="0.0.1"):
+        for name in ("README.md", "NEWS.md"):
+            (self.root / name).write_text(
+                "<!-- release-identity:start -->\n"
+                f"Source version: **{version}**.\n"
+                "See [manifest](https://example.invalid/artifacts/manifest.json) "
+                "and [releases](https://example.invalid/releases).\n"
+                "<!-- release-identity:end -->\n")
+
+    def test_neutral_source_survives_publication_without_rebuild(self):
+        self.neutral_summaries()
+        # Build a real fixture archive from the committed neutral source.
+        self.fixture.git("add", "README.md", "NEWS.md")
+        self.fixture.git("commit", "-qm", "neutral source")
+        self.fixture.commit = self.fixture.git("rev-parse", "HEAD").decode().strip()
+        source = {name: (self.root / name).read_bytes() for name in ("README.md", "NEWS.md")}
+        self.fixture.members.update(source)
+        self.fixture.write_archive()
+        self.fixture.write_manifest()
+        self.assertFalse(self.verify()["published"])
+        CHECK.verify_bundle(self.root, self.manifest)
+        archive_bytes = self.fixture.archive.read_bytes()
+        self.fixture.write_manifest(release_state="published")
+        self.fixture.git("add", "artifacts")
+        self.fixture.git("commit", "-qm", "publication metadata only")
+        self.fixture.git("tag", "v0.0.1")
+        self.assertTrue(self.verify("v0.0.1")["published"])
+        CHECK.verify_bundle(self.root, self.manifest)
+        self.assertEqual(archive_bytes, self.fixture.archive.read_bytes())
+        self.assertEqual(source, {name: (self.root / name).read_bytes() for name in source})
+        # A rehashed archive with rewritten source still fails correspondence.
+        self.fixture.members["README.md"] += b"unrecorded archive edit\n"
+        self.fixture.write_archive()
+        self.fixture.write_manifest(release_state="published")
+        with self.assertRaisesRegex(ValueError, "source"):
+            CHECK.verify_bundle(self.root, self.manifest)
+
+    def test_neutral_development_and_source_version_checks(self):
+        self.publish()
+        path = self.root / "DESCRIPTION"
+        path.write_text(path.read_text().replace("Version: 0.0.1", "Version: 0.0.1.9000"))
+        self.neutral_summaries("0.0.1.9000")
+        self.assertTrue(self.verify()["development_checkout"])
+        self.neutral_summaries("0.0.2")
+        with self.assertRaisesRegex(ValueError, "source version mismatch"):
+            self.verify()
+
     def test_current_release_and_tag_match_real_git_metadata(self):
         self.publish()
         result = self.verify("v0.0.1")

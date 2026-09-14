@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -31,6 +32,10 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = ROOT / "artifacts"
 RELEASE_STATES = ("prepared", "published")
+CHECK_SPEC = importlib.util.spec_from_file_location(
+    "release_checks", Path(__file__).with_name("check_committed_artifact.py"))
+CHECKS = importlib.util.module_from_spec(CHECK_SPEC)
+CHECK_SPEC.loader.exec_module(CHECKS)
 
 
 def description_field(field: str) -> str:
@@ -105,38 +110,47 @@ def manifest_for(package: str, version: str, commit: str, state: str,
     }
 
 
-def update_artifact_readme(package: str, version: str, state: str) -> None:
-    """Keep only the machine-checked heading and state line in step."""
-    path = ARTIFACTS / "README.md"
-    heading = f"# {package} {version} release"
-    if not path.is_file():
-        raise SystemExit(f"{path} is missing; the release identity check requires it")
-    lines = path.read_text(encoding="utf-8").splitlines()
-    lines[0] = heading
-    text = "\n".join(lines) + "\n"
-    text = re.sub(r"Release state: \*\*(?:prepared|published)\*\*",
-                  f"Release state: **{state}**", text)
-    path.write_text(text, encoding="utf-8")
+def write_artifact_readme(package: str, version: str, state: str, destination: Path) -> None:
+    """Publication status lives only in excluded repository metadata."""
+    (destination / "README.md").write_text(
+        f"# {package} {version} release\n\nRelease state: **{state}**.\n\n"
+        "The [manifest](manifest.json) records the source commit, file sizes and SHA-256 hashes.\n"
+        "Publish exactly those files; never rebuild an already published version.\n",
+        encoding="utf-8")
 
 
-def update_release_blocks(version: str, source_version: str, state: str) -> None:
-    """Rewrite the marked release-identity summaries from DESCRIPTION."""
+def require_neutral_source_prose(version: str) -> None:
+    """Validate committed source prose before building; never rewrite an archive."""
+    try:
+        CHECKS.verify_published_prose(ROOT, version, neutral_source=True)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     for name in ("README.md", "NEWS.md"):
-        path = ROOT / name
-        text = path.read_text(encoding="utf-8")
-        block = re.search(r"<!-- release-identity:start -->(.*?)<!-- release-identity:end -->",
-                          text, re.S)
-        if block is None:
-            raise SystemExit(f"{name} has no release-identity block to update")
-        body = block.group(1)
-        body = re.sub(r"Current artifact bundle: \*\*[^*]+\*\*\.",
-                      f"Current artifact bundle: **{version}**.", body)
-        body = re.sub(r"Release state: \*\*(?:prepared|published)\*\*\.",
-                      f"Release state: **{state}**.", body)
-        if name == "README.md":
-            body = re.sub(r"Checkout version: \*\*[^*]+\*\*\.",
-                          f"Checkout version: **{source_version}**.", body)
-        path.write_text(text[:block.start(1)] + body + text[block.end(1):], encoding="utf-8")
+        text = (ROOT / name).read_text(encoding="utf-8")
+        blocks = re.findall(r"<!-- release-identity:start -->(.*?)<!-- release-identity:end -->",
+                            text, re.S)
+        if (len(blocks) != 1 or
+                re.findall(r"Source version: \*\*([^*]+)\*\*\.", blocks[0]) != [version] or
+                re.search(r"(?:Release state|Current artifact bundle|Checkout version):", blocks[0]) or
+                "artifacts/manifest.json" not in blocks[0] or "/releases" not in blocks[0]):
+            raise SystemExit(f"{name}: commit a publication-neutral Source version summary matching "
+                             "DESCRIPTION and linking repository release metadata before preparing.")
+
+
+def refuse_published_version(version: str, state: str, destination: Path) -> None:
+    """Refuse before any build, even for --allow-dirty and scratch rehearsals."""
+    if state == "published":
+        raise SystemExit("Preparation cannot use --state published; publish an unchanged prepared bundle.")
+    tag_exists = subprocess.run(["git", "-C", str(ROOT), "show-ref", "--verify", "--quiet",
+                                 f"refs/tags/v{version}"], check=False).returncode == 0
+    published = False
+    for path in {ARTIFACTS / "manifest.json", destination / "manifest.json"}:
+        if path.exists():
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+            published |= manifest.get("version") == version and manifest.get("release_state") == "published"
+    if tag_exists or published:
+        raise SystemExit(f"Version {version} is already tagged or published; prepare a new version "
+                         "instead of rebuilding or replacing its files.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -147,12 +161,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-dirty", action="store_true",
                         help="Rehearse on an uncommitted tree. The result must not be published.")
     parser.add_argument("--state", choices=RELEASE_STATES, default="prepared",
-                        help="Declared release state. Use published only after the tag exists.")
+                        help="Preparation only supports prepared; published is rejected to protect existing releases.")
     parser.add_argument("--dry-run", type=Path, metavar="DIR",
                         help="Build the bundle into DIR and change no tracked file. "
-                             "Bundle verification needs the files in artifacts/, so a dry "
-                             "run reports the manifest it would write without checking "
-                             "release identity.")
+                             "The staged manifest and archive are verified before copying.")
     options = parser.parse_args(argv)
 
     package = description_field("Package")
@@ -164,41 +176,46 @@ def main(argv: list[str] | None = None) -> int:
             "keeps the preceding release rather than bundling itself; set a release version first.")
     print(f"Preparing {package} {version} (release state: {options.state})")
 
-    commit = require_clean_tree(options.allow_dirty)
-    if not options.skip_validation:
-        run("Validate public sources",
-            [sys.executable, str(ROOT / "scripts/run_validation.py"), "--scope", "source", "--as-cran"])
-
     destination = options.dry_run.resolve() if options.dry_run else ARTIFACTS
+    if options.dry_run and (destination == ROOT.resolve() or ROOT.resolve() in destination.parents):
+        raise SystemExit("--dry-run DIR must be outside the checkout to avoid changing tracked files.")
+    refuse_published_version(version, options.state, destination)
+    require_neutral_source_prose(version)
+    commit = require_clean_tree(options.allow_dirty)
     with tempfile.TemporaryDirectory(prefix="gtheory-release-") as directory:
         work = Path(directory)
         archive = build_archive(package, version, work)
         manual = build_manual(package, work)
+        staging = work / "bundle"
+        staging.mkdir()
+        shutil.copy2(archive, staging / archive.name)
+        shutil.copy2(manual, staging / manual.name)
+        manifest = manifest_for(package, version, commit, options.state,
+                                staging / archive.name, staging / manual.name)
+        manifest_path = staging / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        write_artifact_readme(package, version, options.state, staging)
+        run("Verify the bundle against its source commit and the release identity",
+            [sys.executable, str(ROOT / "scripts/check_committed_artifact.py"),
+             "--manifest", str(manifest_path), "--verify-only", "--check-release-identity"])
+        if not options.skip_validation:
+            run("Validate public sources",
+                [sys.executable, str(ROOT / "scripts/run_validation.py"), "--scope", "source",
+                 "--as-cran", "--release-manifest", str(manifest_path)])
+        run("Audit public content",
+            [sys.executable, str(ROOT / "scripts/check_public_contents.py"),
+             "--working-tree", "--expected-data-kind", "public_llm_annotations"])
         destination.mkdir(parents=True, exist_ok=True)
         if not options.dry_run:
             for stale in destination.glob(f"{package}_*.tar.gz"):
                 if stale.name != archive.name:
                     print(f"Removing superseded archive {stale.name}", flush=True)
                     stale.unlink()
-        shutil.copy2(archive, destination / archive.name)
-        shutil.copy2(manual, destination / manual.name)
-        manifest = manifest_for(package, version, commit, options.state,
-                                destination / archive.name, destination / manual.name)
-        (destination / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n",
-                                                   encoding="utf-8")
+        for path in staging.iterdir():
+            shutil.copy2(path, destination / path.name)
 
     if options.dry_run:
-        print(f"\nDry run: bundle written to {destination}. No tracked file was changed,\n"
-              "and release identity was not checked because that reads artifacts/.")
-    else:
-        update_artifact_readme(package, version, options.state)
-        update_release_blocks(version, version, options.state)
-        run("Verify the bundle against its source commit and the release identity",
-            [sys.executable, str(ROOT / "scripts/check_committed_artifact.py"),
-             "--verify-only", "--check-release-identity"])
-        run("Audit public content",
-            [sys.executable, str(ROOT / "scripts/check_public_contents.py"),
-             "--working-tree", "--expected-data-kind", "public_llm_annotations"])
+        print(f"\nDry run: verified bundle written to {destination}. No tracked file was changed.")
 
     report = {
         "prepared_utc": datetime.now(timezone.utc).isoformat(),
@@ -216,9 +233,9 @@ def main(argv: list[str] | None = None) -> int:
 Prepared, not published. Nothing has been tagged, pushed, or uploaded.
 
 To publish, follow docs/RELEASE_CHECKLIST.md. In outline:
-  1. Commit artifacts/ together with the updated release blocks.
-  2. Set release_state to "published" in artifacts/manifest.json and in the
-     marked README.md and NEWS.md blocks, and commit that.
+  1. Commit artifacts/; README.md and NEWS.md stay identical to the source commit.
+  2. Set release_state to "published" in artifacts/manifest.json and update
+     artifacts/README.md, then commit only that excluded repository metadata.
   3. Tag that commit:            git tag v{version}
   4. Verify the tag:             python3 scripts/check_committed_artifact.py \\
                                    --verify-only --check-release-identity --release-tag v{version}

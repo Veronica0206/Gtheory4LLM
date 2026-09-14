@@ -20,8 +20,10 @@ a previous bundle: the report keeps source and committed-artifact results separa
 The default scope is `all`; missing release artifacts fail that scope explicitly.
 
 Both source and artifact checks now verify release identity against the manifest:
-DESCRIPTION, archive filename, current README/NEWS summaries, the declared
-release state, and the artifact README heading must agree. The manifest's
+DESCRIPTION, archive filename and artifact README heading must agree with the
+manifest. Neutral README/NEWS summaries match the source version and link the
+excluded repository metadata; historical summaries retain their original
+artifact-version and state checks. The manifest's
 `release_state` is checked against git: `published` requires the `v<version>`
 tag in this checkout, and `prepared` fails once that tag exists. A published
 bundle is tag-verified even when no tag is named on the command line. Historical NEWS sections are preserved. A clearly
@@ -37,7 +39,10 @@ python3 scripts/check_committed_artifact.py --verify-only --check-release-identi
 The tag example must be updated for a new release. The ordinary gate reports
 whether a tag was checked; it never treats an unfetched tag or unqueried GitHub
 release as verified. `scripts/prepare_release.py` performs the whole preparation in one step and
-stops before publication; see [the release checklist](../docs/RELEASE_CHECKLIST.md).
+stops before publication. Its staged bundle is checked using
+`run_validation.py --release-manifest PATH`, which changes only the manifest
+location used by both source identity and artifact checks. Archive correspondence
+with the recorded source commit remains mandatory. See [the release checklist](../docs/RELEASE_CHECKLIST.md).
 
 
 The package build now knits `vignettes/LLM-workflow.Rmd`, so the source stage
