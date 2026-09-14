@@ -1,20 +1,26 @@
 \name{gt_diagnostics}
 \alias{gt_diagnostics}
 \alias{print.gt_diagnostics}
+\alias{print.gt_diagnostic_stages}
+\alias{print.gt_diagnostic_stage}
 \title{Inspect Numerical Acceptance and Backend Diagnostics}
 \description{Reports optimizer completion separately from numerical acceptance and likelihood-approximation adequacy.}
 \usage{
 gt_diagnostics(fit)
 \method{print}{gt_diagnostics}(x, ...)
+\method{print}{gt_diagnostic_stages}(x, ...)
+\method{print}{gt_diagnostic_stage}(x, ...)
 }
 \arguments{
 \item{fit}{A \code{gt_fit} object.}
-\item{x}{A \code{gt_diagnostics} object.}
+\item{x}{A \code{gt_diagnostics}, \code{gt_diagnostic_stages} or \code{gt_diagnostic_stage} object.}
 \item{...}{Reserved for additional print arguments.}
 }
 \value{A \code{gt_diagnostics} list with estimator, engine, optimizer and numerical acceptance status,
-approximation status, engine-specific diagnostics, resolved aliases, and
-data-validation notes. Shared diagnostic fields include:
+approximation status, engine-specific diagnostics, a staged summary, resolved aliases, and
+data-validation notes.
+
+The \code{stages} element summarises the numerical checks a fit passed through, so that a rejection names the stage responsible without the caller reading private optimizer records. Each stage reports \code{status}, a \code{reason} and supporting \code{measurements}. The status is one of \code{"passed"}, \code{"failed"}, \code{"not_assessed"} for a check that did not run or does not apply to this engine, or \code{"inconclusive"} for one that ran and neither clearly passed nor clearly failed. Absent evidence is reported as \code{"not_assessed"} and never as a pass. The summary is derived from evidence the fit already retained: it never refits, and it never changes an acceptance decision. In particular, optimizer completion reports what the optimizer reported; a retained attempt that never moved from its starting values is exposed through \code{max_abs_parameter_change} rather than by redefining completion. Shared diagnostic fields include:
 \itemize{
 \item \code{optimizer}: the selected optimization engine.
 \item \code{optimization_trials}: the recorded trial count.

@@ -4,6 +4,7 @@ source(file.path("R", "discrete_response.R"))
 source(file.path("R", "discrete_dense.R"))
 source(file.path("R", "discrete_mode.R"))
 source(file.path("R", "discrete.R"))
+source(file.path("R", "diagnostics_stages.R"))
 
 expect_error <- function(expr, pattern) {
   error <- tryCatch({ force(expr); NULL }, error = identity)

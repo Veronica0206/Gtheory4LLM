@@ -170,6 +170,7 @@ gt_diagnostics <- function(fit) {
        component_standard_errors = fit$component_standard_errors,
        diagnostics = fit$diagnostics, declared_aliases = fit$design$aliased_terms,
        data_validation = fit$design$validation_scope,
+       stages = .gt_staged_diagnostics(fit),
        notes = fit$design$notes), class = "gt_diagnostics")
 }
 

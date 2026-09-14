@@ -47,6 +47,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete.R` | Probability and derivative identities, glmer/clmm comparisons |
 | `test_discrete_acceptance.R` | Boundary, restart and stationarity acceptance |
 | `test_interface.R` | Dispatch and reliability against dense aggregation |
+| `test_staged_diagnostics.R` | Staged summary reports retained evidence without changing acceptance |
 | `test_examples.R` | Bundled example loading |
 
 ## Tooling tests
