@@ -117,5 +117,30 @@ class CRANReadinessTests(unittest.TestCase):
         self.assertEqual(CHECK.digest(output / self.archive.name), self.manifest["sha256"])
 
 
+class IncomingNoteTests(unittest.TestCase):
+    """The candidate check and the source check must classify notes alike.
+
+    They share check_status(), but only if the candidate check passes the
+    version. It did not, so a development candidate failed on a note the source
+    gate excused: the same log, two verdicts.
+    """
+
+    LOG = ("* checking CRAN incoming feasibility ... NOTE\n"
+           "Maintainer: 'Example <a@example.invalid>'\n\nNew submission\n\n"
+           "Version contains large components (0.1.0.9000)\n"
+           "* checking tests ... OK\n* DONE\nStatus: 1 NOTE\n")
+
+    def test_the_candidate_check_passes_the_version_through(self):
+        source = (ROOT / "scripts/cran_readiness.py").read_text(encoding="utf-8")
+        self.assertIn("version=manifest.get(\"version\")", source,
+                      "the candidate check must tell check_status which version it checked")
+
+    def test_both_paths_agree_on_a_development_candidate(self):
+        from check_package import check_status
+        report = check_status(self.LOG, as_cran=True, version="0.1.0.9000")
+        self.assertEqual(len(report["allowed_notes"]), 1)
+        with self.assertRaises(RuntimeError):
+            check_status(self.LOG, as_cran=True, version="0.1.0")
+
 if __name__ == "__main__":
     unittest.main()
