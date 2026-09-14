@@ -8,6 +8,55 @@ expect_error <- function(expr, pattern) {
   stopifnot(inherits(error, "error"), grepl(pattern, conditionMessage(error)))
 }
 close <- function(a, b, tolerance = 1e-5) stopifnot(max(abs(a - b)) < tolerance)
+# Issue #14 evidence. The digest proves fixture identity without assuming the
+# RNG reproduces across platforms, so "same fixture" is evidence not inference.
+fixture_digest <- function(...) {
+  parts <- lapply(list(...), function(x)
+    if (is.double(x)) vapply(x, format, character(1), digits = 17) else as.character(x))
+  path <- tempfile("gt-fixture-")
+  on.exit(unlink(path), add = TRUE)
+  writeBin(charToRaw(paste(unlist(parts), collapse = ";")), path)
+  unname(tools::md5sum(path))
+}
+# A failing run must be self-contained: enough to tell a changed fixture from a
+# different search path, and to replay the retained solution deterministically.
+report_fit_evidence <- function(label, fit, digest) {
+  cat(label, "\n", sep = "")
+  dput(list(
+    fixture_md5 = digest,
+    rng_kind = RNGkind(),
+    environment = list(
+      r_version = R.version.string,
+      openmx = as.character(utils::packageVersion("OpenMx")),
+      matrix = tryCatch(as.character(utils::packageVersion("Matrix")),
+                        error = function(e) NA_character_),
+      blas = extSoftVersion()[["BLAS"]],
+      lapack_library = La_library(),
+      lapack_version = La_version(),
+      threads = Sys.getenv(c("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+                             "MKL_NUM_THREADS"))),
+    result = list(
+      covariance_components = fit$covariance_components,
+      minus2loglik = fit$minus2loglik,
+      parameters = fit$parameters,
+      starting_parameters = fit$starting_parameters,
+      optimizer_completed = fit$optimizer_completed,
+      numerically_accepted = fit$numerically_accepted,
+      acceptance_failures = fit$diagnostics$acceptance_failures),
+    search = list(
+      selected_attempt = fit$diagnostics$selected_attempt,
+      optimization_trials = fit$diagnostics$optimization_trials,
+      optimization_trial_budget = fit$diagnostics$optimization_trial_budget,
+      attempts = lapply(fit$diagnostics$attempts, function(attempt) attempt[c(
+        "label", "start", "parameters", "objective", "optimizer",
+        "optimizer_code", "optimizer_message", "error", "warnings")]),
+      stability = fit$diagnostics$stability),
+    stationarity = fit$diagnostics$outer_stationarity,
+    inner = fit$diagnostics[c("inner_converged", "inner_gradient",
+                              "inner_iterations", "tight_final_mode")],
+    bounds = fit$diagnostics[c("parameter_bounds", "boundary_sources",
+                               "zero_variance_parameters")]))
+}
 family_spec <- function(family, link, levels, reference = NULL)
   list(family = family, link = link, levels = levels, reference = reference)
 check_acceptance <- function(fit) {
@@ -180,9 +229,23 @@ pair <- expand.grid(item = seq_len(18), rater = seq_len(3), rep = seq_len(3))
 shared <- rnorm(18, sd = 1.1)
 pair$a <- rbinom(nrow(pair), 1, pnorm(-.3 + shared[pair$item]))
 pair$b <- rbinom(nrow(pair), 1, pnorm(.2 + .8 * shared[pair$item]))
+joint_digest <- fixture_digest(pair$item, pair$rater, pair$rep, pair$a, pair$b, shared)
+# Printed on every run: a failing digest is only interpretable against the
+# digest a passing run reported.
+cat("Joint binary covariance fixture md5: ", joint_digest, "\n", sep = "")
 jfit <- .gt_fit_discrete(pair, c("a", "b"), design,
                           rep(list(family_spec("binary", "probit", c("0", "1"))), 2),
                           covariance = "unstructured", control = list(maxit = 200L))
+# Identical source has produced both passing and failing results here. Retain
+# evidence on failure; the assertion below is deliberately left unweakened.
+if (!isTRUE(jfit$optimizer_completed) ||
+    !isTRUE(jfit$covariance_components$item[1, 2] > .2) ||
+    !isTRUE(all(vapply(jfit$covariance_components,
+      function(S) min(eigen(S, symmetric = TRUE, only.values = TRUE)$values) > -1e-10,
+      logical(1))))) {
+  report_fit_evidence("Joint binary covariance fixture failure diagnostics (issue #14):",
+                      jfit, joint_digest)
+}
 check_acceptance(jfit)
 stopifnot(jfit$optimizer_completed, jfit$covariance_components$item[1, 2] > .2,
           all(vapply(jfit$covariance_components,
