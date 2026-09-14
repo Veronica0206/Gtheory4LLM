@@ -111,7 +111,7 @@ expect(!any(current_rejections$outcome == "value"),
 hashes <- read.csv(file.path(DIRECTORY, "source-hashes.csv"), stringsAsFactors = FALSE)
 recorded <- hashes$md5[hashes$file == file.path(DIRECTORY, "reference.csv")]
 expect(length(recorded) == 1L, "the reference file has one recorded digest")
-expect(identical(recorded, unname(tools::md5sum(file.path(DIRECTORY, "reference.csv")))),
+expect(identical(recorded, reference_digest(file.path(DIRECTORY, "reference.csv"))),
        "the recorded digest describes the committed reference file")
 
 cat("PASS: ", nrow(frozen), " frozen fixed-parameter targets reproduce across ",
