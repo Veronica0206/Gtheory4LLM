@@ -50,6 +50,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_staged_diagnostics.R` | Staged summary reports retained evidence without changing acceptance |
 | `package-staged-diagnostics.R` | Staged summary is truthful on installed public fits |
 | `test_discrete_reference.R` | Frozen fixed-parameter targets and declared rejections still hold |
+| `test_discrete_sparse.R` | Sparse design construction reproduces the dense coordinate system |
 | `test_examples.R` | Bundled example loading |
 
 ## Tooling tests
