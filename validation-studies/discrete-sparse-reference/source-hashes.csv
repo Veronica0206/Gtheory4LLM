@@ -4,8 +4,8 @@ R/family.R,6324a7be3f004b063e2be5efba787628
 R/discrete_response.R,7efa139df540bfc136c82f3d43311de9
 R/discrete_dense.R,7a09020b8cb54e833a4875cdd570fc59
 R/discrete_mode.R,5985611d3ea7e7bcca5c15bc9dbfb604
-R/discrete.R,38e581773f0b0da47d5d211ca80f77fe
-validation-studies/discrete-sparse-reference/cases.R,dcaed76e6e84c9a5e8b7d6524e9c5441
-validation-studies/discrete-sparse-reference/run.R,74a23181e62aaca040ffb74f580c1e2b
+R/discrete.R,fc014421ca4fcf55be0eb2621f379da1
+validation-studies/discrete-sparse-reference/cases.R,afe1a7ae846ac8e9a35e93a3b3f4eb9d
+validation-studies/discrete-sparse-reference/run.R,5329f3c8dac6f06283f534eebfda460b
 validation-studies/discrete-sparse-reference/reference.csv,c9e9e4c9ec42e75b731a70fe1fb4d53e
 validation-studies/discrete-sparse-reference/rejections.csv,867ddf77723df344147094147e13a52e

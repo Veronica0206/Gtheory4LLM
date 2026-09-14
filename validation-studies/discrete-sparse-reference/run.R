@@ -25,9 +25,12 @@ sources <- c(file.path("R", c("design.R", "family.R", "discrete_response.R",
                               "discrete_dense.R", "discrete_mode.R", "discrete.R")),
              file.path(out_dir, c("cases.R", "run.R")), path,
              file.path(out_dir, "rejections.csv"))
-hashes <- data.frame(file = sources, md5 = unname(tools::md5sum(sources)),
-                     stringsAsFactors = FALSE)
+digests <- unname(tools::md5sum(sources))
+# The frozen reference is compared on every supported platform, so its digest
+# is taken over normalized content rather than raw bytes.
+digests[sources == path] <- reference_digest(path)
+hashes <- data.frame(file = sources, md5 = digests, stringsAsFactors = FALSE)
 write.csv(hashes, file.path(out_dir, "source-hashes.csv"), row.names = FALSE, quote = FALSE)
 cat("Froze", nrow(reference), "reference quantities and",
     nrow(rejections), "declared rejections.\n")
-cat("reference.csv md5:", unname(tools::md5sum(path)), "\n")
+cat("reference.csv content md5:", reference_digest(path), "\n")

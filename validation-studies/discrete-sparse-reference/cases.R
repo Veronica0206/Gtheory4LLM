@@ -99,6 +99,20 @@ cases <- list(
        control = list(fixed_covariance = list(item = matrix(0.6), rater = matrix(0.25))),
        fixed_covariance = TRUE))
 
+# Git checks text files out with CRLF on Windows, so hashing the file's raw
+# bytes would record a digest that only reproduces on the platform that wrote
+# it. Normalize line endings first: the digest then describes the content, and
+# a content change still moves it.
+reference_digest <- function(path) {
+  normalized <- tempfile("gt-reference-")
+  on.exit(unlink(normalized), add = TRUE)
+  connection <- file(normalized, "wb")
+  tryCatch(writeBin(charToRaw(paste0(paste(readLines(path, warn = FALSE), collapse = "\n"), "\n")),
+                    connection),
+           finally = base::close(connection))
+  unname(tools::md5sum(normalized))
+}
+
 # --- Evaluation ---------------------------------------------------------------
 rows <- list()
 record <- function(key, quantity, value, kind) {
