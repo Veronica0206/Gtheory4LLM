@@ -1,3 +1,15 @@
+# Gtheory4LLM 0.1.0.9000 (development)
+
+- Separates the development checkout from the published 0.1.0 archive and
+  manual, whose files and tag remain unchanged.
+- Updates installation instructions to the published GitHub release, records
+  the configured branch protection and publication checks, and moves completed
+  0.1.0 hardening out of the future roadmap.
+- Distinguishes the rebuilt R-devel candidate from the published archive;
+  candidate-check evidence applies to the file actually checked.
+- Catches stale publication claims outside the release summary blocks and
+  records the active rule preventing release-tag updates and deletions.
+
 # Gtheory4LLM 0.1.0
 
 <!-- release-identity:start -->
@@ -102,8 +114,8 @@ tolerances recorded there.
   which is what lets a development checkout retain the preceding bundle.
 - Adds `docs/REPOSITORY_POLICY.md` with the required branch-protection state,
   `docs/branch-protection.json` as the exact payload, and
-  `scripts/check_branch_protection.py` to verify it. `main` is currently
-  unprotected; applying the policy is a repository-admin action.
+  `scripts/check_branch_protection.py` to verify it. The declared branch
+  protection was applied to `main` after the release was published.
 - Adds `SECURITY.md` and `CODEOWNERS`.
 - The reference manual build falls back to plain `R CMD Rd2pdf` when R's
   generated LaTeX is not the layout its customized cover knows how to reflow,
@@ -134,8 +146,9 @@ tolerances recorded there.
 - The renv bootstrap digest is recorded and enforced. It was computed from an
   independent download of the pinned URL and matches the digest the locked
   workflow computed; a mismatch now refuses to install.
-- The install instructions no longer point at a release page that has no
-  release on it, and say where the prepared bundle actually is.
+- During release preparation, the install instructions pointed to the local
+  prepared bundle. The development notes above record their subsequent update
+  to the published GitHub release.
 - `docs/LIMITATIONS.md` collects every limitation in one place; the other
   documents link to it. `docs/ROADMAP.md` records planned work.
   `docs/DEVELOPMENT_STATUS.md` now holds only the current state.

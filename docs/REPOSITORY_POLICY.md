@@ -1,10 +1,10 @@
 # Repository protection and required checks
 
-Configuring a workflow and enforcing it are different things. The three
-workflows in `.github/workflows/` run on every push and pull request, but
-nothing in this repository can stop a direct push to `main` that skips them.
-That is a GitHub repository-admin setting, and this file is its declaration:
-the required state, how to apply it, and how to verify it.
+The three workflows in `.github/workflows/` run on every push and pull request.
+GitHub branch protection enforces the required checks and review on `main`,
+including for administrators. The authenticated verifier confirmed the settings
+below after v0.1.0 publication. This file declares the required state, how to
+apply it, and how to verify it; repository files alone cannot enforce settings.
 
 `scripts/check_branch_protection.py` compares the live settings with the table
 below. It reads the GitHub API through `gh` and changes nothing.
@@ -94,8 +94,24 @@ from, and moving a tag silently invalidates every checksum comparison that
 depends on it. A mistake after publication becomes a new version, never an
 edited old one. See [the release checklist](RELEASE_CHECKLIST.md).
 
-Consider a tag protection rule or a repository ruleset for `v*` so this is
-enforced rather than remembered.
+The active [Immutable release tags ruleset](https://github.com/Veronica0206/Gtheory4LLM/rules/23241962)
+blocks updates and deletions of `refs/tags/v*`, with no excluded tags or bypass
+actors. Creating new release tags remains allowed. The applied payload is
+[`tag-protection.json`](tag-protection.json), using GitHub's
+[repository rules API](https://docs.github.com/en/rest/repos/rules).
+
+Read back the live state with:
+
+```sh
+gh api repos/Veronica0206/Gtheory4LLM/rulesets/23241962
+```
+
+Compare `target`, `enforcement`, `conditions`, `rules`, and `bypass_actors` with
+the payload. The readback confirmed active enforcement and that the current
+administrator cannot bypass the rule. The existing `v0.1.0` tag still points
+to `2332d40109851cbce6337ecf7a3cd7c0e6f3e2b9`. This rule protects tag refs;
+release asset replacement remains a maintainer action governed by the release
+checklist and checksum verification.
 
 ## Committed binaries
 
