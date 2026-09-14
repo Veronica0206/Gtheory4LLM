@@ -123,11 +123,19 @@
       .gt_d_stop("The sparse backend supports binary and ordinal curvature only; ",
                  "categorical blocks carry off-diagonal multinomial curvature and remain ",
                  "on the dense backend until they are separately qualified.")
-    if (!is.numeric(curv$dims) || length(curv$dims) != 1L)
+    # Checked before as.integer() rather than after. A fractional dimension
+    # would be truncated to a neighbouring one, and a negative dimension builds
+    # negative row indices, which R reads as exclusion: the assembly then
+    # succeeds against a different part of the design and returns a plausible
+    # wrong answer rather than failing.
+    if (!is.numeric(curv$dims) || length(curv$dims) != 1L || !is.finite(curv$dims) ||
+        curv$dims < 1 || curv$dims != floor(curv$dims))
       .gt_d_stop("A diagonal curvature block must name one latent dimension.")
-    if (!is.numeric(curv$diagonal) || length(curv$diagonal) != n)
-      .gt_d_stop("A diagonal curvature block must give one value per observation.")
-    row <- (as.integer(curv$dims) - 1L) * n + seq_len(n)
+    if (!is.numeric(curv$diagonal) || length(curv$diagonal) != n ||
+        any(!is.finite(curv$diagonal)))
+      .gt_d_stop("A diagonal curvature block must give one finite value per observation.")
+    dimension <- as.integer(curv$dims)
+    row <- (dimension - 1L) * n + seq_len(n)
     if (max(row) > nrow(W))
       .gt_d_stop("A curvature block names a latent dimension outside the random design.")
     A <- W[row, , drop = FALSE]

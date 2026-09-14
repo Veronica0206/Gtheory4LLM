@@ -45,9 +45,11 @@ for (case in cases) {
   expect(methods::is(sparse_H, "sparseMatrix"), paste(label, "assembles a sparse Hessian"))
   expect(identical(dim(sparse_H), dim(dense_H)), paste(label, "Hessian dimensions match"))
 
-  # Against the dense implementation, elementwise. Both accumulate the same
-  # products in the same order, so this is held far tighter than the reference
-  # tolerance: a real difference here is an assembly defect.
+  # Against the dense implementation, elementwise. Both evaluate the same
+  # algebra at the same fixed parameters, so this is held far tighter than the
+  # reference tolerance: a real difference here is an assembly defect rather
+  # than arithmetic. It is not held at zero, because dense BLAS and sparse
+  # kernels may accumulate in different orders.
   gap <- max(abs(as.matrix(sparse_H) - dense_H))
   expect(gap <= 1e-12, paste0(label, ": sparse and dense Hessians agree elementwise (max |difference| ",
                               format(gap, digits = 3), ")"))
@@ -113,9 +115,40 @@ malformed <- list(
   wrong_length = function() .gt_d_sparse_hessian(
     list(list(dims = 1L, diagonal = rep(1, at$n + 1L))), sparse_W, at$n),
   dimension_outside = function() .gt_d_sparse_hessian(
-    list(list(dims = 99L, diagonal = rep(1, at$n))), sparse_W, at$n))
-for (name in names(malformed))
-  expect(!identical(outcome(malformed[[name]]()), "accepted"),
-         paste("sparse Hessian assembly refuses", name))
+    list(list(dims = 99L, diagonal = rep(1, at$n))), sparse_W, at$n),
+  # Below the first dimension rather than above the last. A negative index
+  # builds negative rows, which R reads as exclusion, so the assembly would
+  # succeed against a different part of the design and return a plausible
+  # wrong answer instead of failing.
+  dimension_zero = function() .gt_d_sparse_hessian(
+    list(list(dims = 0, diagonal = rep(1, at$n))), sparse_W, at$n),
+  dimension_negative = function() .gt_d_sparse_hessian(
+    list(list(dims = -1, diagonal = rep(1, at$n))), sparse_W, at$n),
+  # Truncation would quietly select a neighbouring dimension.
+  dimension_fractional = function() .gt_d_sparse_hessian(
+    list(list(dims = 1.5, diagonal = rep(1, at$n))), sparse_W, at$n),
+  dimension_nonfinite = function() .gt_d_sparse_hessian(
+    list(list(dims = NA_real_, diagonal = rep(1, at$n))), sparse_W, at$n),
+  dimension_infinite = function() .gt_d_sparse_hessian(
+    list(list(dims = Inf, diagonal = rep(1, at$n))), sparse_W, at$n),
+  # Accepted curvature that is not finite produces a Hessian that is not
+  # finite, which every later step would inherit.
+  diagonal_missing = function() .gt_d_sparse_hessian(
+    list(list(dims = 1L, diagonal = replace(rep(1, at$n), 1L, NA_real_))), sparse_W, at$n),
+  diagonal_infinite = function() .gt_d_sparse_hessian(
+    list(list(dims = 1L, diagonal = replace(rep(1, at$n), 1L, Inf))), sparse_W, at$n))
+for (name in names(malformed)) {
+  said <- outcome(malformed[[name]]())
+  expect(!identical(said, "accepted"), paste("sparse Hessian assembly refuses", name))
+  # An explicit refusal, not an incidental indexing error from somewhere below.
+  expect(grepl("curvature|sparse|observation", said),
+         paste0("the refusal of ", name, " is the backend's own; it said: ", said))
+}
+# A fractional dimension must not be treated as the dimension it truncates to.
+expect(!identical(outcome(.gt_d_sparse_hessian(
+         list(list(dims = 1.5, diagonal = rep(1, at$n))), sparse_W, at$n)),
+       outcome(.gt_d_sparse_hessian(
+         list(list(dims = 1L, diagonal = rep(1, at$n))), sparse_W, at$n))),
+       "a fractional dimension is refused rather than silently truncated")
 
 cat("PASS: sparse Hessian assembly reproduces the dense matrix and the frozen targets.\n")
