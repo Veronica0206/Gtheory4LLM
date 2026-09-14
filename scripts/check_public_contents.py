@@ -282,7 +282,8 @@ class PublicAudit:
                 sentence = (b"   The script builds into temporary staging, verifies archive"
                             b"/source\n   correspondence and release identity, runs source validation, and audits\n"
                             b"   public content before copying the bundle into `artifacts/`.")
-                scanned = content.replace(sentence, b"")
+                # Git stores LF; Windows worktrees may present the same prose as CRLF.
+                scanned = content.replace(sentence, b"").replace(sentence.replace(b"\n", b"\r\n"), b"")
             if pattern.search(scanned):
                 self.fail(label, reason)
         if relative in GENERATED_BUILD_FILES:
