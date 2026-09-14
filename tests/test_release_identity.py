@@ -54,11 +54,19 @@ class ReleaseIdentityTests(unittest.TestCase):
 
     def test_neutral_source_survives_publication_without_rebuild(self):
         self.neutral_summaries()
+        # Reproduce Windows checkout translation even on Unix. The archive must
+        # match committed LF bytes, while publication leaves working bytes alone.
+        self.fixture.git("config", "core.autocrlf", "true")
+        working_source = {}
+        for name in ("README.md", "NEWS.md"):
+            path = self.root / name
+            path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+            working_source[name] = path.read_bytes()
         # Build a real fixture archive from the committed neutral source.
         self.fixture.git("add", "README.md", "NEWS.md")
         self.fixture.git("commit", "-qm", "neutral source")
         self.fixture.commit = self.fixture.git("rev-parse", "HEAD").decode().strip()
-        source = {name: (self.root / name).read_bytes() for name in ("README.md", "NEWS.md")}
+        source = {name: self.fixture.git("show", f"HEAD:{name}") for name in working_source}
         self.fixture.members.update(source)
         self.fixture.write_archive()
         self.fixture.write_manifest()
@@ -72,7 +80,7 @@ class ReleaseIdentityTests(unittest.TestCase):
         self.assertTrue(self.verify("v0.0.1")["published"])
         CHECK.verify_bundle(self.root, self.manifest)
         self.assertEqual(archive_bytes, self.fixture.archive.read_bytes())
-        self.assertEqual(source, {name: (self.root / name).read_bytes() for name in source})
+        self.assertEqual(working_source, {name: (self.root / name).read_bytes() for name in working_source})
         # A rehashed archive with rewritten source still fails correspondence.
         self.fixture.members["README.md"] += b"unrecorded archive edit\n"
         self.fixture.write_archive()
