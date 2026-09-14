@@ -134,6 +134,12 @@ print.gt_diagnostics <- function(x, ...) {
   cat("G-theory fit diagnostics |", if (length(x$engine)) x$engine else "engine not recorded", "\n")
   cat("Estimator:", x$estimator, "\n")
   .gt_print_fit_status(x)
+  # The staged summary is the reason a reader does not have to reconstruct the
+  # numerical pathway from private records, so printing has to show it.
+  if (inherits(x$stages, "gt_diagnostic_stages")) {
+    cat("\nNumerical stages:\n")
+    print(x$stages)
+  }
   if (length(x$declared_aliases))
     cat("Declared aliases:", paste(x$declared_aliases, collapse = ", "), "\n")
   if (length(x$data_validation) && !is.na(x$data_validation))
