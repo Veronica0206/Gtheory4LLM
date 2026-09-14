@@ -96,3 +96,56 @@
                  random_dimension = ncol(W)),
             class = "gt_discrete_sparse_backend")
 }
+
+# Sparse conditional Hessian assembly.
+#
+# The same I + W' C W the dense implementation assembles, in sparse storage,
+# at a fixed parameter vector. No factorization, no mode solve, no fitting.
+#
+# Binary and ordinal blocks supply per-observation diagonal curvature and are
+# what this assembles. Categorical blocks carry full multinomial curvature
+# including off-diagonal terms, and are refused here rather than approximated
+# or quietly handled: the supported sparse envelope for 0.2 is binary and
+# ordinal, and an explicit refusal is the only way that stays true as this
+# file grows. The loop structure generalizes, so adding categorical later is a
+# change to this function rather than a change to its callers.
+.gt_d_sparse_hessian <- function(curvature, W, n) {
+  if (!is.list(curvature) || !length(curvature))
+    .gt_d_stop("Sparse Hessian assembly needs at least one response curvature block.")
+  if (!methods::is(W, "sparseMatrix"))
+    .gt_d_stop("Sparse Hessian assembly needs a sparse random design.")
+  if (!is.numeric(n) || length(n) != 1L || !is.finite(n) || n < 1 || n != floor(n))
+    .gt_d_stop("Sparse Hessian assembly needs a positive observation count.")
+  n <- as.integer(n)
+  H <- Matrix::Diagonal(ncol(W))
+  for (curv in curvature) {
+    if (is.null(curv$diagonal))
+      .gt_d_stop("The sparse backend supports binary and ordinal curvature only; ",
+                 "categorical blocks carry off-diagonal multinomial curvature and remain ",
+                 "on the dense backend until they are separately qualified.")
+    # Checked before as.integer() rather than after. A fractional dimension
+    # would be truncated to a neighbouring one, and a negative dimension builds
+    # negative row indices, which R reads as exclusion: the assembly then
+    # succeeds against a different part of the design and returns a plausible
+    # wrong answer rather than failing.
+    if (!is.numeric(curv$dims) || length(curv$dims) != 1L || !is.finite(curv$dims) ||
+        curv$dims < 1 || curv$dims != floor(curv$dims))
+      .gt_d_stop("A diagonal curvature block must name one latent dimension.")
+    if (!is.numeric(curv$diagonal) || length(curv$diagonal) != n ||
+        any(!is.finite(curv$diagonal)))
+      .gt_d_stop("A diagonal curvature block must give one finite value per observation.")
+    dimension <- as.integer(curv$dims)
+    row <- (dimension - 1L) * n + seq_len(n)
+    if (max(row) > nrow(W))
+      .gt_d_stop("A curvature block names a latent dimension outside the random design.")
+    A <- W[row, , drop = FALSE]
+    # pmax(0, .) matches the dense clamp. Negative curvature would make the
+    # conditional problem non-convex, and the dense implementation already
+    # refuses to propagate it; the sparse path must not differ on that.
+    H <- H + Matrix::crossprod(A, A * pmax(0, curv$diagonal))
+  }
+  # Symmetrized the same way rather than assumed symmetric: the accumulation is
+  # symmetric in exact arithmetic and only nearly so in floating point, and the
+  # frozen reference records the symmetrized matrix.
+  (H + Matrix::t(H)) / 2
+}

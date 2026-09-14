@@ -30,7 +30,7 @@ Description: Studies the reliability and generalizability of subjective
 License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 4.5.0)
-Imports: Matrix (>= 1.6.0), OpenMx (>= 2.22.11), graphics, stats, utils
+Imports: Matrix (>= 1.6.0), OpenMx (>= 2.22.11), graphics, methods, stats, utils
 Suggests: lme4, ordinal, knitr, rmarkdown
 VignetteBuilder: knitr
 URL: https://github.com/Veronica0206/Gtheory4LLM
