@@ -84,6 +84,9 @@ STUDY_CSV_FILES = {
         "run-metadata.csv", "replicates.csv", "summary.csv",
         "boundary-summary.csv", "recovery.csv", "completion.csv")
 } | {"validation-studies/discrete-recovery/config.csv"} | {
+    f"validation-studies/discrete-sparse-reference/{name}" for name in (
+        "reference.csv", "rejections.csv", "source-hashes.csv")
+} | {
     "validation-studies/discrete-recovery/results/" + name for name in (
         "config.csv", "source-files.csv", "replicates.csv", "summary.csv")
 }
