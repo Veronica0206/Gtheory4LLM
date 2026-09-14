@@ -45,6 +45,7 @@ Collate:
     'discrete_dense.R'
     'discrete_sparse.R'
     'discrete_mode.R'
+    'discrete_sparse_mode.R'
     'discrete.R'
     'preflight.R'
     'diagnostics_stages.R'
