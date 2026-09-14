@@ -26,8 +26,8 @@ TOLERANCE <- list(
   stationary = c(relative = NA,    absolute = 1e-6),
   # An algebraic identity is not a stationarity residual and must not borrow
   # its allowance. These reconstruct exactly up to rounding in the same sums
-  # the objective tolerance already covers, so they are held an order tighter
-  # than that absolute figure rather than at the mode-gradient tolerance.
+  # the objective tolerance already covers, so they are held at that same
+  # absolute rounding scale rather than at the mode-gradient tolerance.
   identity   = c(relative = NA,    absolute = 1e-10))
 
 frozen <- read.csv(file.path(DIRECTORY, "reference.csv"), stringsAsFactors = FALSE)
@@ -76,10 +76,17 @@ for (i in seq_len(nrow(frozen))) {
 # --- A stationary residual is small, not merely reproduced --------------------
 # Freezing a near-zero score would otherwise let a future implementation match
 # a recorded non-solution exactly and call that agreement.
-for (i in which(frozen$kind %in% c("stationary", "identity")))
-  expect(abs(frozen$value[[i]]) <= TOLERANCE$stationary[["absolute"]],
-         paste0("frozen ", frozen$case[[i]], " ", frozen$quantity[[i]],
-                " is a solved stationary residual, not an arbitrary recorded value"))
+for (i in which(frozen$kind %in% c("stationary", "identity"))) {
+  # Each kind against its own limit. Checking both at the stationary allowance
+  # would leave the tighter identity threshold declared but never applied,
+  # which is the same as not declaring it.
+  limit <- TOLERANCE[[frozen$kind[[i]]]][["absolute"]]
+  expect(abs(frozen$value[[i]]) <= limit,
+         paste0("frozen ", frozen$case[[i]], " ", frozen$quantity[[i]], " (",
+                frozen$kind[[i]], ") is a solved residual within ", format(limit),
+                ", not an arbitrary recorded value; got ",
+                format(abs(frozen$value[[i]]), digits = 3)))
+}
 
 # --- Declared rejections still reject ----------------------------------------
 # A backend that agrees on every calculation that succeeds is not qualified.
