@@ -14,14 +14,13 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Checkout version: **0.1.0.9000**. Current artifact bundle: **0.1.0**.
+Checkout version: **0.1.0**. Current artifact bundle: **0.1.0**.
 Release state: **prepared**.
-This checkout is development work past the prepared 0.1.0 bundle. The archive
-and manual in `artifacts/` are that earlier bundle, identified by its
-[manifest](artifacts/manifest.json) and tied to the source commit recorded
-there, not to these sources; no `v0.1.0` tag or GitHub release exists. Changes
-since are recorded in `NEWS.md`. To build a bundle from this checkout, set a
-release version and run `scripts/prepare_release.py`.
+The archive and manual in `artifacts/` are built from the source commit recorded
+in their [manifest](artifacts/manifest.json). The bundle is prepared and
+verified; publication adds the `v0.1.0` tag and the release assets, and
+`scripts/check_committed_artifact.py --check-release-identity` refuses to call
+it published before that exists.
 <!-- release-identity:end -->
 
 ## Install
@@ -35,10 +34,9 @@ pass these checks but are not part of the validated gate; to use one, install
 from source with a relaxed floor, or `source("load_functions.R")`, which
 imposes no version requirement.
 
-**There is no `v0.1.0` GitHub release yet.** The 0.1.0 bundle is prepared in
-[`artifacts/`](artifacts/) and verified against the source commit in its
-manifest; a release will be published once the release gates pass. Until then,
-install from that bundle or from a checkout:
+Until the `v0.1.0` release is published, install from the prepared bundle in
+[`artifacts/`](artifacts/), which is verified against the source commit in its
+manifest, or from a checkout:
 
 ```r
 install.packages("OpenMx")

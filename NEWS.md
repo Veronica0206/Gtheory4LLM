@@ -1,16 +1,17 @@
-# Gtheory4LLM 0.1.0.9000 (development)
+# Gtheory4LLM 0.1.0
 
 <!-- release-identity:start -->
 Current artifact bundle: **0.1.0**. Release state: **prepared**.
-The bundle in `artifacts/` was built from the source commit in its manifest and
-is not a build of these sources; this is a development checkout past it. No
-`v0.1.0` tag or GitHub release exists. Build a bundle from this checkout by
-setting a release version and running `scripts/prepare_release.py`.
+The archive and manual in `artifacts/` are built from the source commit recorded
+in their [manifest](artifacts/manifest.json).
 <!-- release-identity:end -->
 
-Engineering hardening. The statistical models are unchanged: every estimate,
-coefficient and acceptance decision in `tests/package-characterization.R`
-reproduces the 0.1.0 candidate's values within the tolerances recorded there.
+First 0.1 release. An earlier 0.1.0 candidate was prepared locally but never
+tagged or published, so this release is cut from the hardened sources instead
+and supersedes it; the notes below cover both. The statistical models are
+unchanged from that candidate: every estimate, coefficient and acceptance
+decision in `tests/package-characterization.R` reproduces its values within the
+tolerances recorded there.
 
 ## Numerical baseline
 
@@ -138,12 +139,9 @@ reproduces the 0.1.0 candidate's values within the tolerances recorded there.
   documents link to it. `docs/ROADMAP.md` records planned work.
   `docs/DEVELOPMENT_STATUS.md` now holds only the current state.
 
-# Gtheory4LLM 0.1.0
-
-Prepared locally; never tagged or published. The bundled files are preserved
-against the source commit in the manifest.
-
 ## Release scope
+
+The capability this release ships, unchanged from the earlier candidate.
 
 - Consolidates the reviewed development API for univariate and multivariate
   Gaussian models and small binary, ordinal, and unordered categorical models.
