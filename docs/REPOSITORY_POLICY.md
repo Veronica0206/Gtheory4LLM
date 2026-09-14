@@ -65,7 +65,7 @@ it before applying; it is the settings, not a suggestion about them.
 ### Reviewed action runtimes
 
 Verified against official release tags and the `action.yml` at each immutable
-commit on 2026-09-15. The five GitHub-maintained actions below declare
+commit during the post-0.1.0 maintenance review. The five GitHub-maintained actions below declare
 `runs.using: node24`; upgrading the action runtime does not change our R or
 Python versions, dependency locks, required job names, or candidate archives.
 
