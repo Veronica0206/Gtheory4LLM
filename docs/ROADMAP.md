@@ -14,7 +14,7 @@ moves, it must be obvious which of those caused it.
 |---|---|
 | 0.1.0 (published) | Research beta with retry controller, standard methods, retention controls, memory guard, characterization tests and release automation |
 | 0.1.x | Maintenance: release/documentation consistency, repository protection, Action-runtime updates and fixes that preserve statistical scope |
-| 0.2.0 | Scalable discrete architecture: sparse backend, warm starts, gradients, modular engines, tiered diagnostics |
+| 0.2.0 | Scalable discrete architecture: qualified sparse discrete backend, dense-sparse equivalence, staged diagnostics, full native-panel benchmark |
 | 0.3.x | Broader statistical operating range: unbalanced designs, larger validation campaigns, cost-aware D studies, discrete uncertainty |
 | 1.0 | Stable general research package: defined API stability, broad validation envelope, mature Gaussian and discrete implementations |
 
@@ -37,9 +37,21 @@ Issue #2 includes both the mechanical move in PR #11 and the remaining dense
 backend interface; the move alone does not complete it. Issue #3 then builds
 the prototype with its own fixed-parameter parity and limited fitted/rejection
 checks. Issue #4 follows with full qualification, so #3 does not depend on #4.
-Diagnostics can follow the interface independently; warm starts and AD require
-the qualified backend. The full-panel benchmark requires qualification and
-diagnostics, plus warm-start or AD qualification only if those features are used.
+Diagnostics can follow the interface independently. The full-panel benchmark
+requires qualification and diagnostics, plus warm-start or AD qualification only
+if those features are used.
+
+Warm starts and automatic differentiation are **conditional** for 0.2.0, not
+required. They enter the release only if the benchmark shows the cold sparse
+implementation cannot meet its declared resource envelope, and the measurement
+decides which — conditional-mode iteration and outer finite differences are
+different bottlenecks with different answers. Adopting either unmeasured would
+be optimizing a cost nobody has observed.
+
+Complete Gaussian engine modularization is likewise not a 0.2.0 requirement.
+The required scope is the sparse prototype, dense-sparse qualification, staged
+diagnostics, the full-panel benchmark, and the resolution of the numerical
+portability issue those results depend on.
 
 ## Existing numerical baseline
 
@@ -102,6 +114,8 @@ against dependency weight and portability before it is adopted, not after.
 Users must always be able to tell which backend produced a result.
 
 ### Warm starts and gradients
+
+Conditional work, adopted only on measured evidence; see the 0.2.0 scope above.
 
 The dense engine starts the conditional mode from zero at every likelihood
 evaluation. A sparse backend should cache the previous mode and start from it
