@@ -37,8 +37,9 @@ continues to accept that legacy format.
 3. Review the printed source commit, files, hashes and checks. Retain the exact
    archive checked on each platform; a rebuilt candidate has its own identity.
    If manual building fell back to plain `R CMD Rd2pdf`, record whether the
-   overfull-box gate ran. R-devel and submission work remain deferred while the
-   confirmed CRAN submission is pending.
+   overfull-box gate ran. Additional R-devel checks of published archives and
+   CRAN submission work remain deferred while the confirmed submission is pending;
+   the existing development CI remains unchanged.
 4. Commit the checked bundle in `artifacts/` after its recorded source commit.
    The archive's README/NEWS bytes must still equal that source commit. Run the
    relevant artifact installation and release checks before publication.
