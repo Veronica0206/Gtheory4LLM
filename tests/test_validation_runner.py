@@ -16,6 +16,17 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class ValidationRunnerTests(unittest.TestCase):
+    def test_staged_manifest_reaches_both_identity_and_artifact_checks(self):
+        lock = json.loads((ROOT / "renv.lock").read_text())
+        manifest = ROOT / "scratch-manifest.json"
+        plan = RUNNER.commands(ROOT, "Rscript", lock, False, release_manifest=manifest)
+        checked = [command for name, command in plan if name in
+                   {"release_identity", "committed_artifact_integrity_install_smoke"}]
+        self.assertEqual(len(checked), 2)
+        for command in checked:
+            self.assertEqual(command[command.index("--manifest") + 1], str(manifest.resolve()))
+            self.assertIn("--check-release-identity", command)
+
     def test_reference_manual_stage_runs_only_where_latex_exists(self):
         # The manual gate is the only check that rejects overfull boxes, so it
         # belongs in the source scope. It is omitted rather than faked where no

@@ -33,19 +33,14 @@ License: GPL-3
 README = """# Example
 
 <!-- release-identity:start -->
-Checkout version: **0.0.9**. Current artifact bundle: **0.0.9**.
-Release state: **prepared**.
+Source version: **1.2.3**.
+See [manifest](https://example.invalid/artifacts/manifest.json)
+and [releases](https://example.invalid/releases).
 <!-- release-identity:end -->
 
 More prose.
 """
-
-NEWS = """# Example 0.0.9
-
-<!-- release-identity:start -->
-Current artifact bundle: **0.0.9**. Release state: **prepared**.
-<!-- release-identity:end -->
-"""
+NEWS = README.replace("# Example", "# Example 1.2.3")
 
 
 class PrepareReleaseTests(unittest.TestCase):
@@ -112,17 +107,54 @@ class PrepareReleaseTests(unittest.TestCase):
         self.assertTrue((self.artifacts / "Example_1.2.3.tar.gz").is_file())
         self.assertIn("v1.2.3", output)
 
-    def test_prose_versions_are_rewritten_from_description(self):
+    def test_source_prose_is_identical_before_and_after_preparation(self):
+        before = {name: (self.root / name).read_bytes() for name in ("README.md", "NEWS.md")}
         with patch.object(RELEASE, "run"):
             self.run_main(["--skip-validation"])
-        readme = (self.root / "README.md").read_text()
-        self.assertIn("Checkout version: **1.2.3**.", readme)
-        self.assertIn("Current artifact bundle: **1.2.3**.", readme)
-        self.assertIn("More prose.", readme)  # only the marked block is touched
-        self.assertIn("Current artifact bundle: **1.2.3**.",
-                      (self.root / "NEWS.md").read_text())
+        self.assertEqual(before, {name: (self.root / name).read_bytes() for name in before})
         self.assertEqual((self.artifacts / "README.md").read_text().splitlines()[0],
                          "# Example 1.2.3 release")
+
+    def test_stale_or_mutable_source_summary_is_refused_before_build(self):
+        for bad in (README.replace("1.2.3", "0.0.9"), README.replace(
+                "Source version: **1.2.3**.", "Release state: **prepared**.")):
+            (self.root / "README.md").write_text(bad)
+            with patch.object(RELEASE, "build_archive") as build, self.assertRaisesRegex(
+                    SystemExit, "publication-neutral Source version|stale unpublished-release prose"):
+                RELEASE.main(["--skip-validation", "--allow-dirty"])
+            build.assert_not_called()
+
+    def test_neutral_block_cannot_hide_stale_install_or_current_news_prose(self):
+        for name in ("README.md", "NEWS.md"):
+            path = self.root / name
+            original = path.read_text()
+            path.write_text(original + "\nUntil the `v1.2.3` release is published, use the bundle.\n")
+            with patch.object(RELEASE, "build_archive") as build, self.assertRaisesRegex(
+                    SystemExit, "stale unpublished-release prose"):
+                RELEASE.main(["--skip-validation", "--allow-dirty"])
+            build.assert_not_called()
+            path.write_text(original)
+        news = self.root / "NEWS.md"
+        news.write_text(news.read_text() + "\n# Example 0.0.9\nOnce releases exist, use the archive.\n")
+        RELEASE.require_neutral_source_prose("1.2.3")
+
+    def test_published_targets_are_refused_without_modifying_files(self):
+        cases = (("--state", "published"), ("tag",), ("manifest",))
+        for case in cases:
+            with self.subTest(case=case):
+                if case == ("tag",):
+                    self.git("tag", "v1.2.3")
+                if case == ("manifest",):
+                    self.git("tag", "-d", "v1.2.3")
+                    (self.artifacts / "manifest.json").write_text(json.dumps(
+                        {"version": "1.2.3", "release_state": "published"}))
+                before = {p: p.read_bytes() for p in self.artifacts.iterdir()}
+                args = list(case) if case[0] == "--state" else []
+                with patch.object(RELEASE, "build_archive") as build, self.assertRaisesRegex(
+                        SystemExit, "published|tagged"):
+                    RELEASE.main(["--skip-validation", "--allow-dirty", *args])
+                build.assert_not_called()
+                self.assertEqual(before, {p: p.read_bytes() for p in self.artifacts.iterdir()})
 
     def test_a_superseded_archive_is_removed(self):
         stale = self.artifacts / "Example_0.0.9.tar.gz"
@@ -186,7 +218,9 @@ class PrepareReleaseTests(unittest.TestCase):
                              "the orchestrator must not contain a publishing step")
 
     def test_a_dry_run_changes_no_tracked_file(self):
-        target = self.root / "rehearsal"
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        target = Path(scratch.name) / "rehearsal"
         before = {path: path.read_text() for path in
                   (self.root / "README.md", self.root / "NEWS.md", self.artifacts / "README.md")}
         with patch.object(RELEASE, "run"):
@@ -198,6 +232,23 @@ class PrepareReleaseTests(unittest.TestCase):
         self.assertFalse((self.artifacts / "manifest.json").exists())
         self.assertTrue((target / "manifest.json").is_file())
         self.assertEqual(json.loads((target / "manifest.json").read_text())["version"], "1.2.3")
+
+    def test_dry_run_rejects_checkout_destinations(self):
+        for target in (self.root, self.artifacts):
+            with self.assertRaisesRegex(SystemExit, "outside the checkout"):
+                self.run_main(["--skip-validation", "--dry-run", str(target)])
+
+    def test_failed_verification_preserves_previous_bundle(self):
+        previous = self.artifacts / "Example_0.0.9.tar.gz"
+        previous.write_bytes(b"previous bundle")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "previous")
+        def fail(*args, **kwargs):
+            raise SystemExit("verification failed")
+        with patch.object(RELEASE, "run", fail), self.assertRaisesRegex(SystemExit, "verification failed"):
+            self.run_main(["--skip-validation"])
+        self.assertEqual(previous.read_bytes(), b"previous bundle")
+        self.assertFalse((self.artifacts / "Example_1.2.3.tar.gz").exists())
 
     # --- validation is run unless explicitly skipped --------------------------
     def test_source_validation_runs_by_default(self):

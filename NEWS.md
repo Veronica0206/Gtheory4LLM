@@ -1,5 +1,8 @@
 # Gtheory4LLM 0.1.0.9000 (development)
 
+- Keeps archive source-version summaries publication-neutral; publication
+  updates only excluded repository metadata. Preparation rejects an already
+  tagged or published version before building.
 - Separates the development checkout from the published 0.1.0 archive and
   manual, whose files and tag remain unchanged.
 - Updates installation instructions to the published GitHub release, records
@@ -10,14 +13,16 @@
 - Catches stale publication claims outside the release summary blocks and
   records the active rule preventing release-tag updates and deletions.
 
-# Gtheory4LLM 0.1.0
-
 <!-- release-identity:start -->
-Current artifact bundle: **0.1.0**. Release state: **published**.
-The archive and manual in `artifacts/` are the published release, built from the
-source commit recorded in their [manifest](artifacts/manifest.json) and tagged
-`v0.1.0`.
+Source version: **0.1.0.9000**.
+For versioned archives, manuals and publication status, see the
+[repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
+and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
+These repository records are excluded from the package archive; this source
+version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
+
+# Gtheory4LLM 0.1.0
 
 First 0.1 release. An earlier 0.1.0 candidate was prepared locally but never
 tagged or published, so this release is cut from the hardened sources instead

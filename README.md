@@ -14,12 +14,12 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Checkout version: **0.1.0.9000**. Current artifact bundle: **0.1.0**.
-Release state: **published**.
-The archive and manual in `artifacts/` are the published release, built from the
-source commit recorded in their [manifest](artifacts/manifest.json) and tagged
-`v0.1.0`. Later checkout changes are recorded in `NEWS.md`; the archive stays
-tied to that source commit and the tag is never moved.
+Source version: **0.1.0.9000**.
+For versioned archives, manuals and publication status, see the
+[repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
+and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
+These repository records are excluded from the package archive; this source
+version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
 
 ## Install
@@ -33,7 +33,7 @@ pass these checks but are not part of the validated gate; to use one, install
 from source with a relaxed floor, or `source("load_functions.R")`, which
 imposes no version requirement.
 
-Install the published [v0.1.0 release](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0):
+For example, install the versioned [v0.1.0 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0):
 
 ```r
 install.packages("OpenMx")
@@ -44,14 +44,12 @@ install.packages(
 library(Gtheory4LLM)
 ```
 
-The same checksummed release bundle is kept in [`artifacts/`](artifacts/).
-The development checkout is **0.1.0.9000**. To install its current sources,
-use `R CMD build .` followed by `R CMD INSTALL Gtheory4LLM_0.1.0.9000.tar.gz`;
-that build is separate from the published 0.1.0 archive. Building the vignette
+The repository keeps checksummed release files in [`artifacts/`](artifacts/).
+To install this source version, run `R CMD build .`, then use `R CMD INSTALL`
+with the versioned archive it creates. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
-CRAN availability is separate from GitHub availability. The earlier 0.0.6
-submission was confirmed and is awaiting a decision; 0.1.0 has not been
-submitted to CRAN.
+CRAN availability is separate from GitHub availability. Current submission
+status is recorded in the repository [development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
 
 ## A complete LLM reliability workflow
 

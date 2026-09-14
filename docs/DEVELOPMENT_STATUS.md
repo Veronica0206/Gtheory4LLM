@@ -15,6 +15,7 @@ in [limitations](LIMITATIONS.md).
 | GitHub release | [v0.1.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0), with checksummed archive and manual |
 | Branch protection | Configured on `main`; the authenticated policy verifier passed |
 | Release-tag protection | Active for `v*`; updates and deletions blocked with no bypass actors |
+| Future GitHub releases | Immutable releases enabled; existing 0.1.0 remains `immutable: false` |
 | CRAN | `0.0.6` submitted and confirmed, awaiting a decision; no subsequent submission |
 
 The checkout, published bundle, GitHub release and CRAN submission are separate
@@ -23,7 +24,9 @@ tag. [The manifest](../artifacts/manifest.json) identifies the exact source and
 SHA-256 hashes for both published files.
 
 `scripts/check_committed_artifact.py --check-release-identity` checks the
-checkout/release version relationship and publication claims against the tag.
+checkout/release version relationship and manifest publication claims against the tag.
+README/NEWS source summaries now link this excluded repository metadata; future
+archives keep the same source prose before and after publication.
 The artifact check compares the archive with its recorded source commit, not
 with later development changes.
 
@@ -48,8 +51,8 @@ from workflow results; its required state and verifier are documented in
 The published archive's SHA-256 starts with `401a10b0`; the checked candidate's
 starts with `38430d96`. Their R code, tests and datasets match, but documentation
 and generated build files differ. An R-devel result for the candidate must not
-be attributed to the published file. The exact published archive still needs a
-separate R-devel check before such a claim is made.
+be attributed to the published file. No exact published-archive R-devel pass is claimed. That separate check is
+deferred while the confirmed CRAN submission remains pending.
 
 A skipped check is not a passing check. `scripts/run_validation.py` records
 which checks actually ran and names missing tools. Results for a previous
@@ -61,8 +64,8 @@ commit also do not establish that a later development checkout has passed.
   published release and development checkout.
 - Maintain release-tag protection and update pinned Actions to supported
   runtimes through a separate maintenance change.
-- Check the exact published archive in R-devel. Keep the confirmed, pending
-  0.0.6 CRAN submission separate from this validation work.
+- Keep R-devel, exact published-archive checking and resubmission deferred
+  while the confirmed 0.0.6 CRAN submission is pending. Existing CI is unchanged.
 - Begin the sparse discrete backend against the existing dense reference and
   characterization tests, as described in [the roadmap](ROADMAP.md).
 

@@ -195,12 +195,14 @@ def local_release_tag(root: Path, tag: str) -> bool:
                               capture_output=True).returncode
 
 
-def verify_published_prose(root: Path, version: str) -> None:
+def verify_published_prose(root: Path, version: str, *, neutral_source: bool = False) -> None:
     """Catch known stale publication claims outside the identity markers.
 
     README and development status describe the present. NEWS and archived
     release documents retain history and are deliberately outside this check.
-    This is a regression guard for known contradictions, not a language parser.
+    Neutral-source preparation additionally checks the current NEWS section,
+    before publication can make stale prose permanent. This is a regression
+    guard for known contradictions, not a language parser.
     """
     release = r"v?" + re.escape(version) + r"(?![\d.])"
     patterns = (
@@ -210,18 +212,24 @@ def verify_published_prose(root: Path, version: str) -> None:
         r"\bno (?:github )?release (?:is published|exists)\b",
         r"\bonce releases exist\b",
     )
-    for name in ("README.md", "docs/DEVELOPMENT_STATUS.md"):
+    names = ("README.md", "NEWS.md") if neutral_source else ("README.md", "docs/DEVELOPMENT_STATUS.md")
+    if neutral_source:
+        patterns += (r"\brelease state: (?:prepared|published)\b",)
+    for name in names:
         path = root / name
         if not path.is_file():
             continue
         prose = path.read_text(encoding="utf-8")
+        if name == "NEWS.md":
+            sections = re.split(r"(?m)^# [^\n]*$", prose, maxsplit=2)
+            prose = "\n".join(sections[:2])
         prose = re.sub(r"(?ms)^```[^\n]*\n.*?^```[^\n]*$", "", prose)
         prose = re.sub(r"(?m)^>.*$", "", prose)
         prose = re.sub(r"[`*_]", "", prose)
         prose = " ".join(prose.split())
         if any(re.search(pattern, prose, re.I) for pattern in patterns):
-            raise ValueError(f"{name}: stale unpublished-release prose contradicts "
-                             f"the published {version} bundle")
+            context = f"neutral source version {version}" if neutral_source else f"the published {version} bundle"
+            raise ValueError(f"{name}: stale unpublished-release prose contradicts {context}")
 
 
 def verify_release_identity(root: Path, manifest_path: Path,
@@ -261,16 +269,27 @@ def verify_release_identity(root: Path, manifest_path: Path,
                             prose, re.S)
         if len(blocks) != 1:
             raise ValueError(f"{name}: expected one release-identity summary")
-        declared = re.findall(r"Current artifact bundle: \*\*([^*]+)\*\*\.", blocks[0])
-        if declared != [version]:
-            raise ValueError(f"{name}: current artifact version mismatch with manifest ({version})")
-        declared_state = re.findall(r"Release state: \*\*([^*]+)\*\*\.", blocks[0])
-        if declared_state != [state]:
-            raise ValueError(f"{name}: release state mismatch with manifest ({state})")
-        if name == "README.md":
-            current = re.findall(r"Checkout version: \*\*([^*]+)\*\*\.", blocks[0])
-            if current != [source_version]:
-                raise ValueError("README.md: checkout version mismatch with DESCRIPTION")
+        neutral = re.findall(r"Source version: \*\*([^*]+)\*\*\.", blocks[0])
+        if neutral:
+            verify_published_prose(root, source_version, neutral_source=True)
+            if neutral != [source_version]:
+                raise ValueError(f"{name}: source version mismatch with DESCRIPTION")
+            if re.search(r"(?:Release state|Current artifact bundle|Checkout version):", blocks[0]):
+                raise ValueError(f"{name}: neutral source summary contains mutable release metadata")
+            if "artifacts/manifest.json" not in blocks[0] or "/releases" not in blocks[0]:
+                raise ValueError(f"{name}: neutral source summary must link repository release metadata")
+        else:
+            # Published historical checkouts retain their original format and bytes.
+            declared = re.findall(r"Current artifact bundle: \*\*([^*]+)\*\*\.", blocks[0])
+            if declared != [version]:
+                raise ValueError(f"{name}: current artifact version mismatch with manifest ({version})")
+            declared_state = re.findall(r"Release state: \*\*([^*]+)\*\*\.", blocks[0])
+            if declared_state != [state]:
+                raise ValueError(f"{name}: release state mismatch with manifest ({state})")
+            if name == "README.md":
+                current = re.findall(r"Checkout version: \*\*([^*]+)\*\*\.", blocks[0])
+                if current != [source_version]:
+                    raise ValueError("README.md: checkout version mismatch with DESCRIPTION")
     if state == "published":
         verify_published_prose(root, version)
     heading = (manifest_path.parent / "README.md").read_text(encoding="utf-8").splitlines()[0]

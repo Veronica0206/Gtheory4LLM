@@ -87,7 +87,8 @@ print(sessionInfo())
 
 
 def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
-             scope: str = "all", compact: bool = False, as_cran: bool = False) -> list[tuple[str, list[str]]]:
+             scope: str = "all", compact: bool = False, as_cran: bool = False,
+             release_manifest: Path | None = None) -> list[tuple[str, list[str]]]:
     result = [("dependency_preflight", [rscript, "--vanilla", "-e", preflight_code(lock, allow_version_drift)])]
     if scope in {"source", "all"}:
         result.append(("release_identity", [sys.executable, str(root / "scripts/check_committed_artifact.py"),
@@ -117,6 +118,10 @@ def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
         if artifact_dir:
             command.extend(["--output-dir", artifact_dir])
         result.append(("committed_artifact_integrity_install_smoke", command))
+    if release_manifest is not None:
+        for name, command in result:
+            if name in {"release_identity", "committed_artifact_integrity_install_smoke"}:
+                command.extend(["--manifest", str(release_manifest.resolve())])
     return result
 
 
@@ -145,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--timeout", type=int, default=1800, help="Maximum seconds per stage.")
     parser.add_argument("--output", type=Path, help="Explicit optional summary JSON destination.")
+    parser.add_argument("--release-manifest", type=Path,
+                        help="Verify a staged release bundle against its recorded source; used by preparation.")
     options = parser.parse_args(argv)
     if options.timeout <= 0:
         parser.error("--timeout must be positive")
@@ -152,7 +159,8 @@ def main(argv: list[str] | None = None) -> int:
     if options.compact and not compatibility:
         parser.error("--compact requires --compatibility")
     lock = json.loads((ROOT / "renv.lock").read_text())
-    plan = commands(ROOT, options.rscript, lock, compatibility, options.scope, options.compact, options.as_cran)
+    plan = commands(ROOT, options.rscript, lock, compatibility, options.scope, options.compact, options.as_cran,
+                    options.release_manifest)
     if options.preflight_only:
         plan = plan[:1]
     if options.list:

@@ -6,59 +6,65 @@ bundle is only `prepared` locally or actually `published`. It is the release
 identity; a later source-only commit does not rebuild or silently replace those
 files.
 
-A bundle stays `"release_state": "prepared"` until the version tag exists.
-`scripts/check_committed_artifact.py --check-release-identity` fails in both
-directions: prose calling a bundle published while no `v<version>` tag exists,
-and a `prepared` claim that a tag has already made stale. Nothing may describe a
-release as published before step 6 completes.
+README and NEWS are package source files. Their marked summaries identify the
+**source version** and link the repository manifest and releases page, without
+embedding a changing `prepared`/`published` state. The `artifacts/` and `docs/`
+directories are excluded from the archive. Publication updates those repository
+records; it does not edit the source files or rebuild the checked archive.
+Historical releases retain their original summaries and bytes, and the verifier
+continues to accept that legacy format.
 
-1. Update DESCRIPTION and NEWS for a release. Keep the marked release summaries
-   in README and NEWS consistent with the artifact manifest, including the
-   declared release state. An explicitly labelled `.9000` development checkout
-   may retain the preceding release.
-2. Build from a clean public source commit. Steps 2 to 4 are one command:
+1. Set the release version in DESCRIPTION and the publication-neutral `Source
+   version` summaries in README and NEWS. Finish the release notes and commit
+   the source files. Fetch tags before preparation. An explicitly labelled
+   `.9000` development checkout may retain the preceding release bundle.
+2. Prepare from that clean source commit:
 
    ```sh
    python3 scripts/prepare_release.py
    ```
 
-   It reads the version from DESCRIPTION and derives everything from it, runs
-   the source validation scope, builds the archive and the reference manual,
-   writes the checksum manifest, rewrites the marked README/NEWS blocks and the
-   artifact README heading, and then verifies the bundle and audits public
-   content. It stops there: it never tags, pushes, uploads, or submits. Add
-   `--dry-run DIR` to rehearse into a scratch directory without touching a
-   tracked file, or `--skip-validation` to re-bundle after a checked run.
-   Preserve the exact candidate checked under R-devel for submission.
-3. Review what it printed: the source commit, the asset names, and the tag it
-   says to use. Record which platforms actually passed and whether vignettes and
-   the PDF manual were built. If the manual fell back to plain `R CMD Rd2pdf`,
-   the build output says so and whether the overfull-box gate ran; decide
-   deliberately whether that artifact is the one to publish. Do not substitute an
-   installed old package or an older workflow result for the new candidate.
-4. Commit the bundle in `artifacts/` together with the updated release blocks,
-   after the recorded source commit.
-5. Verify integrity, version summaries, and installation:
-
-   ```sh
-   python3 scripts/run_validation.py --scope all --as-cran
-   ```
-
-6. Publish: set `"release_state": "published"` in the manifest and the marked
-   README/NEWS blocks, commit that, then create the version tag on that commit.
-   The tag must carry the manifest it publishes, so tag after committing the
-   state change. Verify its DESCRIPTION and manifest against the published files
-   (fetch tags/history if necessary):
+   The script builds into temporary staging, verifies archive/source
+   correspondence and release identity, runs source validation, and audits
+   public content before copying the bundle into `artifacts/`. Source validation
+   uses the staged manifest, so the previous committed bundle cannot falsely
+   block a new release version. It never rewrites README or NEWS, tags, pushes,
+   uploads, or submits. `--dry-run DIR` must point outside the checkout and also
+   verifies the staged bundle; `--skip-validation` skips only the source suite,
+   never archive integrity or release identity. Existing version tags or a
+   published manifest for that version block rebuilding before any build starts.
+   `--state published` is rejected even for a rehearsal.
+3. Review the printed source commit, files, hashes and checks. Retain the exact
+   archive checked on each platform; a rebuilt candidate has its own identity.
+   If manual building fell back to plain `R CMD Rd2pdf`, record whether the
+   overfull-box gate ran. R-devel and submission work remain deferred while the
+   confirmed CRAN submission is pending.
+4. Commit the checked bundle in `artifacts/` after its recorded source commit.
+   The archive's README/NEWS bytes must still equal that source commit. Run the
+   relevant artifact installation and release checks before publication.
+5. At publication, set `"release_state": "published"` in
+   `artifacts/manifest.json`, update `artifacts/README.md`, and commit that
+   excluded metadata. Create a **new** version tag on that commit, then verify
+   its DESCRIPTION and manifest:
 
    ```sh
    python3 scripts/check_committed_artifact.py --verify-only \
-     --check-release-identity --release-tag v0.1.0
+     --check-release-identity --release-tag v<version>
    ```
 
-   Replace the example tag for a new release. A deliberately mismatched version,
-   filename, summary, or tag must fail before publication. Upload the verified
-   files unchanged; compare the hosting service's asset sizes and SHA-256 values
-   with the manifest. Never move an existing release tag to hide a changed file.
+   Replace the placeholder with the new version. The manifest requires its tag;
+   the short metadata-commit/tag transition is not a completed publication.
+6. Future GitHub releases use the enabled immutable-release setting. Create a
+   draft, attach the verified archive, manual and manifest, compare their
+   hashes and sizes, and publish only after the complete draft is checked.
+   Publishing locks the release assets and tag. Do not build or replace files
+   during upload. After publication, use `gh release verify v<version>` and
+   `gh release verify-asset v<version> <asset-path>` for each asset, alongside
+   the manifest comparisons. See [repository policy](REPOSITORY_POLICY.md).
+
+Never move a release tag or replace an existing published asset. The setting
+applies to future releases; the existing 0.1.0 release remains unmodified and
+was not retroactively made immutable.
 
 ## CI and review policy
 
