@@ -48,7 +48,8 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_acceptance.R` | Boundary, restart and stationarity acceptance |
 | `test_interface.R` | Dispatch and reliability against dense aggregation |
 | `test_staged_diagnostics.R` | Staged summary reports retained evidence without changing acceptance |
-| `package-staged_diagnostics.R` | Staged summary is truthful on installed public fits |
+| `package-staged-diagnostics.R` | Staged summary is truthful on installed public fits |
+| `test_discrete_reference.R` | Frozen fixed-parameter targets and declared rejections still hold |
 | `test_examples.R` | Bundled example loading |
 
 ## Tooling tests
