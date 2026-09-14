@@ -12,7 +12,7 @@ expect_error <- function(expr, pattern) {
 close <- function(a, b, tolerance = 1e-5) stopifnot(max(abs(a - b)) < tolerance)
 # Issue #14 evidence. The digest proves fixture identity without assuming the
 # RNG reproduces across platforms, so "same fixture" is evidence not inference.
-fixture_digest <- function(...) {
+fixture_bytes <- function(...) {
   # Canonical bytes: fixed big-endian IEEE-754 and two's complement, with a
   # type and length delimiter per vector. Hashing a decimal rendering instead
   # makes the digest depend on format(), which is not portable across
@@ -33,6 +33,13 @@ fixture_digest <- function(...) {
     if (real) writeBin(value, connection, size = 8L, endian = "big")
     else writeBin(value, connection, size = 4L, endian = "big")
   }, finally = base::close(connection))
+  readBin(path, "raw", file.size(path))
+}
+fixture_digest <- function(...) {
+  bytes <- fixture_bytes(...)
+  path <- tempfile("gt-digest-")
+  on.exit(unlink(path), add = TRUE)
+  writeBin(bytes, path)
   unname(tools::md5sum(path))
 }
 # A failing run must be self-contained: enough to tell a changed fixture from a
@@ -88,8 +95,17 @@ check_acceptance <- function(fit) {
 # Every supported platform therefore verifies the canonical encoding itself
 # rather than only agreeing with its own earlier run, which is the property a
 # cross-run fixture comparison depends on.
-stopifnot(identical(fixture_digest(c(1L, -2L, 0L), c(0.5, -0.5, 0, 1e-300, 1e300)),
-                    "2e11c7b01501145c88a5da79b0aa67c3"))
+# Every value is exactly representable in binary, so the literals convert
+# identically everywhere and the vector tests the encoding rather than the
+# platform's decimal parser. Magnitude is irrelevant here: the encoding writes
+# eight bytes whatever the exponent.
+golden_input <- list(c(1L, -2L, 0L), c(0.5, -0.5, 0, 0.25, -1024))
+# Printed on every run. If a platform disagrees with the expected digest, its
+# own bytes are in the log and the difference is diagnosable without a second
+# run on hardware that is not available locally.
+cat("fixture encoding: ", paste(do.call(fixture_bytes, golden_input), collapse = ""), "\n", sep = "")
+stopifnot(identical(do.call(fixture_digest, golden_input),
+                    "e23350c5f0f3418e4886dfef21a24574"))
 # Unsupported input is refused, never coerced into a confident wrong digest.
 for (unsupported in list(factor("a"), "a", TRUE, list(1)))
   expect_error(fixture_digest(unsupported), "integer or double")
