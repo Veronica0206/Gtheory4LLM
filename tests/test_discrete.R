@@ -13,19 +13,29 @@ close <- function(a, b, tolerance = 1e-5) stopifnot(max(abs(a - b)) < tolerance)
 # Issue #14 evidence. The digest proves fixture identity without assuming the
 # RNG reproduces across platforms, so "same fixture" is evidence not inference.
 fixture_digest <- function(...) {
-  parts <- lapply(list(...), function(x)
-    if (is.double(x)) vapply(x, format, character(1), digits = 17) else as.character(x))
+  # Canonical bytes: fixed big-endian IEEE-754 and two's complement, with a
+  # type and length delimiter per vector. Hashing a decimal rendering instead
+  # makes the digest depend on format(), which is not portable across
+  # platforms and reports a difference where the data is identical.
   path <- tempfile("gt-fixture-")
   on.exit(unlink(path), add = TRUE)
-  writeBin(charToRaw(paste(unlist(parts), collapse = ";")), path)
+  # This file defines its own close() for numeric comparison, so the base
+  # connection close must be named explicitly.
+  connection <- file(path, "wb")
+  tryCatch(for (value in list(...)) {
+    real <- is.double(value)
+    writeBin(c(if (real) 2L else 1L, length(value)), connection, size = 4L, endian = "big")
+    if (real) writeBin(as.double(value), connection, size = 8L, endian = "big")
+    else writeBin(as.integer(value), connection, size = 4L, endian = "big")
+  }, finally = base::close(connection))
   unname(tools::md5sum(path))
 }
 # A failing run must be self-contained: enough to tell a changed fixture from a
 # different search path, and to replay the retained solution deterministically.
-report_fit_evidence <- function(label, fit, digest) {
+report_fit_evidence <- function(label, fit, digests) {
   cat(label, "\n", sep = "")
   dput(list(
-    fixture_md5 = digest,
+    fixture_md5 = digests,
     rng_kind = RNGkind(),
     environment = list(
       r_version = R.version.string,
@@ -231,10 +241,15 @@ pair <- expand.grid(item = seq_len(18), rater = seq_len(3), rep = seq_len(3))
 shared <- rnorm(18, sd = 1.1)
 pair$a <- rbinom(nrow(pair), 1, pnorm(-.3 + shared[pair$item]))
 pair$b <- rbinom(nrow(pair), 1, pnorm(.2 + .8 * shared[pair$item]))
-joint_digest <- fixture_digest(pair$item, pair$rater, pair$rep, pair$a, pair$b, shared)
+# Two digests: the panel is what the optimizer actually saw, so it alone
+# proves two runs were given the same problem. The latent draws are generation
+# input only and are separated so a generator change is distinguishable.
+joint_digest <- c(panel = fixture_digest(pair$item, pair$rater, pair$rep, pair$a, pair$b),
+                  latent = fixture_digest(shared))
 # Printed on every run: a failing digest is only interpretable against the
 # digest a passing run reported.
-cat("Joint binary covariance fixture md5: ", joint_digest, "\n", sep = "")
+cat("Joint binary covariance fixture md5: panel=", joint_digest[["panel"]],
+    " latent=", joint_digest[["latent"]], "\n", sep = "")
 jfit <- .gt_fit_discrete(pair, c("a", "b"), design,
                           rep(list(family_spec("binary", "probit", c("0", "1"))), 2),
                           covariance = "unstructured", control = list(maxit = 200L))
