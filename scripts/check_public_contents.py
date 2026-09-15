@@ -87,6 +87,12 @@ STUDY_CSV_FILES = {
     f"validation-studies/discrete-sparse-reference/{name}" for name in (
         "reference.csv", "rejections.csv", "source-hashes.csv")
 } | {
+    # The fitted smoke study is a separate contract from the fixed-parameter
+    # reference above. Paths are listed individually on purpose: a directory
+    # prefix would admit whatever later appears there.
+    f"validation-studies/discrete-sparse-fitted-smoke/{name}" for name in (
+        "panels.csv", "dense-baseline.csv", "source-hashes.csv")
+} | {
     "validation-studies/discrete-recovery/results/" + name for name in (
         "config.csv", "source-files.csv", "replicates.csv", "summary.csv")
 }
