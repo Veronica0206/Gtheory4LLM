@@ -3,6 +3,11 @@ source(file.path("R", "design.R"))
 source(file.path("R", "discrete_response.R"))
 source(file.path("R", "discrete_dense.R"))
 source(file.path("R", "discrete_mode.R"))
+# Sourced for the issue #14 localization replay only: an independently
+# implemented matrix path that shares the response kernel with the dense one.
+# Nothing in this file fits, dispatches to, or qualifies a sparse backend.
+source(file.path("R", "discrete_sparse.R"))
+source(file.path("R", "discrete_sparse_mode.R"))
 source(file.path("R", "discrete.R"))
 source(file.path("R", "diagnostics_stages.R"))
 
@@ -285,6 +290,178 @@ cat("Joint binary covariance fixture md5: panel=", joint_digest[["panel"]],
 jfit <- .gt_fit_discrete(pair, c("a", "b"), design,
                           rep(list(family_spec("binary", "probit", c("0", "1"))), 2),
                           covariance = "unstructured", control = list(maxit = 200L))
+# --- Issue #14 localization (test-only) ---------------------------------------
+# Runs after the fit above has finished and before the assertion below, so the
+# fit it describes is the one that may be about to fail, and the evidence is
+# retained whether or not it does. The fit itself is untouched: nothing here
+# feeds back into jfit, its controls, or its result.
+#
+# The question this answers is which layer a divergence enters at. A failing
+# run alone cannot say whether the panel, the starting point, the shared
+# response kernel, the matrix algebra or the conditional solve is responsible,
+# and every one of those has a different fix. Each checkpoint below is
+# reported on every run, because a failing value is only interpretable against
+# the value a passing run reported.
+#
+# The sparse engine is used here as an independently implemented witness for
+# the matrix algebra only. It shares the response kernel with the dense path,
+# so agreement between them isolates the kernel from the linear algebra
+# rather than confirming either. This is a fixed-parameter replay; no sparse
+# fitting happens and no backend is selected.
+localize_joint_divergence <- function(fit, digests) {
+  control <- .gt_d_control(list(maxit = 200L))
+  families <- rep(list(family_spec("binary", "probit", c("0", "1"))), 2)
+  prep <- .gt_d_prepare(pair, c("a", "b"), families)
+  groups <- lapply(design$term_members, function(members) .gt_d_group(pair, members))
+  setup <- .gt_d_covariance_setup(groups, prep$q, "unstructured", control, prep$dimensions)
+  start <- c(prep$start, setup$start)
+  factors <- .gt_d_covariance_factors(start[-seq_along(prep$start)], setup)
+  dense_backend <- .gt_d_dense_backend(groups, factors, prep$n, prep$q)
+  sparse_backend <- .gt_d_sparse_backend(groups, factors, prep$n, prep$q)
+
+  # Does the reconstruction describe the same starting point the fit used? If
+  # not, everything below describes a different problem and says so.
+  retained <- fit$starting_parameters
+  reconstruction <- list(
+    reconstructed_start = start,
+    retained_start = retained,
+    starts_agree = isTRUE(length(retained) == length(start)) &&
+      isTRUE(max(abs(unname(retained) - unname(start))) < 1e-12),
+    start_difference = if (length(retained) == length(start))
+      max(abs(unname(retained) - unname(start))) else NA_real_)
+
+  # Identity of the replayed problem, on every run.
+  identity <- list(
+    panel = digests[["panel"]], latent = digests[["latent"]],
+    start = fixture_digest(start),
+    covariance_factors = fixture_digest(unlist(lapply(factors, as.numeric), use.names = FALSE)),
+    dense_design = fixture_digest(as.numeric(dense_backend$W)),
+    sparse_stored = sparse_backend$stored_entries,
+    random_dimension = sparse_backend$random_dimension)
+
+  # The shared response kernel at u = 0, before any factorization. Both engines
+  # call this same function, so a difference here is upstream of the algebra.
+  baseline <- .gt_d_baseline(start, prep)
+  kernel <- .gt_d_response_kernel(baseline, start, prep)
+  curvature_values <- unlist(lapply(kernel$curvature, `[[`, "diagonal"), use.names = FALSE)
+  shared_kernel <- if (!isTRUE(kernel$valid)) list(valid = FALSE) else list(
+    valid = TRUE, nll = kernel$nll,
+    eta = fixture_digest(as.numeric(baseline)),
+    gradient = fixture_digest(kernel$gradient),
+    curvature = fixture_digest(curvature_values),
+    max_abs_gradient = max(abs(kernel$gradient)),
+    min_curvature = min(curvature_values), max_curvature = max(curvature_values))
+
+  # The first Newton step through both matrix paths, at u = 0.
+  first_step <- if (!isTRUE(kernel$valid)) list(valid = FALSE) else {
+    zero <- numeric(ncol(dense_backend$W))
+    dense_score <- as.vector(crossprod(dense_backend$W, kernel$gradient)) + zero
+    sparse_score <- as.numeric(Matrix::crossprod(sparse_backend$W, kernel$gradient)) + zero
+    dense_H <- .gt_d_dense_hessian(kernel$curvature, dense_backend$W, prep$n)
+    sparse_H <- .gt_d_sparse_hessian(kernel$curvature, sparse_backend$W, prep$n)
+    dense_R <- tryCatch(chol(dense_H), error = function(e) NULL)
+    sparse_factor <- tryCatch(.gt_d_sparse_factor(sparse_H), error = function(e) NULL)
+    dense_step <- if (is.null(dense_R)) NULL else
+      backsolve(dense_R, forwardsolve(t(dense_R), dense_score))
+    sparse_step <- if (is.null(sparse_factor)) NULL else
+      .gt_d_sparse_solve(sparse_factor, sparse_score)
+    list(valid = TRUE,
+         dense_score = fixture_digest(dense_score),
+         sparse_score = fixture_digest(sparse_score),
+         score_difference = max(abs(dense_score - sparse_score)),
+         hessian_difference = max(abs(dense_H - as.matrix(sparse_H))),
+         dense_factorized = !is.null(dense_R), sparse_factorized = !is.null(sparse_factor),
+         dense_logdet = if (is.null(dense_R)) NA_real_ else 2 * sum(log(diag(dense_R))),
+         sparse_logdet = if (is.null(sparse_factor)) NA_real_ else
+           .gt_d_sparse_logdet(sparse_factor),
+         step_difference = if (is.null(dense_step) || is.null(sparse_step)) NA_real_ else
+           max(abs(dense_step - sparse_step)),
+         max_abs_dense_step = if (is.null(dense_step)) NA_real_ else max(abs(dense_step)))
+  }
+
+  # The complete fixed-parameter conditional solve through both engines, at the
+  # ordinary inner tolerance and at the tightened one the retained attempt used.
+  #
+  # Read the digests across runs of the same engine, never across the two
+  # engines. They hash exact bytes, so a last-bit difference changes them
+  # completely: dense and sparse routinely report different mode digests while
+  # agreeing to 2e-16. Engine agreement is the numeric difference reported
+  # under agreement, not digest equality.
+  summarise <- function(answer) {
+    if (!is.list(answer) || !isTRUE(answer$valid))
+      return(list(valid = FALSE,
+                  inner_converged = if (is.list(answer)) answer$inner_converged else NA,
+                  inner_gradient = if (is.list(answer)) answer$inner_gradient else NA_real_))
+    list(valid = TRUE, nll = answer$nll, conditional_nll = answer$conditional_nll,
+         mode_penalty = sum(answer$mode^2) / 2,
+         inner_iterations = answer$inner_iterations,
+         inner_gradient = answer$inner_gradient,
+         inner_converged = answer$inner_converged,
+         mode = fixture_digest(answer$mode), eta = fixture_digest(as.numeric(answer$eta)),
+         max_abs_mode = max(abs(answer$mode)))
+  }
+  tolerances <- list(ordinary = control$inner_tol,
+                     tightened = min(control$inner_tol, control$validation_inner_tol))
+  replay <- lapply(tolerances, function(tolerance) {
+    at <- control
+    at$inner_tol <- tolerance
+    dense <- .gt_d_dense_mode(start, prep, dense_backend, at, details = TRUE)
+    sparse <- .gt_d_sparse_mode(start, prep, sparse_backend, at, details = TRUE)
+    agreement <- if (isTRUE(dense$valid) && isTRUE(sparse$valid)) list(
+      mode_difference = max(abs(dense$mode - sparse$mode)),
+      objective_difference = abs(dense$nll - sparse$nll),
+      iterations_agree = identical(dense$inner_iterations, sparse$inner_iterations))
+      else list(mode_difference = NA_real_, objective_difference = NA_real_,
+                iterations_agree = NA)
+    list(inner_tol = tolerance, dense = summarise(dense), sparse = summarise(sparse),
+         agreement = agreement,
+         dense_hit_budget = isTRUE(dense$inner_iterations >= at$inner_maxit))
+  })
+
+  # Only when the dense replay looks pathological: it exhausted its budget,
+  # returned invalid, or failed to converge. A budget hit alone is too narrow a
+  # trigger, because an invalid replay reports no iteration count and would
+  # silently skip the ladder in exactly the case worth laddering.
+  #
+  # This is diagnostic evidence about why a platform needs more steps. It is
+  # not a proposal to raise inner_maxit, and jfit's own control is untouched.
+  #
+  # Each ladder keeps the inner tolerance of the replay that triggered it. The
+  # captured #14 failure exhausted its budget on the tight final mode, at 60
+  # iterations with a gradient of 8.95e-09 and tight_final_mode TRUE, so the
+  # question worth spending a rare specimen on is whether 120 or 240 iterations
+  # reach the healthy mode at that tolerance. Rebuilding the control from the
+  # default would ladder at 1e-07 instead and answer a question nobody asked.
+  # inner_tol is reported in every entry so the log says which solve it
+  # describes rather than leaving it to be inferred.
+  pathological <- function(r) isTRUE(r$dense_hit_budget) ||
+    !isTRUE(r$dense$valid) || !isTRUE(r$dense$inner_converged)
+  triggered <- names(replay)[vapply(replay, pathological, logical(1))]
+  ladder <- NULL
+  if (length(triggered)) {
+    ladder <- stats::setNames(lapply(triggered, function(label) {
+      tolerance <- replay[[label]]$inner_tol
+      lapply(c(60L, 120L, 240L), function(budget) {
+        at <- control
+        at$inner_tol <- tolerance
+        at$inner_maxit <- budget
+        c(list(replay = label, inner_tol = tolerance, inner_maxit = budget),
+          summarise(.gt_d_dense_mode(start, prep, dense_backend, at, details = TRUE)))
+      })
+    }), triggered)
+  }
+
+  list(reconstruction = reconstruction, identity = identity,
+       shared_kernel = shared_kernel, first_step = first_step,
+       fixed_parameter_replay = replay, budget_ladder = ladder)
+}
+# Diagnostics must not decide the test. A failure inside the replay is reported
+# and swallowed, so the assertion below still judges the fit rather than being
+# pre-empted by an error in the instrument that was meant to explain it.
+cat("Joint binary covariance localization (issue #14):\n")
+dput(tryCatch(localize_joint_divergence(jfit, joint_digest),
+              error = function(e) list(localization_error = conditionMessage(e))))
+
 # Identical source has produced both passing and failing results here. Retain
 # evidence on failure; the assertion below is deliberately left unweakened.
 if (!isTRUE(jfit$optimizer_completed) ||
