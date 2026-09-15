@@ -425,16 +425,30 @@ localize_joint_divergence <- function(fit, digests) {
   #
   # This is diagnostic evidence about why a platform needs more steps. It is
   # not a proposal to raise inner_maxit, and jfit's own control is untouched.
+  #
+  # Each ladder keeps the inner tolerance of the replay that triggered it. The
+  # captured #14 failure exhausted its budget on the tight final mode, at 60
+  # iterations with a gradient of 8.95e-09 and tight_final_mode TRUE, so the
+  # question worth spending a rare specimen on is whether 120 or 240 iterations
+  # reach the healthy mode at that tolerance. Rebuilding the control from the
+  # default would ladder at 1e-07 instead and answer a question nobody asked.
+  # inner_tol is reported in every entry so the log says which solve it
+  # describes rather than leaving it to be inferred.
   pathological <- function(r) isTRUE(r$dense_hit_budget) ||
     !isTRUE(r$dense$valid) || !isTRUE(r$dense$inner_converged)
+  triggered <- names(replay)[vapply(replay, pathological, logical(1))]
   ladder <- NULL
-  if (any(vapply(replay, pathological, logical(1)))) {
-    ladder <- lapply(c(60L, 120L, 240L), function(budget) {
-      at <- control
-      at$inner_maxit <- budget
-      c(list(inner_maxit = budget),
-        summarise(.gt_d_dense_mode(start, prep, dense_backend, at, details = TRUE)))
-    })
+  if (length(triggered)) {
+    ladder <- stats::setNames(lapply(triggered, function(label) {
+      tolerance <- replay[[label]]$inner_tol
+      lapply(c(60L, 120L, 240L), function(budget) {
+        at <- control
+        at$inner_tol <- tolerance
+        at$inner_maxit <- budget
+        c(list(replay = label, inner_tol = tolerance, inner_maxit = budget),
+          summarise(.gt_d_dense_mode(start, prep, dense_backend, at, details = TRUE)))
+      })
+    }), triggered)
   }
 
   list(reconstruction = reconstruction, identity = identity,
