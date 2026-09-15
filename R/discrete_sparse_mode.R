@@ -142,11 +142,20 @@
            factors_override = NULL) {
     if (is.null(context)) {
       context <<- .gt_d_sparse_context(groups, prep$n, prep$q)
-    } else if (!identical(length(context$groups), length(groups)) ||
+    } else if (!identical(context$groups, groups) ||
                !identical(context$n, as.integer(prep$n)) ||
                !identical(context$q, as.integer(prep$q))) {
       # The retained geometry belongs to one design. Reusing it for another
       # would silently evaluate a different model.
+      #
+      # Compare the grouping itself, not its dimensions. Two designs can agree
+      # on observation count, latent dimension, source count and every level
+      # count while disagreeing on which observation belongs to which level,
+      # and that difference is exactly what the retained geometry encodes. A
+      # dimension-only check admits such a design and answers with the cached
+      # coordinates: a finite, plausible value computed for a model that was
+      # not asked about. identical() on the groups covers source order and
+      # names, level counts, and every observation's index.
       .gt_d_stop("The sparse evaluator was reused across different designs.")
     }
     fixed_length <- length(prep$start)

@@ -165,6 +165,60 @@ for (cs in cases) {
     stringsAsFactors = FALSE)
 }
 
+# --- A retained context may not outlive its design -----------------------------
+# The evaluator caches the coordinate geometry so an outer optimizer does not
+# rediscover it on every call. That cache is correct only while the design is
+# the same one, and "the same" has to mean the grouping itself rather than its
+# dimensions.
+#
+# Two designs can agree on observation count, latent dimension, source count
+# and every level count while disagreeing on which observation belongs to which
+# level. A dimension-only guard admits the second design and answers with the
+# first design's coordinates, which is the specific failure this whole sparse
+# effort exists to avoid: a finite, plausible number computed for a model
+# nobody asked about.
+#
+# The fixture below is built so that a weaker guard would pass it. Its
+# preconditions are asserted first, so it cannot quietly stop being adversarial.
+local({
+  cs <- Filter(function(c) identical(c$key, "fit_binary_probit_crossed"), cases)[[1L]]
+  at <- rebuild(cs)
+  first <- at$groups
+  second <- first
+  # Same number of levels, same length, a different partition of observations.
+  second$item$index <- ((seq_along(first$item$index) - 1L) %/% 10L) + 1L
+  parameters <- c(at$prep$start, at$setup$start)
+
+  expect(identical(length(first), length(second)),
+         "the two designs have the same number of random sources")
+  expect(identical(vapply(first, `[[`, integer(1), "nlevels"),
+                   vapply(second, `[[`, integer(1), "nlevels")),
+         "the two designs have the same level counts")
+  expect(!identical(first, second),
+         "the two designs differ in grouping, which is the only difference")
+
+  # They must also disagree numerically, or a stale context would be harmless
+  # and the refusal below would be asserting nothing.
+  truth_first <- .gt_d_laplace(parameters, at$prep, first, at$setup, at$control)
+  truth_second <- .gt_d_laplace(parameters, at$prep, second, at$setup, at$control)
+  expect(abs(truth_first - truth_second) > 1,
+         paste0("the two designs give materially different objectives: ",
+                format(truth_first, digits = 12), " against ",
+                format(truth_second, digits = 12)))
+
+  evaluator <- .gt_d_sparse_evaluator()
+  value <- evaluator(parameters, at$prep, first, at$setup, at$control)
+  expect(abs(value - truth_first) <= PARITY,
+         "the first design evaluates correctly through the sparse evaluator")
+  reused <- tryCatch({ evaluator(parameters, at$prep, second, at$setup, at$control) },
+                     error = conditionMessage)
+  expect(is.character(reused),
+         paste0("reusing the evaluator across designs is refused; it instead returned ",
+                format(reused)))
+  expect(grepl("different designs", reused, fixed = TRUE),
+         paste0("the refusal is the evaluator's own; it said: ", reused))
+})
+
 table <- do.call(rbind, evidence)
 cat("\nSparse storage and resource evidence (recorded, not thresholded):\n")
 print(table, row.names = FALSE)
