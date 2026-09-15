@@ -31,7 +31,12 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # a platform-dependent inner solve is the open question in #14.
                  # Comparing it against dense and against the frozen targets is
                  # only informative off Linux if it actually runs there.
-                 "test_discrete_sparse_mode.R"}
+                 "test_discrete_sparse_mode.R",
+                 # The fitted contract is only worth freezing if it is known to
+                 # hold on every supported platform. Exercising it off Linux
+                 # before a sparse backend exists is what keeps a platform
+                 # failure from later being blamed on that backend.
+                 "test_discrete_fitted_smoke.R"}
 
 
 MANUAL_TOOLS = ("pdflatex", "makeindex")

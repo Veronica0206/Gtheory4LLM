@@ -54,6 +54,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_sparse_hessian.R` | Sparse Hessian assembly reproduces the dense matrix and frozen targets |
 | `test_discrete_sparse_factor.R` | Sparse factor solves and log determinants match the frozen targets |
 | `test_discrete_sparse_mode.R` | Sparse conditional mode reproduces the dense solve and the frozen targets |
+| `test_discrete_fitted_smoke.R` | Frozen fitted smoke cases reproduce their dense class contract |
 | `test_examples.R` | Bundled example loading |
 
 ## Tooling tests
