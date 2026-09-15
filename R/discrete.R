@@ -438,15 +438,16 @@
 # singular covariance matrices and do not vanish merely because log-SD does.
 # Richardson extrapolation and bounded step halving check truncation stability.
 # Refinement changes the numerical resolution, never the acceptance tolerance.
-.gt_d_stationarity <- function(parameters, prep, groups, setup, control, final) {
+.gt_d_stationarity <- function(parameters, prep, groups, setup, control, final,
+                              laplace = .gt_d_laplace) {
   # Optimizers may use a finite penalty for a failed conditional mode, but
   # finite differences must never subtract those penalties. Require the
   # detailed validity record at every center and perturbation, stopping at
   # the first failure so later step refinement cannot erase it. The caller
   # preserves this error in the fit and blocks numerical acceptance.
   objective <- function(par, factors = final$factors, location) {
-    value <- .gt_d_laplace(par, prep, groups, setup, control,
-                          details = TRUE, factors_override = factors)
+    value <- laplace(par, prep, groups, setup, control,
+                     details = TRUE, factors_override = factors)
     reason <- if (!is.list(value) || !isTRUE(value$valid))
       "invalid conditional mode" else if (!isTRUE(value$inner_converged))
       "conditional mode did not converge" else if (
@@ -586,8 +587,20 @@
 # Mixed discrete families are supported; Gaussian-discrete combinations are
 # outside this engine. Missing outcomes and unobserved declared categories are
 # rejected in this first implementation. This engine has no REML estimator.
+# .laplace and .engine are private. No public entry point passes them, and
+# their defaults are the dense reference implementation, so the dense path is
+# byte-for-byte the path that existed before the seam was cut. They exist so a
+# qualified alternative marginal evaluator can be substituted without
+# duplicating the outer numerical policy: optimizer, restarts, tight
+# validation, stationarity and acceptance must stay single-sourced, because two
+# copies of an acceptance rule diverge the moment either is touched.
 .gt_fit_discrete <- function(data, outcomes, design, families,
-                             covariance = "unstructured", control = list()) {
+                             covariance = "unstructured", control = list(),
+                             .laplace = .gt_d_laplace,
+                             .engine = "dense_marginal_laplace") {
+  if (!is.function(.laplace)) .gt_d_stop("The marginal evaluator must be a function.")
+  if (!is.character(.engine) || length(.engine) != 1L || is.na(.engine) || !nzchar(.engine))
+    .gt_d_stop("The engine label must be a single non-empty string.")
   control <- .gt_d_control(control)
   if (!is.data.frame(data) || nrow(data) > control$max_observations)
     .gt_d_stop("Discrete prototype exceeds max_observations (", control$max_observations,
@@ -659,7 +672,7 @@
     .gt_d_stop("Discrete start parameters must lie within their model bounds; check start_sd and explicit start values.")
   if (length(start) > control$max_parameters)
     .gt_d_stop("Discrete prototype exceeds max_parameters (", control$max_parameters, ").")
-  objective <- function(par) .gt_d_laplace(par, prep, groups, setup, control)
+  objective <- function(par) .laplace(par, prep, groups, setup, control)
   initial <- objective(start)
   if (!is.finite(initial) || initial >= 1e99)
     .gt_d_stop("The discrete likelihood did not yield a converged finite inner mode at starting values.")
@@ -675,7 +688,7 @@
   validation_control <- control
   validation_control$inner_tol <- min(control$inner_tol, control$validation_inner_tol)
   validation_control$reltol <- min(control$reltol, control$validation_reltol)
-  tight_objective <- function(par) .gt_d_laplace(par, prep, groups, setup, validation_control)
+  tight_objective <- function(par) .laplace(par, prep, groups, setup, validation_control)
   optimize_tight <- function(at, label) {
     result <- .gt_d_optimize(at, tight_objective, lower, upper,
       list(maxit = control$maxit,
@@ -732,7 +745,7 @@
   # reliability, even when another candidate can be retained for inspection.
   final_checks <- list()
   evaluate_final <- function(candidate, settings, label) {
-    captured <- .gt_d_capture(.gt_d_laplace(candidate$par, prep, groups,
+    captured <- .gt_d_capture(.laplace(candidate$par, prep, groups,
       setup, settings, details = TRUE))
     valid <- isTRUE(captured$value$valid) &&
       is.finite(captured$value$nll) && captured$value$nll < 1e99
@@ -784,7 +797,7 @@
     call = NULL, attempts = attempts, final_checks = final_checks),
     class = c("gt_discrete_numerical_failure", "error", "condition")))
   captured_stationarity <- .gt_d_capture(.gt_d_stationarity(fit$par, prep,
-    groups, setup, validation_control, final))
+    groups, setup, validation_control, final, laplace = .laplace))
   stationarity <- captured_stationarity$value
   if (is.null(stationarity)) stationarity <- list(
     stationary_within_tolerance = FALSE,
@@ -900,6 +913,21 @@
                        starting_parameters = start, automatic_starting_parameters = automatic_start,
                        supplied_start_parameters = control$start,
                        tight_final_mode = tight_final_mode,
+                       # Which marginal evaluator produced this fit. Retained so
+                       # a qualification run can prove the backend it claims to
+                       # exercise actually ran, rather than inferring it from a
+                       # green result. Not a public selector.
+                       #
+                       # Deliberately not called engine. The public fit$engine is
+                       # "dense_joint_discrete_laplace", which conflates the
+                       # estimator identity with the implementation that produced
+                       # it, and reliability.R and preflight.R both key on that
+                       # exact string. Changing it is a public behaviour change
+                       # and is out of scope here; naming this field separately
+                       # keeps the two distinguishable until the public
+                       # integration step decides how a sparse-backed fit should
+                       # describe itself.
+                       marginal_backend = .engine,
                        covariance_parameterization = setup$parameterization,
                        covariance_parameterization_requested = control$covariance_parameterization,
                        zero_variance_parameters = zero_variances,
