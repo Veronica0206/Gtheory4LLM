@@ -107,7 +107,7 @@ accepted <- list(
 negatives <- list(
   list(key = "refuse_truncated_inner_solve", source = "fit_binary_probit_crossed",
        control = list(maxit = 200L, inner_maxit = 1L), disposition = "refused",
-       class = "no converged finite inner solution", mechanism = "conditional mode"),
+       class = "conditional_mode_unavailable_at_start", mechanism = "conditional mode"),
   list(key = "reject_truncated_outer_optimizer", source = "fit_ordinal_logit_crossed",
        control = list(maxit = 1L), disposition = "rejected",
        class = "optimizer_incomplete", mechanism = "outer optimizer"),
@@ -126,7 +126,8 @@ for (i in seq_along(negatives)) {
     from[c("panel", "levels", "families", "design", "covariance", "data")])
 }
 
+for (i in seq_along(accepted)) accepted[[i]]$outcomes <- "y"
+for (i in seq_along(negatives)) negatives[[i]]$outcomes <- "y"
 cases <- c(accepted, negatives)
-for (i in seq_along(cases)) cases[[i]]$outcomes <- "y"
 accepted_keys <- vapply(accepted, `[[`, character(1), "key")
 negative_keys <- vapply(negatives, `[[`, character(1), "key")

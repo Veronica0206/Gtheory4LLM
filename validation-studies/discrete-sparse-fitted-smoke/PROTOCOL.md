@@ -47,9 +47,13 @@ two backends agree within them, they have reached the same solution by the
 package's existing standard. Anything tighter would be a new contract; anything
 looser would be weaker than the package's own definition.
 
-Layer 3 compares categorical outcomes only. Diagnostic prose, gradient values,
-optimizer messages and attempt labels are measurements, not verdicts, and are
-not compared.
+Layer 3 compares discrete verdict and stage-state fields only: the
+disposition, the refusal class where one applies, the acceptance-failure set,
+the zero-variance boundary set, and the recorded stage states. Diagnostic
+prose, gradient values, optimizer messages and attempt labels are
+measurements, not verdicts, and are not compared. "Categorical" is avoided
+here deliberately: in this package it names a response family that the
+sparse path does not support, and it is not what Layer 3 is about.
 
 ## Panels are frozen rows, not a recipe
 
