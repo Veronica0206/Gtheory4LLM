@@ -70,6 +70,17 @@ class PublicContentsTests(unittest.TestCase):
         self.assertNotIn("validation-studies/discrete-sparse-reference/collected.csv",
                          module.STUDY_CSV_FILES)
 
+    def test_the_fitted_smoke_csvs_are_declared_not_incidental(self):
+        # The fitted smoke study is a separate contract from the fixed-parameter
+        # reference, and it is declared the same way: by exact path. A new CSV
+        # appearing under the directory must still fail the audit, so this
+        # cannot decay into a prefix exemption.
+        for name in ("panels.csv", "dense-baseline.csv", "source-hashes.csv"):
+            self.assertIn(f"validation-studies/discrete-sparse-fitted-smoke/{name}",
+                          module.STUDY_CSV_FILES)
+        self.assertNotIn("validation-studies/discrete-sparse-fitted-smoke/sparse-results.csv",
+                         module.STUDY_CSV_FILES)
+
     def test_release_kind_must_be_explicit_and_known(self):
         with self.assertRaises(ValueError):
             module.PublicAudit(self.root, "unreviewed")
