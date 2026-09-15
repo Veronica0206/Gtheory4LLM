@@ -76,12 +76,23 @@ make_probe <- function(kind) {
       covariance_change = covariance_change)
     value
   }
-  env$.gt_d_stationarity <- function(parameters, prep, groups, setup, control, final) {
+  # Stationarity takes the marginal evaluator the fit is using, so that the
+  # outer numerical policy is single-sourced across backends. The probe has to
+  # forward it, or the interception below would be bypassed and, worse, the
+  # unused argument would surface as a validation failure rather than as an
+  # obvious error.
+  # The default must be the intercepting evaluator in env, not a bare
+  # .gt_d_laplace: this wrapper's lexical parent is make_probe's frame, so a
+  # bare name would resolve outside env and silently bypass the interception
+  # for callers that invoke the wrapper without naming the evaluator.
+  env$.gt_d_stationarity <- function(parameters, prep, groups, setup, control, final,
+                                     laplace = env$.gt_d_laplace) {
     state$active <- TRUE
     state$center <- parameters
     state$covariance <- tcrossprod(final$factors[[1L]])
     on.exit({ state$active <- FALSE })
-    original_stationarity(parameters, prep, groups, setup, control, final)
+    original_stationarity(parameters, prep, groups, setup, control, final,
+                          laplace = laplace)
   }
   list(env = env, state = state)
 }

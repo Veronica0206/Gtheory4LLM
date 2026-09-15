@@ -112,3 +112,50 @@
        inner_converged = converged, inner_gradient = last_gradient,
        random_dimension = length(u))
 }
+
+# The sparse marginal evaluator, shaped to be substituted for .gt_d_laplace().
+#
+# Same signature, same return shape, same meaning. Everything outside the
+# marginal evaluation stays with the caller: preparation, parameterization,
+# bounds, starts, the optimizer, restarts, tight validation, stationarity and
+# acceptance are the dense implementation's and are not duplicated here.
+#
+# Only the inner numerical path differs:
+#
+#   decode covariance factors   (shared)
+#   build sparse W              (from retained geometry)
+#   response kernel             (shared, backend-independent)
+#   sparse conditional mode     (.gt_d_sparse_mode)
+#   half the sparse log det     (.gt_d_sparse_logdet)
+#
+# The coordinate geometry is retained across calls because an outer optimizer
+# evaluates this many times and the design does not change between them. The
+# sparsity pattern is not retained; see .gt_d_sparse_context().
+#
+# There is no fallback. If the sparse path cannot evaluate, this returns what
+# the dense path returns for an unevaluable point, and the caller's existing
+# acceptance rules decide. A backend that quietly handed a failed evaluation to
+# another implementation would make a rejection depend on which engine ran.
+.gt_d_sparse_evaluator <- function() {
+  context <- NULL
+  function(parameters, prep, groups, setup, control, details = FALSE,
+           factors_override = NULL) {
+    if (is.null(context)) {
+      context <<- .gt_d_sparse_context(groups, prep$n, prep$q)
+    } else if (!identical(length(context$groups), length(groups)) ||
+               !identical(context$n, as.integer(prep$n)) ||
+               !identical(context$q, as.integer(prep$q))) {
+      # The retained geometry belongs to one design. Reusing it for another
+      # would silently evaluate a different model.
+      .gt_d_stop("The sparse evaluator was reused across different designs.")
+    }
+    fixed_length <- length(prep$start)
+    factors <- if (is.null(factors_override))
+      .gt_d_covariance_factors(parameters[-seq_len(fixed_length)], setup) else factors_override
+    backend <- .gt_d_sparse_backend_from(context, factors)
+    answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details)
+    if (details && isTRUE(answer$valid))
+      answer <- append(answer, list(factors = factors), after = 2L)
+    answer
+  }
+}

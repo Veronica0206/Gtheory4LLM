@@ -208,3 +208,78 @@
   # would return a correctly sized vector in the wrong order.
   as.numeric(Matrix::solve(factorization$factor, b, system = "A"))
 }
+
+# Retained sparse structure for repeated fitted evaluation.
+#
+# An outer optimizer evaluates the marginal objective many times at different
+# covariance parameters. The coordinate geometry does not change between those
+# calls: which observation belongs to which group level, where each source's
+# columns begin, and how many columns exist in total are all fixed by the
+# design. Only the covariance factors change.
+#
+# What is deliberately NOT retained is the sparsity pattern. A block is stored
+# only where its factor entry is nonzero, so the pattern depends on the
+# parameters: a source whose factor decodes to exactly zero keeps its columns
+# and contributes no stored entries. That behaviour is the established
+# representation contract and the frozen reference records the stored-entry
+# counts it produces, so the pattern is recomputed from the factors on every
+# call. Precomputing it once would give a source at the zero boundary stored
+# entries it should not have.
+.gt_d_sparse_context <- function(groups, n, q) {
+  checked <- .gt_d_sparse_validate(groups, factors_for_validation(groups, q), n, q)
+  n <- checked$n
+  q <- checked$q
+  offsets <- integer(length(groups))
+  offset <- 0L
+  for (s in seq_along(groups)) {
+    offsets[[s]] <- offset
+    offset <- offset + q * groups[[s]]$nlevels
+  }
+  structure(list(groups = groups, n = n, q = q, offsets = offsets,
+                 observation = seq_len(n), layout = .gt_d_sparse_layout(groups, q),
+                 random_dimension = sum(vapply(groups, `[[`, integer(1), "nlevels")) * q),
+            class = "gt_discrete_sparse_context")
+}
+
+# Validation needs factors of the right shape; the context is built before any
+# parameters exist, so it checks the geometry against placeholders and the
+# real factors are validated on every build below.
+factors_for_validation <- function(groups, q)
+  rep(list(matrix(0, q, q)), length(groups))
+
+.gt_d_sparse_build <- function(context, factors) {
+  if (!inherits(context, "gt_discrete_sparse_context"))
+    .gt_d_stop("A sparse build needs a context from .gt_d_sparse_context().")
+  .gt_d_sparse_validate(context$groups, factors, context$n, context$q)
+  n <- context$n
+  q <- context$q
+  rows <- vector("list", length(context$groups) * q * q)
+  columns <- vector("list", length(rows))
+  values <- vector("list", length(rows))
+  slot <- 0L
+  for (s in seq_along(context$groups)) {
+    group <- context$groups[[s]]
+    L <- factors[[s]]
+    offset <- context$offsets[[s]]
+    for (a in seq_len(q)) for (b in seq_len(q)) if (L[a, b] != 0) {
+      slot <- slot + 1L
+      rows[[slot]] <- (a - 1L) * n + context$observation
+      columns[[slot]] <- offset + (b - 1L) * group$nlevels + group$index
+      values[[slot]] <- rep.int(L[a, b], n)
+    }
+  }
+  if (!slot)
+    return(Matrix::sparseMatrix(i = integer(0), j = integer(0), x = numeric(0),
+                                dims = c(n * q, context$random_dimension)))
+  Matrix::sparseMatrix(i = unlist(rows[seq_len(slot)]), j = unlist(columns[seq_len(slot)]),
+                       x = unlist(values[seq_len(slot)]),
+                       dims = c(n * q, context$random_dimension))
+}
+
+.gt_d_sparse_backend_from <- function(context, factors) {
+  W <- .gt_d_sparse_build(context, factors)
+  structure(list(W = W, n = context$n, q = context$q, layout = context$layout,
+                 stored_entries = as.integer(Matrix::nnzero(W)),
+                 random_dimension = ncol(W)),
+            class = "gt_discrete_sparse_backend")
+}

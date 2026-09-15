@@ -36,7 +36,11 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # hold on every supported platform. Exercising it off Linux
                  # before a sparse backend exists is what keeps a platform
                  # failure from later being blamed on that backend.
-                 "test_discrete_fitted_smoke.R"}
+                 "test_discrete_fitted_smoke.R",
+                 # The sparse fitted path is the thing being qualified, and a
+                 # platform-specific disagreement is exactly what it must not
+                 # have. Running it only on Linux would leave that untested.
+                 "test_discrete_fitted_sparse.R"}
 
 
 MANUAL_TOOLS = ("pdflatex", "makeindex")
