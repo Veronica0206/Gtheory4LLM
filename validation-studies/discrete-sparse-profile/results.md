@@ -82,8 +82,8 @@ cannot contribute an iteration count and this profiler cannot attribute its
 cause. Valid and invalid calls are counted separately for that reason.
 
 "Valid solves ending at iteration 60" is therefore not the same as "evaluations
-that exhausted the budget": the latter would also include some of the 5 dense
-and 4 sparse invalid evaluations, and nothing here establishes how many.
+that exhausted the budget": the latter could also include invalid evaluations,
+but nothing here establishes how many, or whether any did.
 
 ### What the evaluation counts do and do not show
 
