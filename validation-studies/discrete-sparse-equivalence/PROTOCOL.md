@@ -161,14 +161,38 @@ characterization evidence, not a qualification case.
 ## Frozen numerical choices
 
 `cases.R` additionally freezes everything the runner would otherwise choose
-after results become possible: the control settings (`EQ_CONTROL`), the three
-stage 3 evaluation points and the deterministic rule that produces them
-(`EQ_FIXED_POINT_LABELS`, `.eq_fixed_points`), C05's fixed source matrices
-(`EQ_C05_FIXED_COVARIANCE`), C06's exact-zero coordinate (`EQ_C06_ZERO`), the
-exact injection for every negative overlay (`EQ_NEGATIVE_INJECTION` — "a
-saturating intercept with a large factor" is not a specification, -15 and 20
-are), the case-to-reference assignment for stage 7 (`EQ_REFERENCE`), and the
-scope of each transform (`EQ_TRANSFORM_SCOPE`).
+after results become possible.
+
+`EQ_CONTROL` is the CURRENT PRODUCTION NUMERICAL POLICY, field for field, not a
+more generous budget. A larger inner or outer budget, or an extra restart, can
+turn a default rejection into an accepted result, which is the disposition
+change this study exists to detect rather than engineer away.
+`EQ_CHARACTERIZATION_CONTROL` exists for separately recorded evidence only and
+never produces a qualification verdict.
+
+`EQ_COVARIANCE_PROFILE` maps the manifest's covariance column onto the actual
+production arguments. `covariance=` accepts only "diagonal" or "unstructured",
+the parameterization is a separate control, and "auto" resolves a q = 1 model to
+"variance" -- so C08 and C13 would never exercise log-Cholesky coordinates if
+that mapping were left to the runner.
+
+`.eq_fixed_points()` is bounds-aware. Variance coordinates have a lower bound of
+exactly zero and start at 0.16, so an unclamped displacement would leave every
+such coordinate out of bounds, not merely a declared zero. Points are clamped
+strictly inside the declared bounds, because sitting exactly on a bound is
+artificial-bound contact and that is overlay N6's job. Coordinates named in
+`EQ_ZERO_SOURCES` stay exactly zero at all three points.
+
+Also frozen: C05's fixed source matrices (`EQ_C05_FIXED_COVARIANCE`), the exact
+injection for every negative overlay (`EQ_NEGATIVE_INJECTION` -- "a saturating
+intercept with a large factor" is not a specification, -15 and 20 are), the
+stage 7 case-to-reference assignment (`EQ_REFERENCE`) together with its
+quadrature settings (`EQ_REFERENCE_SETTINGS`, since glmer and clmm both default
+to nAGQ = 1, which is itself Laplace and would not be an independent
+higher-accuracy reference), the scope of each transform
+(`EQ_TRANSFORM_SCOPE`), and the exact transformation each applies
+(`EQ_TRANSFORM_DETAIL`), and the family specification per case
+(`.eq_families`).
 
 **T3 is frozen as a dense-only equivariance check.** It transforms the
 categorical case, which sparse does not support, so sparse is recorded
@@ -178,6 +202,12 @@ runner does not decide this.
 Random dimensions and kernel ranks are recorded per case in
 `fixture-digests.csv` and pinned by the study's test, so the near-limit cases
 cannot quietly shrink: C08 is 187 and C13 is 185 against the 200 ceiling.
+
+`random_dimension` is the PRODUCTION quantity, `sum(group levels) * prep$q`,
+which is what `.gt_fit_discrete()` checks `max_random_dimension` against. The
+per-latent source-level count is recorded separately as `source_levels`. The
+two differ only where q > 1, which is exactly the categorical and joint rows:
+C14 is 26 rather than 13, and C15 is 56 rather than 28.
 
 ## Record
 

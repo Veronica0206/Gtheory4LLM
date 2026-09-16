@@ -27,10 +27,15 @@ those panels' results.
     case  family   link    structure  covariance    geometry    observations  random dim
     K01   binary   probit  single     diagonal      cal_small    126            14
     K02   binary   logit   crossed2   diagonal      cal_medium   240            34
-    K03   binary   probit  crossed3   log_cholesky  cal_limit   1200           158
+    K03   binary   probit  crossed3   log_cholesky  cal_limit   1086           188
     K04   ordinal  probit  crossed2   diagonal      cal_medium   240            34
     K05   ordinal  logit   crossed2   diagonal      cal_tail     240            34
     K06   binary   probit  crossed2   zero_capable  cal_small    126            17
+
+K03 reaches random dimension 188, ABOVE the largest scored case (C08 at 187).
+The log-determinant rule is explicitly dimension-dependent, so a calibration
+that topped out below the scored maximum would extrapolate that rule past the
+regime it was measured in.
 
 Their panel digests, observation counts, random dimensions and kernel ranks are
 frozen in `fixture-digests.csv` under `set = calibration` and pinned by the
@@ -40,7 +45,10 @@ observations are what determine the tolerances.
 
 Calibration evaluates at the same three frozen fixed-parameter points as the
 scored cases (`EQ_FIXED_POINT_LABELS` and `.eq_fixed_points`) and under the
-same frozen controls (`EQ_CONTROL`).
+same frozen controls (`EQ_CONTROL`), which are the current production numerical
+policy rather than a more generous budget. K06 places the same named source at
+an exact zero as C06 does (`EQ_ZERO_SOURCES`), so the zero coordinate is
+calibrated in the regime it will be judged in.
 
 ## Quantities and comparison rules
 
@@ -48,18 +56,21 @@ Every rule is quantity-specific. A single blanket tolerance is simultaneously
 too loose for a small-magnitude quantity and unachievable for one that grows
 with dimension, which is why stage 3 is not scored at a flat `1e-10`.
 
-Stage 3, per quantity, mixed absolute/relative:
+Stage 3, per quantity, mixed absolute/relative. The conditional objective and
+the marginal negative log likelihood are NOT listed here: they are already
+covered by the inherited `1e-10` parity contract from #3 and #30, and the split
+is frozen as data in `cases.R` (`EQ_INHERITED_PARITY`,
+`EQ_CALIBRATED_QUANTITIES`). Calibration establishes only the quantities that
+contract does not cover.
 
     predictor (eta)            normwise, max-abs, relative to max|eta|
-    conditional objective      relative
     mode score                 absolute; it is near zero at the mode, so a
                                relative rule is undefined there
     Hessian                    entrywise max-abs, relative to max|H|
     conditional mode           normwise, relative to max|u|, with an absolute
                                floor for coordinates at zero
-    log determinant            absolute; it is a sum of q terms and its
-                               attainable agreement grows with dimension
-    marginal negative log lik  relative, constants included
+    log determinant            absolute; it is a sum whose attainable agreement
+                               grows with dimension
 
 Stage 4:
 

@@ -249,19 +249,68 @@ EQ_GEOMETRY <- list(
 # Controls for every fitted case, unless a negative overlay replaces a named
 # field. Frozen here rather than defaulted, so a later change to package
 # defaults is visible as a qualification change instead of silently rescoring.
-EQ_CONTROL <- list(maxit = 200L, inner_maxit = 100L, alternative_starts = 2L)
+# Frozen as the CURRENT PRODUCTION NUMERICAL POLICY, field for field, not as a
+# more generous budget. A larger inner budget, a larger outer budget or an extra
+# restart can turn a default rejection into an accepted result, which is exactly
+# the disposition change #4 exists to detect rather than to engineer away. Every
+# numerically relevant control is listed, so a later change to package defaults
+# shows up as a qualification change instead of silently rescoring the study.
+EQ_CONTROL <- list(
+  maxit = 150L, inner_maxit = 60L, alternative_starts = 1L,
+  inner_tol = 1e-7, reltol = 1e-7, start_sd = 0.4,
+  stationarity_tol = 1e-3, validation_reltol = 1e-10, validation_inner_tol = 1e-9,
+  stability_objective_tol = 1e-6, stability_parameter_tol = 0.02,
+  bound_tol = 1e-4, optimizer = "L-BFGS-B")
+
+# A high-budget variant exists only for separately recorded characterization
+# evidence. It is NEVER used for a qualification verdict.
+EQ_CHARACTERIZATION_CONTROL <- list(maxit = 200L, inner_maxit = 100L,
+                                    alternative_starts = 2L)
 
 # Stage 3 evaluates at three frozen points per case: the prepared automatic
 # start and two deterministic displacements of it. The displacement is a fixed
 # function of coordinate index, so it is identical on every platform and needs
 # no stored vector whose length would depend on the case.
 EQ_FIXED_POINT_LABELS <- c("start", "displaced_positive", "displaced_negative")
-.eq_fixed_points <- function(start) {
+
+# The displacement must respect the parameterization's declared bounds.
+# Variance coordinates have a lower bound of exactly zero and start at
+# start_sd^2 = 0.16, so an unclamped displacement of -0.40 * 0.5 = -0.20 lands
+# at -0.04, outside the bound, for EVERY variance coordinate rather than only
+# for a declared zero. The points are therefore clamped strictly inside the
+# bounds: sitting exactly on a bound is artificial-bound contact, which is what
+# overlay N6 exists to test, not what the ordinary stage 3 points should probe.
+#
+# A coordinate declared exactly zero stays exactly zero at all three points.
+# Zero is the lower bound of the variance parameterization and is admissible
+# there; displacing it would destroy the exact-zero property the case exists to
+# exercise.
+.eq_fixed_points <- function(start, lower, upper, zero_coordinates = integer(0)) {
   shape <- ((seq_along(start) %% 5L) - 2L) / 4L
-  list(start = start,
-       displaced_positive = start + 0.25 * shape,
-       displaced_negative = start - 0.40 * shape)
+  margin <- 1e-6 * pmax(1, abs(upper - lower))
+  inside <- function(x) pmin(pmax(x, lower + margin), upper - margin)
+  at_zero <- function(x) { if (length(zero_coordinates)) x[zero_coordinates] <- 0; x }
+  list(start = at_zero(start),
+       displaced_positive = at_zero(inside(start + 0.25 * shape)),
+       displaced_negative = at_zero(inside(start - 0.40 * shape)))
 }
+
+# The manifest's covariance column names a PROFILE, not the production argument.
+# `covariance=` accepts only "diagonal" or "unstructured"; the parameterization
+# is a separate control, and "auto" resolves a q = 1 model to "variance", so
+# C08 and C13 would never exercise log-Cholesky coordinates unless the runner
+# were left to decide that. Frozen here instead.
+EQ_COVARIANCE_PROFILE <- list(
+  diagonal     = list(covariance = "diagonal",     parameterization = "auto"),
+  unstructured = list(covariance = "unstructured", parameterization = "auto"),
+  zero_capable = list(covariance = "diagonal",     parameterization = "variance"),
+  log_cholesky = list(covariance = "diagonal",     parameterization = "log_cholesky"),
+  fixed        = list(covariance = "diagonal",     parameterization = "fixed"))
+
+# Cases that place a named source at an exact zero variance. Frozen by source
+# name rather than coordinate index, because the index depends on how many
+# fixed-effect coordinates precede it.
+EQ_ZERO_SOURCES <- c(C06 = "rater", K06 = "rater")
 
 # C05 supplies fixed source matrices rather than estimating them. q = 1 for this
 # case, so each is one by one.
@@ -295,12 +344,31 @@ EQ_REFERENCE <- data.frame(stringsAsFactors = FALSE, rbind(
   c("C10", "ordinal::clmm",              "cumulative probit, identical model")))
 names(EQ_REFERENCE) <- c("case", "reference", "note")
 
+# Reference settings, frozen. glmer() and clmm() both default to nAGQ = 1, which
+# IS a Laplace approximation: leaving the defaults would compare first-order
+# Laplace against first-order Laplace and record it as an independent
+# higher-accuracy reference, which it is not.
+EQ_REFERENCE_SETTINGS <- list(
+  "lme4::glmer" = list(nAGQ = 11L),
+  "ordinal::clmm" = list(nAGQ = 11L),
+  "dense_adaptive_integration" = list(nodes = 41L))
+
 # T3 transforms the categorical case, which sparse does not support. Frozen
 # decision: T3 is a DENSE-ONLY equivariance check. Sparse is recorded
 # `unsupported` under rule R3 and contributes no equivalence result. The runner
 # does not get to decide this.
 EQ_TRANSFORM_SCOPE <- c(T1 = "both", T2 = "both", T3 = "dense_only",
                         T4 = "both", T5 = "both")
+
+# The exact transformation, not a description of one. "The reference level is
+# changed" does not say to which level, and "group labels are permuted" does not
+# say by which permutation; both would otherwise be chosen during execution.
+EQ_TRANSFORM_DETAIL <- list(
+  T1 = list(rule = "reverse_observation_order"),
+  T2 = list(rule = "reverse_source_order"),
+  T3 = list(rule = "categorical_reference", from = "a", to = "c"),
+  T4 = list(rule = "repeat_identical_evaluation", repeats = 2L),
+  T5 = list(rule = "reverse_level_labels_within_each_source"))
 
 # ---- calibration set (NON-SCORING) ----------------------------------------------
 #
@@ -311,7 +379,12 @@ EQ_TRANSFORM_SCOPE <- c(T1 = "both", T2 = "both", T3 = "dense_only",
 EQ_CALIBRATION_GEOMETRY <- list(
   cal_small  = list(objects = 14L, raters = 3L, reps = 3L),
   cal_medium = list(objects = 30L, raters = 4L, reps = 2L),
-  cal_limit  = list(objects = 150L, raters = 4L, reps = 2L))
+  # Above the largest scored random dimension, not merely large. The
+  # log-determinant rule is explicitly dimension-dependent, so calibrating only
+  # to 158 and then judging 187 would extrapolate the rule past the regime it
+  # was measured in. 181 objects give crossed-3 dimension 188 while remaining a
+  # different panel from C08's 180.
+  cal_limit  = list(objects = 181L, raters = 3L, reps = 2L))
 
 EQ_CALIBRATION <- data.frame(stringsAsFactors = FALSE, rbind(
   c("K01", "binary",  "probit", "single",   "diagonal",     "cal_small"),
@@ -338,3 +411,73 @@ EQ_CALIBRATION_GEOMETRY$cal_tail <- EQ_CALIBRATION_GEOMETRY$cal_medium
 EQ_INHERITED_PARITY <- c("marginal_negative_log_likelihood", "conditional_objective")
 EQ_CALIBRATED_QUANTITIES <- c("predictor", "mode_score", "hessian", "conditional_mode",
                               "log_determinant", "latent_g_phi", "equivariance")
+
+# The frozen family specification per case. Needed to resolve prep$q, which the
+# production engine multiplies into the random dimension, and which differs from
+# one only for the categorical and joint rows.
+.eq_families <- function(family, link, geometry_name) {
+  switch(family,
+    binary = list(list(family = "binary", link = link, levels = c("0", "1"))),
+    ordinal = list(list(family = "ordinal", link = link,
+                        levels = .eq_ordinal_levels(geometry_name))),
+    categorical = list(list(family = "categorical", link = "softmax",
+                            levels = c("a", "b", "c"), reference = "a")),
+    joint_binary = rep(list(list(family = "binary", link = link,
+                                 levels = c("0", "1"))), 2L),
+    stop("unknown family: ", family))
+}
+
+.eq_outcomes <- function(family)
+  if (identical(family, "joint_binary")) EQ_JOINT_OUTCOMES else "y"
+
+EQ_DESIGNS <- list(single = .eq_design_single, crossed2 = .eq_design_crossed2,
+                   crossed3 = .eq_design_crossed3, nested = .eq_design_nested)
+
+.eq_panel_for <- function(family, geometry_name, geometry) {
+  switch(family,
+    binary = .eq_binary_panel(geometry$objects, geometry$raters, geometry$reps),
+    ordinal = .eq_ordinal_panel(geometry$objects, geometry$raters, geometry$reps,
+                                .eq_ordinal_levels(geometry_name),
+                                tail_mass = grepl("tail", geometry_name, fixed = TRUE)),
+    categorical = .eq_categorical_panel(geometry$objects, geometry$raters, geometry$reps,
+                                        c("a", "b", "c")),
+    joint_binary = .eq_joint_panel(geometry$objects, geometry$raters, geometry$reps),
+    stop("unknown family: ", family))
+}
+
+# The production control list for a case, built from the frozen profile rather
+# than assembled during execution.
+.eq_control_for <- function(covariance_profile) {
+  profile <- EQ_COVARIANCE_PROFILE[[covariance_profile]]
+  if (is.null(profile)) stop("unknown covariance profile: ", covariance_profile)
+  control <- EQ_CONTROL
+  if (identical(profile$parameterization, "fixed"))
+    control$fixed_covariance <- EQ_C05_FIXED_COVARIANCE
+  else if (!identical(profile$parameterization, "auto"))
+    control$covariance_parameterization <- profile$parameterization
+  control
+}
+
+# The full prepared parameter map for a case: the start vector the engine would
+# build, its bounds, and which coordinates are declared exactly zero. Used by
+# the freeze test to prove the three frozen stage 3 points are admissible before
+# anything is executed against them.
+.eq_parameter_map <- function(row, geometry) {
+  profile <- EQ_COVARIANCE_PROFILE[[row$covariance]]
+  panel <- .eq_panel_for(row$family, row$geometry, geometry)
+  outcomes <- .eq_outcomes(row$family)
+  control <- .gt_d_control(.eq_control_for(row$covariance))
+  prep <- .gt_d_prepare(panel, outcomes, .eq_families(row$family, row$link, row$geometry))
+  design <- EQ_DESIGNS[[row$structure]]
+  groups <- lapply(design$term_members, function(members) .gt_d_group(panel, members))
+  setup <- .gt_d_covariance_setup(groups, prep$q, profile$covariance, control,
+                                  prep$dimensions)
+  start <- c(prep$start, setup$start)
+  zero_source <- unname(EQ_ZERO_SOURCES[row$case])
+  zero <- if (is.na(zero_source)) integer(0) else
+    which(startsWith(names(start), paste0(zero_source, "::")))
+  list(start = start, lower = c(prep$lower, setup$lower),
+       upper = c(prep$upper, setup$upper), zero_coordinates = zero,
+       parameterization = setup$parameterization, panel = panel,
+       prep = prep, groups = groups, setup = setup, control = control)
+}

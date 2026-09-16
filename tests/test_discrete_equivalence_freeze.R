@@ -34,11 +34,11 @@ content_digest <- function(path) {
 
 # ---- the governed sources are pinned from outside themselves -------------------
 FROZEN_SOURCES <- c(
-  "PROTOCOL.md" = "ae03173b56c39283e231bb0261664dfd",
-  "CALIBRATION.md" = "7e07a789301012b00b981153c3e61fe4",
+  "PROTOCOL.md" = "25f4be560766fccb52839e3b8aad26c2",
+  "CALIBRATION.md" = "1e7531fb0530342b83632f5d52b2f549",
   "README.md" = "2f73e051d4be697fa35841eba91a9f81",
-  "cases.R" = "59568d0521b92d16bab74419410dd366",
-  "freeze-fixtures.R" = "8fd83f8762f7025a1c832128597241b8",
+  "cases.R" = "f13b836c5d4d7c09092b03921c439e32",
+  "freeze-fixtures.R" = "96a3ff727d433c5ff4d8c741aa0eaf85",
   "run-equivalence.R" = "b598b2c7bdd792325a733fca38f5012f",
   "results-schema.csv" = "387a602d1dcb6e70ad1eaa62f74cc150")
 for (name in names(FROZEN_SOURCES))
@@ -109,17 +109,23 @@ ok(identical(.eq_design_nested$term_members$rater, c("site", "nested_rater")),
    "the nested design groups the child within its parent")
 
 # ---- frozen numerical choices exist and hold -----------------------------------
-ok(identical(EQ_CONTROL$maxit, 200L) && identical(EQ_CONTROL$inner_maxit, 100L) &&
-     identical(EQ_CONTROL$alternative_starts, 2L), "the control settings are frozen")
 ok(identical(EQ_FIXED_POINT_LABELS,
              c("start", "displaced_positive", "displaced_negative")),
    "three frozen fixed-parameter points")
-points <- .eq_fixed_points(c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6))
+probe_start <- c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6)
+probe_lower <- rep(0, 6L)
+probe_upper <- rep(5, 6L)
+points <- .eq_fixed_points(probe_start, probe_lower, probe_upper)
 ok(identical(length(points), 3L) && !identical(points$start, points$displaced_positive) &&
      !identical(points$start, points$displaced_negative),
    "the displacements are deterministic and differ from the start")
-ok(identical(points, .eq_fixed_points(c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6))),
+ok(identical(points, .eq_fixed_points(probe_start, probe_lower, probe_upper)),
    "the fixed-parameter points are reproducible")
+# The clamp must bind: an unclamped displacement of -0.40 * 0.5 from a start of
+# 0.1 would land at -0.1, below the variance lower bound of zero.
+tight <- .eq_fixed_points(rep(0.1, 6L), rep(0, 6L), rep(5, 6L))
+ok(all(vapply(tight, function(v) all(v >= 0), logical(1))),
+   "the displacement is clamped inside a zero lower bound")
 ok(identical(EQ_C05_FIXED_COVARIANCE$item, matrix(0.64, 1L, 1L)) &&
      identical(EQ_C05_FIXED_COVARIANCE$rater, matrix(0.25, 1L, 1L)),
    "C05's fixed source matrices are frozen as values")
@@ -165,7 +171,7 @@ FROZEN_DIGESTS <- c(
   "C15" = "79f552dfab1f265fd138042db5277496",
   "K01" = "cc31a7a33aeb97d3a60c227d73a79fdd",
   "K02" = "03ef8e4d9c792e2500c75dc5751a59e3",
-  "K03" = "74c39aefcac96575c6e9b1a7e3c17a22",
+  "K03" = "70ed6c22fcda96a6f11ee40402f61845",
   "K04" = "e18a2d7851e77a56b6ccdb2ece153b6c",
   "K05" = "e1dddcce3be9f8a72791affcd3b449b0",
   "K06" = "cc31a7a33aeb97d3a60c227d73a79fdd")
@@ -187,7 +193,7 @@ FROZEN_OBSERVATIONS <- c(
   "C15" = 288L,
   "K01" = 126L,
   "K02" = 240L,
-  "K03" = 1200L,
+  "K03" = 1086L,
   "K04" = 240L,
   "K05" = 240L,
   "K06" = 126L)
@@ -205,11 +211,33 @@ FROZEN_DIMENSIONS <- c(
   "C11" = 28L,
   "C12" = 28L,
   "C13" = 185L,
+  "C14" = 26L,
+  "C15" = 56L,
+  "K01" = 14L,
+  "K02" = 34L,
+  "K03" = 188L,
+  "K04" = 34L,
+  "K05" = 34L,
+  "K06" = 17L)
+FROZEN_SOURCE_LEVELS <- c(
+  "C01" = 10L,
+  "C02" = 10L,
+  "C03" = 28L,
+  "C04" = 28L,
+  "C05" = 28L,
+  "C06" = 13L,
+  "C07" = 30L,
+  "C08" = 187L,
+  "C09" = 10L,
+  "C10" = 10L,
+  "C11" = 28L,
+  "C12" = 28L,
+  "C13" = 185L,
   "C14" = 13L,
   "C15" = 28L,
   "K01" = 14L,
   "K02" = 34L,
-  "K03" = 158L,
+  "K03" = 188L,
   "K04" = 34L,
   "K05" = 34L,
   "K06" = 17L)
@@ -252,8 +280,22 @@ for (case in names(FROZEN_DIGESTS)) {
        paste0("the frozen random dimension for ", case, " is unchanged"))
     ok(identical(as.integer(row$kernel_rank), unname(FROZEN_RANKS[[case]])),
        paste0("the frozen kernel rank for ", case, " is unchanged"))
+    # random_dimension is the production quantity, source levels times q. The
+    # two differ exactly where q > 1, which is the categorical and joint rows.
+    ok(identical(as.integer(row$source_levels), unname(FROZEN_SOURCE_LEVELS[[case]])),
+       paste0("the frozen source-level count for ", case, " is unchanged"))
+    ok(identical(as.integer(row$random_dimension),
+                 unname(FROZEN_SOURCE_LEVELS[[case]]) * as.integer(row$latent_dimensions)),
+       paste0(case, "'s random dimension is source levels times q"))
   }
 }
+# Calibration must reach at least the largest scored dimension: the
+# log-determinant rule is dimension-dependent, so calibrating below the scored
+# maximum would extrapolate it past the regime it was measured in.
+ok(max(recorded$random_dimension[recorded$set == "calibration"]) >=
+     max(recorded$random_dimension[recorded$set == "qualification"]),
+   "the calibration set reaches at least the largest scored random dimension")
+
 near <- recorded[recorded$geometry == "near_limit", ]
 ok(nrow(near) == 2L && all(near$random_dimension >= 180L) &&
      all(near$random_dimension <= 200L),
@@ -281,6 +323,101 @@ for (name in names(EQ_CALIBRATION_GEOMETRY)) {
   ok(g$objects * g$raters * g$reps <= 1200L,
      paste0("calibration geometry ", name, " stays within max_observations"))
 }
+
+# ---- the frozen numerical policy is the production policy ----------------------
+# A more generous budget can turn a default rejection into an accepted result,
+# which is the disposition change this study exists to detect rather than
+# engineer away. These must track the package defaults.
+production <- .gt_d_control(list())
+for (field in c("maxit", "inner_maxit", "alternative_starts", "inner_tol", "reltol",
+                "start_sd", "stationarity_tol", "validation_reltol", "validation_inner_tol",
+                "stability_objective_tol", "stability_parameter_tol", "bound_tol",
+                "optimizer"))
+  ok(identical(EQ_CONTROL[[field]], production[[field]]),
+     paste0("the frozen control ", field, " equals the production default"))
+ok(!identical(EQ_CHARACTERIZATION_CONTROL$maxit, EQ_CONTROL$maxit),
+   "the characterization budget is distinct from the qualification policy")
+
+# ---- the covariance profile map resolves to real production arguments ----------
+for (name in names(EQ_COVARIANCE_PROFILE)) {
+  profile <- EQ_COVARIANCE_PROFILE[[name]]
+  ok(profile$covariance %in% c("diagonal", "unstructured"),
+     paste0("profile ", name, " names a real covariance argument"))
+  ok(profile$parameterization %in% c("auto", "variance", "log_cholesky", "fixed"),
+     paste0("profile ", name, " names a real parameterization"))
+}
+# auto resolves a q = 1 model to variance, so the log-Cholesky cases must ask
+# for it explicitly or they would never exercise those coordinates at all.
+ok(identical(EQ_COVARIANCE_PROFILE$log_cholesky$parameterization, "log_cholesky"),
+   "the log-Cholesky profile requests that parameterization explicitly")
+ok(identical(EQ_COVARIANCE_PROFILE$zero_capable$parameterization, "variance"),
+   "the zero-capable profile requests the variance parameterization explicitly")
+
+# ---- every frozen parameter point is admissible --------------------------------
+# Fixture validation, not qualification: build the parameter map each case would
+# actually be fitted with, and prove the three frozen stage 3 points are finite,
+# inside the declared bounds, and decode into covariance factors, with any
+# declared exact zero preserved exactly. Variance coordinates have a lower bound
+# of exactly zero, so an unclamped displacement would leave EVERY such
+# coordinate out of bounds, not merely a declared zero.
+validate_points <- function(row, geometry, label) {
+  map <- tryCatch(.eq_parameter_map(row, geometry), error = function(e) NULL)
+  ok(!is.null(map), paste0(label, " builds a parameter map"))
+  if (is.null(map)) return(invisible(NULL))
+  points <- .eq_fixed_points(map$start, map$lower, map$upper, map$zero_coordinates)
+  ok(identical(length(points), 3L), paste0(label, " has three frozen points"))
+  if (length(map$zero_coordinates))
+    ok(length(map$zero_coordinates) >= 1L,
+       paste0(label, " resolves its declared exact-zero source to a coordinate"))
+  for (name in names(points)) {
+    value <- points[[name]]
+    ok(all(is.finite(value)), paste0(label, " point ", name, " is finite"))
+    ok(all(value >= map$lower) && all(value <= map$upper),
+       paste0(label, " point ", name, " lies inside the declared bounds"))
+    decoded <- tryCatch(
+      .gt_d_covariance_factors(value[-seq_along(map$prep$start)], map$setup),
+      error = function(e) NULL)
+    ok(!is.null(decoded), paste0(label, " point ", name, " decodes into covariance factors"))
+    if (length(map$zero_coordinates))
+      ok(all(value[map$zero_coordinates] == 0),
+         paste0(label, " point ", name, " keeps the declared zero exactly zero"))
+  }
+  invisible(map)
+}
+for (i in seq_len(nrow(EQ_CORE)))
+  validate_points(EQ_CORE[i, ], EQ_GEOMETRY[[EQ_CORE$geometry[[i]]]],
+                  paste0("case ", EQ_CORE$case[[i]]))
+for (i in seq_len(nrow(EQ_CALIBRATION)))
+  validate_points(EQ_CALIBRATION[i, ],
+                  EQ_CALIBRATION_GEOMETRY[[EQ_CALIBRATION$geometry[[i]]]],
+                  paste0("calibration ", EQ_CALIBRATION$case[[i]]))
+
+# The declared exact-zero cases must actually resolve to a coordinate; a label
+# with no matching parameter would silently exercise nothing.
+for (case in names(EQ_ZERO_SOURCES)) {
+  table <- if (case %in% EQ_CORE$case) EQ_CORE else EQ_CALIBRATION
+  geometries <- if (case %in% EQ_CORE$case) EQ_GEOMETRY else EQ_CALIBRATION_GEOMETRY
+  row <- table[table$case == case, ]
+  map <- tryCatch(.eq_parameter_map(row, geometries[[row$geometry]]), error = function(e) NULL)
+  ok(!is.null(map) && length(map$zero_coordinates) == 1L,
+     paste0(case, " resolves exactly one exact-zero coordinate"))
+}
+
+# ---- transform and reference mechanics are frozen as data ----------------------
+ok(identical(sort(names(EQ_TRANSFORM_DETAIL)), sort(EQ_TRANSFORM$transform)),
+   "every transform has frozen mechanics")
+ok(identical(EQ_TRANSFORM_DETAIL$T3$to, "c"),
+   "T3 names the exact reference level it changes to")
+ok(identical(EQ_TRANSFORM_DETAIL$T4$repeats, 2L),
+   "T4 names the exact number of repeats")
+ok(all(EQ_REFERENCE$reference %in% names(EQ_REFERENCE_SETTINGS)),
+   "every predeclared reference has frozen settings")
+# glmer and clmm both default to nAGQ = 1, which is itself Laplace: defaults
+# would compare the approximation against itself and record it as independent.
+ok(EQ_REFERENCE_SETTINGS[["lme4::glmer"]]$nAGQ > 1L,
+   "the glmer reference uses quadrature rather than its Laplace default")
+ok(EQ_REFERENCE_SETTINGS[["ordinal::clmm"]]$nAGQ > 1L,
+   "the clmm reference uses quadrature rather than its Laplace default")
 
 # ---- execution remains blocked --------------------------------------------------
 ok(!file.exists(file.path(STUDY, "tolerances.csv")),

@@ -41,38 +41,31 @@ content_digest <- function(path) {
   unname(tools::md5sum(normalized))
 }
 
-.eq_designs <- list(single = .eq_design_single, crossed2 = .eq_design_crossed2,
-                    crossed3 = .eq_design_crossed3, nested = .eq_design_nested)
-
-panel_for <- function(family, geometry_name, geometry) {
-  switch(family,
-    binary = .eq_binary_panel(geometry$objects, geometry$raters, geometry$reps),
-    ordinal = .eq_ordinal_panel(geometry$objects, geometry$raters, geometry$reps,
-                                .eq_ordinal_levels(geometry_name),
-                                tail_mass = grepl("tail", geometry_name, fixed = TRUE)),
-    categorical = .eq_categorical_panel(geometry$objects, geometry$raters, geometry$reps,
-                                        c("a", "b", "c")),
-    joint_binary = .eq_joint_panel(geometry$objects, geometry$raters, geometry$reps),
-    stop("unknown family: ", family))
-}
-
 describe <- function(table, geometries, set) do.call(rbind, lapply(seq_len(nrow(table)), function(i) {
   row <- table[i, ]
   geometry <- geometries[[row$geometry]]
   if (is.null(geometry)) stop("unknown geometry: ", row$geometry)
-  panel <- panel_for(row$family, row$geometry, geometry)
-  outcomes <- if (identical(row$family, "joint_binary")) EQ_JOINT_OUTCOMES else "y"
-  design <- .eq_designs[[row$structure]]
+  panel <- .eq_panel_for(row$family, row$geometry, geometry)
+  outcomes <- .eq_outcomes(row$family)
+  design <- EQ_DESIGNS[[row$structure]]
   if (is.null(design)) stop("unknown structure: ", row$structure)
   groups <- lapply(design$term_members, function(members) .gt_d_group(panel, members))
+  prep <- .gt_d_prepare(panel, outcomes, .eq_families(row$family, row$link, row$geometry))
   columns <- c(list(panel$item, panel$rater, panel$rep, panel$occasion,
                     panel$site, panel$nested_rater),
                lapply(outcomes, function(nm) panel[[nm]]))
+  source_levels <- sum(vapply(groups, `[[`, integer(1), "nlevels"))
   data.frame(set = set, case = row$case, family = row$family, structure = row$structure,
              geometry = row$geometry, observations = nrow(panel),
              outcomes = paste(outcomes, collapse = "+"),
-             # Per latent dimension. The fitted random dimension is this times q.
-             random_dimension = sum(vapply(groups, `[[`, integer(1), "nlevels")),
+             latent_dimensions = as.integer(prep$q),
+             # The production quantity: .gt_fit_discrete() defines
+             # random_dimension as sum(group levels) * prep$q and checks
+             # max_random_dimension against THAT. Recording only the source-level
+             # count would understate the categorical and joint rows by a factor
+             # of q and silently misreport how close they sit to the ceiling.
+             source_levels = source_levels,
+             random_dimension = as.integer(source_levels * prep$q),
              kernel_rank = .gt_d_kernel_rank(groups)$rank,
              panel_digest = do.call(digest_of, columns),
              stringsAsFactors = FALSE)
