@@ -29,9 +29,19 @@
   d
 }
 
-.eq_structure <- function(d, sites = 3L, occasions = 4L) {
+.eq_structure <- function(d, local_raters = 2L, occasions = 4L) {
   d$occasion <- 1L + ((d$rep + d$rater) %% occasions)
-  d$site <- 1L + ((d$rater - 1L) %% sites)
+  # Parent-scoped nesting needs child labels that are LOCAL to the parent and
+  # reused across parents. Deriving the parent as a one-to-one function of a
+  # globally unique child (site = f(rater), injectively) makes the tuple
+  # (site, rater) partition identical to rater alone, so the design never
+  # exercises the failure mode parent scoping exists to distinguish.
+  #
+  # Here nested_rater is a small local label that repeats in every site, so
+  # nested_rater alone is strictly coarser than (site, nested_rater): dropping
+  # the parent genuinely merges distinct raters. The study's test asserts that.
+  d$site <- 1L + ((d$rater - 1L) %/% local_raters)
+  d$nested_rater <- 1L + ((d$rater - 1L) %% local_raters)
   d
 }
 
@@ -160,9 +170,9 @@
 .eq_design_crossed3 <- list(object = "item", facets = c("rater", "occasion"),
                             term_members = list(item = "item", rater = "rater",
                                                 occasion = "occasion"))
-.eq_design_nested <- list(object = "item", facets = c("rater", "site"),
+.eq_design_nested <- list(object = "item", facets = c("nested_rater", "site"),
                           term_members = list(item = "item", site = "site",
-                                              rater = c("site", "rater")))
+                                              rater = c("site", "nested_rater")))
 
 # ---- the frozen core matrix ----------------------------------------------------
 #
@@ -227,3 +237,104 @@ EQ_GEOMETRY <- list(
   medium     = list(objects = 24L, raters = 4L, reps = 3L),
   tail_mass  = list(objects = 24L, raters = 4L, reps = 3L),
   near_limit = list(objects = 180L, raters = 3L, reps = 2L))
+
+# ---- frozen numerical choices ---------------------------------------------------
+#
+# Everything a runner would otherwise have to invent AFTER results become
+# possible. A protocol that fixes the model shape but leaves the parameter
+# points, the negative magnitudes, the fixed matrices and the reference
+# assignments open is not frozen: those choices move the numbers, and choosing
+# them once results exist is choosing them with the answer in view.
+
+# Controls for every fitted case, unless a negative overlay replaces a named
+# field. Frozen here rather than defaulted, so a later change to package
+# defaults is visible as a qualification change instead of silently rescoring.
+EQ_CONTROL <- list(maxit = 200L, inner_maxit = 100L, alternative_starts = 2L)
+
+# Stage 3 evaluates at three frozen points per case: the prepared automatic
+# start and two deterministic displacements of it. The displacement is a fixed
+# function of coordinate index, so it is identical on every platform and needs
+# no stored vector whose length would depend on the case.
+EQ_FIXED_POINT_LABELS <- c("start", "displaced_positive", "displaced_negative")
+.eq_fixed_points <- function(start) {
+  shape <- ((seq_along(start) %% 5L) - 2L) / 4L
+  list(start = start,
+       displaced_positive = start + 0.25 * shape,
+       displaced_negative = start - 0.40 * shape)
+}
+
+# C05 supplies fixed source matrices rather than estimating them. q = 1 for this
+# case, so each is one by one.
+EQ_C05_FIXED_COVARIANCE <- list(item = matrix(0.64, 1L, 1L),
+                                rater = matrix(0.25, 1L, 1L))
+
+# C06 places one source at an exact zero variance, which is the coordinate the
+# zero-capable parameterization exists to represent exactly.
+EQ_C06_ZERO <- list(source = "rater", value = 0)
+
+# C08 and C13 use positive-definite log-Cholesky coordinates. The joint case
+# C15 estimates an unstructured 2x2 across its two outcomes.
+EQ_JOINT_OUTCOMES <- c("a", "b")
+
+# Exact injections for the negative overlays. "A saturating intercept with a
+# large factor" is not a specification; -15 and 20 are.
+EQ_NEGATIVE_INJECTION <- list(
+  N1 = list(kind = "fixture",   intercept = -15, factor = 20),
+  N2 = list(kind = "parameter", coordinate = 1L, value = 1e6),
+  N3 = list(kind = "control",   field = "alternative_starts", value = 0L),
+  N4 = list(kind = "control",   field = "maxit", value = 3L),
+  N5 = list(kind = "injection", target = "chol_diagonal", scale = 1.09),
+  N6 = list(kind = "start",     source = "rater", at = "lower_bound"))
+
+# Stage 7 case-to-reference assignment, predeclared. An independent reference
+# that is chosen after the equivalence result is known is not independent.
+EQ_REFERENCE <- data.frame(stringsAsFactors = FALSE, rbind(
+  c("C01", "lme4::glmer",                "binomial logit, identical model"),
+  c("C02", "dense_adaptive_integration", "binary probit, small enough to integrate directly"),
+  c("C09", "ordinal::clmm",              "cumulative logit, identical model"),
+  c("C10", "ordinal::clmm",              "cumulative probit, identical model")))
+names(EQ_REFERENCE) <- c("case", "reference", "note")
+
+# T3 transforms the categorical case, which sparse does not support. Frozen
+# decision: T3 is a DENSE-ONLY equivariance check. Sparse is recorded
+# `unsupported` under rule R3 and contributes no equivalence result. The runner
+# does not get to decide this.
+EQ_TRANSFORM_SCOPE <- c(T1 = "both", T2 = "both", T3 = "dense_only",
+                        T4 = "both", T5 = "both")
+
+# ---- calibration set (NON-SCORING) ----------------------------------------------
+#
+# Disjoint from EQ_CORE in identity AND in data. Its geometries differ, so the
+# calibration panels are different matrices from the scored ones: a tolerance
+# derived from the very panels it will later judge is not a tolerance, it is a
+# restatement of those panels' results.
+EQ_CALIBRATION_GEOMETRY <- list(
+  cal_small  = list(objects = 14L, raters = 3L, reps = 3L),
+  cal_medium = list(objects = 30L, raters = 4L, reps = 2L),
+  cal_limit  = list(objects = 150L, raters = 4L, reps = 2L))
+
+EQ_CALIBRATION <- data.frame(stringsAsFactors = FALSE, rbind(
+  c("K01", "binary",  "probit", "single",   "diagonal",     "cal_small"),
+  c("K02", "binary",  "logit",  "crossed2", "diagonal",     "cal_medium"),
+  c("K03", "binary",  "probit", "crossed3", "log_cholesky", "cal_limit"),
+  c("K04", "ordinal", "probit", "crossed2", "diagonal",     "cal_medium"),
+  c("K05", "ordinal", "logit",  "crossed2", "diagonal",     "cal_tail"),
+  c("K06", "binary",  "probit", "crossed2", "zero_capable", "cal_small")))
+names(EQ_CALIBRATION) <- c("case", "family", "link", "structure", "covariance", "geometry")
+
+# cal_tail reuses the cal_medium shape with the tail-mass composition, matching
+# how tail_mass relates to medium in the scored set.
+EQ_CALIBRATION_GEOMETRY$cal_tail <- EQ_CALIBRATION_GEOMETRY$cal_medium
+
+# Where the inherited 1e-10 parity limit applies, and where it does not.
+#
+# The existing contract covers the marginal objective and the conditional
+# objective at fixed parameters, which is what #3 and #30 qualified. It does NOT
+# extend to every stage 3 quantity: the mode score is near zero at the mode, so
+# a relative rule is undefined there, and the log determinant is a sum whose
+# attainable agreement grows with dimension. Those receive calibrated
+# per-quantity rules instead. Frozen here so the boundary is not redrawn during
+# execution.
+EQ_INHERITED_PARITY <- c("marginal_negative_log_likelihood", "conditional_objective")
+EQ_CALIBRATED_QUANTITIES <- c("predictor", "mode_score", "hessian", "conditional_mode",
+                              "log_determinant", "latent_g_phi", "equivariance")

@@ -117,15 +117,25 @@ accommodated.
 
 Inherited unchanged from already-frozen contracts:
 
-    fixed-parameter dense/sparse parity     1e-10                 (#3 / #30)
+    marginal negative log likelihood        1e-10                 (#3 / #30)
+    conditional objective                   1e-10                 (#3 / #30)
     fitted objective relative agreement     1e-6
     fitted parameter distance               0.02
     solve-validity invariant                32 * random_dimension * eps  (#34)
 
+**Where the inherited 1e-10 applies, and where it does not.** The existing
+parity contract covers the marginal negative log likelihood and the conditional
+objective at fixed parameters, which is what #3 and #30 qualified. It is not
+extended to every stage 3 quantity. The mode score is near zero at the mode, so
+a relative rule is undefined there; the log determinant is a sum whose
+attainable agreement grows with dimension. The exact split is frozen in
+`cases.R` as `EQ_INHERITED_PARITY` and `EQ_CALIBRATED_QUANTITIES`, so the
+boundary cannot be redrawn during execution.
+
 Established by the separate calibration phase in `CALIBRATION.md` before any
-qualification case runs: per-quantity stage 3 rules, the stage 4 latent G/Phi
-rule, and the stage 5 equivariance rule. Those are quantity-specific mixed
-absolute/relative or normwise rules, not one blanket number.
+qualification case runs: the remaining stage 3 quantities, the stage 4 latent
+G/Phi rule, and the stage 5 equivariance rule. Those are quantity-specific
+mixed absolute/relative or normwise rules, not one blanket number.
 
 If calibration appears to require widening an inherited limit, execution stops
 and the discrepancy is investigated. The limit is not widened.
@@ -148,8 +158,39 @@ interchangeable.
 The 2,400-row cold-solve specimen stays outside this matrix. It remains
 characterization evidence, not a qualification case.
 
+## Frozen numerical choices
+
+`cases.R` additionally freezes everything the runner would otherwise choose
+after results become possible: the control settings (`EQ_CONTROL`), the three
+stage 3 evaluation points and the deterministic rule that produces them
+(`EQ_FIXED_POINT_LABELS`, `.eq_fixed_points`), C05's fixed source matrices
+(`EQ_C05_FIXED_COVARIANCE`), C06's exact-zero coordinate (`EQ_C06_ZERO`), the
+exact injection for every negative overlay (`EQ_NEGATIVE_INJECTION` — "a
+saturating intercept with a large factor" is not a specification, -15 and 20
+are), the case-to-reference assignment for stage 7 (`EQ_REFERENCE`), and the
+scope of each transform (`EQ_TRANSFORM_SCOPE`).
+
+**T3 is frozen as a dense-only equivariance check.** It transforms the
+categorical case, which sparse does not support, so sparse is recorded
+`unsupported` under rule R3 and contributes no equivalence result there. The
+runner does not decide this.
+
+Random dimensions and kernel ranks are recorded per case in
+`fixture-digests.csv` and pinned by the study's test, so the near-limit cases
+cannot quietly shrink: C08 is 187 and C13 is 185 against the 200 ceiling.
+
 ## Record
 
-One row per attempted case in `results-schema.csv`'s columns, sufficient to
-re-run without this document. Numerical equivalence and approximation error
-occupy separate columns and are never combined into a single verdict.
+`results-schema.csv` defines the columns. Granularity is frozen as
+**case x backend x stage x quantity**, with `row_kind` distinguishing:
+
+    quantity          one measured difference against one tolerance
+    case_disposition  the case-level accepted/rejected/refused/unsupported outcome
+    validity_event    an R1 backend numerical-validity event
+
+Stage 3 alone contributes seven quantities per backend, so a single row per
+case cannot carry the result. Fixing the granularity here stops the execution
+change from choosing it.
+
+Numerical equivalence and approximation error occupy separate columns and are
+never combined into a single verdict.

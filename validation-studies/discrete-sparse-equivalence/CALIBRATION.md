@@ -12,17 +12,35 @@ verdict, and none of it appears in the qualification record's outcome columns.
 
 ## The calibration set
 
-Six cases, disjoint from `EQ_CORE`, spanning the same envelope dimensions so
-the calibrated rules are not extrapolated from a narrower regime than they will
-judge. Deterministic, no random number generation, non-degeneracy asserted at
-construction exactly as in `cases.R`.
+Six cases, machine-defined in `cases.R` as `EQ_CALIBRATION`, spanning the same
+envelope dimensions so the calibrated rules are not extrapolated from a
+narrower regime than they will judge. Deterministic, no random number
+generation, non-degeneracy asserted at construction exactly as for the scored
+cases.
 
-    K01  binary  probit  single    diagonal      small        q small
-    K02  binary  logit   crossed2  diagonal      medium       q medium
-    K03  binary  probit  crossed3  log_cholesky  near_limit   q near 200
-    K04  ordinal probit  crossed2  diagonal      medium       interior mass
-    K05  ordinal logit   crossed2  diagonal      tail_mass    extreme categories rare
-    K06  binary  probit  crossed2  zero_capable  small        exact-zero coordinate
+**Disjoint in data, not only in name.** The calibration geometries
+(`EQ_CALIBRATION_GEOMETRY`) differ from the scored ones, so the calibration
+panels are different matrices with different digests. A tolerance derived from
+the very panels it will later judge is not a tolerance; it is a restatement of
+those panels' results.
+
+    case  family   link    structure  covariance    geometry    observations  random dim
+    K01   binary   probit  single     diagonal      cal_small    126            14
+    K02   binary   logit   crossed2   diagonal      cal_medium   240            34
+    K03   binary   probit  crossed3   log_cholesky  cal_limit   1200           158
+    K04   ordinal  probit  crossed2   diagonal      cal_medium   240            34
+    K05   ordinal  logit   crossed2   diagonal      cal_tail     240            34
+    K06   binary   probit  crossed2   zero_capable  cal_small    126            17
+
+Their panel digests, observation counts, random dimensions and kernel ranks are
+frozen in `fixture-digests.csv` under `set = calibration` and pinned by the
+study's test, exactly as the scored fixtures are. The calibration inputs are at
+least as frozen as the cases they will be used to judge, because those
+observations are what determine the tolerances.
+
+Calibration evaluates at the same three frozen fixed-parameter points as the
+scored cases (`EQ_FIXED_POINT_LABELS` and `.eq_fixed_points`) and under the
+same frozen controls (`EQ_CONTROL`).
 
 ## Quantities and comparison rules
 
