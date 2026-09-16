@@ -52,6 +52,16 @@ calibrated in the regime it will be judged in.
 
 ## Quantities and comparison rules
 
+**The formulas are already frozen.** `EQ_METRIC` and `.eq_difference()` in
+`cases.R` fix the exact comparison per quantity, including the symmetric
+denominator and the absolute floor. Calibration establishes only the tolerance
+VALUES to attach to them. A calibration that could also choose the formula
+would be choosing the ruler after seeing what it measures.
+
+The same applies to where the comparison happens: `EQ_STAGE3_LATENT_POINT` is
+zero, and the stage 1 validity witnesses in `EQ_VALIDITY` carry their own frozen
+formulas and bounds, so R1 classification is not a calibration output either.
+
 Every rule is quantity-specific. A single blanket tolerance is simultaneously
 too loose for a small-magnitude quantity and unachievable for one that grows
 with dimension, which is why stage 3 is not scored at a flat `1e-10`.

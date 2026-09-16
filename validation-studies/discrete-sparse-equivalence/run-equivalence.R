@@ -1,18 +1,24 @@
-# Qualification runner for the dense/sparse equivalence study.
+# Immutable launcher for the dense/sparse equivalence qualification.
 #
-# REFUSES TO RUN until the calibration table exists. The protocol requires
-# tolerances to be set before results are recorded, and a runner that will
-# happily execute without them makes that requirement advisory. The check below
-# is what makes it structural.
+# This file is one of the externally pinned frozen sources and MUST NOT CHANGE.
+# It contains no comparison logic, deliberately: the code that judges the cases
+# has to be reviewable on its own before it is allowed to produce the record it
+# reports, and a runner whose judging logic lived here could only be added by
+# editing a file the protocol says may never move.
+#
+# The separation is therefore structural. This launcher enforces the ordering;
+# the implementation named below arrives in its own later change and receives
+# its own review, without either one being able to redefine the other's rules.
 #
 # Run from the project directory, after calibration has been frozen:
 #   Rscript --vanilla validation-studies/discrete-sparse-equivalence/run-equivalence.R
 STUDY <- file.path("validation-studies", "discrete-sparse-equivalence")
 TOLERANCES <- file.path(STUDY, "tolerances.csv")
+IMPLEMENTATION <- file.path(STUDY, "equivalence-runner-impl.R")
 
 if (!file.exists(TOLERANCES))
-  stop("Refusing to run: ", TOLERANCES, " does not exist. The three calibrated ",
-       "tolerance rules must be frozen, in their own change against the merged ",
+  stop("Refusing to run: ", TOLERANCES, " does not exist. The calibrated ",
+       "tolerance values must be frozen, in their own change against the merged ",
        "protocol, before any qualification case is executed. See CALIBRATION.md.",
        call. = FALSE)
 
@@ -21,20 +27,20 @@ if (!file.exists(fixtures))
   stop("Refusing to run: ", fixtures, " does not exist. Run freeze-fixtures.R ",
        "first so the panels this scores against are pinned.", call. = FALSE)
 
+if (!file.exists(IMPLEMENTATION))
+  stop("Refusing to run: ", IMPLEMENTATION, " does not exist. The judging ",
+       "implementation is added by its own change, reviewed separately from this ",
+       "protocol and from the calibrated tolerances.", call. = FALSE)
+
 source(file.path(STUDY, "cases.R"))
 for (f in c("design", "discrete_response", "discrete_dense", "discrete_mode",
             "discrete_sparse", "discrete_sparse_mode", "discrete", "diagnostics_stages"))
   source(file.path("R", paste0(f, ".R")))
 
-# Stage 1 is the backend-neutral validity gate and runs before any comparison.
-# Rule R1: a failure here is a backend numerical-validity event, recorded as
-# such, and the case stops rather than being scored as an equivalence failure.
-# Rule R2: neither backend is the oracle, so this gate is applied to each
-# implementation against algebra, never against the other implementation.
-#
-# The comparison stages are written against the frozen tolerance table and are
-# deliberately not implemented here: doing so before the tolerances exist would
-# bake in a placeholder that someone later mistakes for a decision.
-stop("The comparison stages are implemented in the execution change, against ",
-     "the frozen tolerance table. This runner currently validates only that ",
-     "the freeze preconditions are met.", call. = FALSE)
+# The implementation inherits the frozen rulers from cases.R and the frozen
+# tolerance VALUES from tolerances.csv. It may not redefine either: the metric
+# formulas, the stage 3 latent evaluation point and the stage 1 validity
+# witnesses are fixed here, and only the numbers were left to calibration.
+source(IMPLEMENTATION)
+eq_run_qualification(study = STUDY, tolerances = read.csv(TOLERANCES,
+                                                          stringsAsFactors = FALSE))

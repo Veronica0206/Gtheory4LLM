@@ -481,3 +481,89 @@ EQ_DESIGNS <- list(single = .eq_design_single, crossed2 = .eq_design_crossed2,
        parameterization = setup$parameterization, panel = panel,
        prep = prep, groups = groups, setup = setup, control = control)
 }
+
+# ---- the ruler: frozen comparison mathematics ----------------------------------
+#
+# Frozen BEFORE calibration measures anything with it. Calibration establishes
+# the tolerance VALUES; it does not get to choose the formulas those values are
+# attached to, and neither does the later runner implementation.
+
+# Where stage 3 quantities are evaluated.
+#
+# Predictor, conditional objective, mode score and Hessian are compared at the
+# SAME latent point in both backends, and that point is exactly zero. Comparing
+# them at each backend's own conditional mode would compare two different
+# problems and then report the agreement as a property of the implementations.
+# The solved quantities are compared as each backend produces them, which is the
+# point of solving.
+EQ_STAGE3_LATENT_POINT <- 0
+EQ_STAGE3_AT_COMMON_LATENT <- c("predictor", "conditional_objective",
+                                "mode_score", "hessian")
+EQ_STAGE3_SOLVED <- c("conditional_mode", "log_determinant",
+                      "marginal_negative_log_likelihood")
+
+# The exact metric per quantity. "Relative to max|eta|" does not say whose
+# max, and using one backend's magnitude as the scale would make the ruler
+# asymmetric in exactly the way rule R2 forbids. Every relative form below uses
+# a SYMMETRIC denominator, and every one carries an explicit absolute floor so a
+# near-zero quantity cannot inflate the ratio.
+EQ_METRIC <- list(
+  predictor                        = list(form = "symmetric_relative", floor = 1),
+  hessian                          = list(form = "symmetric_relative", floor = 1),
+  conditional_mode                 = list(form = "symmetric_relative", floor = 1),
+  equivariance                     = list(form = "symmetric_relative", floor = 1),
+  # Near zero at the mode, so a relative rule is undefined there.
+  mode_score                       = list(form = "absolute"),
+  # A sum whose attainable agreement grows with dimension.
+  log_determinant                  = list(form = "absolute"),
+  # Bounded ratios; an absolute rule is the meaningful one.
+  latent_g_phi                     = list(form = "absolute"),
+  # The inherited contract from #3 and #30 is an ABSOLUTE 1e-10 difference,
+  # not a relative one. Recorded in the form it was actually qualified in.
+  conditional_objective            = list(form = "absolute"),
+  marginal_negative_log_likelihood = list(form = "absolute"))
+
+.eq_difference <- function(a, b, quantity) {
+  metric <- EQ_METRIC[[quantity]]
+  if (is.null(metric)) stop("no frozen metric for quantity: ", quantity)
+  a <- as.numeric(a)
+  b <- as.numeric(b)
+  if (length(a) != length(b) || !length(a)) return(Inf)
+  if (!all(is.finite(a)) || !all(is.finite(b))) return(Inf)
+  numerator <- max(abs(a - b))
+  switch(metric$form,
+    absolute = numerator,
+    symmetric_relative = numerator / (metric$floor + max(max(abs(a)), max(abs(b)))),
+    stop("unknown metric form: ", metric$form))
+}
+
+# Stage 1 backend-local validity witnesses.
+#
+# The R1/R2 classification boundary is the one thing #14 proved must not be
+# decided after a disagreement appears. Each witness is evaluated on ONE backend
+# against algebra, never against the other backend, and a failure makes the case
+# an R1 validity event rather than an equivalence failure.
+#
+# All three numerical bounds use the same scale-aware ruler already justified
+# and frozen in #34: one rule, measured once, rather than three constants chosen
+# separately. Healthy observations of these quantities are at machine precision,
+# so the margin is many orders of magnitude.
+EQ_VALIDITY_BOUND <- function(random_dimension)
+  32 * random_dimension * .Machine$double.eps
+
+EQ_VALIDITY <- list(
+  solve_backward_error = list(
+    formula = "max|H x - b| / (norm(H, 'I') * max|x| + max|b|)",
+    bound = "EQ_VALIDITY_BOUND(random_dimension)"),
+  factor_reconstruction = list(
+    formula = "max|R'R - H| / max|H|",
+    bound = "EQ_VALIDITY_BOUND(random_dimension)"),
+  log_determinant_witness = list(
+    formula = "|logdet - sum(log(eigenvalues(H)))|",
+    bound = "EQ_VALIDITY_BOUND(random_dimension)"),
+  finite_mode = list(formula = "all(is.finite(u))", bound = "exact"),
+  finite_objective = list(formula = "is.finite(nll) && nll < 1e99", bound = "exact"))
+
+# The judging implementation the immutable launcher sources. Absent until its
+# own reviewed change adds it.
+EQ_RUNNER_IMPLEMENTATION <- "equivalence-runner-impl.R"

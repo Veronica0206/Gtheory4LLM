@@ -34,12 +34,12 @@ content_digest <- function(path) {
 
 # ---- the governed sources are pinned from outside themselves -------------------
 FROZEN_SOURCES <- c(
-  "PROTOCOL.md" = "25f4be560766fccb52839e3b8aad26c2",
-  "CALIBRATION.md" = "1e7531fb0530342b83632f5d52b2f549",
+  "PROTOCOL.md" = "3a124a83ee25fc71bab5a01d502fcca2",
+  "CALIBRATION.md" = "2e7a53d66714dbaedd50380640ac6448",
   "README.md" = "2f73e051d4be697fa35841eba91a9f81",
-  "cases.R" = "f13b836c5d4d7c09092b03921c439e32",
+  "cases.R" = "4f5b58c1c10ff859e65a968ee84311e9",
   "freeze-fixtures.R" = "96a3ff727d433c5ff4d8c741aa0eaf85",
-  "run-equivalence.R" = "b598b2c7bdd792325a733fca38f5012f",
+  "run-equivalence.R" = "7d4ac0eccc1d5d57d31b871fbb98d4a7",
   "results-schema.csv" = "387a602d1dcb6e70ad1eaa62f74cc150")
 for (name in names(FROZEN_SOURCES))
   ok(identical(content_digest(file.path(STUDY, name)), unname(FROZEN_SOURCES[[name]])),
@@ -424,7 +424,67 @@ ok(!file.exists(file.path(STUDY, "tolerances.csv")),
    "no tolerance table exists yet, so no qualification case may be scored")
 runner <- paste(readLines(file.path(STUDY, "run-equivalence.R"), warn = FALSE), collapse = "\n")
 ok(grepl("Refusing to run", runner, fixed = TRUE),
-   "the runner refuses to execute without a frozen tolerance table")
+   "the launcher refuses to execute without a frozen tolerance table")
+
+# The launcher is frozen and immutable, so it must carry no judging logic: the
+# implementation that scores the cases has to be reviewable on its own, and if
+# it lived here it could only be added by editing a pinned file.
+ok(!file.exists(file.path(STUDY, EQ_RUNNER_IMPLEMENTATION)),
+   "the judging implementation is absent from the protocol freeze")
+ok(grepl(EQ_RUNNER_IMPLEMENTATION, runner, fixed = TRUE),
+   "the launcher names the exact future implementation file")
+ok(grepl("does not exist. The judging", runner, fixed = TRUE),
+   "the launcher refuses to execute without that implementation")
+# Ordering: tolerances are checked before the implementation is reachable.
+ok(regexpr("TOLERANCES", runner, fixed = TRUE) <
+     regexpr("source(IMPLEMENTATION)", runner, fixed = TRUE),
+   "the launcher checks the tolerance table before sourcing any judging code")
+
+# ---- the ruler is frozen --------------------------------------------------------
+ok(identical(EQ_STAGE3_LATENT_POINT, 0),
+   "stage 3's common latent evaluation point is frozen at zero")
+ok(all(c("predictor", "conditional_objective", "mode_score", "hessian") %in%
+         EQ_STAGE3_AT_COMMON_LATENT),
+   "the unsolved stage 3 quantities are compared at a common latent point")
+ok(length(intersect(EQ_STAGE3_AT_COMMON_LATENT, EQ_STAGE3_SOLVED)) == 0L,
+   "no quantity is both common-latent and solved")
+ok(all(c(EQ_INHERITED_PARITY, setdiff(EQ_CALIBRATED_QUANTITIES, "equivariance")) %in%
+         names(EQ_METRIC)),
+   "every judged quantity has a frozen metric")
+# Symmetric, or the ruler privileges one backend and contradicts rule R2.
+left <- c(1, 2, 3)
+right <- c(1.1, 2, 3)
+for (quantity in names(EQ_METRIC))
+  ok(identical(.eq_difference(left, right, quantity),
+               .eq_difference(right, left, quantity)),
+     paste0("the metric for ", quantity, " is symmetric in its two arguments"))
+for (quantity in names(EQ_METRIC)) {
+  metric <- EQ_METRIC[[quantity]]
+  ok(metric$form %in% c("absolute", "symmetric_relative"),
+     paste0(quantity, " names a frozen metric form"))
+  if (identical(metric$form, "symmetric_relative"))
+    ok(is.numeric(metric$floor) && metric$floor > 0,
+       paste0(quantity, " carries a positive absolute floor"))
+}
+ok(identical(EQ_METRIC$marginal_negative_log_likelihood$form, "absolute") &&
+     identical(EQ_METRIC$conditional_objective$form, "absolute"),
+   "the inherited contract is recorded as the absolute difference it was qualified as")
+ok(!is.finite(.eq_difference(c(1, NaN), c(1, 2), "predictor")),
+   "a non-finite input makes the difference non-finite rather than passing")
+ok(!is.finite(.eq_difference(c(1, 2), c(1, 2, 3), "predictor")),
+   "a length mismatch makes the difference non-finite rather than passing")
+
+# Stage 1 witnesses carry their own frozen formulas and bounds, so R1
+# classification cannot be invented after a disagreement appears.
+for (witness in names(EQ_VALIDITY)) {
+  entry <- EQ_VALIDITY[[witness]]
+  ok(is.character(entry$formula) && nzchar(entry$formula),
+     paste0("validity witness ", witness, " has a frozen formula"))
+  ok(is.character(entry$bound) && nzchar(entry$bound),
+     paste0("validity witness ", witness, " has a frozen bound"))
+}
+ok(identical(EQ_VALIDITY_BOUND(187), 32 * 187 * .Machine$double.eps),
+   "the validity bound is the scale-aware rule frozen in #34")
 ok(!file.exists(file.path(STUDY, "results.csv")),
    "the freeze contains no qualification results")
 ok(!file.exists(file.path(STUDY, "calibration-results.csv")),

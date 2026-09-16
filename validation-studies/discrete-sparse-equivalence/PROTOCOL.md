@@ -209,6 +209,50 @@ per-latent source-level count is recorded separately as `source_levels`. The
 two differ only where q > 1, which is exactly the categorical and joint rows:
 C14 is 26 rather than 13, and C15 is 56 rather than 28.
 
+## The ruler is frozen before anything measures with it
+
+`cases.R` freezes the comparison mathematics, not only the case list.
+Calibration establishes the tolerance VALUES; it does not choose the formulas
+those values attach to, and neither does the later runner implementation.
+
+**Where stage 3 is evaluated.** `EQ_STAGE3_LATENT_POINT` is exactly zero.
+Predictor, conditional objective, mode score and Hessian are compared at that
+same latent point in BOTH backends. Comparing them at each backend's own
+conditional mode would compare two different problems and then report the
+agreement as a property of the implementations. The solved quantities --
+conditional mode, log determinant, marginal negative log likelihood -- are
+compared as each backend produces them, which is the point of solving.
+
+**The exact metric.** `EQ_METRIC` and `.eq_difference()` fix the formula per
+quantity. Every relative form uses a SYMMETRIC denominator: scaling by one
+backend's magnitude would make the ruler asymmetric in exactly the way rule R2
+forbids. Every relative form carries an explicit absolute floor, so a near-zero
+quantity cannot inflate the ratio. The mode score, log determinant and latent
+G/Phi are absolute, and the inherited contract from #3 and #30 is recorded as
+the ABSOLUTE 1e-10 difference it was actually qualified as, not as a relative
+one.
+
+**Stage 1 validity witnesses.** `EQ_VALIDITY` fixes the exact backend-local
+formula and bound for each. Each is evaluated on ONE backend against algebra,
+never against the other backend. All three numerical bounds use the same
+scale-aware ruler already justified in #34, `32 * random_dimension * eps`: one
+rule measured once, rather than three constants chosen separately. This is the
+R1/R2 classification boundary, which #14 proved must not be decided after a
+disagreement appears.
+
+## The runner is a launcher
+
+`run-equivalence.R` is frozen and contains NO comparison logic. It enforces the
+ordering -- tolerances frozen, fixtures pinned, implementation present -- and
+then sources `equivalence-runner-impl.R`, which is absent here and arrives in
+its own separately reviewed change.
+
+The separation is structural rather than procedural. The code that judges the
+cases must be reviewable on its own before it can produce the record it
+reports, and if the judging logic lived in the frozen launcher it could only be
+added by editing a file this protocol says may never move. The implementation
+inherits the rulers above and the calibrated values, and may redefine neither.
+
 ## Record
 
 `results-schema.csv` defines the columns. Granularity is frozen as
