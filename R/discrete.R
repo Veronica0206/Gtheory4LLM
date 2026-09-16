@@ -14,6 +14,36 @@
 
 .gt_d_stop <- function(...) stop(..., call. = FALSE)
 
+# Why a starting-value refusal happened, for the error message and the CI log.
+#
+# The scalar objective has already refused by the time this runs. It describes
+# that refusal and nothing else: it is observational, and can never convert the
+# refusal into a usable start.
+#
+# That rule carries weight. The native defect this guards against is
+# intermittent, so a replay that happens to succeed establishes only that the
+# failure did not reproduce on a second call. It is not evidence that the first
+# evaluation was valid. Treating a successful replay as a rescue would turn the
+# numerical policy into "retry until the library behaves", which is precisely
+# the behaviour the invariant exists to prevent.
+.gt_d_start_failure_detail <- function(replay) {
+  if (!is.list(replay)) return("; diagnostic replay was unavailable")
+  if (isTRUE(replay$valid)) return("; diagnostic replay did not reproduce the invalid solve")
+  if (is.null(replay$reason)) return("")
+  detail <- paste0("; reason=", replay$reason)
+  eta <- replay$solve_backward_error
+  bound <- replay$solve_validity_bound
+  if (is.numeric(eta) && length(eta) == 1L && is.numeric(bound) && length(bound) == 1L)
+    detail <- paste0(detail, ", backward_error=", format(eta, digits = 6),
+                     ", solve_validity_bound=", format(bound, digits = 6),
+                     ", backward_error_over_bound=", format(eta / bound, digits = 6),
+                     ", random_dimension=", replay$random_dimension)
+  if (!is.null(replay$probe_index) && length(replay$probe_index) == 1L &&
+      !is.na(replay$probe_index))
+    detail <- paste0(detail, ", probe_index=", replay$probe_index)
+  detail
+}
+
 .gt_d_control <- function(control) {
   defaults <- list(max_random_dimension = 200L, max_observations = 1200L,
                    max_parameters = 80L, max_dense_bytes = 512 * 1024^2,
@@ -674,8 +704,15 @@
     .gt_d_stop("Discrete prototype exceeds max_parameters (", control$max_parameters, ").")
   objective <- function(par) .laplace(par, prep, groups, setup, control)
   initial <- objective(start)
-  if (!is.finite(initial) || initial >= 1e99)
-    .gt_d_stop("The discrete likelihood did not yield a converged finite inner mode at starting values.")
+  if (!is.finite(initial) || initial >= 1e99) {
+    # One detailed replay, to describe the refusal above rather than to retry
+    # it. A replay that succeeds does not rescue it; see
+    # .gt_d_start_failure_detail. The refusal stands either way.
+    replay <- tryCatch(.laplace(start, prep, groups, setup, control, details = TRUE),
+                       error = function(e) NULL)
+    .gt_d_stop("The discrete likelihood did not yield a converged finite inner mode at starting values",
+               .gt_d_start_failure_detail(replay), ".")
+  }
   optimizer_control <- list(maxit = control$maxit,
     factr = control$reltol / .Machine$double.eps, trace = control$trace)
   primary_fit <- .gt_d_optimize(start, objective, lower, upper,

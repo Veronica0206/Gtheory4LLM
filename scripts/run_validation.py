@@ -26,6 +26,12 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # The frozen fixed-parameter targets are the contract a sparse
                  # backend will be judged against, so whether they reproduce off
                  # Linux has to be measured rather than assumed.
+                 # The dense solve-validity invariant guards against a native
+                 # factorization that reports success and returns a factor which
+                 # does not solve its own system. That is a platform-dependent
+                 # failure by nature, so it has to run on every platform rather
+                 # than only on Linux.
+                 "test_discrete_solve_validity.R",
                  "test_discrete_reference.R",
                  # The sparse mode solver runs the inner conditional solve, and
                  # a platform-dependent inner solve is the open question in #14.
