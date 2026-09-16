@@ -32,6 +32,10 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # failure by nature, so it has to run on every platform rather
                  # than only on Linux.
                  "test_discrete_solve_validity.R",
+                 # The equivalence freeze is a contract about the study's
+                 # inputs, so it must hold on every platform the study will
+                 # later be executed on.
+                 "test_discrete_equivalence_freeze.R",
                  "test_discrete_reference.R",
                  # The sparse mode solver runs the inner conditional solve, and
                  # a platform-dependent inner solve is the open question in #14.
