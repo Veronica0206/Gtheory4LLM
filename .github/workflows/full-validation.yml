@@ -79,6 +79,13 @@ jobs:
           # The overfull-box gate reports which box overflowed only in the
           # LaTeX log. Build somewhere the upload step can reach it.
           GTHEORY_MANUAL_CHECK_DIR: ${{ runner.temp }}/gtheory-manual
+          # Issue #14 recurs intermittently and the tests print their evidence
+          # to the log, which is enough to read and not enough to replay. When
+          # a run trips a retention trigger it writes the exact matrices and
+          # right-hand sides here instead, and the upload step below preserves
+          # them. Outside the repository on purpose: the last step of this job
+          # asserts that running the tests changed no tracked file.
+          GTHEORY_ISSUE14_ARTIFACT_DIR: ${{ runner.temp }}/gtheory-issue14
         shell: bash
         run: |
           set -o pipefail
@@ -99,6 +106,7 @@ jobs:
             ${{ runner.temp }}/gtheory-manual/*.pdf
             ${{ runner.temp }}/gtheory-manual/work/*.log
             ${{ runner.temp }}/gtheory-manual/work/*.tex
+            ${{ runner.temp }}/gtheory-issue14/*.rds
           if-no-files-found: ignore
       - name: Ensure verification and tests did not change tracked files
         run: git diff --exit-code
