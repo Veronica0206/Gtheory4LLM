@@ -233,7 +233,14 @@ the ABSOLUTE 1e-10 difference it was actually qualified as, not as a relative
 one.
 
 **Stage 1 validity witnesses.** `EQ_VALIDITY` fixes the exact backend-local
-formula and bound for each. Each is evaluated on ONE backend against algebra,
+formula and bound for each. The factor-reconstruction witness is defined
+against a reconstruction expressed in the ORIGINAL H coordinate order, with the
+dense and sparse realizations frozen separately: a bare `max|R'R - H|` is a
+dense-only formula, because CHOLMOD is called with `perm = TRUE` and its
+contract is `P H P' = L L'`. Measured on these fixtures, the unpermuted
+comparison would have misclassified C06, C11 and C12 as validity events with
+residuals of 0.081, 0.224 and 0.071, while passing by accident at C07 where the
+permutation happens to be a symmetry of that H. Each is evaluated on ONE backend against algebra,
 never against the other backend. All three numerical bounds use the same
 scale-aware ruler already justified in #34, `32 * random_dimension * eps`: one
 rule measured once, rather than three constants chosen separately. This is the

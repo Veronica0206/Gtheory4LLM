@@ -14,6 +14,9 @@ STUDY <- file.path("validation-studies", "discrete-sparse-equivalence")
 source(file.path(STUDY, "cases.R"))
 source(file.path("R", "design.R"))
 source(file.path("R", "discrete_response.R"))
+source(file.path("R", "discrete_dense.R"))
+source(file.path("R", "discrete_mode.R"))
+source(file.path("R", "discrete_sparse.R"))
 source(file.path("R", "discrete.R"))
 
 fails <- 0L
@@ -34,10 +37,10 @@ content_digest <- function(path) {
 
 # ---- the governed sources are pinned from outside themselves -------------------
 FROZEN_SOURCES <- c(
-  "PROTOCOL.md" = "3a124a83ee25fc71bab5a01d502fcca2",
+  "PROTOCOL.md" = "c05807cfc9801a24fb003ee91e474af8",
   "CALIBRATION.md" = "2e7a53d66714dbaedd50380640ac6448",
   "README.md" = "2f73e051d4be697fa35841eba91a9f81",
-  "cases.R" = "4f5b58c1c10ff859e65a968ee84311e9",
+  "cases.R" = "9bf866425c7a697f2649663fff97c6b1",
   "freeze-fixtures.R" = "96a3ff727d433c5ff4d8c741aa0eaf85",
   "run-equivalence.R" = "7d4ac0eccc1d5d57d31b871fbb98d4a7",
   "results-schema.csv" = "387a602d1dcb6e70ad1eaa62f74cc150")
@@ -485,6 +488,49 @@ for (witness in names(EQ_VALIDITY)) {
 }
 ok(identical(EQ_VALIDITY_BOUND(187), 32 * 187 * .Machine$double.eps),
    "the validity bound is the scale-aware rule frozen in #34")
+
+# The factor-reconstruction witness must be backend-neutral in substance, not
+# only in label. CHOLMOD is called with perm = TRUE and its contract is
+# P H P' = L L', so a bare max|R'R - H| is a dense-only formula.
+reconstruction <- EQ_VALIDITY$factor_reconstruction
+ok(grepl("ORIGINAL H coordinate order", reconstruction$formula, fixed = TRUE),
+   "the reconstruction witness requires the original coordinate order")
+ok(is.character(reconstruction$dense) && is.character(reconstruction$sparse),
+   "the reconstruction witness freezes a realization for each backend")
+ok(grepl("P' L L' P", reconstruction$sparse, fixed = TRUE),
+   "the sparse realization undoes the permutation")
+
+# And the distinction is asserted numerically, so a later implementation cannot
+# quietly compare crossprod(L) against unpermuted H. C06's permutation is not a
+# symmetry of its Hessian, so the unpermuted comparison is enormous there.
+reconstruction_row <- EQ_CORE[EQ_CORE$case == "C06", ]
+reconstruction_map <- tryCatch(
+  .eq_parameter_map(reconstruction_row, EQ_GEOMETRY[[reconstruction_row$geometry]]),
+  error = function(e) NULL)
+ok(!is.null(reconstruction_map), "C06 builds a map for the reconstruction check")
+if (!is.null(reconstruction_map)) {
+  cov_factors <- .gt_d_covariance_factors(
+    reconstruction_map$start[-seq_along(reconstruction_map$prep$start)],
+    reconstruction_map$setup)
+  backend <- .gt_d_sparse_backend(reconstruction_map$groups, cov_factors,
+                                  reconstruction_map$prep$n, reconstruction_map$prep$q)
+  kernel <- .gt_d_response_kernel(
+    .gt_d_baseline(reconstruction_map$start, reconstruction_map$prep),
+    reconstruction_map$start, reconstruction_map$prep)
+  sparse_h <- .gt_d_sparse_hessian(kernel$curvature, backend$W, reconstruction_map$prep$n)
+  dense_h <- as.matrix(Matrix::forceSymmetric(sparse_h))
+  factorization <- .gt_d_sparse_factor(sparse_h)
+  scale <- max(abs(dense_h))
+  bound <- EQ_VALIDITY_BOUND(nrow(dense_h))
+  unpermuted <- max(abs(as.matrix(Matrix::tcrossprod(
+    methods::as(factorization$factor, "CsparseMatrix"))) - dense_h)) / scale
+  aware <- max(abs(as.matrix(Reduce(`%*%`,
+    Matrix::expand2(factorization$factor, LDL = FALSE))) - dense_h)) / scale
+  ok(unpermuted > bound,
+     "the unpermuted comparison really does fail, so the distinction is not cosmetic")
+  ok(aware <= bound,
+     "the permutation-aware reconstruction satisfies the frozen validity bound")
+}
 ok(!file.exists(file.path(STUDY, "results.csv")),
    "the freeze contains no qualification results")
 ok(!file.exists(file.path(STUDY, "calibration-results.csv")),

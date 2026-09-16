@@ -555,8 +555,27 @@ EQ_VALIDITY <- list(
   solve_backward_error = list(
     formula = "max|H x - b| / (norm(H, 'I') * max|x| + max|b|)",
     bound = "EQ_VALIDITY_BOUND(random_dimension)"),
+  # Backend-neutral by construction, not by label.
+  #
+  # The residual must be taken against a reconstruction expressed in the
+  # ORIGINAL H coordinate order. A bare max|R'R - H| is a DENSE-ONLY formula:
+  # the sparse path calls CHOLMOD with perm = TRUE, whose contract is
+  # P H P' = L L', so L L' reconstructs the permuted matrix and comparing it
+  # directly against H is simply the wrong quantity.
+  #
+  # This is not a theoretical nicety. Measured on the frozen fixtures, the
+  # unpermuted comparison gives residuals of 0.081 at C06, 0.224 at C11 and
+  # 0.071 at C12, against about 1e-15 for the permutation-aware form -- so
+  # three of the fifteen scored cases would have been misclassified as R1
+  # backend numerical-validity events at the gate that stops a case before it
+  # is ever compared. It also passes by accident elsewhere: at C07 the
+  # permutation happens to be a symmetry of that particular H, so the wrong
+  # formula agrees to 2.7e-15 there. Passing on some matrices and failing on
+  # others is worse than failing consistently.
   factor_reconstruction = list(
-    formula = "max|R'R - H| / max|H|",
+    formula = "max|H_hat - H| / max|H|, where H_hat is reconstructed from the returned factor in the ORIGINAL H coordinate order",
+    dense = "H_hat = crossprod(R) for the unpivoted upper-triangular chol(H)",
+    sparse = "H_hat = P' L L' P for the permutation-aware CHOLMOD factor; Matrix::expand2(factor, LDL = FALSE) returns the components whose product is H in original coordinates, so the permutation is undone by the interface rather than by hand-indexing @perm",
     bound = "EQ_VALIDITY_BOUND(random_dimension)"),
   log_determinant_witness = list(
     formula = "|logdet - sum(log(eigenvalues(H)))|",
