@@ -153,10 +153,6 @@ cat(sprintf("rprofmem_threshold_bytes=%d rprofmem_records=%d rprofmem_recorded_M
             PROFMEM_THRESHOLD, length(sizes), sum(sizes) / 1024^2,
             if (length(sizes)) max(sizes) / 1024^2 else 0))
 
-cat(sprintf("inner_mean=%.2f inner_p90=%.0f inner_max=%d inner_budget_hits=%d inner_maxit=%d\n",
-            mean(iterations), stats::quantile(iterations, 0.9, names = FALSE),
-            max(iterations), budget_hits, control$inner_maxit))
-
 factors <- .gt_d_covariance_factors(fit$parameters[-seq_along(prep$start)], setup)
 if (identical(backend, "sparse")) {
   context <- .gt_d_sparse_context(groups, prep$n, prep$q)

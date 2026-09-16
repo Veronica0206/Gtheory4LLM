@@ -37,11 +37,11 @@ One backend per process, via `profile-medium.sh`.
 
 | | dense | sparse | ratio |
 | --- | ---: | ---: | ---: |
-| elapsed | 83.01 s | 12.27 s | 6.8x |
-| ms per evaluation | 108.29 | 15.81 | 6.9x |
+| elapsed | 83.26 s | 12.19 s | 6.8x |
+| ms per evaluation | 108.62 | 15.72 | 6.9x |
 | marginal evaluations | 765 | 765 | — |
 | evaluator share of fit | 100% | 99% | — |
-| peak RSS (process) | 737 MB | 504 MB | 1.5x |
+| peak RSS (process) | 707 MB | 483 MB | 1.5x |
 | `Rprofmem` recorded allocation (>= 1 KB) | 26,412 MB | 11,885 MB | 2.2x |
 | largest single recorded allocation | 1.03 MB | 0.07 MB | 15x |
 | design storage | 134,400 cells | 2,400 nnz | 56x |
@@ -52,8 +52,13 @@ One backend per process, via `profile-medium.sh`.
 
 Raw peak-RSS lines, as the OS utility reported them, in bytes on this platform:
 
-    dense    772653056  maximum resident set size   ->  737 MB
-    sparse   528629760  maximum resident set size   ->  504 MB
+    dense    740966400  maximum resident set size   ->  707 MB
+    sparse   506888192  maximum resident set size   ->  483 MB
+
+Peak RSS varies a few percent between runs. Across three runs of this panel the
+figures were 707-751 MB for dense and 466-504 MB for sparse, so the table
+records one run with its raw line rather than presenting a single value as
+exact. The ratio is stable at roughly 1.5x.
 
 Peak RSS is the primary memory figure. It cannot be measured from inside the
 process being measured, which is why `profile-medium.sh` exists and why the raw
