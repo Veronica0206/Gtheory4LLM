@@ -98,8 +98,11 @@ if (identical(mode, "work")) {
   quit(save = "no")
 }
 
+# Only allocations of at least this size are recorded, so the reported total is
+# "recorded allocation at or above the threshold", not all R allocation.
+PROFMEM_THRESHOLD <- 1000L
 allocation_log <- tempfile("gt-profmem-")
-utils::Rprofmem(allocation_log, threshold = 1000)
+utils::Rprofmem(allocation_log, threshold = PROFMEM_THRESHOLD)
 invisible(gc(reset = TRUE, full = TRUE))
 started <- Sys.time()
 fit <- .gt_fit_discrete(data, "y", design, families, covariance = "unstructured",
@@ -107,8 +110,6 @@ fit <- .gt_fit_discrete(data, "y", design, families, covariance = "unstructured"
                         .engine = paste0(backend, "_marginal_laplace"))
 elapsed <- as.numeric(difftime(Sys.time(), started, units = "secs"))
 utils::Rprofmem(NULL)
-usage <- gc(full = TRUE)
-invisible(NULL)
 
 # R-visible allocation. Complementary to peak RSS rather than a substitute:
 # Matrix and CHOLMOD allocate natively, and those bytes are not all represented
@@ -117,7 +118,29 @@ records <- tryCatch(readLines(allocation_log, warn = FALSE), error = function(e)
 sizes <- suppressWarnings(as.numeric(sub("^([0-9]+).*$", "\\1", records)))
 sizes <- sizes[is.finite(sizes)]
 
+panel_file <- tempfile("gt-panel-", fileext = ".csv")
+write.csv(data, panel_file, row.names = FALSE)
+panel_digest <- local({
+  normalized <- tempfile("gt-norm-")
+  connection <- file(normalized, "wb")
+  tryCatch(writeBin(charToRaw(paste0(paste(readLines(panel_file, warn = FALSE),
+                                           collapse = "\n"), "\n")), connection),
+           finally = close(connection))
+  on.exit(unlink(c(normalized, panel_file)), add = TRUE)
+  unname(tools::md5sum(normalized))
+})
+threads <- Sys.getenv(c("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+                        "VECLIB_MAXIMUM_THREADS"))
 cat(sprintf("backend=%s\n", backend))
+cat(sprintf("panel_md5=%s\n", panel_digest))
+cat(sprintf("R=%s Matrix=%s\n", R.version.string,
+            as.character(utils::packageVersion("Matrix"))))
+cat(sprintf("platform=%s os=%s arch=%s\n", R.version$platform,
+            Sys.info()[["sysname"]], Sys.info()[["machine"]]))
+cat(sprintf("BLAS=%s\n", extSoftVersion()[["BLAS"]]))
+cat(sprintf("LAPACK=%s (%s)\n", La_library(), La_version()))
+cat(sprintf("threads: %s\n", paste(names(threads), ifelse(nzchar(threads), threads, "unset"),
+                                    sep = "=", collapse = " ")))
 cat(sprintf("rows=%d q=%d random_dimension=%d parameters=%d\n", nrow(data), prep$q,
             sum(vapply(groups, `[[`, integer(1), "nlevels")) * prep$q, length(start)))
 cat(sprintf("accepted=%s optimizer_completed=%s selected=%s\n",
@@ -126,9 +149,9 @@ cat(sprintf("accepted=%s optimizer_completed=%s selected=%s\n",
 cat(sprintf("elapsed_seconds=%.2f evaluator_seconds=%.2f evaluator_share=%.0f%% ms_per_evaluation=%.2f\n",
             elapsed, inside, 100 * inside / elapsed, 1000 * inside / calls))
 cat(sprintf("evaluations=%d\n", calls))
-cat(sprintf("rprofmem_records=%d rprofmem_total_Mb=%.1f rprofmem_max_single_Mb=%.2f\n",
-            length(sizes), sum(sizes) / 1024^2, if (length(sizes)) max(sizes) / 1024^2 else 0))
-cat(sprintf("gc_peak_Mb=%.1f\n", usage[1L, 7L] + usage[2L, 7L]))
+cat(sprintf("rprofmem_threshold_bytes=%d rprofmem_records=%d rprofmem_recorded_Mb=%.1f rprofmem_max_single_Mb=%.2f\n",
+            PROFMEM_THRESHOLD, length(sizes), sum(sizes) / 1024^2,
+            if (length(sizes)) max(sizes) / 1024^2 else 0))
 
 cat(sprintf("inner_mean=%.2f inner_p90=%.0f inner_max=%d inner_budget_hits=%d inner_maxit=%d\n",
             mean(iterations), stats::quantile(iterations, 0.9, names = FALSE),

@@ -10,44 +10,79 @@ they judge existed.
 
 ## 2. Engineering profile
 
-Panel: 1200 rows, 112 random coordinates, 5-category ordinal logit, crossed
-item and rater, 6 parameters. Chosen because it sits exactly at
-`max_observations` and well inside `max_random_dimension`, so **both backends
-run under default limits** and neither guard is raised to obtain a comparison.
-Both fits are numerically accepted and both select `primary_tight`.
+Panel: 1200 rows, 112 random coordinates, 5-category ordinal logit, crossed item
+and rater, 6 parameters. Chosen because it sits exactly at `max_observations`
+and well inside `max_random_dimension`, so **both backends run under default
+limits** and neither guard is raised to obtain a comparison. Both fits are
+numerically accepted and both select `primary_tight`.
 
-Measured on macOS arm64, R 4.5.3, Matrix 1.7.4, one backend per process.
+    panel_md5 = 09b195b3002a4d0e38b8bfd598d1169e
+
+Recorded as provenance, not as a frozen fixture: these numbers came from exactly
+this generated panel. The issue #14 work established that a seed alone does not
+pin generated data across architectures.
+
+### Environment
+
+    R 4.5.3, Matrix 1.7.4
+    platform aarch64-apple-darwin20, Darwin, arm64
+    BLAS    .../lib/libRblas.0.dylib
+    LAPACK  .../lib/libRlapack.dylib (3.12.1)
+    threads OMP_NUM_THREADS unset, OPENBLAS_NUM_THREADS unset,
+            MKL_NUM_THREADS unset, VECLIB_MAXIMUM_THREADS unset
+
+### Measurements
+
+One backend per process, via `profile-medium.sh`.
 
 | | dense | sparse | ratio |
 | --- | ---: | ---: | ---: |
-| elapsed | 83.22 s | 12.26 s | 6.8x |
-| ms per evaluation | 108.57 | 15.81 | 6.9x |
+| elapsed | 83.01 s | 12.27 s | 6.8x |
+| ms per evaluation | 108.29 | 15.81 | 6.9x |
 | marginal evaluations | 765 | 765 | — |
 | evaluator share of fit | 100% | 99% | — |
-| peak RSS (process) | 751 MB | 466 MB | 1.6x |
-| R-visible allocation (`Rprofmem`) | 26,412 MB | 11,885 MB | 2.2x |
-| largest single allocation | 1.03 MB | 0.07 MB | 15x |
+| peak RSS (process) | 737 MB | 504 MB | 1.5x |
+| `Rprofmem` recorded allocation (>= 1 KB) | 26,412 MB | 11,885 MB | 2.2x |
+| largest single recorded allocation | 1.03 MB | 0.07 MB | 15x |
 | design storage | 134,400 cells | 2,400 nnz | 56x |
 | curvature storage | — | 2,512 nnz | — |
 | factor entries / triangle | — | 1,378 / 1,312 | — |
 | inner iterations mean / p90 / max | 7.30 / 13 / 60 | 7.64 / 14 / 60 | — |
 | evaluations hitting `inner_maxit` | 1 | 3 | — |
 
-Peak RSS is the primary memory figure. `Rprofmem` is complementary rather than a
-substitute: Matrix and CHOLMOD allocate natively, and those bytes are not fully
-represented in R's own accounting. The `gc()` peak is recorded by the script but
-is not used as an allocation claim.
+Raw peak-RSS lines, as the OS utility reported them, in bytes on this platform:
 
-Two observations that are not speedup claims. The evaluation counts are
-identical at 765, so the difference is cost per evaluation rather than a
-different optimizer path. And the largest single allocation differs by 15x while
-total allocation differs by only 2.2x, which is the shape expected when the
-saving is one large dense object rather than many small ones.
+    dense    772653056  maximum resident set size   ->  737 MB
+    sparse   528629760  maximum resident set size   ->  504 MB
 
-No speedup threshold is asserted. On the much smaller fitted smoke panels
-(300-400 rows) sparse is *slower* than dense, because those panels are sized so
-dense remains available as the reference and there is nothing for sparsity to
-save.
+Peak RSS is the primary memory figure. It cannot be measured from inside the
+process being measured, which is why `profile-medium.sh` exists and why the raw
+line and its unit are recorded rather than only a converted number: the utility
+reports bytes on macOS and kilobytes on Linux.
+
+`Rprofmem` is complementary rather than a substitute, because Matrix and CHOLMOD
+allocate natively and those bytes are not fully represented in R's own
+accounting. Its total is **recorded allocation at or above the 1000-byte
+threshold**, not all R allocation. No `gc()`-derived figure is reported: locating
+"max used MB" by a fixed column index is not robust, and three weaker measures
+add nothing to peak RSS, `Rprofmem` and the storage counts.
+
+### What the evaluation counts do and do not show
+
+Both fits used **765 marginal evaluations**, so the timing difference is **not
+explained by a difference in evaluation count**. Optimizer-path identity is not
+asserted: two optimizations can perform the same number of evaluations while
+visiting different parameter sequences. Establishing path equivalence is #4's
+work, not this profile's.
+
+The largest single recorded allocation differs by 15x while total recorded
+allocation differs by 2.2x, which is the shape expected when the saving is one
+large dense object rather than many small ones.
+
+No speedup threshold is asserted, and none should be added. This is evidence,
+not a performance test. On the much smaller fitted smoke panels (300-400 rows)
+sparse is *slower* than dense, because those panels are sized so dense remains
+available as the reference and there is nothing for sparsity to save.
 
 ## 3. Known scale-risk characterization
 
@@ -81,9 +116,10 @@ parameter points and replaying them through the dense evaluator shows dense
 reaching the same budget at the same points, and in two of eight sampled points
 dense returned invalid where sparse still produced a finite value.
 
-So this is a limitation of the cold conditional-mode solve as the outer
-optimizer explores parameter space, shared by both backends, not an artefact of
-sparse algebra.
+The evidence therefore supports a cold conditional-solve limitation that is not
+sparse-specific. Stated that way rather than as "shared by both backends",
+because dense was sampled at selected points rather than subjected to a
+supported full 2400-row fit.
 
 It is retained as risk evidence for #4 and #8. It is a post-discovery
 characterization specimen: its behaviour was observed before any expectation was
