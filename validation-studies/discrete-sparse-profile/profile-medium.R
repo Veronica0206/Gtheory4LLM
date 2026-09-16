@@ -76,13 +76,26 @@ instrumented <- function(parameters, prep, groups, setup, control,
 # distribution can be observed. Its wall time is not reported, because
 # requesting details changes what the evaluator does.
 work_evaluator <- if (identical(backend, "sparse")) .gt_d_sparse_evaluator() else .gt_d_laplace
+# Invalid evaluations carry no iteration count. Both mode solvers return
+# list(valid = FALSE, inner_converged, inner_gradient) with no inner_iterations
+# field, so an evaluation that failed cannot contribute to the iteration
+# statistics and its cause cannot be attributed from here. Valid and invalid
+# calls are therefore counted separately, and the iteration figures are stated
+# as what they are: properties of the valid solves only.
+work_calls <- 0L
+valid_calls <- 0L
+invalid_calls <- 0L
 observed <- function(parameters, prep, groups, setup, control,
                      details = FALSE, factors_override = NULL) {
+  work_calls <<- work_calls + 1L
   value <- work_evaluator(parameters, prep, groups, setup, control,
                           details = TRUE, factors_override = factors_override)
   if (is.list(value) && isTRUE(value$valid)) {
+    valid_calls <<- valid_calls + 1L
     iterations <<- c(iterations, value$inner_iterations)
     if (value$inner_iterations >= control$inner_maxit) budget_hits <<- budget_hits + 1L
+  } else {
+    invalid_calls <<- invalid_calls + 1L
   }
   if (details) value else if (is.list(value) && isTRUE(value$valid)) value$nll else 1e100
 }
@@ -92,9 +105,13 @@ if (identical(mode, "work")) {
                              control = list(), .laplace = observed,
                              .engine = paste0(backend, "_marginal_laplace")))
   cat(sprintf("backend=%s mode=work\n", backend))
-  cat(sprintf("inner_mean=%.2f inner_p90=%.0f inner_max=%d inner_budget_hits=%d inner_maxit=%d\n",
+  cat(sprintf("work_evaluations=%d valid=%d invalid=%d\n",
+              work_calls, valid_calls, invalid_calls))
+  cat(sprintf("valid_inner_mean=%.2f valid_inner_p90=%.0f valid_inner_max=%d\n",
               mean(iterations), stats::quantile(iterations, 0.9, names = FALSE),
-              max(iterations), budget_hits, control$inner_maxit))
+              max(iterations)))
+  cat(sprintf("valid_solves_ending_at_inner_maxit=%d inner_maxit=%d\n",
+              budget_hits, control$inner_maxit))
   quit(save = "no")
 }
 

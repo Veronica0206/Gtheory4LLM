@@ -47,8 +47,9 @@ One backend per process, via `profile-medium.sh`.
 | design storage | 134,400 cells | 2,400 nnz | 56x |
 | curvature storage | — | 2,512 nnz | — |
 | factor entries / triangle | — | 1,378 / 1,312 | — |
-| inner iterations mean / p90 / max | 7.30 / 13 / 60 | 7.64 / 14 / 60 | — |
-| evaluations hitting `inner_maxit` | 1 | 3 | — |
+| work-pass evaluations: valid / invalid | 760 / 5 | 761 / 4 | — |
+| valid-solve inner iterations mean / p90 / max | 7.30 / 13 / 60 | 7.64 / 14 / 60 | — |
+| valid solves ending at iteration 60 | 1 | 3 | — |
 
 Raw peak-RSS lines, as the OS utility reported them, in bytes on this platform:
 
@@ -71,6 +72,18 @@ accounting. Its total is **recorded allocation at or above the 1000-byte
 threshold**, not all R allocation. No `gc()`-derived figure is reported: locating
 "max used MB" by a fixed column index is not robust, and three weaker measures
 add nothing to peak RSS, `Rprofmem` and the storage counts.
+
+### What the inner-iteration figures mean
+
+They describe **valid solves only**. Both mode solvers return
+`list(valid = FALSE, inner_converged, inner_gradient)` for an evaluation they
+could not complete, with no `inner_iterations` field, so a failed evaluation
+cannot contribute an iteration count and this profiler cannot attribute its
+cause. Valid and invalid calls are counted separately for that reason.
+
+"Valid solves ending at iteration 60" is therefore not the same as "evaluations
+that exhausted the budget": the latter could also include invalid evaluations,
+but nothing here establishes how many, or whether any did.
 
 ### What the evaluation counts do and do not show
 
@@ -114,9 +127,11 @@ At the selected final point, the two evaluators agree essentially exactly.
 
 The final mode is healthy: `inner_converged` TRUE, `tight_final_mode` TRUE.
 
-The failure is generated upstream. Of 584 evaluations, **40 exhausted the
-60-iteration inner budget**, returning the invalid-evaluation sentinel and
-putting discontinuities into the outer objective. Sampling those specific
+The failure is generated upstream. Of **632 evaluations, 584 were valid and 48
+invalid**, and **40 of the valid solves ended at iteration 60**. The invalid
+evaluations return the sentinel and put discontinuities into the outer
+objective; their cause is not attributable from this instrumentation, and in
+particular is not established to be budget exhaustion. Sampling those specific
 parameter points and replaying them through the dense evaluator shows dense
 reaching the same budget at the same points, and in two of eight sampled points
 dense returned invalid where sparse still produced a finite value.
