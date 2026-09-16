@@ -87,6 +87,161 @@ report_fit_evidence <- function(label, fit, digests) {
     bounds = fit$diagnostics[c("parameter_bounds", "boundary_sources",
                                "zero_variance_parameters")]))
 }
+# Hosted-runner provenance. The job log records the architecture and nothing
+# else, and "x86_64" does not distinguish the microarchitectures a tuned BLAS
+# dispatches different kernels for, which is one of the few remaining
+# differences between a runner that reproduces issue #14 and one that does
+# not. Read on every run, because a failing runner's model is only
+# interpretable against the models passing runs reported. Every lookup is
+# guarded and reports NA rather than failing: this is provenance, and a
+# platform that cannot answer must not take the test down with it.
+platform_provenance <- function() {
+  info <- tryCatch(if (file.exists("/proc/cpuinfo"))
+    readLines("/proc/cpuinfo", warn = FALSE) else character(0),
+    error = function(e) character(0))
+  field <- function(pattern) {
+    hit <- grep(pattern, info, value = TRUE)
+    if (!length(hit)) NA_character_ else trimws(sub("^[^:]*:[[:space:]]*", "", hit[[1L]]))
+  }
+  model <- field("^model name")
+  if (is.na(model) && nzchar(Sys.which("sysctl")))
+    model <- tryCatch(suppressWarnings(
+      system2("sysctl", c("-n", "machdep.cpu.brand_string"), stdout = TRUE, stderr = FALSE))[[1L]],
+      error = function(e) NA_character_)
+  flags <- field("^flags")
+  list(
+    cpu_model = if (length(model) == 1L && !is.na(model) && nzchar(model)) model else NA_character_,
+    cpu_family = field("^cpu family"), cpu_stepping = field("^stepping"),
+    cpu_microcode = field("^microcode"),
+    logical_processors = if (length(info)) length(grep("^processor", info)) else NA_integer_,
+    # Only the families that decide which kernel a BLAS selects. The full flag
+    # line is hundreds of tokens, none of the rest changes an arithmetic
+    # result, and printing it on every run buries the part that does.
+    dispatch_flags = if (is.na(flags)) NA_character_ else paste(intersect(
+      c("sse4_2", "avx", "avx2", "fma", "avx512f", "avx512dq", "avx512bw", "avx512vl"),
+      strsplit(flags, "[[:space:]]+")[[1L]]), collapse = " "),
+    platform = R.version$platform, os = Sys.info()[["sysname"]],
+    r_version = R.version.string,
+    matrix_version = tryCatch(as.character(utils::packageVersion("Matrix")),
+                              error = function(e) NA_character_),
+    blas = tryCatch(extSoftVersion()[["BLAS"]], error = function(e) NA_character_),
+    lapack_library = tryCatch(La_library(), error = function(e) NA_character_),
+    lapack_version = tryCatch(La_version(), error = function(e) NA_character_),
+    threads = Sys.getenv(c("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")),
+    run = Sys.getenv(c("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_JOB",
+                       "GITHUB_SHA", "GITHUB_EVENT_NAME", "RUNNER_NAME", "RUNNER_ARCH")))
+}
+
+# Retain the failure specimen.
+#
+# The measurements it records run unconditionally; only this dump is
+# conditional, and only because it is the one bulky part. The recurrence is
+# rare, so the next one has to leave behind the exact numbers rather than a
+# formatted summary of them: the matrices, right-hand sides, starting point
+# and curvature, as numeric objects that can be re-loaded and replayed.
+#
+# The trigger is deliberately backend-neutral and wide. Retaining on "dense
+# and sparse disagree" would write the hypothesis under investigation into the
+# evidence meant to test it, and the first condition below already fires
+# whenever the assertion fails, so the specimen cannot be missed even if every
+# numerical trigger turns out to be badly calibrated.
+#
+# These bounds are retention triggers, not acceptance criteria. Nothing in the
+# test is judged against them, and they are loose by design: a well
+# conditioned 42-dimensional matrix reconstructs and solves to about 1e-15
+# here, so anything at 1e-8 is a signal and not a tolerance question.
+ISSUE14_RESIDUAL_TRIGGER <- 1e-8
+ISSUE14_LOGDET_TRIGGER <- 1e-9
+ISSUE14_STEP_TRIGGER <- 1e-8
+retain_joint_specimen <- function(localization, assertion_failed, fit, digests) {
+  evidence <- localization$evidence
+  reasons <- character(0)
+  note <- function(condition, reason) if (isTRUE(condition)) reasons <<- c(reasons, reason)
+  exceeds <- function(x, bound) any(!is.finite(x)) || any(x > bound, na.rm = TRUE)
+
+  note(assertion_failed, "fitted_assertion_failed")
+  note(is.null(evidence), "localization_unavailable")
+  crossed <- evidence$cross_factorization
+  if (is.list(crossed) && isTRUE(crossed$valid)) {
+    note(!all(vapply(crossed$combinations, function(x) isTRUE(x$factorized), logical(1))),
+         "factorization_failed")
+    for (measure in c("solve_residual", "blas_free_solve_residual",
+                      "reconstruction_residual", "blas_free_reconstruction_residual")) {
+      values <- vapply(crossed$combinations, function(x) x[[measure]], numeric(1))
+      # A measure no combination reports at all is absent by construction, not
+      # anomalous: CHOLMOD exposes no plain factor to reconstruct without BLAS.
+      # An all-NA vector must not make every run retain a specimen.
+      if (any(is.finite(values))) note(exceeds(values[!is.na(values)],
+                                               ISSUE14_RESIDUAL_TRIGGER), measure)
+    }
+    note(exceeds(stats::na.omit(vapply(crossed$combinations,
+                                       function(x) x$blas_gram_difference, numeric(1))),
+                 ISSUE14_RESIDUAL_TRIGGER), "blas_gram_difference")
+    for (pair in c("factorizer_on_dense_assembly", "factorizer_on_sparse_assembly",
+                   "assembly_under_base_chol", "assembly_under_cholmod")) {
+      note(exceeds(crossed$comparisons[[pair]]$logdet, ISSUE14_LOGDET_TRIGGER),
+           paste0("logdet_gap:", pair))
+      note(exceeds(crossed$comparisons[[pair]]$step, ISSUE14_STEP_TRIGGER),
+           paste0("step_gap:", pair))
+    }
+    note(exceeds(crossed$comparisons$logdet_versus_eigen, ISSUE14_LOGDET_TRIGGER),
+         "logdet_versus_eigen")
+    note(exceeds(crossed$comparisons$step_versus_lu, ISSUE14_STEP_TRIGGER), "step_versus_lu")
+  } else note(TRUE, "cross_factorization_unavailable")
+  for (label in names(evidence$fixed_parameter_replay)) {
+    entry <- evidence$fixed_parameter_replay[[label]]
+    note(!isTRUE(entry$dense$valid) || !isTRUE(entry$sparse$valid),
+         paste0("invalid_replay:", label))
+    note(isTRUE(entry$dense_hit_budget), paste0("dense_budget:", label))
+    note(!isTRUE(entry$dense$inner_converged) || !isTRUE(entry$sparse$inner_converged),
+         paste0("inner_not_converged:", label))
+  }
+  note(!is.null(evidence$budget_ladder), "budget_ladder_fired")
+  note(!isTRUE(evidence$reconstruction$starts_agree), "start_mismatch")
+
+  cat("Issue #14 specimen retention: triggers=",
+      if (length(reasons)) paste(reasons, collapse = ",") else "none", "\n", sep = "")
+  if (!length(reasons)) return(invisible(NULL))
+  # Never the working tree: the validation job asserts that running the tests
+  # changes no tracked file, and a specimen written into the repository would
+  # fail that gate instead of the assertion it was collected for. The job
+  # points this at a directory its upload step reaches.
+  configured <- Sys.getenv("GTHEORY_ISSUE14_ARTIFACT_DIR", "")
+  directory <- if (nzchar(configured)) configured else file.path(tempdir(), "gtheory-issue14")
+  dir.create(directory, showWarnings = FALSE, recursive = TRUE)
+  path <- file.path(directory, "issue14-factor-specimen.rds")
+  specimen <- localization$specimen
+  saveRDS(list(
+    schema = "gtheory-issue14-factor-specimen/1",
+    triggers = reasons, assertion_failed = assertion_failed,
+    fixture_md5 = digests, evidence = evidence,
+    # Raw numeric objects, not formatted text. A specimen is worth keeping
+    # because it can be re-loaded and replayed exactly; a rendering of it to
+    # fifteen digits cannot be.
+    panel = if (is.null(specimen)) NULL else specimen$panel,
+    start = if (is.null(specimen)) NULL else specimen$start,
+    curvature = if (is.null(specimen)) NULL else specimen$curvature,
+    gradient = if (is.null(specimen)) NULL else specimen$gradient,
+    eta = if (is.null(specimen)) NULL else specimen$eta,
+    dense_score = if (is.null(specimen)) NULL else specimen$newton$dense_score,
+    sparse_score = if (is.null(specimen)) NULL else specimen$newton$sparse_score,
+    dense_hessian = if (is.null(specimen)) NULL else specimen$newton$dense_H,
+    # Both the plain numeric copy and the sparse object: the numbers stay
+    # readable without Matrix installed, and the storage object is itself part
+    # of what a factorization difference could be about.
+    sparse_hessian_dense = if (is.null(specimen)) NULL else as.matrix(specimen$newton$sparse_H),
+    sparse_hessian = if (is.null(specimen)) NULL else specimen$newton$sparse_H,
+    covariance_factors = if (is.null(specimen)) NULL else specimen$factors,
+    fit = list(parameters = fit$parameters, starting_parameters = fit$starting_parameters,
+               covariance_components = fit$covariance_components,
+               minus2loglik = fit$minus2loglik,
+               optimizer_completed = fit$optimizer_completed,
+               numerically_accepted = fit$numerically_accepted,
+               acceptance_failures = fit$diagnostics$acceptance_failures),
+    provenance = platform_provenance(), session = utils::sessionInfo()), path)
+  cat("Issue #14 specimen written: ", path, " (", file.size(path), " bytes)\n", sep = "")
+  invisible(path)
+}
 family_spec <- function(family, link, levels, reference = NULL)
   list(family = family, link = link, levels = levels, reference = reference)
 check_acceptance <- function(fit) {
@@ -352,24 +507,32 @@ localize_joint_divergence <- function(fit, digests) {
     max_abs_gradient = max(abs(kernel$gradient)),
     min_curvature = min(curvature_values), max_curvature = max(curvature_values))
 
-  # The first Newton step through both matrix paths, at u = 0.
-  first_step <- if (!isTRUE(kernel$valid)) list(valid = FALSE) else {
+  # The exact matrices and right-hand sides at u = 0, assembled once. Every
+  # block below reads these same objects, so the paired first step, the
+  # cross-factorization witness and any retained specimen describe one problem
+  # rather than three separately rebuilt ones.
+  newton <- if (!isTRUE(kernel$valid)) NULL else {
     zero <- numeric(ncol(dense_backend$W))
-    dense_score <- as.vector(crossprod(dense_backend$W, kernel$gradient)) + zero
-    sparse_score <- as.numeric(Matrix::crossprod(sparse_backend$W, kernel$gradient)) + zero
-    dense_H <- .gt_d_dense_hessian(kernel$curvature, dense_backend$W, prep$n)
-    sparse_H <- .gt_d_sparse_hessian(kernel$curvature, sparse_backend$W, prep$n)
-    dense_R <- tryCatch(chol(dense_H), error = function(e) NULL)
-    sparse_factor <- tryCatch(.gt_d_sparse_factor(sparse_H), error = function(e) NULL)
+    list(dense_score = as.vector(crossprod(dense_backend$W, kernel$gradient)) + zero,
+         sparse_score = as.numeric(Matrix::crossprod(sparse_backend$W, kernel$gradient)) + zero,
+         dense_H = .gt_d_dense_hessian(kernel$curvature, dense_backend$W, prep$n),
+         sparse_H = .gt_d_sparse_hessian(kernel$curvature, sparse_backend$W, prep$n))
+  }
+
+  # The first Newton step through both matrix paths, at u = 0, with each
+  # assembly paired to its own factorizer exactly as the fitter pairs them.
+  first_step <- if (is.null(newton)) list(valid = FALSE) else {
+    dense_R <- tryCatch(chol(newton$dense_H), error = function(e) NULL)
+    sparse_factor <- tryCatch(.gt_d_sparse_factor(newton$sparse_H), error = function(e) NULL)
     dense_step <- if (is.null(dense_R)) NULL else
-      backsolve(dense_R, forwardsolve(t(dense_R), dense_score))
+      backsolve(dense_R, forwardsolve(t(dense_R), newton$dense_score))
     sparse_step <- if (is.null(sparse_factor)) NULL else
-      .gt_d_sparse_solve(sparse_factor, sparse_score)
+      .gt_d_sparse_solve(sparse_factor, newton$sparse_score)
     list(valid = TRUE,
-         dense_score = fixture_digest(dense_score),
-         sparse_score = fixture_digest(sparse_score),
-         score_difference = max(abs(dense_score - sparse_score)),
-         hessian_difference = max(abs(dense_H - as.matrix(sparse_H))),
+         dense_score = fixture_digest(newton$dense_score),
+         sparse_score = fixture_digest(newton$sparse_score),
+         score_difference = max(abs(newton$dense_score - newton$sparse_score)),
+         hessian_difference = max(abs(newton$dense_H - as.matrix(newton$sparse_H))),
          dense_factorized = !is.null(dense_R), sparse_factorized = !is.null(sparse_factor),
          dense_logdet = if (is.null(dense_R)) NA_real_ else 2 * sum(log(diag(dense_R))),
          sparse_logdet = if (is.null(sparse_factor)) NA_real_ else
@@ -378,6 +541,261 @@ localize_joint_divergence <- function(fit, digests) {
            max(abs(dense_step - sparse_step)),
          max_abs_dense_step = if (is.null(dense_step)) NA_real_ else max(abs(dense_step)))
   }
+
+  # Cross-factorization witness.
+  #
+  # The block above pairs each assembly with its own factorizer, which is how
+  # the fitter uses them and therefore what a fitted divergence reports. That
+  # pairing is exactly what makes such a divergence unattributable: assembly
+  # and factorization always move together, so "the Hessians differ" and "the
+  # factorizations differ" cannot be told apart from it.
+  #
+  # Breaking the pairing separates them. The same exact matrix is factored
+  # through both implementations, and both matrices are factored through the
+  # same implementation. Labels are (assembly)(factorizer): DD is the
+  # dense-assembled Hessian through base chol(), DS is that same matrix
+  # through Matrix/CHOLMOD, SD is the sparse-assembled Hessian through base
+  # chol(), SS is it through CHOLMOD.
+  #
+  #                  base chol()   Matrix/CHOLMOD
+  #   dense-assembled     DD             DS
+  #   sparse-assembled    SD             SS
+  #
+  # DD and DS disagreeing while SD and SS agree follows the factorizer. DD and
+  # SD disagreeing while DS and SS agree follows the assembly. Neither pair
+  # disagreeing, with the paired fitted results still diverging, says the
+  # divergence is not in this step at all.
+  #
+  # Which result is correct is a separate question from which of them differ,
+  # and no comparison among these four answers it: they could agree and all be
+  # wrong. Three algebraic witnesses are computed against the exact matrix for
+  # that: a spectral decomposition, whose eigenvalue sum is a log determinant
+  # obtained without any Cholesky factor; an LU solve through solve(), which
+  # is a different algorithm with different pivoting; and a spectral solve.
+  # A factorization that satisfies its own reconstruction and solve residuals
+  # and agrees with the independent witnesses has met an invariant, rather
+  # than merely reproduced a number a previous run also reported.
+  #
+  # Everything here is computed on every run, not on a trigger. The random
+  # dimension is 42, so four factorizations, four solves, a spectral
+  # decomposition and an LU solve cost nothing measurable beside the fit, and
+  # the failure is rare enough that a trigger which fails to fire wastes the
+  # specimen. Conditioning the measurement on dense and sparse disagreeing
+  # would also write the hypothesis under investigation into the evidence
+  # meant to test it.
+  #
+  # This is observational. It selects no backend, changes no control, defines
+  # no threshold the test is judged against, and feeds nothing back into the
+  # fit.
+  cross_factorization <- function(newton) {
+    to_dense <- function(H) if (is.matrix(H)) H else as.matrix(H)
+    # The general sparse class, matching what the sparse assembly itself
+    # produces. Matrix(sparse = TRUE) would hand CHOLMOD a symmetric-storage
+    # object for one input and a general one for the other, which is a
+    # difference between the two runs that has nothing to do with the values.
+    to_sparse <- function(H) if (methods::is(H, "sparseMatrix")) H else
+      methods::as(methods::as(methods::as(H, "dMatrix"), "generalMatrix"), "CsparseMatrix")
+    score <- newton$dense_score
+    # One canonical right-hand side for all four solves. The two scores differ
+    # in the last bits and that difference is already reported above; reusing
+    # each engine's own score here would put a second varying input into a
+    # comparison whose whole purpose is to vary one thing at a time.
+    rhs_scale <- max(1, max(abs(score)))
+
+    # What each library is actually handed, rather than what it is assumed to
+    # be handed. "The same mathematical Hessian" and "the same bytes presented
+    # to the numerical library" are different claims, and only the second one
+    # decides a floating-point result.
+    presented <- function(H) {
+      M <- to_dense(H)
+      list(class = class(H)[[1L]], dimension = nrow(M),
+           stored_entries = as.integer(Matrix::nnzero(to_sparse(H))),
+           symmetry_residual = max(abs(M - t(M))),
+           min_diagonal = min(diag(M)), max_diagonal = max(diag(M)),
+           max_abs = max(abs(M)), digest = fixture_digest(as.numeric(M)))
+    }
+
+    # Witnesses that do not go through BLAS at all.
+    #
+    # The leading explanation for a divergence that follows the runner and not
+    # the source is a tuned kernel selected by microarchitecture. If that is
+    # what this is, then crossprod(), %*%, chol(), eigen() and solve() all sit
+    # on the suspect layer, and their agreeing with each other is agreement
+    # among affected parties rather than independent confirmation.
+    #
+    # These two compute the same quantities from elementwise products and sums,
+    # which R evaluates itself. They are the slow, obviously correct
+    # implementations, and at 42 dimensions the cost of preferring them is
+    # nothing.
+    gram <- function(A) {
+      out <- matrix(0, ncol(A), ncol(A))
+      for (i in seq_len(ncol(A))) for (j in seq_len(ncol(A)))
+        out[i, j] <- sum(A[, i] * A[, j])
+      out
+    }
+    applied <- function(M, x) rowSums(M * rep(x, each = nrow(M)))
+
+    factorizers <- list(
+      D = function(H) {
+        M <- to_dense(H)
+        R <- tryCatch(chol(M), error = function(e) NULL)
+        if (is.null(R)) return(NULL)
+        list(logdet = 2 * sum(log(diag(R))),
+             step = backsolve(R, forwardsolve(t(R), score)),
+             # R'R = H is the invariant the factor is supposed to satisfy. It
+             # is checked rather than assumed, because a factor can be
+             # returned without error and still not reconstruct its input.
+             reconstruction = max(abs(crossprod(R) - M)),
+             # The same product recomputed without BLAS, and the gap between
+             # the two. A nonzero gap indicts the kernel directly, with no
+             # inference from a fitted result in between.
+             blas_free_reconstruction = max(abs(gram(R) - M)),
+             blas_gram_difference = max(abs(gram(R) - crossprod(R))),
+             factor_entries = NA_integer_, permutation = NA_character_)
+      },
+      S = function(H) {
+        sparse <- to_sparse(H)
+        f <- tryCatch(.gt_d_sparse_factor(sparse), error = function(e) NULL)
+        if (is.null(f)) return(NULL)
+        # The sparse counterpart of R'R = H, with the fill-reducing
+        # permutation included: expand2() returns the factors whose product is
+        # the original matrix, so a factor that dropped or misordered anything
+        # fails here. Guarded because the expansion is a Matrix interface the
+        # frozen numerical environment does not pin.
+        rebuilt <- tryCatch(as.matrix(Reduce(`%*%`, Matrix::expand2(f$factor, LDL = FALSE))),
+                            error = function(e) NULL)
+        list(logdet = .gt_d_sparse_logdet(f),
+             step = .gt_d_sparse_solve(f, score),
+             reconstruction = if (is.null(rebuilt)) NA_real_ else
+               max(abs(rebuilt - as.matrix(Matrix::forceSymmetric(sparse)))),
+             # CHOLMOD's factor is not exposed as a plain R matrix the way
+             # chol()'s is, so the BLAS-free reconstruction has no counterpart
+             # here. The BLAS-free solve residual below applies to all four.
+             blas_free_reconstruction = NA_real_, blas_gram_difference = NA_real_,
+             factor_entries = f$factor_entries,
+             permutation = tryCatch(fixture_digest(as.integer(f$factor@perm)),
+                                    error = function(e) NA_character_))
+      })
+
+    labels <- c("DD", "DS", "SD", "SS")
+    assemblies <- list(D = newton$dense_H, S = newton$sparse_H)
+    computed <- stats::setNames(lapply(labels, function(label) {
+      H <- assemblies[[substr(label, 1L, 1L)]]
+      answer <- tryCatch(factorizers[[substr(label, 2L, 2L)]](H), error = function(e) NULL)
+      if (is.null(answer)) return(NULL)
+      M <- to_dense(H)
+      scale <- max(abs(M))
+      answer$solve_residual <- max(abs(as.numeric(M %*% answer$step) - score)) / rhs_scale
+      answer$blas_free_solve_residual <- max(abs(applied(M, answer$step) - score)) / rhs_scale
+      answer$reconstruction_residual <-
+        if (!is.finite(answer$reconstruction) || !is.finite(scale) || scale <= 0) NA_real_
+        else answer$reconstruction / scale
+      answer$blas_free_reconstruction_residual <-
+        if (!is.finite(answer$blas_free_reconstruction) || !is.finite(scale) || scale <= 0)
+          NA_real_ else answer$blas_free_reconstruction / scale
+      answer
+    }), labels)
+
+    combinations <- stats::setNames(lapply(labels, function(label) {
+      answer <- computed[[label]]
+      head <- list(
+        assembly = if (substr(label, 1L, 1L) == "D") "dense" else "sparse",
+        factorizer = if (substr(label, 2L, 2L) == "D") "base_chol" else "matrix_cholmod",
+        factorized = !is.null(answer))
+      if (is.null(answer))
+        return(c(head, list(logdet = NA_real_, step = NA_character_,
+                            max_abs_step = NA_real_, solve_residual = NA_real_,
+                            blas_free_solve_residual = NA_real_,
+                            reconstruction_residual = NA_real_,
+                            blas_free_reconstruction_residual = NA_real_,
+                            blas_gram_difference = NA_real_,
+                            factor_entries = NA_integer_, permutation = NA_character_)))
+      c(head, list(logdet = answer$logdet, step = fixture_digest(answer$step),
+                   max_abs_step = max(abs(answer$step)),
+                   solve_residual = answer$solve_residual,
+                   blas_free_solve_residual = answer$blas_free_solve_residual,
+                   reconstruction_residual = answer$reconstruction_residual,
+                   blas_free_reconstruction_residual =
+                     answer$blas_free_reconstruction_residual,
+                   blas_gram_difference = answer$blas_gram_difference,
+                   factor_entries = answer$factor_entries,
+                   permutation = answer$permutation))
+    }), labels)
+
+    # Independent witnesses, on the dense-assembled matrix. The assembly
+    # difference is reported separately, so a witness is wanted against one
+    # named matrix rather than against an average of two.
+    canonical <- to_dense(newton$dense_H)
+    spectrum <- tryCatch(eigen(canonical, symmetric = TRUE), error = function(e) NULL)
+    values <- if (is.null(spectrum)) NULL else spectrum$values
+    lu_step <- tryCatch(as.numeric(solve(canonical, score)), error = function(e) NULL)
+    spectral_step <- if (is.null(spectrum)) NULL else tryCatch(
+      as.numeric(spectrum$vectors %*% (crossprod(spectrum$vectors, score) / values)),
+      error = function(e) NULL)
+    residual_of <- function(step) if (is.null(step)) NA_real_ else
+      max(abs(as.numeric(canonical %*% step) - score)) / rhs_scale
+    blas_free_residual_of <- function(step) if (is.null(step)) NA_real_ else
+      max(abs(applied(canonical, step) - score)) / rhs_scale
+    # The sparse assembly's own spectrum. Two matrices agreeing entrywise to
+    # machine precision can still be reported here, and a claim about
+    # conditioning has to name which matrix it is about.
+    sparse_values <- tryCatch(eigen(to_dense(newton$sparse_H), symmetric = TRUE,
+                                    only.values = TRUE)$values, error = function(e) NULL)
+    witnesses <- list(
+      eigen_available = !is.null(values),
+      eigen_logdet = if (is.null(values)) NA_real_ else sum(log(values)),
+      min_eigenvalue = if (is.null(values)) NA_real_ else min(values),
+      max_eigenvalue = if (is.null(values)) NA_real_ else max(values),
+      condition_number = if (is.null(values) || min(values) <= 0) NA_real_ else
+        max(values) / min(values),
+      reciprocal_condition = tryCatch(rcond(canonical), error = function(e) NA_real_),
+      sparse_eigen_logdet = if (is.null(sparse_values)) NA_real_ else sum(log(sparse_values)),
+      sparse_min_eigenvalue = if (is.null(sparse_values)) NA_real_ else min(sparse_values),
+      lu_step = if (is.null(lu_step)) NA_character_ else fixture_digest(lu_step),
+      lu_solve_residual = residual_of(lu_step),
+      blas_free_lu_solve_residual = blas_free_residual_of(lu_step),
+      spectral_step = if (is.null(spectral_step)) NA_character_ else fixture_digest(spectral_step),
+      spectral_solve_residual = residual_of(spectral_step),
+      blas_free_spectral_solve_residual = blas_free_residual_of(spectral_step))
+
+    # The comparisons the layout exists to make. Each holds one input fixed
+    # and varies the other, so a nonzero entry names the layer it varies.
+    gap <- function(a, b) {
+      x <- computed[[a]]; y <- computed[[b]]
+      if (is.null(x) || is.null(y)) return(list(logdet = NA_real_, step = NA_real_))
+      list(logdet = abs(x$logdet - y$logdet), step = max(abs(x$step - y$step)))
+    }
+    against <- function(reference, extract) vapply(labels, function(label) {
+      answer <- computed[[label]]
+      if (is.null(answer) || is.null(reference)) NA_real_ else extract(answer, reference)
+    }, numeric(1))
+    comparisons <- list(
+      # Same matrix, different factorizer.
+      factorizer_on_dense_assembly = gap("DD", "DS"),
+      factorizer_on_sparse_assembly = gap("SD", "SS"),
+      # Same factorizer, different matrix.
+      assembly_under_base_chol = gap("DD", "SD"),
+      assembly_under_cholmod = gap("DS", "SS"),
+      # Against algebra rather than against each other.
+      logdet_versus_eigen = against(
+        if (is.null(values)) NULL else sum(log(values)),
+        function(answer, reference) abs(answer$logdet - reference)),
+      step_versus_lu = against(lu_step, function(answer, reference)
+        max(abs(answer$step - reference))),
+      step_versus_spectral = against(spectral_step, function(answer, reference)
+        max(abs(answer$step - reference))))
+
+    list(presented = list(dense = presented(newton$dense_H),
+                          sparse = presented(newton$sparse_H),
+                          assembly_difference =
+                            max(abs(to_dense(newton$dense_H) - to_dense(newton$sparse_H))),
+                          score_digest = fixture_digest(score)),
+         combinations = combinations, witnesses = witnesses, comparisons = comparisons)
+  }
+  crossed <- if (is.null(newton)) list(valid = FALSE) else
+    tryCatch(c(list(valid = TRUE), cross_factorization(newton)),
+             error = function(e) list(valid = FALSE,
+                                      cross_factorization_error = conditionMessage(e)))
 
   # The complete fixed-parameter conditional solve through both engines, at the
   # ordinary inner tolerance and at the tightened one the retained attempt used.
@@ -451,27 +869,50 @@ localize_joint_divergence <- function(fit, digests) {
     }), triggered)
   }
 
-  list(reconstruction = reconstruction, identity = identity,
+  evidence <- list(reconstruction = reconstruction, identity = identity,
+       platform = platform_provenance(),
        shared_kernel = shared_kernel, first_step = first_step,
+       cross_factorization = crossed,
        fixed_parameter_replay = replay, budget_ladder = ladder)
+  # Raw objects travel separately from the printed evidence. dput() of a pair
+  # of 42 by 42 matrices is unreadable, and what a retained specimen is for is
+  # replaying exact numbers rather than parsing a rendering of them.
+  list(evidence = evidence,
+       specimen = list(
+         panel = list(item = pair$item, rater = pair$rater, rep = pair$rep,
+                      a = pair$a, b = pair$b),
+         start = start, factors = factors, newton = newton,
+         curvature = curvature_values,
+         gradient = if (isTRUE(kernel$valid)) kernel$gradient else NULL,
+         eta = as.numeric(baseline)))
 }
 # Diagnostics must not decide the test. A failure inside the replay is reported
 # and swallowed, so the assertion below still judges the fit rather than being
 # pre-empted by an error in the instrument that was meant to explain it.
 cat("Joint binary covariance localization (issue #14):\n")
-dput(tryCatch(localize_joint_divergence(jfit, joint_digest),
-              error = function(e) list(localization_error = conditionMessage(e))))
+joint_localization <- tryCatch(localize_joint_divergence(jfit, joint_digest),
+  error = function(e) list(evidence = list(localization_error = conditionMessage(e)),
+                           specimen = NULL))
+dput(joint_localization$evidence)
 
 # Identical source has produced both passing and failing results here. Retain
 # evidence on failure; the assertion below is deliberately left unweakened.
-if (!isTRUE(jfit$optimizer_completed) ||
-    !isTRUE(jfit$covariance_components$item[1, 2] > .2) ||
-    !isTRUE(all(vapply(jfit$covariance_components,
-      function(S) min(eigen(S, symmetric = TRUE, only.values = TRUE)$values) > -1e-10,
-      logical(1))))) {
+# The condition is named once and read twice, so the printed diagnostics and
+# the retained specimen cannot come to disagree about whether the fit failed.
+joint_assertion_failed <- !isTRUE(jfit$optimizer_completed) ||
+  !isTRUE(jfit$covariance_components$item[1, 2] > .2) ||
+  !isTRUE(all(vapply(jfit$covariance_components,
+    function(S) min(eigen(S, symmetric = TRUE, only.values = TRUE)$values) > -1e-10,
+    logical(1))))
+if (joint_assertion_failed) {
   report_fit_evidence("Joint binary covariance fixture failure diagnostics (issue #14):",
                       jfit, joint_digest)
 }
+# Swallowed for the reason the replay is: an error while writing evidence must
+# not replace the failure that evidence was collected to explain.
+tryCatch(retain_joint_specimen(joint_localization, joint_assertion_failed, jfit, joint_digest),
+         error = function(e)
+           cat("Issue #14 specimen retention failed: ", conditionMessage(e), "\n", sep = ""))
 check_acceptance(jfit)
 stopifnot(jfit$optimizer_completed, jfit$covariance_components$item[1, 2] > .2,
           all(vapply(jfit$covariance_components,

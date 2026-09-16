@@ -83,6 +83,10 @@ jobs:
         shell: bash
         env:
           GTHEORY_PACKAGE_CHECK_DIR: ${{ runner.temp }}/gtheory-package-check
+          # See the corresponding note in full-validation.yml. This matrix is
+          # the only place the discrete tests run off Linux, so it is where a
+          # specimen from a different CPU and BLAS would come from.
+          GTHEORY_ISSUE14_ARTIFACT_DIR: ${{ runner.temp }}/gtheory-issue14
         run: |
           set -o pipefail
           args=(--scope source --compatibility --compact --output "$RUNNER_TEMP/compatibility.json")
@@ -100,6 +104,7 @@ jobs:
             ${{ runner.temp }}/gtheory-package-check/*.json
             ${{ runner.temp }}/gtheory-package-check/*.log
             ${{ runner.temp }}/gtheory-package-check/*.Rcheck
+            ${{ runner.temp }}/gtheory-issue14/*.rds
           if-no-files-found: ignore
       - name: Ensure tests did not modify tracked files
         run: git diff --exit-code
