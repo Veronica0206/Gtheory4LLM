@@ -179,6 +179,67 @@ ok(identical(first$reason, "dense_newton_solve_invalid"),
 ok(!.gt_d_final_factor_valid(H, {bad <- R; bad[1L, 1L] <- bad[1L, 1L] * 1.09; bad}),
    "the final-factor check rejects the same corruption")
 
+# ---- the diagnostic form carries the measurement ----------------------------
+good <- .gt_d_solve_check(H, b, x)
+ok(isTRUE(good$valid), "the diagnostic form agrees with the predicate on a healthy solve")
+ok(identical(good$random_dimension, nrow(H)), "the diagnostic form reports the dimension")
+ok(close(good$solve_validity_bound, .gt_d_solve_bound(nrow(H))),
+   "the diagnostic form reports the bound it applied")
+worse <- x; worse[[1L]] <- worse[[1L]] + 1e-3
+bad <- .gt_d_solve_check(H, b, worse)
+ok(identical(bad$valid, FALSE) && bad$solve_backward_error > bad$solve_validity_bound,
+   "a refusal reports a backward error above its bound")
+probe_bad <- .gt_d_final_factor_check(H, {r <- R; r[1L, 1L] <- r[1L, 1L] * 1.09; r})
+ok(identical(probe_bad$valid, FALSE), "the probe check refuses a corrupted factor")
+ok(identical(probe_bad$probe_index, 1L), "the probe check names which probe failed")
+ok(is.na(.gt_d_final_factor_check(H, R)$probe_index),
+   "a passing factor names no failing probe")
+
+# ---- a start-value refusal is diagnosable ------------------------------------
+# Injected through the private evaluator seam rather than by corrupting chol(),
+# so the two cases below differ in exactly one respect: whether the detailed
+# replay reproduces the failure.
+message_of <- function(expr) tryCatch({ force(expr); NA_character_ },
+                                      error = function(e) conditionMessage(e))
+reproduces <- function(parameters, prep, groups, setup, control, details = FALSE, ...) {
+  if (details) list(valid = FALSE, reason = "dense_newton_solve_invalid",
+                    solve_backward_error = 4.82807e-02,
+                    solve_validity_bound = 2.98e-13, random_dimension = 42L) else 1e100
+}
+reported <- message_of(.gt_fit_discrete(d, "y", design, family,
+                                        control = list(maxit = 60L), .laplace = reproduces))
+ok(grepl("did not yield a converged finite inner mode at starting values", reported, fixed = TRUE),
+   "the established error prefix is preserved")
+ok(grepl("reason=dense_newton_solve_invalid", reported, fixed = TRUE),
+   "a start-value refusal names the invariant that failed")
+ok(grepl("backward_error=", reported, fixed = TRUE) &&
+     grepl("solve_validity_bound=", reported, fixed = TRUE),
+   "a start-value refusal reports the measurement and the bound it was judged against")
+ok(grepl("backward_error_over_bound=", reported, fixed = TRUE),
+   "a start-value refusal reports how far over the bound it was")
+ok(grepl("random_dimension=42", reported, fixed = TRUE),
+   "a start-value refusal reports the dimension")
+
+# ---- the diagnostic replay must never rescue ---------------------------------
+# The scalar evaluation refuses and the detailed replay then succeeds, which is
+# exactly what an intermittent native defect looks like. The fit must still
+# refuse: a second call behaving is not evidence that the first was valid, and
+# the alternative is a numerical policy of retrying until the library complies.
+calls <- 0L
+intermittent <- function(parameters, prep, groups, setup, control, details = FALSE, ...) {
+  calls <<- calls + 1L
+  if (calls == 1L)
+    return(if (details) list(valid = FALSE, reason = "dense_newton_solve_invalid") else 1e100)
+  .gt_d_laplace(parameters, prep, groups, setup, control, details = details, ...)
+}
+rescued <- message_of(.gt_fit_discrete(d, "y", design, family,
+                                       control = list(maxit = 60L), .laplace = intermittent))
+ok(!is.na(rescued), "an intermittent invalid start still refuses when the replay succeeds")
+ok(grepl("diagnostic replay did not reproduce the invalid solve", rescued, fixed = TRUE),
+   "the refusal records that the replay did not reproduce, instead of silently retrying")
+ok(identical(calls, 2L), "exactly one diagnostic replay is performed, never a retry loop")
+
 if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Dense solve-validity checks passed: backward error, bound, degenerate arithmetic, ",
-    "step and factor corruption, probe properties, end-to-end refusal, and reason codes.\n", sep = "")
+    "step and factor corruption, probe properties, end-to-end refusal, reason codes, ",
+    "diagnosable start-value refusal, and no rescue from the diagnostic replay.\n", sep = "")

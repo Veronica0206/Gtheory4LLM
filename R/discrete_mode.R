@@ -35,9 +35,10 @@
     # return a factor that does not solve its own system; see the helper in
     # discrete_dense.R and issue #14. There is no rescue: a violated invariant
     # makes the dense conditional solve unavailable.
-    if (!.gt_d_solve_valid(response$H, gradient, step))
-      return(if (details) list(valid = FALSE, reason = "dense_newton_solve_invalid",
-                               random_dimension = ncol(W)) else 1e100)
+    solve_check <- .gt_d_solve_check(response$H, gradient, step)
+    if (!isTRUE(solve_check$valid))
+      return(if (details) c(list(valid = FALSE, reason = "dense_newton_solve_invalid"),
+                            solve_check[.GT_D_SOLVE_DETAIL]) else 1e100)
     objective <- response$nll + sum(u^2) / 2
     descent <- sum(gradient * step)
     multiplier <- 1
@@ -69,10 +70,11 @@
   # check above does not cover it. Validated with fixed deterministic probes
   # before its diagonal contributes to the Laplace objective, which is where the
   # captured issue #14 specimen's wrong value actually entered.
-  if (!.gt_d_final_factor_valid(response$H, R)) return(if (details)
-    list(valid = FALSE, reason = "dense_final_factor_invalid",
-         inner_converged = converged, inner_gradient = last_gradient,
-         random_dimension = ncol(W)) else 1e100)
+  factor_check <- .gt_d_final_factor_check(response$H, R)
+  if (!isTRUE(factor_check$valid)) return(if (details)
+    c(list(valid = FALSE, reason = "dense_final_factor_invalid",
+           inner_converged = converged, inner_gradient = last_gradient),
+      factor_check[c(.GT_D_SOLVE_DETAIL, "probe_index")]) else 1e100)
   value <- response$nll + sum(u^2) / 2 + sum(log(diag(R)))
   if (!details) return(value)
   list(valid = TRUE, nll = value, mode = u, eta = eta,

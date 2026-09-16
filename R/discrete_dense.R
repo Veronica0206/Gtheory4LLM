@@ -124,10 +124,22 @@
 .gt_d_solve_bound <- function(random_dimension)
   .GT_D_SOLVE_VALIDITY_CONSTANT * random_dimension * .Machine$double.eps
 
-.gt_d_solve_valid <- function(H, b, x) {
+# The diagnostic form. The containment decision needs only a yes or no, but a
+# refusal that discards how far over the bound it was is undiagnosable, and this
+# invariant guards an intermittent external defect: the next occurrence may be
+# the only chance to classify it. The numerical contract is unchanged; this
+# returns the same decision with the measurement that produced it.
+.gt_d_solve_check <- function(H, b, x) {
   eta <- .gt_d_backward_error(H, b, x)
-  is.finite(eta) && eta <= .gt_d_solve_bound(nrow(H))
+  bound <- .gt_d_solve_bound(nrow(H))
+  list(valid = is.finite(eta) && eta <= bound,
+       solve_backward_error = eta, solve_validity_bound = bound,
+       random_dimension = nrow(H))
 }
+
+.GT_D_SOLVE_DETAIL <- c("solve_backward_error", "solve_validity_bound", "random_dimension")
+
+.gt_d_solve_valid <- function(H, b, x) isTRUE(.gt_d_solve_check(H, b, x)$valid)
 
 # The final-mode factor feeds a log determinant, not a solve, so the Newton
 # check above does not cover it -- and in the captured specimen that log
@@ -149,13 +161,25 @@
 .gt_d_solve_probes <- function(random_dimension)
   list(rep(1, random_dimension), rep(c(1, -1), length.out = random_dimension))
 
-.gt_d_final_factor_valid <- function(H, R) {
-  for (probe in .gt_d_solve_probes(nrow(H))) {
-    y <- tryCatch(backsolve(R, forwardsolve(t(R), probe)), error = function(e) NULL)
-    if (is.null(y) || !.gt_d_solve_valid(H, probe, y)) return(FALSE)
+# Reports the first probe that fails, and nothing about the ones that passed:
+# a healthy probe result is not evidence anybody needs retained in production.
+.gt_d_final_factor_check <- function(H, R) {
+  probes <- .gt_d_solve_probes(nrow(H))
+  for (k in seq_along(probes)) {
+    y <- tryCatch(backsolve(R, forwardsolve(t(R), probes[[k]])), error = function(e) NULL)
+    if (is.null(y))
+      return(list(valid = FALSE, solve_backward_error = Inf,
+                  solve_validity_bound = .gt_d_solve_bound(nrow(H)),
+                  random_dimension = nrow(H), probe_index = k))
+    check <- .gt_d_solve_check(H, probes[[k]], y)
+    if (!isTRUE(check$valid)) return(c(check, list(probe_index = k)))
   }
-  TRUE
+  list(valid = TRUE, solve_backward_error = NA_real_,
+       solve_validity_bound = .gt_d_solve_bound(nrow(H)),
+       random_dimension = nrow(H), probe_index = NA_integer_)
 }
+
+.gt_d_final_factor_valid <- function(H, R) isTRUE(.gt_d_final_factor_check(H, R)$valid)
 
 .gt_d_dense_evaluate <- function(eta, parameters, prep, backend) {
   response <- .gt_d_response_kernel(eta, parameters, prep)
