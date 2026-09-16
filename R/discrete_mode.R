@@ -30,6 +30,14 @@
     R <- tryCatch(chol(response$H), error = function(e) NULL)
     if (is.null(R)) return(if (details) list(valid = FALSE) else 1e100)
     step <- backsolve(R, forwardsolve(t(R), gradient))
+    # Checked here, immediately after the solve and before the line search
+    # consumes the step. A native factorization can report success and still
+    # return a factor that does not solve its own system; see the helper in
+    # discrete_dense.R and issue #14. There is no rescue: a violated invariant
+    # makes the dense conditional solve unavailable.
+    if (!.gt_d_solve_valid(response$H, gradient, step))
+      return(if (details) list(valid = FALSE, reason = "dense_newton_solve_invalid",
+                               random_dimension = ncol(W)) else 1e100)
     objective <- response$nll + sum(u^2) / 2
     descent <- sum(gradient * step)
     multiplier <- 1
@@ -57,6 +65,14 @@
   R <- tryCatch(chol(response$H), error = function(e) NULL)
   if (is.null(R) || !converged) return(if (details)
     list(valid = FALSE, inner_converged = converged, inner_gradient = last_gradient) else 1e100)
+  # The final factor feeds a log determinant rather than a solve, so the Newton
+  # check above does not cover it. Validated with fixed deterministic probes
+  # before its diagonal contributes to the Laplace objective, which is where the
+  # captured issue #14 specimen's wrong value actually entered.
+  if (!.gt_d_final_factor_valid(response$H, R)) return(if (details)
+    list(valid = FALSE, reason = "dense_final_factor_invalid",
+         inner_converged = converged, inner_gradient = last_gradient,
+         random_dimension = ncol(W)) else 1e100)
   value <- response$nll + sum(u^2) / 2 + sum(log(diag(R)))
   if (!details) return(value)
   list(valid = TRUE, nll = value, mode = u, eta = eta,
