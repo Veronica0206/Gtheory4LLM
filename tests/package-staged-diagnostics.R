@@ -125,11 +125,10 @@ expect(identical(stage(legacy, "numerical_acceptance")$status,
                  stage(dfit, "numerical_acceptance")$status),
        "the acceptance stage is unchanged by the conditional-mode correction")
 
-# Eligibility is checked with calls that are valid for this fixture. A binary
-# fit requires an explicit latent scale, so gt_reliability(fit) and
-# gt_dstudy(fit, grid) refuse on the scale rule before acceptance is ever
-# consulted. Comparing two such refusals would compare two scale errors and
-# would hold no matter what acceptance did.
+# Eligibility is checked with calls that are valid for this fixture. An
+# otherwise accepted binary fit is refused when the latent scale is omitted, so
+# comparing generic refusal labels cannot establish that numerical-acceptance
+# eligibility is preserved: the calls may fail for different reasons.
 reliability_call <- function(x) gt_reliability(x, scale = "latent")
 dstudy_call <- function(x) gt_dstudy(x, data.frame(rater = 2), scale = "latent")
 outcome <- function(fit, f)
