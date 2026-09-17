@@ -80,6 +80,57 @@ if (isFALSE(dfit$numerically_accepted)) {
          "a rejected fit is still refused by gt_reliability despite a staged summary")
 }
 
+# --- A legacy record missing its governing tolerance is not flattered ---------
+# A real fit records the tolerance that governed its tightened solve, so this
+# condition is reached by older or externally modified objects, not by a fresh
+# fit. The retained gradient of a healthy fit clears both tolerances, which
+# would make a comparison on it pass whichever tolerance were read. This record
+# therefore carries a gradient strictly between them: it misses the governing
+# 1e-9 and meets the ordinary 1e-7, so the public verdict depends on which one
+# the summary uses, and reading the looser one is visible as an improvement.
+expect(!is.null(dfit$diagnostics$stability$validation_inner_tol),
+       "a fresh discrete fit does record the tolerance that governed its solve")
+expect(isTRUE(dfit$diagnostics$tight_final_mode),
+       "the fit used for this check really did record a tight final mode")
+governing <- dfit$diagnostics$stability$validation_inner_tol
+ordinary <- dfit$diagnostics$stability$inner_tol
+expect(governing < ordinary, "the governing tolerance is the stricter of the two")
+
+between <- dfit
+between$diagnostics$inner_gradient <- sqrt(governing * ordinary)
+expect(between$diagnostics$inner_gradient > governing &&
+         between$diagnostics$inner_gradient <= ordinary,
+       "the probe gradient lies strictly between the two tolerances")
+expect(identical(stage(between, "conditional_mode")$status, "inconclusive"),
+       "a gradient that misses the governing tolerance is inconclusive on the public path")
+
+legacy <- between
+legacy$diagnostics$stability$validation_inner_tol <- NULL
+expect(identical(legacy$diagnostics$inner_gradient, between$diagnostics$inner_gradient),
+       "only the governing tolerance was removed; the gradient is still retained")
+legacy_mode <- stage(legacy, "conditional_mode")$status
+expect(!identical(legacy_mode, "passed"),
+       paste0("losing the governing tolerance must not upgrade the public verdict to passed; got ",
+              legacy_mode))
+expect(rank[[legacy_mode]] <= rank[["inconclusive"]],
+       paste0("losing the governing tolerance is not more favorable; got ", legacy_mode))
+expect(is.null(stage(legacy, "conditional_mode")$measurements$inner_requested_tolerance),
+       "no requested tolerance is reported when the governing value is unknown")
+
+# The correction is presentation only: the fit's own decision and every
+# eligibility gate behave exactly as they did with the field present.
+expect(identical(legacy$numerically_accepted, dfit$numerically_accepted),
+       "dropping diagnostic evidence does not move the acceptance decision")
+expect(identical(stage(legacy, "numerical_acceptance")$status,
+                 stage(dfit, "numerical_acceptance")$status),
+       "the acceptance stage is unchanged by the conditional-mode correction")
+eligibility <- function(fit, f) tryCatch({ f(fit); "allowed" }, error = function(e) "refused")
+expect(identical(eligibility(legacy, gt_reliability), eligibility(dfit, gt_reliability)),
+       "reliability eligibility is unchanged")
+expect(identical(eligibility(legacy, function(x) gt_dstudy(x, data.frame(rater = 2))),
+                 eligibility(dfit, function(x) gt_dstudy(x, data.frame(rater = 2)))),
+       "D-study eligibility is unchanged")
+
 # --- Printing shows the stages -----------------------------------------------
 printed <- capture.output(print(gt_diagnostics(dfit)))
 for (label in c("optimizer completion", "conditional mode", "independent stationarity",

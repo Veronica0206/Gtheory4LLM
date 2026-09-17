@@ -27,7 +27,12 @@ base_fit <- function(...) {
                 attempts = list(list(label = "primary", start = c(1, 2),
                                      parameters = c(1.5, 2.5), objective = 10)),
                 outer_stationarity = list(stationary_within_tolerance = TRUE, tolerance = 1e-3),
-                stability = list(checked = TRUE, stable = TRUE, alternative_starts = 1L),
+                # A fit that records a tight final mode also records the
+                # tolerance that governed it. Omitting it here made the healthy
+                # fixture model a record the engine never writes, and left the
+                # fixture's verdict independent of the field this stage reads.
+                stability = list(checked = TRUE, stable = TRUE, alternative_starts = 1L,
+                                 validation_inner_tol = 1e-9),
                 acceptance_failures = NULL))
   modifyList(fit, list(...))
 }
@@ -143,6 +148,61 @@ verdict_without_check$diagnostics$stability <-
   list(stable = TRUE, alternative_starts = 1L)
 expect(identical(status(verdict_without_check, "restart_stability"), "inconclusive"),
        "a stability verdict without evidence the comparison ran is inconclusive")
+
+# --- Losing the governing tolerance must not improve the verdict -------------
+# A tightened solve is judged against the retained validation tolerance, which
+# the engine stores as min(inner_tol, validation_inner_tol). This gradient sits
+# strictly between the two thresholds: it misses 1e-9 and meets 1e-7. The
+# verdict therefore depends on which tolerance is read, which is what makes the
+# pair below discriminating rather than merely different.
+governed <- base_fit(diagnostics = modifyList(base_fit()$diagnostics, list(
+  inner_gradient = 5e-9, inner_iterations = 7L,
+  tight_final_mode = TRUE, selected_attempt = "primary",
+  stability = list(checked = TRUE, stable = TRUE, alternative_starts = 1L,
+                   validation_inner_tol = 1e-9, inner_tol = 1e-7, inner_maxit = 60L))))
+expect(identical(status(governed, "conditional_mode"), "inconclusive"),
+       "a gradient that misses the governing tightened tolerance is inconclusive")
+expect(identical(measure(governed, "conditional_mode", "inner_requested_tolerance"), 1e-9),
+       "the governing tolerance is the one reported")
+
+# Remove the governing tolerance and nothing else. The gradient, the ordinary
+# tolerance and the iteration budget all remain, so the looser fallback is
+# available; the point is that taking it would be an improvement bought by
+# discarding evidence.
+ungoverned <- governed
+ungoverned$diagnostics$stability$validation_inner_tol <- NULL
+expect(identical(measure(ungoverned, "conditional_mode", "inner_gradient"), 5e-9),
+       "only the governing tolerance was removed; the gradient is still retained")
+expect(!identical(status(ungoverned, "conditional_mode"), "passed"),
+       "discarding the governing tolerance does not upgrade the verdict to passed")
+expect(identical(status(ungoverned, "conditional_mode"), "inconclusive"),
+       "a tightened solve whose governing tolerance was not retained is inconclusive")
+expect(is.null(measure(ungoverned, "conditional_mode", "inner_requested_tolerance")),
+       "no requested tolerance is reported when the governing value is unknown")
+expect(is.null(measure(ungoverned, "conditional_mode", "inner_strict_tolerance_met")),
+       "no strict-tolerance verdict is asserted without the tolerance it needs")
+
+# An untightened solve is unaffected: its governing tolerance is the ordinary one.
+untightened <- ungoverned
+untightened$diagnostics$tight_final_mode <- FALSE
+untightened$diagnostics$selected_attempt <- "primary"
+expect(identical(measure(untightened, "conditional_mode", "inner_requested_tolerance"), 1e-7),
+       "an untightened solve still reads the ordinary tolerance")
+expect(identical(status(untightened, "conditional_mode"), "passed"),
+       "an untightened solve meeting the ordinary tolerance still passes")
+
+# --- The correction changes reporting only ------------------------------------
+# The staged summary is presentation. Losing tolerance evidence must not move
+# the fit's own acceptance decision in either direction.
+for (case in list(governed, ungoverned, untightened)) {
+  expect(isTRUE(case$numerically_accepted),
+         "the fit's acceptance decision is untouched by the stage summary")
+  expect(identical(measure(case, "numerical_acceptance", "numerically_accepted"),
+                   case$numerically_accepted),
+         "the acceptance stage still mirrors the fit's own decision")
+  expect(identical(status(case, "numerical_acceptance"), "passed"),
+         "acceptance is reported from the fit, not from the conditional-mode stage")
+}
 
 # --- The adequacy labels fits actually record --------------------------------
 # Nothing in the package ever writes the bare string "exact", so matching only
