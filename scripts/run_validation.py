@@ -36,6 +36,10 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # inputs, so it must hold on every platform the study will
                  # later be executed on.
                  "test_discrete_equivalence_freeze.R",
+                 # Calibration and qualification will measure on every
+                 # platform, so the layer that computes those measurements
+                 # has to be shown correct there too, not only on Linux.
+                 "test_discrete_equivalence_measure.R",
                  "test_discrete_reference.R",
                  # The sparse mode solver runs the inner conditional solve, and
                  # a platform-dependent inner solve is the open question in #14.
