@@ -80,6 +80,87 @@ if (isFALSE(dfit$numerically_accepted)) {
          "a rejected fit is still refused by gt_reliability despite a staged summary")
 }
 
+# --- A legacy record missing its governing tolerance is not flattered ---------
+# A real fit records the tolerance that governed its tightened solve, so this
+# condition is reached by older or externally modified objects, not by a fresh
+# fit. The retained gradient of a healthy fit clears both tolerances, which
+# would make a comparison on it pass whichever tolerance were read. This record
+# therefore carries a gradient strictly between them: it misses the governing
+# 1e-9 and meets the ordinary 1e-7, so the public verdict depends on which one
+# the summary uses, and reading the looser one is visible as an improvement.
+expect(!is.null(dfit$diagnostics$stability$validation_inner_tol),
+       "a fresh discrete fit does record the tolerance that governed its solve")
+expect(isTRUE(dfit$diagnostics$tight_final_mode),
+       "the fit used for this check really did record a tight final mode")
+governing <- dfit$diagnostics$stability$validation_inner_tol
+ordinary <- dfit$diagnostics$stability$inner_tol
+expect(governing < ordinary, "the governing tolerance is the stricter of the two")
+
+between <- dfit
+between$diagnostics$inner_gradient <- sqrt(governing * ordinary)
+expect(between$diagnostics$inner_gradient > governing &&
+         between$diagnostics$inner_gradient <= ordinary,
+       "the probe gradient lies strictly between the two tolerances")
+expect(identical(stage(between, "conditional_mode")$status, "inconclusive"),
+       "a gradient that misses the governing tolerance is inconclusive on the public path")
+
+legacy <- between
+legacy$diagnostics$stability$validation_inner_tol <- NULL
+expect(identical(legacy$diagnostics$inner_gradient, between$diagnostics$inner_gradient),
+       "only the governing tolerance was removed; the gradient is still retained")
+legacy_mode <- stage(legacy, "conditional_mode")$status
+expect(!identical(legacy_mode, "passed"),
+       paste0("losing the governing tolerance must not upgrade the public verdict to passed; got ",
+              legacy_mode))
+expect(rank[[legacy_mode]] <= rank[["inconclusive"]],
+       paste0("losing the governing tolerance is not more favorable; got ", legacy_mode))
+expect(is.null(stage(legacy, "conditional_mode")$measurements$inner_requested_tolerance),
+       "no requested tolerance is reported when the governing value is unknown")
+
+# The correction is presentation only: the fit's own decision and every
+# eligibility gate behave exactly as they did with the field present.
+expect(identical(legacy$numerically_accepted, dfit$numerically_accepted),
+       "dropping diagnostic evidence does not move the acceptance decision")
+expect(identical(stage(legacy, "numerical_acceptance")$status,
+                 stage(dfit, "numerical_acceptance")$status),
+       "the acceptance stage is unchanged by the conditional-mode correction")
+
+# Eligibility is checked with calls that are valid for this fixture. A binary
+# fit requires an explicit latent scale, so gt_reliability(fit) and
+# gt_dstudy(fit, grid) refuse on the scale rule before acceptance is ever
+# consulted. Comparing two such refusals would compare two scale errors and
+# would hold no matter what acceptance did.
+reliability_call <- function(x) gt_reliability(x, scale = "latent")
+dstudy_call <- function(x) gt_dstudy(x, data.frame(rater = 2), scale = "latent")
+outcome <- function(fit, f)
+  tryCatch({ f(fit); "allowed" }, error = function(e) conditionMessage(e))
+accepted_only <- "require a numerically converged fit"
+
+# Accepted case: the prerequisite is asserted rather than assumed, and both
+# valid calls must actually succeed on the record with and without the field.
+expect(isTRUE(dfit$numerically_accepted),
+       "the baseline fit for the eligibility check is numerically accepted")
+for (case in list(full = between, missing_tolerance = legacy)) {
+  expect(identical(outcome(case, reliability_call), "allowed"),
+         "an accepted fit remains eligible for latent-scale reliability")
+  expect(identical(outcome(case, dstudy_call), "allowed"),
+         "an accepted fit remains eligible for a latent-scale D study")
+}
+
+# Rejected case: both calls must fail for the acceptance restriction
+# specifically. A scale, panel or argument error would not demonstrate that the
+# acceptance gate is what refused them.
+rejected <- legacy
+rejected$numerically_accepted <- FALSE
+for (call in list(reliability_call, dstudy_call)) {
+  message <- outcome(rejected, call)
+  expect(!identical(message, "allowed"),
+         "a rejected fit is refused even when its diagnostic evidence is incomplete")
+  expect(grepl(accepted_only, message, fixed = TRUE),
+         paste0("the refusal is the numerical-acceptance restriction, not another rule; got: ",
+                message))
+}
+
 # --- Printing shows the stages -----------------------------------------------
 printed <- capture.output(print(gt_diagnostics(dfit)))
 for (label in c("optimizer completion", "conditional mode", "independent stationarity",
