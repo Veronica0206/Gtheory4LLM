@@ -152,11 +152,25 @@
   .eq_nondegenerate(.eq_nondegenerate(d, "a"), "b")
 }
 
+# The geometries built with rare extreme categories, named exactly and read by
+# BOTH the level selector and the panel builder.
+#
+# Pre-calibration correction. As first frozen, the two decided separately: the
+# selector matched the exact name "tail_mass" while the builder matched any name
+# containing "tail". The calibration geometry "cal_tail" satisfied only the
+# builder, so K05 received the rare-extreme construction with three levels
+# instead of five. Its categories were 15, 60 and 165 of 240, which put 68.75%
+# of observations in the top category: the opposite of the rare tail K05 exists
+# to calibrate. One definition makes that disagreement impossible, and an exact
+# set rather than a substring keeps an unrelated future name from matching.
+EQ_TAIL_GEOMETRIES <- c("tail_mass", "cal_tail")
+.eq_is_tail_geometry <- function(geometry) geometry %in% EQ_TAIL_GEOMETRIES
+
 # Ordinal category count by geometry. Tail mass needs five levels so the
 # interior can carry between-object variation while the extremes stay rare;
 # three levels cannot do both at once.
 .eq_ordinal_levels <- function(geometry) {
-  if (identical(geometry, "tail_mass"))
+  if (.eq_is_tail_geometry(geometry))
     c("lowest", "low", "mid", "high", "highest")
   else
     c("low", "mid", "high")
@@ -438,7 +452,7 @@ EQ_DESIGNS <- list(single = .eq_design_single, crossed2 = .eq_design_crossed2,
     binary = .eq_binary_panel(geometry$objects, geometry$raters, geometry$reps),
     ordinal = .eq_ordinal_panel(geometry$objects, geometry$raters, geometry$reps,
                                 .eq_ordinal_levels(geometry_name),
-                                tail_mass = grepl("tail", geometry_name, fixed = TRUE)),
+                                tail_mass = .eq_is_tail_geometry(geometry_name)),
     categorical = .eq_categorical_panel(geometry$objects, geometry$raters, geometry$reps,
                                         c("a", "b", "c")),
     joint_binary = .eq_joint_panel(geometry$objects, geometry$raters, geometry$reps),
