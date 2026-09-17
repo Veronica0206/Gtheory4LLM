@@ -124,12 +124,42 @@ expect(identical(legacy$numerically_accepted, dfit$numerically_accepted),
 expect(identical(stage(legacy, "numerical_acceptance")$status,
                  stage(dfit, "numerical_acceptance")$status),
        "the acceptance stage is unchanged by the conditional-mode correction")
-eligibility <- function(fit, f) tryCatch({ f(fit); "allowed" }, error = function(e) "refused")
-expect(identical(eligibility(legacy, gt_reliability), eligibility(dfit, gt_reliability)),
-       "reliability eligibility is unchanged")
-expect(identical(eligibility(legacy, function(x) gt_dstudy(x, data.frame(rater = 2))),
-                 eligibility(dfit, function(x) gt_dstudy(x, data.frame(rater = 2)))),
-       "D-study eligibility is unchanged")
+
+# Eligibility is checked with calls that are valid for this fixture. A binary
+# fit requires an explicit latent scale, so gt_reliability(fit) and
+# gt_dstudy(fit, grid) refuse on the scale rule before acceptance is ever
+# consulted. Comparing two such refusals would compare two scale errors and
+# would hold no matter what acceptance did.
+reliability_call <- function(x) gt_reliability(x, scale = "latent")
+dstudy_call <- function(x) gt_dstudy(x, data.frame(rater = 2), scale = "latent")
+outcome <- function(fit, f)
+  tryCatch({ f(fit); "allowed" }, error = function(e) conditionMessage(e))
+accepted_only <- "require a numerically converged fit"
+
+# Accepted case: the prerequisite is asserted rather than assumed, and both
+# valid calls must actually succeed on the record with and without the field.
+expect(isTRUE(dfit$numerically_accepted),
+       "the baseline fit for the eligibility check is numerically accepted")
+for (case in list(full = between, missing_tolerance = legacy)) {
+  expect(identical(outcome(case, reliability_call), "allowed"),
+         "an accepted fit remains eligible for latent-scale reliability")
+  expect(identical(outcome(case, dstudy_call), "allowed"),
+         "an accepted fit remains eligible for a latent-scale D study")
+}
+
+# Rejected case: both calls must fail for the acceptance restriction
+# specifically. A scale, panel or argument error would not demonstrate that the
+# acceptance gate is what refused them.
+rejected <- legacy
+rejected$numerically_accepted <- FALSE
+for (call in list(reliability_call, dstudy_call)) {
+  message <- outcome(rejected, call)
+  expect(!identical(message, "allowed"),
+         "a rejected fit is refused even when its diagnostic evidence is incomplete")
+  expect(grepl(accepted_only, message, fixed = TRUE),
+         paste0("the refusal is the numerical-acceptance restriction, not another rule; got: ",
+                message))
+}
 
 # --- Printing shows the stages -----------------------------------------------
 printed <- capture.output(print(gt_diagnostics(dfit)))

@@ -108,8 +108,8 @@
   # A tightened solve is governed by the retained validation tolerance, which the
   # engine already stores as min(inner_tol, validation_inner_tol). When that
   # evidence is absent there is no way to recover the value that actually
-  # governed the solve: a public fit's control carries no discrete settings, so
-  # falling back to the ordinary tolerance would judge a strict solve against a
+  # governed the solve: a public fit's control may omit the effective settings,
+  # so falling back to the ordinary tolerance would judge a strict solve against a
   # looser number and report a pass that the retained evidence cannot support.
   # Leaving `requested` NULL sends the stage to inconclusive instead, which is
   # what absent evidence means everywhere else in this summary.

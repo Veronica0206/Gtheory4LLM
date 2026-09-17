@@ -1,7 +1,14 @@
 # Gtheory4LLM 0.2.0.9000 (development)
 
-- Opens the 0.2.0 development line. No functional, model or numerical
-  change accompanies this version; it separates post-0.1.0 maintenance,
+- The conditional-mode diagnostic stage no longer reports `passed` when a
+  record says its solve was tightened but does not retain the tolerance that
+  governed it. That record now reports `inconclusive`, because the retained
+  evidence cannot establish that the solve met what was asked of it. This
+  changes reporting only, and only for incomplete or older fit objects: a fit
+  produced by this version retains that tolerance. Fitting, numerical
+  acceptance, and reliability and D-study eligibility are unchanged.
+
+- Opens the 0.2.0 development line, separating post-0.1.0 maintenance,
   recorded below, from development of the scalable discrete backend.
 
 <!-- release-identity:start -->
