@@ -901,9 +901,13 @@ fit_openmx_multivariate <- function(
     ml_BIC_scalar_scores = ml_bic_scalars,
     legacy_AIC = native_aic, legacy_BIC = native_bic,
     reml_AIC_variance_parameters = if (reml) native_aic else NA_real_,
+    # What BIC() returns for a REML fit through logLik(): the restricted
+    # deviance, the covariance parameters only, and N response vectors.
+    reml_BIC_response_vectors_variance_parameters = if (reml)
+      deviance + log(prepared$N) * n_variance_parameters else NA_real_,
     reml_BIC_scalar_scores_variance_parameters = if (reml) native_bic else NA_real_,
     information_criteria = list(likelihood = if (reml) "REML" else "ML",
-      generic = if (reml) "AIC/BIC unavailable for REML; explicitly named restricted-likelihood conventions provided" else
+      generic = if (reml) "The AIC and BIC elements are NA for REML; AIC() and BIC() use the restricted likelihood with covariance parameters only, BIC() over N response vectors, each also recorded under an explicit restricted-likelihood name" else
         "AIC counts covariance parameters and profiled means; BIC uses N response vectors",
       legacy = "OpenMx variance parameters only, with N*D scalar scores for BIC",
       bic_response_vectors = prepared$N, bic_scalar_scores = prepared$N * D,

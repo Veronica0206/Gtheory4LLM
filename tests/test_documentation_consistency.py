@@ -152,6 +152,31 @@ class DocumentLinkTests(unittest.TestCase):
                     resolved = (document.parent / target.split("#", 1)[0]).resolve()
                     self.assertTrue(resolved.exists(), f"{document.name} links to a missing {target}")
 
+    def test_readme_and_news_link_only_to_files_the_archive_ships(self):
+        # CRAN's incoming check resolves a relative README or NEWS link inside
+        # the source archive and reports "invalid file URIs" for a target that
+        # .Rbuildignore keeps out of it. The 0.0.6 submission was returned for
+        # exactly that. Repository documents are linked by absolute URL instead.
+        patterns = [re.compile(line, re.I) for line in
+                    (ROOT / ".Rbuildignore").read_text(encoding="utf-8").splitlines() if line.strip()]
+
+        def ignored(relative):
+            parts = relative.split("/")
+            return any(pattern.search("/".join(parts[:i]))
+                       for pattern in patterns for i in range(1, len(parts) + 1))
+
+        for name in ("README.md", "NEWS.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            for target in self.LINK.findall(text):
+                if target.startswith(("http://", "https://", "mailto:", "#")):
+                    continue
+                relative = target.split("#", 1)[0].rstrip("/")
+                with self.subTest(document=name, target=target):
+                    self.assertTrue((ROOT / relative).exists(), f"{name} links to a missing {target}")
+                    self.assertFalse(ignored(relative),
+                                     f"{name} links to {target}, which .Rbuildignore keeps out of "
+                                     "the archive; link the repository URL instead")
+
     def test_the_limitations_page_is_reachable_from_the_readme(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("docs/LIMITATIONS.md", readme)
@@ -162,6 +187,19 @@ class DocumentLinkTests(unittest.TestCase):
             with self.subTest(document=name.name):
                 self.assertIn(f"docs/{name.name}", readme,
                               "a document nobody is pointed to will drift")
+
+
+class SourceLoaderTests(unittest.TestCase):
+    """load_functions.R is the documented no-install path, so it must load what the package loads."""
+
+    def test_load_functions_sources_the_collate_files_in_order(self):
+        declared = re.findall(r"'([^']+)'", description_fields()["Collate"])
+        self.assertTrue(declared, "DESCRIPTION declares no Collate field")
+        loader = (ROOT / "load_functions.R").read_text(encoding="utf-8")
+        listed = re.search(r"for \(\.gt_loader_name in c\((.*?)\)\)", loader, re.S)
+        self.assertIsNotNone(listed, "load_functions.R does not enumerate the files it sources")
+        self.assertEqual(re.findall(r'"([^"]+)"', listed.group(1)), declared,
+                         "load_functions.R must source exactly the Collate files, in Collate order")
 
 
 class DuplicationTests(unittest.TestCase):

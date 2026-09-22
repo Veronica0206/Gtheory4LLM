@@ -51,5 +51,5 @@ the reporter is credited unless they ask otherwise.
 Data you pass to `gt_fit()` stays in the R session and in the returned object.
 Nothing is uploaded, cached outside the session, or written to disk. A fitted
 object retains the modelled data by default, so treat a saved `.rds` of a fit
-as containing whatever you fitted; `gt_control(gaussian = list(keep_data =
-FALSE))` drops it when that matters.
+as containing whatever you fitted; `gt_control(retain = list(data = FALSE))`
+drops it when that matters.

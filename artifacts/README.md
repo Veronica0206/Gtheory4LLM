@@ -6,7 +6,7 @@ archive and reference manual, built from the source commit recorded in
 was prepared locally and never published. `manifest.json` records the release
 state, and `scripts/check_committed_artifact.py --check-release-identity` fails
 if this prose and the tag disagree, in either direction. The earlier 0.0.6 CRAN
-submission was confirmed by the maintainer and remains awaiting a decision; no
+submission was returned for two README links to files outside the archive; no
 duplicate submission was made, and publishing here establishes no CRAN status.
 
 The archive includes three publicly archived LLM annotation panels (eight

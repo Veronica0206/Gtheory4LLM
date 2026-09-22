@@ -144,7 +144,10 @@ print.gt_diagnostics <- function(x, ...) {
     cat("Declared aliases:", paste(x$declared_aliases, collapse = ", "), "\n")
   if (length(x$data_validation) && !is.na(x$data_validation))
     cat("Data validation:", x$data_validation, "\n")
-  if (isFALSE(x$standard_errors_available))
+  # The shared status printer above already names the reason when one was
+  # recorded, so this line is for a record that carries none.
+  reason <- x$standard_errors_unavailable_reason
+  if (isFALSE(x$standard_errors_available) && !(length(reason) && !is.na(reason[[1L]])))
     cat("Standard errors: unavailable.\n")
   else if (isTRUE(x$standard_errors_available))
     cat("Standard errors: available for source variance components.\n")

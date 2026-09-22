@@ -9,8 +9,8 @@ projected reliability across alternative numbers of evaluators and prompts.
 This is a research beta. Passing the package's numerical acceptance checks does
 **not** establish parameter recovery, interval coverage, Laplace approximation
 quality, or a scientifically sufficient number of evaluators. Read
-[docs/LIMITATIONS.md](docs/LIMITATIONS.md) before quoting a coefficient, and
-[docs/VALIDATION_SCOPE.md](docs/VALIDATION_SCOPE.md) for what has actually been
+[docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md) before quoting a coefficient, and
+[docs/VALIDATION_SCOPE.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/VALIDATION_SCOPE.md) for what has actually been
 validated.
 
 <!-- release-identity:start -->
@@ -44,7 +44,7 @@ install.packages(
 library(Gtheory4LLM)
 ```
 
-The repository keeps checksummed release files in [`artifacts/`](artifacts/).
+The repository keeps checksummed release files in [`artifacts/`](https://github.com/Veronica0206/Gtheory4LLM/tree/main/artifacts).
 To install this source version, run `R CMD build .`, then use `R CMD INSTALL`
 with the versioned archive it creates. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
@@ -102,7 +102,7 @@ These are asymptotic Wald quantities conditional on the declared model and
 allocation. A source resting on a variance boundary has no Wald standard error,
 and the discrete Laplace engine computes no observed information at all. What
 those intervals do and do not cover is stated once in
-[docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+[docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md).
 
 ### Fixed facets
 
@@ -194,18 +194,18 @@ parameter, and working-memory limits, and refuses before allocating rather than
 after allocation fails. `gt_preflight()` reports both before any optimization.
 
 **Every limitation is listed once, in
-[docs/LIMITATIONS.md](docs/LIMITATIONS.md)** — what the designs, the Gaussian
+[docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md)** — what the designs, the Gaussian
 engine and the discrete engine do and do not support, which combinations are
 not implemented, and what "supported" means here. Read it before quoting a
 coefficient. What has actually been checked, and what a future study still has
-to establish, is in [docs/VALIDATION_SCOPE.md](docs/VALIDATION_SCOPE.md); the
-initial [statistical pilots](validation-studies/README.md) preserve their
+to establish, is in [docs/VALIDATION_SCOPE.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/VALIDATION_SCOPE.md); the
+initial [statistical pilots](https://github.com/Veronica0206/Gtheory4LLM/blob/main/validation-studies/README.md) preserve their
 coverage, approximation and recovery results, including boundaries and
 unavailable comparisons.
 
 ## Example data and references
 
-The [real-data workflow](docs/REAL_DATA_WORKFLOW.md) audits the native outcome
+The [real-data workflow](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/REAL_DATA_WORKFLOW.md) audits the native outcome
 types and full designs of all three panels, then demonstrates how to interpret
 unsupported requests and numerical failures.
 
@@ -269,7 +269,7 @@ separately:
 python3 scripts/run_validation.py --scope all --as-cran
 ```
 
-See [validation instructions](scripts/VALIDATION.md) for the locked environment,
+See [validation instructions](https://github.com/Veronica0206/Gtheory4LLM/blob/main/scripts/VALIDATION.md) for the locked environment,
 minimum-R and Windows/macOS checks, source-only checks, and retained evidence.
 The numerical suite includes independent dense Gaussian likelihoods,
 binary/ordinal comparisons with lme4 and ordinal, likelihood/derivative
@@ -286,7 +286,7 @@ credentials before posting. Maintainer: Jin Liu,
 
 ## License
 
-Package code is licensed under [GPL-3](LICENSE). The real annotation tables
+Package code is licensed under [GPL-3](https://github.com/Veronica0206/Gtheory4LLM/blob/main/LICENSE). The real annotation tables
 retain the **CC BY 4.0** license stated in the public deposit’s data codebook;
 see [data attribution and license](inst/DATA_LICENSE.md). Synthetic tutorial
 and test examples are covered by the code license. Public release files are
@@ -301,19 +301,19 @@ Each document has one job, so that nothing has to be kept true in two places.
 |---|---|
 | This README | Install, a complete worked workflow, and what the package is for |
 | [vignettes/LLM-workflow.Rmd](vignettes/LLM-workflow.Rmd) | The end-to-end tutorial, installed and runnable |
-| [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Everything the package does not do, listed once |
-| [docs/VALIDATION_SCOPE.md](docs/VALIDATION_SCOPE.md) | What has been checked, how, and what that does not establish |
-| [docs/REAL_DATA_WORKFLOW.md](docs/REAL_DATA_WORKFLOW.md) | The bundled panels, their native outcomes, and their resource ceilings |
-| [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) | The current release state and what is being worked on |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Planned work beyond this release, in the order it is planned |
-| [docs/DISCRETE_BACKEND_CONTRACT.md](docs/DISCRETE_BACKEND_CONTRACT.md) | Private dense response, matrix and mode interfaces |
+| [docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md) | Everything the package does not do, listed once |
+| [docs/VALIDATION_SCOPE.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/VALIDATION_SCOPE.md) | What has been checked, how, and what that does not establish |
+| [docs/REAL_DATA_WORKFLOW.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/REAL_DATA_WORKFLOW.md) | The bundled panels, their native outcomes, and their resource ceilings |
+| [docs/DEVELOPMENT_STATUS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md) | The current release state and what is being worked on |
+| [docs/ROADMAP.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/ROADMAP.md) | Planned work beyond this release, in the order it is planned |
+| [docs/DISCRETE_BACKEND_CONTRACT.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DISCRETE_BACKEND_CONTRACT.md) | Private dense response, matrix and mode interfaces |
 | [NEWS.md](NEWS.md) | Version history |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md), [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md), [docs/REPOSITORY_POLICY.md](docs/REPOSITORY_POLICY.md), [SECURITY.md](SECURITY.md) | Working on the package itself |
+| [docs/CONTRIBUTING.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/CONTRIBUTING.md), [docs/RELEASE_CHECKLIST.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/RELEASE_CHECKLIST.md), [docs/REPOSITORY_POLICY.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/REPOSITORY_POLICY.md), [SECURITY.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/SECURITY.md) | Working on the package itself |
 
 ## Development and release checks
 
-See the [contribution guide](docs/CONTRIBUTING.md) for setup and statistical
-change requirements, and the [release checklist](docs/RELEASE_CHECKLIST.md) for
+See the [contribution guide](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/CONTRIBUTING.md) for setup and statistical
+change requirements, and the [release checklist](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/RELEASE_CHECKLIST.md) for
 version, tag, archive, and manual correspondence. Software checks and scientific
-validation are reported separately. The [development status](docs/DEVELOPMENT_STATUS.md)
+validation are reported separately. The [development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md)
 tracks completed work and remaining extensions.

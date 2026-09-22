@@ -16,7 +16,7 @@ in [limitations](LIMITATIONS.md).
 | Branch protection | Configured on `main`; the authenticated policy verifier passed |
 | Release-tag protection | Active for `v*`; updates and deletions blocked with no bypass actors |
 | Future GitHub releases | Immutable releases enabled; existing 0.1.0 remains `immutable: false` |
-| CRAN | `0.0.6` submitted and confirmed, awaiting a decision; no subsequent submission |
+| CRAN | `0.0.6` submission returned by CRAN: two README links (`scripts/VALIDATION.md`, `LICENSE`) pointed at files the archive does not ship; fixed on the development line, resubmission awaits a new release version |
 
 The checkout, published bundle, GitHub release and CRAN submission are separate
 states. Development changes do not rebuild the published archive or move its
@@ -64,11 +64,11 @@ commit also do not establish that a later development checkout has passed.
   published release and development checkout.
 - Maintain release-tag protection and update pinned Actions to supported
   runtimes through a separate maintenance change.
-- Defer additional R-devel checking of the exact published archive and CRAN
-  resubmission while the confirmed 0.0.6 submission is pending. Existing
-  development CI is unchanged.
-- Begin the sparse discrete backend against the existing dense reference and
-  characterization tests, as described in [the roadmap](ROADMAP.md).
+- Resubmit to CRAN from a new release version once the README link fix is on
+  `main`; the exact-candidate workflow must pass on that version first.
+- Finish qualifying the private sparse discrete backend (dense/sparse
+  equivalence calibration, then public dispatch) before any 0.2.0 release, as
+  described in [the roadmap](ROADMAP.md).
 
 ## Scientific scope
 

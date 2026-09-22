@@ -1,4 +1,9 @@
-# Run after installing the development branch. No manuscript datasets required.
+# A constructed panel whose zero object variance is a legitimate optimum.
+#
+# Run with:
+#   source(system.file("examples", "discrete-boundary.R", package = "Gtheory4LLM"))
+#
+# Everything here is synthetic and needs no data.
 library(Gtheory4LLM)
 ratings <- expand.grid(occasion = seq_len(12), person = seq_len(8))
 ratings$pass <- as.integer(ratings$occasion <= 6L)

@@ -42,6 +42,10 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # Comparing it against dense and against the frozen targets is
                  # only informative off Linux if it actually runs there.
                  "test_discrete_sparse_mode.R",
+                 # The sparse factorization is where CHOLMOD's fill-reducing
+                 # permutation enters, and permutation behaviour is the part of
+                 # the sparse path most likely to differ by platform.
+                 "test_discrete_sparse_factor.R",
                  # The fitted contract is only worth freezing if it is known to
                  # hold on every supported platform. Exercising it off Linux
                  # before a sparse backend exists is what keeps a platform

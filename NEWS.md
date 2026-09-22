@@ -1,5 +1,30 @@
 # Gtheory4LLM 0.2.0.9000 (development)
 
+- README links to repository documents that the source archive does not ship
+  (`docs/`, `scripts/VALIDATION.md`, `validation-studies/`, `artifacts/`,
+  `SECURITY.md`, `LICENSE`) are now absolute repository URLs. CRAN's incoming
+  check reported the relative `scripts/VALIDATION.md` and `LICENSE` links of
+  the 0.0.6 submission as invalid file URIs; a test now refuses any README or
+  NEWS link to a file that `.Rbuildignore` keeps out of the archive.
+- `SECURITY.md` named a control that does not exist. The retention switch is
+  `gt_control(retain = list(data = FALSE))`.
+- `BIC()` on a REML fit is documented, and its convention, N response vectors
+  with the covariance parameters only, is recorded as
+  `reml_BIC_response_vectors_variance_parameters`. `help("gt_fit")` no longer
+  says the generic criteria are unavailable for REML: the fit's own `AIC` and
+  `BIC` elements are `NA`, the generics are not.
+- `load_functions.R` sources `R/discrete_sparse_mode.R`, matching the Collate
+  field; a test keeps the two lists equal.
+- `print(gt_diagnostics(fit))` states the standard-error availability once.
+- Records the 0.2.0 engineering already on this line, none of it public API:
+  `Matrix` joined Imports for the private sparse random-design, Hessian,
+  factorization and conditional-mode files behind a private evaluator seam,
+  and the dense conditional solve now refuses a factorization that does not
+  solve its own system (`dense_newton_solve_invalid`,
+  `dense_final_factor_invalid`), reporting the backward error and its bound
+  when the refusal happens at the starting values. The compatibility matrix
+  runs the sparse factorization test on every platform.
+
 - The conditional-mode diagnostic stage no longer reports `passed` when a
   record says its solve was tightened but does not retain the tolerance that
   governed it. That record now reports `inconclusive`, because the retained

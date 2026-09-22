@@ -56,6 +56,16 @@ near(AIC(reml), reml$reml_AIC_variance_parameters,
      "AIC of a REML fit is the recorded restricted-likelihood AIC")
 near(BIC(reml), reml$minus2loglik + log(nrow(panel)) * reml$n_variance_parameters,
      "BIC of a REML fit uses N response vectors and covariance parameters")
+near(BIC(reml), reml$reml_BIC_response_vectors_variance_parameters,
+     "the REML BIC convention is recorded under its own name")
+# With one outcome N and N * D coincide, so the two REML BIC conventions are
+# told apart on a joint fit, where they must differ by log(D) per parameter.
+joint_reml <- gt_fit(panel, c("y", "z"), design, estimator = "REML", covariance = "unstructured")
+near(BIC(joint_reml), joint_reml$reml_BIC_response_vectors_variance_parameters,
+     "a joint REML fit's BIC is the recorded response-vector convention")
+near(joint_reml$reml_BIC_scalar_scores_variance_parameters - BIC(joint_reml),
+     log(2) * attr(logLik(joint_reml), "df"),
+     "the scalar-score REML convention differs from BIC() by log(D) per covariance parameter")
 near(BIC(joint), joint$ml_BIC_response_vectors,
      "a joint ML fit's BIC uses response vectors")
 expect(!isTRUE(all.equal(BIC(joint), joint$ml_BIC_scalar_scores)),

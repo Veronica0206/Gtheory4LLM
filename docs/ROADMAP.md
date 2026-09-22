@@ -107,9 +107,11 @@ family likelihood
             -> independent acceptance diagnostics
 ```
 
-TMB is the leading candidate, because sparse random-effects Laplace calculation
-with automatic differentiation is what it exists for. It has to be weighed
-against dependency weight and portability before it is adopted, not after.
+The prototype now on this line uses `Matrix` (CHOLMOD) sparse storage,
+factorization and solves behind a private marginal-evaluator seam, so the
+outer optimizer, restarts and acceptance stay single-sourced with the dense
+path. TMB was weighed for its automatic differentiation and set aside on
+dependency weight and portability; AD remains conditional, as stated above.
 
 Users must always be able to tell which backend produced a result.
 

@@ -2,9 +2,12 @@
 
 This contract separates the existing dense implementation into response,
 matrix, and conditional-mode operations. It is an internal implementation
-boundary, with no exported backend selector, additional dependency, or sparse
-solver. Gaussian fitting is unaffected. The existing shared `.gt_d_stop()`
-helper remains in `discrete.R` and resolves at call time.
+boundary with no exported backend selector. The private sparse files,
+`R/discrete_sparse.R` and `R/discrete_sparse_mode.R`, build on it through the
+`Matrix` import and are qualified by the frozen studies under
+`validation-studies/`; nothing public dispatches to them yet. Gaussian fitting
+is unaffected. The existing shared `.gt_d_stop()` helper remains in
+`discrete.R` and resolves at call time.
 
 ## Data and coordinate order
 

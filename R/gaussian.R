@@ -110,8 +110,9 @@
 # ML profiles the fixed outcome means. REML includes D*log(N), matching the
 # unscaled fixed-intercept convention in lme4. ML AIC includes profiled means;
 # ML BIC uses N response vectors, with an explicit N*D alternative. Legacy
-# variance-only criteria remain named separately. Generic AIC/BIC are unavailable
-# for REML; explicitly named restricted-likelihood criteria preserve the archive.
+# variance-only criteria remain named separately. For REML the AIC/BIC elements
+# are NA; AIC() and BIC() use the restricted likelihood, and every convention has
+# an explicit restricted-likelihood name.
 #
 # covariance: One of unstructured/diagonal or named source overrides.
 #   With named overrides, unspecified sources use diagonal covariance.
@@ -163,7 +164,7 @@
   result$likelihood_convention <- list(
     fixed_effects = "One profiled fixed intercept per outcome", reml_intercept_constant = "D * log(N)",
     information_criteria_parameters = if (estimator == "ML") "Variance/covariance parameters plus profiled means" else
-      "Generic AIC/BIC unavailable; named REML conventions use covariance parameters",
+      "AIC() and BIC() use the restricted likelihood with covariance parameters only; the named REML conventions record N and N*D",
     information_criteria_nobs = "ML BIC uses N response vectors; N*D alternative and archive conventions are explicitly named",
     legacy_information_criteria = "legacy_AIC/legacy_BIC exclude profiled means; legacy_BIC uses N*D")
   result
