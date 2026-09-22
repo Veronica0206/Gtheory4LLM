@@ -1,4 +1,36 @@
-# Gtheory4LLM 0.2.0.9000 (development)
+# Gtheory4LLM 0.2.0
+
+Cut from the 0.2.0 development line for the CRAN resubmission. Every estimate,
+coefficient and acceptance decision in `tests/package-characterization.R`
+reproduces the 0.1.0 values within the tolerances recorded there. The one change
+to fitting itself is the refusal of a dense conditional solve that does not
+solve its own system, recorded under engineering below. Everything else is new
+reporting, corrections, engineering behind private seams, and the release
+maintenance that followed 0.1.0.
+
+## Staged numerical diagnostics
+
+- `gt_diagnostics()` gains a `stages` element summarising the numerical checks
+  a fit passed through: optimizer completion, conditional mode, independent
+  stationarity, restart and tolerance stability, numerical acceptance, and
+  approximation assessment, each with a status, a reason and its supporting
+  measurements, so a rejection names the stage responsible without the caller
+  reading private optimizer records. The status is `passed`, `failed`,
+  `not_assessed` for a check that did not run or does not apply to the engine,
+  or `inconclusive` for one that ran without a clear verdict; absent evidence
+  is never read as a pass. The summary is derived from evidence the fit already
+  retained, including the tolerances that governed the retained solve: it never
+  refits and never changes an acceptance decision. Print methods are registered
+  for the stage summary and for a single stage.
+- The conditional-mode diagnostic stage no longer reports `passed` when a
+  record says its solve was tightened but does not retain the tolerance that
+  governed it. That record now reports `inconclusive`, because the retained
+  evidence cannot establish that the solve met what was asked of it. This
+  changes reporting only, and only for incomplete or older fit objects: a fit
+  produced by this version retains that tolerance. Fitting, numerical
+  acceptance, and reliability and D-study eligibility are unchanged.
+
+## Corrections
 
 - README links to repository documents that the source archive does not ship
   (`docs/`, `scripts/VALIDATION.md`, `validation-studies/`, `artifacts/`,
@@ -16,36 +48,25 @@
 - `load_functions.R` sources `R/discrete_sparse_mode.R`, matching the Collate
   field; a test keeps the two lists equal.
 - `print(gt_diagnostics(fit))` states the standard-error availability once.
-- Records the 0.2.0 engineering already on this line, none of it public API:
-  `Matrix` joined Imports for the private sparse random-design, Hessian,
-  factorization and conditional-mode files behind a private evaluator seam,
-  and the dense conditional solve now refuses a factorization that does not
-  solve its own system (`dense_newton_solve_invalid`,
-  `dense_final_factor_invalid`), reporting the backward error and its bound
-  when the refusal happens at the starting values. The compatibility matrix
-  runs the sparse factorization test on every platform.
 
-- The conditional-mode diagnostic stage no longer reports `passed` when a
-  record says its solve was tightened but does not retain the tolerance that
-  governed it. That record now reports `inconclusive`, because the retained
-  evidence cannot establish that the solve met what was asked of it. This
-  changes reporting only, and only for incomplete or older fit objects: a fit
-  produced by this version retains that tolerance. Fitting, numerical
-  acceptance, and reliability and D-study eligibility are unchanged.
+## Engineering behind private seams
 
-- Opens the 0.2.0 development line, separating post-0.1.0 maintenance,
-  recorded below, from development of the scalable discrete backend.
+- The dense conditional solve now refuses a factorization that does not solve
+  its own system (`dense_newton_solve_invalid`, `dense_final_factor_invalid`),
+  reporting the backward error and its bound when the refusal happens at the
+  starting values. A native Cholesky can return successfully and still hand
+  back a factor of some other matrix; issue #14 captured one such instance on a
+  hosted runner, and a returned factor is no longer treated as valid merely
+  because no error was raised.
+- The discrete engine is split into response-kernel, dense, mode and sparse
+  modules without numerical change. `Matrix` and `methods` joined Imports for
+  the private sparse random-design, Hessian, factorization and conditional-mode
+  files behind a private evaluator seam. None of it is public API: no public
+  entry point selects the sparse path, and every fit still runs through the
+  dense engine. The compatibility matrix runs the sparse factorization test on
+  every platform.
 
-<!-- release-identity:start -->
-Source version: **0.2.0.9000**.
-For versioned archives, manuals and publication status, see the
-[repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
-and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
-These repository records are excluded from the package archive; this source
-version does not assert that a corresponding release has been published.
-<!-- release-identity:end -->
-
-# Gtheory4LLM 0.1.0.9000 (development)
+## Release maintenance after 0.1.0
 
 - Keeps archive source-version summaries publication-neutral; publication
   updates only excluded repository metadata. Preparation rejects an already
@@ -59,6 +80,15 @@ version does not assert that a corresponding release has been published.
   candidate-check evidence applies to the file actually checked.
 - Catches stale publication claims outside the release summary blocks and
   records the active rule preventing release-tag updates and deletions.
+
+<!-- release-identity:start -->
+Source version: **0.2.0**.
+For versioned archives, manuals and publication status, see the
+[repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
+and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
+These repository records are excluded from the package archive; this source
+version does not assert that a corresponding release has been published.
+<!-- release-identity:end -->
 
 # Gtheory4LLM 0.1.0
 

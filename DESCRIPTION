@@ -1,7 +1,7 @@
 Package: Gtheory4LLM
 Type: Package
 Title: Generalizability Theory for LLM Subjective Tasks
-Version: 0.2.0.9000
+Version: 0.2.0
 Authors@R: person("Jin", "Liu", email = "Veronica.Liu0206@gmail.com",
     role = c("aut", "cre", "cph"))
 Author: Jin Liu [aut, cre, cph]

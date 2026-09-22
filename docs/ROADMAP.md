@@ -1,7 +1,8 @@
 # Roadmap
 
 Release milestones and planned work, with the reason for their order. Version
-0.1.0 is published; the later milestones remain planned. Completed work is
+0.1.0 is published and 0.2.0 is cut from its development line; the later
+milestones remain planned. Completed work is
 recorded in [NEWS.md](../NEWS.md), and current evidence is in
 [development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
 
@@ -14,14 +15,15 @@ moves, it must be obvious which of those caused it.
 |---|---|
 | 0.1.0 (published) | Research beta with retry controller, standard methods, retention controls, memory guard, characterization tests and release automation |
 | 0.1.x | Maintenance: release/documentation consistency, repository protection, Action-runtime updates and fixes that preserve statistical scope |
-| 0.2.0 | Scalable discrete architecture: qualified sparse discrete backend, dense-sparse equivalence, staged diagnostics, full native-panel benchmark |
-| 0.3.x | Broader statistical operating range: unbalanced designs, larger validation campaigns, cost-aware D studies, discrete uncertainty |
+| 0.2.0 | Maintenance release from the 0.2.0 development line: CRAN resubmission fix, staged numerical diagnostics, solve-validity refusal, and the sparse discrete prototype kept private behind the evaluator seam |
+| 0.3.0 | Scalable discrete architecture: qualified sparse discrete backend, dense-sparse equivalence, full native-panel benchmark |
+| 0.4.x | Broader statistical operating range: unbalanced designs, larger validation campaigns, cost-aware D studies, discrete uncertainty |
 | 1.0 | Stable general research package: defined API stability, broad validation envelope, mature Gaussian and discrete implementations |
 
 The sparse backend, unbalanced designs, and complete engine modularization are
 deliberately **not** requirements for 0.1.x.
 
-The 0.2.0 work is tracked as separate reviewable changes:
+The 0.3.0 work is tracked as separate reviewable changes:
 [engine extraction](https://github.com/Veronica0206/Gtheory4LLM/issues/2),
 [sparse prototype](https://github.com/Veronica0206/Gtheory4LLM/issues/3),
 [dense-sparse equivalence](https://github.com/Veronica0206/Gtheory4LLM/issues/4),
@@ -32,7 +34,8 @@ The 0.2.0 work is tracked as separate reviewable changes:
 The first extraction moves the discrete response functions unchanged; sparse
 fitting begins only after that baseline is preserved.
 
-These issues belong to the [0.2.0 milestone](https://github.com/Veronica0206/Gtheory4LLM/milestone/1).
+These issues belong to the [GitHub milestone](https://github.com/Veronica0206/Gtheory4LLM/milestone/1),
+which still carries the name 0.2.0 until it is renamed.
 Issue #2 includes both the mechanical move in PR #11 and the remaining dense
 backend interface; the move alone does not complete it. Issue #3 then builds
 the prototype with its own fixed-parameter parity and limited fitted/rejection
@@ -41,14 +44,14 @@ Diagnostics can follow the interface independently. The full-panel benchmark
 requires qualification and diagnostics, plus warm-start or AD qualification only
 if those features are used.
 
-Warm starts and automatic differentiation are **conditional** for 0.2.0, not
+Warm starts and automatic differentiation are **conditional** for 0.3.0, not
 required. They enter the release only if the benchmark shows the cold sparse
 implementation cannot meet its declared resource envelope, and the measurement
 decides which — conditional-mode iteration and outer finite differences are
 different bottlenecks with different answers. Adopting either unmeasured would
 be optimizing a cost nobody has observed.
 
-Complete Gaussian engine modularization is likewise not a 0.2.0 requirement.
+Complete Gaussian engine modularization is likewise not a 0.3.0 requirement.
 The required scope is the sparse prototype, dense-sparse qualification, staged
 diagnostics, the full-panel benchmark, and the resolution of the numerical
 portability issue those results depend on.
@@ -64,7 +67,7 @@ with tolerances; acceptance decisions are compared exactly.
 Every refactor below is judged against it. Its purpose is to make one question
 answerable: *did we change the statistical result on purpose, or by accident?*
 
-## 0.2.0
+## 0.3.0
 
 ### Extract the engines into ordinary modules
 
@@ -117,7 +120,7 @@ Users must always be able to tell which backend produced a result.
 
 ### Warm starts and gradients
 
-Conditional work, adopted only on measured evidence; see the 0.2.0 scope above.
+Conditional work, adopted only on measured evidence; see the 0.3.0 scope above.
 
 The dense engine starts the conditional mode from zero at every likelihood
 evaluation. A sparse backend should cache the previous mode and start from it

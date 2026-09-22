@@ -14,7 +14,7 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Source version: **0.2.0.9000**.
+Source version: **0.2.0**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -45,8 +45,8 @@ library(Gtheory4LLM)
 ```
 
 The repository keeps checksummed release files in [`artifacts/`](https://github.com/Veronica0206/Gtheory4LLM/tree/main/artifacts).
-To install this source version, run `R CMD build .`, then use `R CMD INSTALL`
-with the versioned archive it creates. Building the vignette
+To install this source version, run `R CMD build .`, then
+`R CMD INSTALL Gtheory4LLM_0.2.0.tar.gz`, the versioned archive it creates. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
 CRAN availability is separate from GitHub availability. Current submission
 status is recorded in the repository [development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
