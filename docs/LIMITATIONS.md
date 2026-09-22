@@ -45,8 +45,11 @@ scientifically sufficient. Those are separate questions with separate evidence.
   `NA`. Where the joint curvature is indefinite there, the remaining intervals
   are conditional on that source being held at zero, and say so. What is known
   about how either branch performs is in [validation scope](VALIDATION_SCOPE.md).
-- Generic `AIC`/`BIC` are unavailable for REML fits. Restricted-likelihood
-  criteria are provided under explicit names; see `help("gt_fit")`.
+- `AIC()` and `BIC()` on a REML fit use the restricted likelihood with the
+  covariance parameters only, so they compare covariance structures that share
+  the same fixed-effects structure and never an ML value. The fit's own `AIC`
+  and `BIC` elements are `NA` for REML; the restricted-likelihood criteria are
+  recorded under explicit names; see `help("gt_fit")`.
 - **No uncertainty for the location parameters.** Outcome means are profiled out
   of the likelihood rather than fitted as free parameters, so `vcov()` has
   nothing to return and says so. `gt_component_vcov()` gives the covariance that
