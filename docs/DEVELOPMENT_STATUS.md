@@ -9,10 +9,11 @@ in [limitations](LIMITATIONS.md).
 | Fact | Value |
 |---|---|
 | Checkout version | `0.2.0` |
-| Bundle in `artifacts/` | `0.1.0`, **published** |
-| Bundle source commit | `1068ca8aa7211eaee1e3f5329e14517ff49cc0e0`, recorded in the manifest |
+| Bundle in `artifacts/` | `0.2.0`, **prepared**, built from these sources; it replaces the published `0.1.0` bundle, whose release files and tag are unchanged |
+| Bundle source commit | `f24af76ecdc379e2431fbb2e0063f739b6c9d903`, recorded in the manifest |
 | `v0.1.0` tag | Publication commit `2332d40` |
-| GitHub release | [v0.1.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0), with checksummed archive and manual |
+| `v0.2.0` tag | Does not exist yet |
+| GitHub release | [v0.1.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0), with checksummed archive and manual; none yet for 0.2.0 |
 | Branch protection | Configured on `main`; the authenticated policy verifier passed |
 | Release-tag protection | Active for `v*`; updates and deletions blocked with no bypass actors |
 | Future GitHub releases | Immutable releases enabled; existing 0.1.0 remains `immutable: false` |
@@ -21,7 +22,7 @@ in [limitations](LIMITATIONS.md).
 The checkout, published bundle, GitHub release and CRAN submission are separate
 states. Development changes do not rebuild the published archive or move its
 tag. [The manifest](../artifacts/manifest.json) identifies the exact source and
-SHA-256 hashes for both published files.
+SHA-256 hashes for both bundled files.
 
 `scripts/check_committed_artifact.py --check-release-identity` checks the
 checkout/release version relationship and manifest publication claims against the tag.
