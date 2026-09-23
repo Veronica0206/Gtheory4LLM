@@ -10,7 +10,7 @@ in [limitations](LIMITATIONS.md).
 |---|---|
 | Checkout version | `0.2.0` |
 | Bundle in `artifacts/` | `0.2.0`, **prepared**; the archive is the exact candidate the readiness workflow built from these sources and checked with R-devel, adopted unchanged. It replaces the published `0.1.0` bundle, whose release files and tag are unchanged |
-| Bundle source commit | `7a1e262a0ddb39dc0a5935479bc5ce93cffb9fc4`, recorded in the manifest |
+| Bundle source commit | `c49130594bcef367f2087aaa25cd0a049a8cdb71`, recorded in the manifest |
 | `v0.1.0` tag | Publication commit `2332d40` |
 | `v0.2.0` tag | Does not exist yet |
 | GitHub release | [v0.1.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0), with checksummed archive and manual; none yet for 0.2.0 |
@@ -35,19 +35,20 @@ with later development changes.
 
 ### 0.2.0 candidate
 
-All three workflows passed at the 0.2.0 source commit `7a1e262`:
-[exact CRAN candidate readiness](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35802256677),
-[full numerical validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35802250471) and
-[R and platform compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35802250509).
+All three workflows passed at the 0.2.0 source commit `c491305`:
+[exact CRAN candidate readiness](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35806792316),
+[full numerical validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35806786500) and
+[R and platform compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35806786499).
 The readiness workflow built the candidate with R 4.6.1 and checked that
 exact archive with R-devel 4.7.0 under `R CMD check --as-cran`: zero errors,
 zero warnings and the single expected new-submission NOTE, with the PDF manual
-generated. The archive in `artifacts/`, SHA-256 `a02b6ec89c9a…`, is that checked
+generated. The archive in `artifacts/`, SHA-256 `d54ca060e54e…`, is that checked
 file, adopted unchanged by `scripts/prepare_release.py --from-checked-candidate`
-rather than rebuilt; the manifest records its origin. So, unlike 0.1.0 below,
-the prepared archive and the R-devel-checked archive are one identity. The
-local preparation additionally passed archive correspondence with the source
-commit, the full source validation scope with the staged manifest, the
+after its check report was verified, rather than rebuilt; the manifest records
+its origin and the R versions that built and checked it. So, unlike 0.1.0
+below, the prepared archive and the R-devel-checked archive are one identity.
+The local preparation additionally passed archive correspondence with the
+source commit, the full source validation scope with the staged manifest, the
 manual's overfull-box gate and the public-content audit; the committed bundle
 then passed the artifact integrity and fresh-library install and smoke checks.
 
