@@ -63,10 +63,14 @@ maintenance that followed 0.1.0.
   ordinary values while `print(fit)` called the estimates diagnostic only.
 - `gt_control(retain = list(data = FALSE))` now removes every copy of the
   observations. The retained Gaussian OpenMx model carried the raw outcomes as
-  summary metadata, so a fit saved after dropping the data still held them;
-  they are stripped from the retained model, which nothing reads after
-  fitting, and a test hunts a sentinel observation through the serialized
-  fit. `SECURITY.md` says so.
+  summary metadata, so a fit saved after dropping the data still held them,
+  and the recorded call held the whole data frame, unused columns included,
+  when the fit came through `do.call()` or with the data written inline.
+  The observations are stripped from the retained model, which nothing reads
+  after fitting, the call's data argument is replaced by a marker, and a
+  test hunts a sentinel observation and a sentinel unused column through the
+  serialized fit for direct, programmatic and inline calls. `SECURITY.md`
+  says so.
 - Gaussian facet levels are matched by value rather than by their printed
   form. Distinct doubles that format alike, such as `1e15` and `1e15 + 1`,
   passed `gt_preflight()` and were then refused by `gt_fit()` as duplicate

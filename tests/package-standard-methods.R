@@ -226,6 +226,27 @@ expect(!holds_sentinel(no_data),
        "retain = list(data = FALSE) removes every copy of the observations, model included")
 expect(identical(gt_reliability(no_data)$per_trait, gt_reliability(marked_fit)$per_trait),
        "the stripped model changes no reported result")
+# The recorded call is the remaining container. A programmatic call embeds the
+# evaluated data frame, unused columns included, and an inline call embeds the
+# literal values; both must come out clean, and the rest of the call must stay.
+marked$note <- "SENTINEL-NOTE"
+note_bytes <- charToRaw("SENTINEL-NOTE")
+holds_any <- function(object) {
+  bytes <- serialize(object, NULL, xdr = TRUE)
+  length(grepRaw(sentinel_bytes, bytes, fixed = TRUE)) > 0 || length(grepRaw(note_bytes, bytes, fixed = TRUE)) > 0
+}
+lean_retain <- gt_control(retain = list(data = FALSE))
+programmatic <- do.call(gt_fit, list(data = marked, outcomes = "y", design = design, control = lean_retain))
+inline <- eval(bquote(gt_fit(data.frame(rater = .(marked$rater), item = .(marked$item), y = .(marked$y),
+                                        note = .(marked$note)), "y", .(design), control = .(lean_retain))))
+for (fit in list(programmatic, inline)) {
+  expect(!holds_any(fit), "a programmatic or inline call leaves no copy of the observations or unused columns")
+  expect(identical(fit$call$data, as.name("<dropped>")), "the recorded call marks the dropped data argument")
+  expect(identical(fit$call$outcomes, "y") && identical(fit$covariance_components, no_data$covariance_components),
+         "the rest of the recorded call and the estimates are untouched")
+}
+kept <- do.call(gt_fit, list(data = marked, outcomes = "y", design = design))
+expect(holds_any(kept) && is.data.frame(kept$call$data), "with data retained, the recorded call is left as it was")
 
 expect(identical(gt_reliability(lean)$per_trait, gt_reliability(reml)$per_trait),
        "reliability is unchanged by retention")

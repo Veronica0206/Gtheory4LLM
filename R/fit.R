@@ -109,6 +109,12 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
     # to drop those copies too, or a saved fit still holds every observation.
     result$model <- .gt_strip_observations(result$model)
     result$backend_fit <- .gt_strip_observations(result$backend_fit)
+    # The recorded call carries whatever the data argument was. Through
+    # do.call(), or with the data written inline, that is the whole data frame,
+    # unused columns included. Nothing reads the call back, so the argument is
+    # replaced by a marker that says what happened rather than a copy.
+    if (is.call(result$call) && "data" %in% names(result$call))
+      result$call$data <- as.name("<dropped>")
   }
   if (!retain[["session"]]) result$session <- NULL
   if (!retain[["model"]]) {
