@@ -17,11 +17,15 @@ data retain CC BY 4.0. The statistical pilots and real-data workflow remain in
 the source repository, outside the installable archive.
 
 The manual was generated locally by `scripts/build_manual.R`, which rejects
-overfull boxes. The candidate check reported zero errors, zero warnings and the
-single expected new-submission NOTE, with the PDF manual generated; the same
-archive then passed the full locked validation and the platform matrix from
-`main`, and the committed bundle passed archive correspondence, integrity and a
-fresh-library install and smoke test. The evidence is linked from the
+overfull boxes. Two kinds of evidence apply, and they are not the same thing.
+The exact archive bytes passed the R-devel candidate check with zero errors,
+zero warnings and the single expected new-submission NOTE, with the PDF manual
+generated; they also passed archive correspondence with the source commit,
+integrity, and a fresh-library install and smoke test, locally and in the
+locked validation job on `main`. The release sources, rebuilt from the same
+commit, passed the full locked numerical validation and the platform matrix
+on `main`; those jobs build the package again rather than installing this
+file. The evidence is linked from the
 [development status](../docs/DEVELOPMENT_STATUS.md).
 
 The GitHub release for `v0.2.0` carries three assets, unchanged: the archive,
