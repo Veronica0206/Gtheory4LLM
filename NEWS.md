@@ -82,6 +82,18 @@ maintenance that followed 0.1.0.
   their fifth digit and `1e15` in their second. A regression fits the same
   represented panel at the origin and at an offset of `1e12` and requires
   identical variances and deviance.
+- `summary()` of an ordinal fit no longer lists the outcome's location under
+  "Fixed location or contrast estimates": it is fixed at zero for
+  identification and is now printed as such. Binary intercepts and
+  categorical contrasts are still printed as estimates.
+- A discrete fit's design notes, and so `gt_diagnostics()`, no longer carry
+  the constructor's specification-only note after the engine's data checks
+  have run; the discrete path now records its validation scope through the
+  same step the Gaussian path uses.
+- The limitations page states the balance requirement per engine: the
+  Gaussian likelihood needs a complete balanced panel, the discrete Laplace
+  likelihood accepts missing whole cells at the declared replication, and
+  reliability and D studies need the complete panel in either case.
 - `scripts/prepare_release.py --from-checked-candidate` refuses a candidate
   directory without a check report recording a successful R-devel check of
   exactly those archive bytes, and records the checking R version in the

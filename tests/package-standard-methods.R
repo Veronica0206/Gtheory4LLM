@@ -128,6 +128,29 @@ binary <- suppressWarnings(gt_fit(discrete_panel, "b", reduced, gt_family("binar
 ordinal <- suppressWarnings(gt_fit(discrete_panel, "g", reduced, gt_family("ordinal"),
   control = gt_control(discrete = list(maxit = 200L))))
 
+# Once the engine has checked the data, the constructor's specification-only
+# note is replaced by what was checked; a diagnostic that still says the data
+# have not been validated would be false.
+for (fit in list(binary, ordinal)) {
+  notes <- c(fit$design$notes, gt_diagnostics(fit)$notes)
+  expect(!any(grepl("not been validated", notes, fixed = TRUE)),
+         "a discrete fit carries no pending validation claim")
+  expect(isTRUE(fit$design$validated_data) && nzchar(fit$design$validation_scope),
+         "a discrete fit records what its data checks covered")
+}
+
+# An ordinal location is fixed at zero for identification, so the summary must
+# not present it as an estimate; a binary intercept still is one.
+ordinal_summary <- capture.output(print(summary(ordinal)))
+expect(any(grepl("Ordinal location fixed at zero for identification: g", ordinal_summary, fixed = TRUE)),
+       "an ordinal summary says its location is fixed")
+expect(!any(grepl("Fixed location or contrast estimates", ordinal_summary, fixed = TRUE)),
+       "an ordinal-only summary prints no estimates heading for a fixed zero")
+binary_summary <- capture.output(print(summary(binary)))
+expect(any(grepl("Fixed location or contrast estimates", binary_summary, fixed = TRUE)) &&
+         !any(grepl("fixed at zero", binary_summary, fixed = TRUE)),
+       "a binary intercept is still printed as an estimate")
+
 for (fit in list(binary, ordinal)) {
   value <- logLik(fit)
   near(as.numeric(value), -fit$minus2loglik / 2, "discrete logLik is minus half the deviance")

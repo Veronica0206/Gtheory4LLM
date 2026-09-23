@@ -25,9 +25,13 @@ scientifically sufficient. Those are separate questions with separate evidence.
   complete; see `help("gt_design")` for the worked contrast between the two
   labelings. Physical nesting with disjoint globally unique child labels is
   outside this preparation backend.
-- **Unbalanced designs are not implemented.** There is no unbalanced likelihood
-  and no unbalanced reliability or D-study formula. Relabeling or padding data
-  to satisfy the balance guard changes the study, not the software.
+- **Unbalanced designs are not supported for inference.** The Gaussian
+  likelihood requires a complete balanced panel. The discrete Laplace
+  likelihood fits a panel with missing whole cells at the declared replication,
+  but reliability and D studies require a complete balanced panel in either
+  case; there is no unbalanced reliability or D-study formula. Relabeling or
+  padding data to satisfy the balance guard changes the study, not the
+  software.
 - **Within-cell replication** is declared through `replicates`, but the Gaussian
   backend currently fits one observation per full cell only.
 - **Design size.** The exact Gaussian backend allows at most 12 factorial axes

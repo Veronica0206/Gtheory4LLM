@@ -321,8 +321,18 @@ print.summary.gt_fit <- function(x, ..., digits = max(3L, getOption("digits") - 
       cat("Further source variances are available in summary(fit)$variances.\n")
   }
   if (length(x$coefficients)) {
-    cat("\nFixed location or contrast estimates:\n")
-    print(x$coefficients, digits = digits)
+    # An ordinal outcome's location is fixed at zero for identification. It
+    # is not an estimate and is not printed as one; coef() already omits it.
+    ordinal <- names(x$families)[vapply(x$families, function(f)
+      identical(f$family, "ordinal"), logical(1))]
+    fixed <- names(x$coefficients) %in% ordinal
+    if (any(!fixed)) {
+      cat("\nFixed location or contrast estimates:\n")
+      print(x$coefficients[!fixed], digits = digits)
+    }
+    if (any(fixed))
+      cat("\nOrdinal location fixed at zero for identification:",
+          paste(names(x$coefficients)[fixed], collapse = ", "), "\n")
   }
   if (length(x$thresholds)) {
     cat("\nOrdered thresholds:\n")

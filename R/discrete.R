@@ -983,10 +983,12 @@
                        approximation = "First-order Laplace marginal ML; accuracy is not established for sparse groups or large annotation panels.",
                        conditional_independence = TRUE,
                        uncertainty = "Parameter standard errors and confidence intervals are not implemented in this prototype.")
-  design$validation_scope <- if (is.null(setup$fixed))
+  # The same validated-design step the Gaussian path uses: it records the
+  # scope and removes the constructor's specification-only note, which would
+  # otherwise survive into gt_diagnostics() after the data checks had run.
+  design <- .gt_design_validated(design, if (is.null(setup$fixed))
     "Observed grouping columns, repeated groups, and linear independence of source kernels plus observation identity; this is not proof of discrete-model identification." else
-    "Observed grouping columns and repeated groups checked; all source covariances fixed, so covariance-estimation rank guards were not enforced."
-  design$validated_data <- TRUE
+    "Observed grouping columns and repeated groups checked; all source covariances fixed, so covariance-estimation rank guards were not enforced.")
   list(engine = "dense_joint_discrete_laplace", estimator = "ML_Laplace", method = "ML_Laplace",
        means = means, coefficients = means, thresholds = thresholds,
        covariance_components = components, latent_residual_variances = residual,

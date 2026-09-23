@@ -56,4 +56,7 @@ metadata inside the retained OpenMx model, so treat a saved `.rds` of a fit
 as containing whatever you fitted.
 `gt_control(retain = list(data = FALSE))` drops every copy of the observations
 when that matters; the installed tests verify this by searching the bytes of a
-serialized fit for a sentinel observation.
+serialized fit for a sentinel observation. Facet level labels are design
+metadata, not observations, and stay in the retained model's prepared
+statistics; drop the model as well, or relabel facets before fitting, if the
+labels themselves identify people.

@@ -48,6 +48,53 @@ This is the setting to revisit first if a second person ever gains write
 access. Restoring it is a one-line change to the payload below, and the
 verifier already fails when the live count falls below the declared one.
 
+### Release integration
+
+A release branch carries the prepared bundle, and `artifacts/manifest.json`
+names the source commit it was built from. Squash and rebase merges create new
+commits, so after either one the named commit is no longer an ancestor of
+`main` and `scripts/check_committed_artifact.py` fails; this was reproduced on
+a scratch clone. A release branch is therefore integrated with its commits
+intact, in this order:
+
+1. Open the release pull request and wait for its own six checks on the final
+   head. Checks from `workflow_dispatch` runs do not count towards the
+   requirement.
+2. Fast-forward first. With the branch up to date and its checks green, push
+   the head to `main` (`git push origin <branch>:main`). GitHub documents that
+   an up-to-date pull request with passing required checks can be merged
+   locally and pushed. If the push is accepted, nothing below is needed.
+3. Otherwise relax linear history alone. Linear history has no endpoint of its
+   own, so derive the update body from the live settings, changing nothing but
+   that flag, and never from the payload below, which names the required
+   checks without their GitHub Actions association:
+
+   ```sh
+   gh api repos/Veronica0206/Gtheory4LLM/branches/main/protection | jq '{
+     required_status_checks: {strict: .required_status_checks.strict,
+       checks: [.required_status_checks.checks[] | {context, app_id}]},
+     enforce_admins: .enforce_admins.enabled,
+     required_pull_request_reviews: (.required_pull_request_reviews | {dismiss_stale_reviews,
+       require_code_owner_reviews, required_approving_review_count, require_last_push_approval}),
+     restrictions: .restrictions, required_linear_history: false,
+     allow_force_pushes: .allow_force_pushes.enabled, allow_deletions: .allow_deletions.enabled,
+     block_creations: .block_creations.enabled,
+     required_conversation_resolution: .required_conversation_resolution.enabled,
+     lock_branch: .lock_branch.enabled, allow_fork_syncing: .allow_fork_syncing.enabled}' > relax.json
+   gh api -X PUT repos/Veronica0206/Gtheory4LLM/branches/main/protection --input relax.json
+   ```
+
+   Merge the pull request with a merge commit, then restore immediately, whether
+   or not the merge succeeded, with the same body and `required_linear_history:
+   true`.
+4. Verify: `scripts/check_branch_protection.py --require` passes again,
+   `scripts/check_committed_artifact.py --check-release-identity` passes at
+   `main`, and the push-triggered runs on `main` are green.
+
+During step 3 the verifier truthfully reports that linear history is not
+required; that report is the record of the exception, not a failure to act on.
+Linear history remains the required state at all other times.
+
 ### Required status check contexts
 
 These are the job names GitHub reports, not the workflow names:
