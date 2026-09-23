@@ -101,7 +101,15 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
 # rather than reporting it as missing.
 .gt_apply_retention <- function(result, retain) {
   if (is.null(retain)) retain <- .gt_retention_defaults
-  if (!retain[["data"]]) result$data <- NULL
+  if (!retain[["data"]]) {
+    result$data <- NULL
+    # The Gaussian OpenMx model carries the raw outcomes only as summary
+    # metadata; the algebra likelihood reads the fixed contrast cross-products
+    # and nothing after fitting reads the observations. Dropping the data has
+    # to drop those copies too, or a saved fit still holds every observation.
+    result$model <- .gt_strip_observations(result$model)
+    result$backend_fit <- .gt_strip_observations(result$backend_fit)
+  }
   if (!retain[["session"]]) result$session <- NULL
   if (!retain[["model"]]) {
     result$model <- NULL
@@ -131,6 +139,11 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   }
   result$retained <- retain
   result
+}
+
+.gt_strip_observations <- function(object) {
+  if (methods::is(object, "MxModel") && !is.null(object@data)) object@data <- NULL
+  object
 }
 
 # Extract model source covariance matrices without changing their scale

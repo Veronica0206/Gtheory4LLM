@@ -190,6 +190,15 @@
   list(boundary = boundary, kind = kind)
 }
 
+# Name a handful of sources inline; past that a count and a pointer stay
+# readable. A caveat nobody finishes reading is not a caveat. It lives here,
+# beside the conditioning clause that needs it, so the engine's own files
+# stay self-contained when they are sourced without the reliability code.
+.gt_name_sources <- function(sources, field, limit = 3L) {
+  if (length(sources) <= limit) return(paste(sources, collapse = ", "))
+  paste0(length(sources), " sources (see $uncertainty$", field, ")")
+}
+
 # One clause naming what an interior-block calculation conditions on, shared by
 # the fit's interpretation, its diagnostic issues and the printed coefficient
 # note, so no extractor can carry a different reading. A zero source is held at
@@ -391,13 +400,24 @@ gtheory_prepare <- function(data, outcomes, facets = .gt_default_facets,
   # contrast arrays. No axis-square matrix is created by this implementation.
   Y <- as.matrix(data[outcomes])
   strides <- c(1, head(cumprod(counts), -1L))
+  # Match levels by value, as .gt_tuple_key() does. Formatting first would
+  # merge distinct doubles that print alike, such as 1e15 and 1e15 + 1, and
+  # then report a duplicate cell for a panel that preflight accepted.
   indices <- lapply(seq_along(facets), function(j)
-    match(as.character(data[[facets[j]]]), as.character(facet_levels[[j]])))
+    match(data[[facets[j]]], facet_levels[[j]]))
   row_index <- 1 + Reduce(`+`, Map(function(i, s) (i - 1L) * s, indices, strides))
   if (anyNA(row_index) || anyDuplicated(row_index))
     .gt_error("Duplicate factorial cells detected; exactly one row per cell is required.")
   Y <- Y[order(row_index), , drop = FALSE]
   D <- ncol(Y)
+  # Centre each outcome before the contrasts are formed. The intercepts are
+  # profiled exactly in a balanced design and neither the deviance nor the
+  # gradient reads the mean stratum's cross-products, so no likelihood term
+  # changes; what changes is that a large common offset no longer enters the
+  # contrasts as differences of huge sums, which moved accepted estimates from
+  # about 1e12 upwards. The observed means are kept for reporting.
+  observed_means <- setNames(colMeans(Y), outcomes)
+  Y <- sweep(Y, 2L, observed_means)
   transformed <- array(Y, dim = c(counts, D))
   for (axis in seq_along(counts)) {
     n <- counts[axis]
@@ -418,7 +438,7 @@ gtheory_prepare <- function(data, outcomes, facets = .gt_default_facets,
   })
   names(strata) <- as.character(seq.int(0L, .gt_full_mask))
   structure(list(strata = strata, counts = counts, N = N, D = D,
-                 means = setNames(colMeans(Y), outcomes), outcomes = outcomes,
+                 means = observed_means, outcomes = outcomes,
                  facets = facets, levels = facet_levels,
                  observed_variances = setNames(apply(Y, 2L, stats::var), outcomes),
                  allocation = list(estimated_bytes = estimated_bytes,

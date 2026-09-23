@@ -207,6 +207,25 @@ expect(identical(lean$retained, c(data = FALSE, model = FALSE,
        "the fit records which components were dropped")
 expect(as.numeric(object.size(lean)) < as.numeric(object.size(reml)) / 2,
        "dropping the stored copies of the data at least halves the fit")
+# Dropping the data must remove every copy of the observations, including the
+# summary metadata inside the retained OpenMx model; otherwise a saved fit still
+# holds what was fitted. A sentinel observation is hunted through the bytes of
+# the serialized fit, so no container can hide it.
+sentinel <- 1234.5678
+marked <- panel
+marked$y[1] <- sentinel
+sentinel_bytes <- writeBin(sentinel, raw(), endian = "big")
+holds_sentinel <- function(object)
+  length(grepRaw(sentinel_bytes, serialize(object, NULL, xdr = TRUE), fixed = TRUE)) > 0
+marked_fit <- gt_fit(marked, "y", design)
+expect(holds_sentinel(marked_fit), "the default retention keeps the observations")
+no_data <- gt_fit(marked, "y", design, control = gt_control(retain = list(data = FALSE)))
+expect(!is.null(no_data$model) && !is.null(no_data$backend_fit),
+       "dropping the data alone keeps the fitted model")
+expect(!holds_sentinel(no_data),
+       "retain = list(data = FALSE) removes every copy of the observations, model included")
+expect(identical(gt_reliability(no_data)$per_trait, gt_reliability(marked_fit)$per_trait),
+       "the stripped model changes no reported result")
 
 expect(identical(gt_reliability(lean)$per_trait, gt_reliability(reml)$per_trait),
        "reliability is unchanged by retention")

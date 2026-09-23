@@ -133,4 +133,38 @@ stopifnot(reml$converged, is.na(reml$AIC), is.na(reml$BIC),
           is.finite(reml$legacy_AIC), is.finite(reml$legacy_BIC),
           reml$reml_AIC_variance_parameters == reml$legacy_AIC)
 cat("PASS: REML criteria have explicit restricted-likelihood names and no generic ML correction.\n")
+# Facet levels are matched by value. Distinct doubles that print alike, such as
+# 1e15 and 1e15 + 1 or 0.1 + 0.2 and 0.3, are distinct levels; the panel is
+# balanced and must fit rather than be refused as a duplicate cell.
+set.seed(31)
+for (levels in list(1e15 + 0:5, c(0.1 + 0.2, 0.3, 0.5, 0.7, 1.1, 1.3))) {
+  ids <- expand.grid(rater = 1:4, item = levels)
+  ids$y <- rnorm(nrow(ids))
+  stopifnot(length(unique(ids$item)) == 6L)
+  typed <- .gt_fit_gaussian(ids, "y", gt_design("item", "rater"), estimator = "REML")
+  stopifnot(typed$converged, identical(unname(typed$counts[["item"]]), 6L))
+}
+cat("PASS: distinct numeric facet levels with identical formatting stay distinct.\n")
+
+# A common offset changes the profiled means and nothing else. Adding 1e12 to
+# a double rounds it to a grid of about 2e-4, so the comparison is between the
+# shifted panel and exactly the values it represents, moved back to the
+# origin: the same information, at two offsets. Before centring, the engine
+# formed contrasts as differences of 1e12-scale sums and the two fits differed
+# in their fifth digit; at 1e15 they differed in their second.
+shift <- expand.grid(rater = factor(1:5), item = factor(1:20))
+set.seed(4)
+shift$y <- rnorm(20, sd = 1.2)[shift$item] + rnorm(5, sd = .5)[shift$rater] + rnorm(100, sd = .8)
+shifted <- transform(shift, y = y + 1e12)
+represented <- transform(shifted, y = y - 1e12)
+for (estimator in c("REML", "ML")) {
+  at_zero <- .gt_fit_gaussian(represented, "y", gt_design("item", "rater"), estimator = estimator)
+  at_offset <- .gt_fit_gaussian(shifted, "y", gt_design("item", "rater"), estimator = estimator)
+  stopifnot(at_zero$converged, at_offset$converged)
+  for (source in names(at_zero$covariance_components))
+    near(at_offset$covariance_components[[source]], at_zero$covariance_components[[source]], 1e-8)
+  near(at_offset$minus2loglik, at_zero$minus2loglik, 1e-9)
+  near(at_offset$means, at_zero$means + 1e12, 1e-12)
+}
+cat("PASS: a common outcome offset changes the profiled means and nothing else.\n")
 cat("All Gaussian repository-review checks passed.\n")

@@ -251,7 +251,7 @@ class PrepareReleaseTests(unittest.TestCase):
         self.assertFalse((self.artifacts / "Example_1.2.3.tar.gz").exists())
 
     # --- the checked candidate can be adopted, never rebuilt ------------------
-    def candidate_directory(self, **overrides):
+    def candidate_directory(self, report=None, **overrides):
         import hashlib
         directory = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(directory, ignore_errors=True))
@@ -264,6 +264,13 @@ class PrepareReleaseTests(unittest.TestCase):
                     "expected_data_kind": "public_llm_annotations"}
         manifest.update(overrides)
         (directory / "candidate.json").write_text(json.dumps(manifest), encoding="utf-8")
+        if report is None:
+            report = {"success": True, "r_devel_checked": True, "exact_archive_checked": True,
+                      "pdf_manual_checked": True, "r_version": "4.7.0",
+                      "r_cmd_check": {"errors": 0, "warnings": 0, "notes": 1},
+                      "candidate": {"sha256": manifest["sha256"]}}
+        if report is not False:
+            (directory / "check_validation.json").write_text(json.dumps(report), encoding="utf-8")
         return directory
 
     def test_a_checked_candidate_is_adopted_unchanged(self):
@@ -280,6 +287,7 @@ class PrepareReleaseTests(unittest.TestCase):
         self.assertEqual(manifest["source_commit"], self.commit)
         self.assertEqual(manifest["archive_provenance"]["origin"], "checked_candidate")
         self.assertEqual(manifest["archive_provenance"]["build_r_version"], "4.6.1")
+        self.assertEqual(manifest["archive_provenance"]["checked_r_version"], "4.7.0")
         self.assertEqual(manifest["files"]["Example_1.2.3.tar.gz"]["sha256"],
                          json.loads((directory / "candidate.json").read_text())["sha256"])
         self.assertIn("Adopt the checked candidate archive unchanged", buffer.getvalue())
@@ -292,6 +300,31 @@ class PrepareReleaseTests(unittest.TestCase):
         for expected, overrides in cases.items():
             with self.subTest(case=expected):
                 directory = self.candidate_directory(**overrides)
+                before = {p: p.read_bytes() for p in self.artifacts.iterdir()}
+                with patch.object(RELEASE, "run"), patch.object(RELEASE, "build_archive") as build, \
+                        self.assertRaisesRegex(SystemExit, expected):
+                    RELEASE.main(["--skip-validation", "--from-checked-candidate", str(directory)])
+                build.assert_not_called()
+                self.assertEqual(before, {p: p.read_bytes() for p in self.artifacts.iterdir()})
+
+    def test_a_candidate_without_a_successful_check_report_is_refused(self):
+        passing = {"success": True, "r_devel_checked": True, "exact_archive_checked": True,
+                   "pdf_manual_checked": True, "r_version": "4.7.0",
+                   "r_cmd_check": {"errors": 0, "warnings": 0, "notes": 1}}
+        cases = {"no check_validation.json": False,
+                 "does not record a successful": {**passing, "success": False},
+                 "zero errors and warnings": {**passing, "r_cmd_check": {"errors": 1, "warnings": 0}},
+                 "R-devel": {**passing, "r_devel_checked": False},
+                 "different archive": {**passing, "candidate": {"sha256": "0" * 64}}}
+        for expected, report in cases.items():
+            with self.subTest(case=expected):
+                if isinstance(report, dict) and "candidate" not in report:
+                    directory = self.candidate_directory(report=report)
+                    manifest = json.loads((directory / "candidate.json").read_text())
+                    report["candidate"] = {"sha256": manifest["sha256"]}
+                    (directory / "check_validation.json").write_text(json.dumps(report), encoding="utf-8")
+                else:
+                    directory = self.candidate_directory(report=report)
                 before = {p: p.read_bytes() for p in self.artifacts.iterdir()}
                 with patch.object(RELEASE, "run"), patch.object(RELEASE, "build_archive") as build, \
                         self.assertRaisesRegex(SystemExit, expected):

@@ -124,12 +124,31 @@ def adopt_checked_candidate(directory: Path, package: str, version: str, commit:
         raise SystemExit("The checked candidate archive must be a regular file next to candidate.json")
     if archive.stat().st_size != candidate.get("bytes") or digest(archive) != candidate.get("sha256"):
         raise SystemExit("The checked candidate archive does not match its own manifest's size or SHA-256.")
+    # A build artifact alone is not a checked candidate. The downstream job
+    # writes check_validation.json only after R CMD check ran; require it to
+    # record a successful R-devel check of exactly these bytes.
+    report_path = directory / "check_validation.json"
+    if not report_path.is_file():
+        raise SystemExit(f"{directory} has no check_validation.json; adopt only the cran-candidate-checked-<commit> "
+                         "artifact, which carries the check report.")
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    check = report.get("r_cmd_check") if isinstance(report.get("r_cmd_check"), dict) else {}
+    checked = report.get("candidate") if isinstance(report.get("candidate"), dict) else {}
+    if not (report.get("success") is True and report.get("r_devel_checked") is True
+            and report.get("exact_archive_checked") is True and report.get("pdf_manual_checked") is True
+            and check.get("errors") == 0 and check.get("warnings") == 0):
+        raise SystemExit("The candidate's check report does not record a successful R-devel check of the exact "
+                         "archive with zero errors and warnings; nothing is adopted.")
+    if checked.get("sha256") != candidate.get("sha256"):
+        raise SystemExit("The candidate's check report describes a different archive than candidate.json; "
+                         "nothing is adopted.")
     adopted = work / expected_name
     shutil.copy2(archive, adopted)
     # Nothing machine-specific goes into the committed manifest: the archive's
     # own size and digest already identify the candidate.
     provenance = {"origin": "checked_candidate",
                   "build_r_version": candidate.get("build_r_version"),
+                  "checked_r_version": report.get("r_version"),
                   "expected_data_kind": candidate.get("expected_data_kind")}
     print(f"\n=== Adopt the checked candidate archive unchanged ===\n  {archive}\n"
           f"  sha256 {candidate.get('sha256')} ({candidate.get('bytes')} bytes)", flush=True)

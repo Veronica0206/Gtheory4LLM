@@ -61,6 +61,27 @@ maintenance that followed 0.1.0.
   numerical acceptance, as `gt_reliability()` already did; the objective
   stays in `minus2loglik` for diagnosis. The generics previously returned
   ordinary values while `print(fit)` called the estimates diagnostic only.
+- `gt_control(retain = list(data = FALSE))` now removes every copy of the
+  observations. The retained Gaussian OpenMx model carried the raw outcomes as
+  summary metadata, so a fit saved after dropping the data still held them;
+  they are stripped from the retained model, which nothing reads after
+  fitting, and a test hunts a sentinel observation through the serialized
+  fit. `SECURITY.md` says so.
+- Gaussian facet levels are matched by value rather than by their printed
+  form. Distinct doubles that format alike, such as `1e15` and `1e15 + 1`,
+  passed `gt_preflight()` and were then refused by `gt_fit()` as duplicate
+  cells; they now fit (#39, facet identity).
+- Gaussian outcomes are centred before the factorial contrasts are formed.
+  The intercepts are profiled exactly in a balanced design, so no likelihood
+  term changes, but a large common offset no longer enters the contrasts as
+  differences of huge sums: an offset of `1e12` moved accepted estimates in
+  their fifth digit and `1e15` in their second. A regression fits the same
+  represented panel at the origin and at an offset of `1e12` and requires
+  identical variances and deviance.
+- `scripts/prepare_release.py --from-checked-candidate` refuses a candidate
+  directory without a check report recording a successful R-devel check of
+  exactly those archive bytes, and records the checking R version in the
+  manifest's provenance.
 
 ## Engineering behind private seams
 

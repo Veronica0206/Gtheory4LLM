@@ -44,8 +44,9 @@ continues to accept that legacy format.
    ```
 
    The archive is copied unchanged after its manifest is checked against this
-   package, version and commit; the manual is still built here; every other
-   verification runs as before. The manifest records which origin the archive
+   package, version and commit and its check report is required to record a
+   successful R-devel check of those exact bytes; the manual is still built
+   here; every other verification runs as before. The manifest records which origin the archive
    had under `archive_provenance`.
 3. Review the printed source commit, files, hashes and checks. Retain the exact
    archive checked on each platform; a rebuilt candidate has its own identity,

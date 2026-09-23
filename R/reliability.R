@@ -349,13 +349,6 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
   table[, keep, drop = FALSE]
 }
 
-# Name a handful of sources inline; past that a count and a pointer stay
-# readable. A caveat nobody finishes reading is not a caveat.
-.gt_name_sources <- function(sources, field, limit = 3L) {
-  if (length(sources) <= limit) return(paste(sources, collapse = ", "))
-  paste0(length(sources), " sources (see $uncertainty$", field, ")")
-}
-
 .gt_print_uncertainty_note <- function(x) {
   record <- x$uncertainty
   if (!is.list(record)) return(invisible(NULL))
