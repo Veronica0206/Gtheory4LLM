@@ -10,7 +10,7 @@ in [limitations](LIMITATIONS.md).
 |---|---|
 | Checkout version | `0.2.0` |
 | Bundle in `artifacts/` | `0.2.0`, **prepared**; the archive is the exact candidate the readiness workflow built from these sources and checked with R-devel, adopted unchanged. It replaces the published `0.1.0` bundle, whose release files and tag are unchanged |
-| Bundle source commit | `d6f952d15329d518728e0007fe2a1087b2ab3291`, recorded in the manifest |
+| Bundle source commit | `a4dd59c50f54dd951bba89d86d4c32a3699a5597`, recorded in the manifest |
 | `v0.1.0` tag | Publication commit `2332d40` |
 | `v0.2.0` tag | Does not exist yet |
 | GitHub release | [v0.1.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0), with checksummed archive and manual; none yet for 0.2.0 |
@@ -35,14 +35,14 @@ with later development changes.
 
 ### 0.2.0 candidate
 
-All three workflows passed at the 0.2.0 source commit `d6f952d`:
-[exact CRAN candidate readiness](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35810217798),
-[full numerical validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35810212736) and
-[R and platform compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35810212673).
+All three workflows passed at the 0.2.0 source commit `a4dd59c`:
+[exact CRAN candidate readiness](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35814612564),
+[full numerical validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35814607691) and
+[R and platform compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35814607707).
 The readiness workflow built the candidate with R 4.6.1 and checked that
 exact archive with R-devel 4.7.0 under `R CMD check --as-cran`: zero errors,
 zero warnings and the single expected new-submission NOTE, with the PDF manual
-generated. The archive in `artifacts/`, SHA-256 `fc70f69557fd…`, is that checked
+generated. The archive in `artifacts/`, SHA-256 `910286884cbb…`, is that checked
 file, adopted unchanged by `scripts/prepare_release.py --from-checked-candidate`
 after its check report was verified, rather than rebuilt; the manifest records
 its origin and the R versions that built and checked it. So, unlike 0.1.0
