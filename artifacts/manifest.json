@@ -1,7 +1,7 @@
 {
   "package": "Gtheory4LLM",
   "version": "0.2.0",
-  "release_state": "prepared",
+  "release_state": "published",
   "source_commit": "a4dd59c50f54dd951bba89d86d4c32a3699a5597",
   "files": {
     "Gtheory4LLM_0.2.0.tar.gz": {

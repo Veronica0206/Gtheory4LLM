@@ -9,15 +9,15 @@ in [limitations](LIMITATIONS.md).
 | Fact | Value |
 |---|---|
 | Checkout version | `0.2.0` |
-| Bundle in `artifacts/` | `0.2.0`, **prepared**; the archive is the exact candidate the readiness workflow built from these sources and checked with R-devel, adopted unchanged. It replaces the published `0.1.0` bundle, whose release files and tag are unchanged |
+| Bundle in `artifacts/` | `0.2.0`, **published**; the archive is the exact candidate the readiness workflow built from these sources and checked with R-devel, adopted unchanged. It replaces the `0.1.0` bundle, whose release files and tag are unchanged |
 | Bundle source commit | `a4dd59c50f54dd951bba89d86d4c32a3699a5597`, recorded in the manifest |
 | `v0.1.0` tag | Publication commit `2332d40` |
-| `v0.2.0` tag | Does not exist yet |
-| GitHub release | [v0.1.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0), with checksummed archive and manual; none yet for 0.2.0 |
+| `v0.2.0` tag | The publication commit, which flips the manifest to published and rewrites `artifacts/README.md` |
+| GitHub release | [v0.1.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0) with two assets; `v0.2.0` is created from the tagged commit with three assets: archive, manual and manifest |
 | Branch protection | Configured on `main`; the authenticated policy verifier passed |
 | Release-tag protection | Active for `v*`; updates and deletions blocked with no bypass actors |
 | Future GitHub releases | Immutable releases enabled; existing 0.1.0 remains `immutable: false` |
-| CRAN | `0.0.6` submission returned by CRAN: two README links (`scripts/VALIDATION.md`, `LICENSE`) pointed at files the archive does not ship; fixed in these sources, and 0.2.0 is the resubmission candidate |
+| CRAN | `0.0.6` submission returned by CRAN: two README links (`scripts/VALIDATION.md`, `LICENSE`) pointed at files the archive does not ship; fixed in this release. The published 0.2.0 archive is the file to resubmit; nothing has been submitted since |
 
 The checkout, published bundle, GitHub release and CRAN submission are separate
 states. Development changes do not rebuild the published archive or move its
@@ -86,8 +86,8 @@ commit also do not establish that a later development checkout has passed.
   published release and development checkout.
 - Maintain release-tag protection and update pinned Actions to supported
   runtimes through a separate maintenance change.
-- Resubmit 0.2.0 to CRAN once the exact-candidate workflow has passed on the
-  release sources and the bundle is published.
+- Resubmit 0.2.0 to CRAN with the published archive, and record the
+  submission outcome here.
 - Finish qualifying the private sparse discrete backend (dense/sparse
   equivalence calibration, then public dispatch) for the next minor release,
   as described in [the roadmap](ROADMAP.md); 0.2.0 ships it only as a private

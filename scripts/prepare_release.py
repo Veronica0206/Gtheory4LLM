@@ -315,7 +315,7 @@ To publish, follow docs/RELEASE_CHECKLIST.md. In outline:
   4. Verify the tag:             python3 scripts/check_committed_artifact.py \\
                                    --verify-only --check-release-identity --release-tag v{version}
   5. Upload exactly these assets, unchanged:
-       {"  ".join(sorted(manifest["files"]))}
+       {"  ".join(sorted(manifest["files"]) + ["manifest.json"])}
      Compare the hosting service's sizes and SHA-256 values with the manifest.
 
 A passing check is not CRAN acceptance, and a prepared bundle is not a release.
