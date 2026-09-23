@@ -41,6 +41,14 @@ nobs.gt_fit <- function(object, ...) {
 # likelihood, and says so.
 logLik.gt_fit <- function(object, ...) {
   .gt_require_fit(object)
+  # A fit that failed numerical acceptance keeps its objective for diagnosis in
+  # minus2loglik, but a likelihood that did not pass its own checks is not a
+  # basis for model selection. The generics refuse it the way gt_reliability()
+  # does, rather than letting AIC() and BIC() read as ordinary values.
+  if (isFALSE(object$numerically_accepted))
+    stop("Model-selection generics require a numerically accepted fit; this fit's likelihood is ",
+         "diagnostic only. Inspect gt_diagnostics(fit). The retained objective is fit$minus2loglik.",
+         call. = FALSE)
   gaussian <- .gt_is_gaussian(object)
   reml <- gaussian && identical(object$estimator, "REML")
   df <- if (!gaussian) object$npar else
@@ -105,7 +113,12 @@ gt_component_vcov <- function(fit, type = c("components", "parameters"), ...) {
   attr(value, "scope") <- if (type == "components")
     "Unique source covariance entries." else "Free optimizer parameters."
   attr(value, "method") <- record$method
-  attr(value, "conditional_on_zero") <- record$fixed_components
+  # Every fixed component is named; the zero subset is named separately so the
+  # older attribute keeps meaning exactly what it says.
+  kinds <- record$fixed_component_kinds
+  attr(value, "conditional_on_fixed") <- record$fixed_components
+  attr(value, "conditional_on_zero") <- record$fixed_components[
+    unname(kinds[record$fixed_components]) %in% "zero"]
   value
 }
 

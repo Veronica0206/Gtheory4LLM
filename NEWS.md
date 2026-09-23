@@ -48,6 +48,19 @@ maintenance that followed 0.1.0.
 - `load_functions.R` sources `R/discrete_sparse_mode.R`, matching the Collate
   field; a test keeps the two lists equal.
 - `print(gt_diagnostics(fit))` states the standard-error availability once.
+- A Gaussian source flagged at the boundary is now classified as entirely zero
+  or as singular but nonzero, and interior-block standard errors say which
+  they condition on. A rank-deficient source with positive variances was
+  described as "held at zero" in the fit's interpretation, its diagnostic
+  issues and the printed coefficient note; it is now described as held fixed
+  at its fitted covariance, from one shared clause. `gt_component_vcov()`
+  adds `conditional_on_fixed` naming every fixed component, and
+  `conditional_on_zero` now names only the zero ones. The boundary flag, the
+  point estimates and the interval arithmetic are unchanged (#36).
+- `logLik()`, and through it `AIC()` and `BIC()`, refuse a fit that failed
+  numerical acceptance, as `gt_reliability()` already did; the objective
+  stays in `minus2loglik` for diagnosis. The generics previously returned
+  ordinary values while `print(fit)` called the estimates diagnostic only.
 
 ## Engineering behind private seams
 

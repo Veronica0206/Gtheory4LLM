@@ -173,6 +173,16 @@ expect(any(grepl("restart_or_tolerance_stability_failed", rejected_output, fixed
 expect(any(grepl("diagnostic only", rejected_output, fixed = TRUE)),
        "a rejected fit says its estimates are diagnostic only")
 
+# A likelihood that failed the fit's own numerical checks is not a basis for
+# model selection: the generics refuse it, while the objective stays readable.
+rejected <- suppressWarnings(gt_fit(discrete_panel, "b", reduced, gt_family("binary"),
+  control = gt_control(discrete = list(maxit = 200L, alternative_starts = 0L))))
+expect(isFALSE(rejected$numerically_accepted), "the rejected fixture really is rejected")
+for (generic in list(logLik, AIC, BIC))
+  expect_error(generic(rejected), "numerically accepted",
+               "a rejected fit refuses the model-selection generics")
+expect(is.finite(rejected$minus2loglik), "the rejected fit keeps its objective for diagnosis")
+
 # Dispatch keeps these methods away from foreign objects, so the guards are
 # checked by invoking the registered methods directly.
 impostor <- structure(list(minus2loglik = 1, N = 1L), class = "not_a_fit")

@@ -12,6 +12,8 @@ asset names to use, and the checklist step to follow.
 
 Usage:
     python3 scripts/prepare_release.py                 # prepare and verify
+    python3 scripts/prepare_release.py --from-checked-candidate DIR
+                                                       # adopt the archive CI checked
     python3 scripts/prepare_release.py --skip-validation   # re-bundle only
     python3 scripts/prepare_release.py --allow-dirty       # rehearsal only
 """
@@ -91,6 +93,49 @@ def build_archive(package: str, version: str, work: Path) -> Path:
     return archive
 
 
+def adopt_checked_candidate(directory: Path, package: str, version: str, commit: str,
+                            work: Path) -> tuple[Path, dict]:
+    """Take the archive the candidate workflow checked, unchanged, instead of building one.
+
+    A rebuilt archive has its own identity: the same sources packaged again
+    differ in build metadata, and the R-devel check evidence belongs to the
+    bytes that were checked. This reads a downloaded cran-candidate-checked
+    directory, requires its manifest to name this package, this version and
+    the checked-out commit, requires the archive bytes to match that manifest,
+    and copies the file as is. Nothing here rebuilds, repackages or edits it.
+    """
+    manifest_path = directory / "candidate.json"
+    if not manifest_path.is_file():
+        raise SystemExit(f"{directory} has no candidate.json; download the cran-candidate-checked-<commit> artifact")
+    candidate = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if candidate.get("schema_version") != 1:
+        raise SystemExit("Unsupported candidate manifest schema.")
+    if candidate.get("package") != package or candidate.get("version") != version:
+        raise SystemExit("The checked candidate is not this package version; DESCRIPTION says "
+                         f"{package} {version}.")
+    if candidate.get("source_commit") != commit:
+        raise SystemExit("The checked candidate was built from a different source commit than the one "
+                         "checked out; prepare from the commit the workflow checked.")
+    expected_name = f"{package}_{version}.tar.gz"
+    if candidate.get("archive") != expected_name:
+        raise SystemExit("The checked candidate must be the package archive " + expected_name)
+    archive = directory / expected_name
+    if archive.is_symlink() or not archive.is_file():
+        raise SystemExit("The checked candidate archive must be a regular file next to candidate.json")
+    if archive.stat().st_size != candidate.get("bytes") or digest(archive) != candidate.get("sha256"):
+        raise SystemExit("The checked candidate archive does not match its own manifest's size or SHA-256.")
+    adopted = work / expected_name
+    shutil.copy2(archive, adopted)
+    # Nothing machine-specific goes into the committed manifest: the archive's
+    # own size and digest already identify the candidate.
+    provenance = {"origin": "checked_candidate",
+                  "build_r_version": candidate.get("build_r_version"),
+                  "expected_data_kind": candidate.get("expected_data_kind")}
+    print(f"\n=== Adopt the checked candidate archive unchanged ===\n  {archive}\n"
+          f"  sha256 {candidate.get('sha256')} ({candidate.get('bytes')} bytes)", flush=True)
+    return adopted, provenance
+
+
 def build_manual(package: str, work: Path) -> Path:
     manual = work / f"{package}-manual.pdf"
     run("Build the reference manual",
@@ -162,6 +207,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="Rehearse on an uncommitted tree. The result must not be published.")
     parser.add_argument("--state", choices=RELEASE_STATES, default="prepared",
                         help="Preparation only supports prepared; published is rejected to protect existing releases.")
+    parser.add_argument("--from-checked-candidate", type=Path, metavar="DIR",
+                        help="Adopt the archive the candidate workflow checked, unchanged, from a downloaded "
+                             "cran-candidate-checked-<commit> directory built from this commit. "
+                             "The manual is still built here.")
     parser.add_argument("--dry-run", type=Path, metavar="DIR",
                         help="Build the bundle into DIR and change no tracked file. "
                              "The staged manifest and archive are verified before copying.")
@@ -184,7 +233,12 @@ def main(argv: list[str] | None = None) -> int:
     commit = require_clean_tree(options.allow_dirty)
     with tempfile.TemporaryDirectory(prefix="gtheory-release-") as directory:
         work = Path(directory)
-        archive = build_archive(package, version, work)
+        provenance = {"origin": "built_here"}
+        if options.from_checked_candidate:
+            archive, provenance = adopt_checked_candidate(
+                options.from_checked_candidate.resolve(), package, version, commit, work)
+        else:
+            archive = build_archive(package, version, work)
         manual = build_manual(package, work)
         staging = work / "bundle"
         staging.mkdir()
@@ -192,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
         shutil.copy2(manual, staging / manual.name)
         manifest = manifest_for(package, version, commit, options.state,
                                 staging / archive.name, staging / manual.name)
+        manifest["archive_provenance"] = provenance
         manifest_path = staging / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         write_artifact_readme(package, version, options.state, staging)
@@ -223,6 +278,7 @@ def main(argv: list[str] | None = None) -> int:
         "source_commit": commit, "tag": f"v{version}",
         "assets": sorted(manifest["files"]),
         "validation_run": not options.skip_validation,
+        "archive_origin": provenance["origin"],
         "rehearsal_on_dirty_tree": bool(options.allow_dirty and git("status", "--porcelain")),
         "dry_run": bool(options.dry_run),
         "bundle_directory": str(destination),

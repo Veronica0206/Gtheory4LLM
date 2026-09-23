@@ -107,8 +107,9 @@
   smallest <- format(full$smallest, digits = 3, trim = TRUE)
   # A variance component resting on zero has no Wald standard error, and its
   # row makes the joint Hessian indefinite. Condition on those components being
-  # held at zero and invert the interior block instead of discarding every
-  # standard error. This is a different, narrower estimand; the caller labels it.
+  # held fixed and invert the interior block instead of discarding every
+  # standard error. This is a different, narrower estimand; the caller labels
+  # it by the kind of boundary each fixed component sits on.
   if (!any(interior) || all(interior))
     return(unavailable(paste0("The estimated Hessian is not positive definite (smallest eigenvalue ",
       smallest, "); Wald standard errors are not defined here.")))
@@ -170,17 +171,59 @@
   list(entries = entries, jacobian = jacobian, index = index)
 }
 
+# Classify each fitted source against the boundary. A source is flagged when
+# its standardized covariance is singular or nearly so. Among flagged sources,
+# one whose entries are all numerically zero is a different object from one
+# that is singular while carrying positive variance, and the uncertainty
+# record describes the two differently: conditioning on the first holds it at
+# zero; conditioning on the second holds a fitted, nonzero covariance fixed.
+.gt_gaussian_boundary_kinds <- function(components, observed_variances, tolerance = 1e-8) {
+  scale <- sqrt(outer(observed_variances, observed_variances))
+  boundary <- vapply(components, function(M) {
+    ev <- eigen(M / scale, symmetric = TRUE, only.values = TRUE)$values
+    min(ev) <= tolerance
+  }, logical(1))
+  kind <- vapply(names(components), function(g) {
+    if (!boundary[[g]]) return(NA_character_)
+    if (max(abs(components[[g]] / scale)) <= tolerance) "zero" else "singular_nonzero"
+  }, character(1))
+  list(boundary = boundary, kind = kind)
+}
+
+# One clause naming what an interior-block calculation conditions on, shared by
+# the fit's interpretation, its diagnostic issues and the printed coefficient
+# note, so no extractor can carry a different reading. A zero source is held at
+# zero. A singular but nonzero source is held fixed at its fitted covariance;
+# calling that zero would be false. A record without kinds, from before they
+# were retained, gets the neutral statement that is true of both.
+.gt_conditioning_clause <- function(fixed, kinds = NULL, field = "fixed_components") {
+  kind <- if (is.null(kinds)) rep(NA_character_, length(fixed)) else unname(kinds[fixed])
+  kind[is.na(kind)] <- "unknown"
+  clause <- function(members, wording)
+    if (length(members)) paste(.gt_name_sources(members, field), wording)
+  possessive <- function(members) if (length(members) == 1L) "its" else "their"
+  nonzero <- fixed[kind == "singular_nonzero"]
+  unknown <- fixed[kind == "unknown"]
+  paste(c(clause(fixed[kind == "zero"], "held at zero"),
+          clause(nonzero, paste("held fixed at", possessive(nonzero),
+                                "fitted singular but nonzero covariance")),
+          clause(unknown, paste("held fixed at", possessive(unknown), "fitted value"))),
+        collapse = " and ")
+}
+
 # Assemble everything a delta-method consumer needs: the entry covariance
 # matrix, per-variance standard errors, and an explicit availability record.
 .gt_gaussian_uncertainty <- function(model, algebra_names, types, outcomes,
                                      components, hessian, standard_errors,
-                                     boundary, estimator_label, check_hessian) {
+                                     boundary, boundary_kind = NULL,
+                                     estimator_label, check_hessian) {
   parameter_names <- names(OpenMx::omxGetParameters(model))
   record <- list(available = FALSE,
     reason = "Hessian diagnostics were disabled; rerun with check_hessian = TRUE.",
     method = "Delta method from the numerically differentiated -2 log likelihood Hessian (parameter covariance 2 * H^-1).",
     likelihood = estimator_label, boundary_components = names(boundary)[which(boundary)],
     restricted_to_interior = FALSE, fixed_components = character(),
+    fixed_component_kinds = character(),
     parameter_covariance = NULL, entries = NULL, jacobian = NULL,
     entry_covariance = NULL, variances = NULL,
     openmx_standard_error_agreement = NA_real_, hessian_condition_number = NA_real_,
@@ -236,7 +279,7 @@
   # an atom at the boundary, so no symmetric interval follows from a curvature
   # estimate. Report NA in both cases rather than a number that reads as one,
   # and keep the full entry covariance matrix in $uncertainty for anyone who
-  # wants the raw curvature. A component held at zero would otherwise report a
+  # wants the raw curvature. A component held fixed would otherwise report a
   # structural zero, which reads as an estimate known without error.
   variances$std_error[variances$at_boundary |
                         variances$component %in% fixed_components] <- NA_real_
@@ -244,6 +287,8 @@
   record$reason <- NA_character_
   record$restricted_to_interior <- inverted$restricted
   record$fixed_components <- fixed_components
+  record$fixed_component_kinds <- if (is.null(boundary_kind)) character() else
+    stats::setNames(unname(boundary_kind[fixed_components]), fixed_components)
   record$parameter_covariance <- inverted$covariance
   record$entries <- mapping$entries
   record$jacobian <- mapping$jacobian
@@ -252,9 +297,9 @@
   record$openmx_standard_error_agreement <- inverted$openmx_agreement
   record$hessian_condition_number <- inverted$condition_number
   if (inverted$restricted)
-    record$interpretation <- paste("Asymptotic Wald standard errors conditional on the",
-      "zero-variance component(s)", paste(fixed_components, collapse = ", "),
-      "being held at zero, because the joint Hessian is indefinite there.",
+    record$interpretation <- paste("Asymptotic Wald standard errors conditional on",
+      paste0(.gt_conditioning_clause(fixed_components, record$fixed_component_kinds), ","),
+      "because the joint Hessian is indefinite there.",
       "They describe the remaining components only, and are not valid coverage statements in small designs.")
   record
 }
@@ -833,11 +878,9 @@ fit_openmx_multivariate <- function(
     "These warnings do not replace the optimizer status or numerical acceptance checks."))
   if (check_hessian && isFALSE(diagnostic_output$infoDefinite))
     issues <- c(issues, "The estimated Hessian is not positive definite.")
-  boundary <- vapply(components, function(M) {
-    standardized <- M / sqrt(outer(prepared$observed_variances, prepared$observed_variances))
-    ev <- eigen(standardized, symmetric = TRUE, only.values = TRUE)$values
-    min(ev) <= 1e-8
-  }, logical(1))
+  classified <- .gt_gaussian_boundary_kinds(components, prepared$observed_variances)
+  boundary <- classified$boundary
+  boundary_kind <- classified$kind
   if (any(boundary)) issues <- c(issues, paste("Boundary or nearly singular components:",
                                               paste(names(boundary)[boundary], collapse = ", ")))
   for (g in groups[types[groups] == "unstructured"]) {
@@ -849,12 +892,12 @@ fit_openmx_multivariate <- function(
   }
   uncertainty <- .gt_gaussian_uncertainty(model, algebra_names, types, outcomes,
     components, diagnostic_output$hessian, diagnostic_output$standardErrors,
-    boundary, if (reml) "REML restricted likelihood" else "ML profile likelihood",
-    check_hessian)
+    boundary, boundary_kind,
+    if (reml) "REML restricted likelihood" else "ML profile likelihood", check_hessian)
   if (isTRUE(uncertainty$available) && isTRUE(uncertainty$restricted_to_interior))
     issues <- c(issues, paste0("The joint Hessian is indefinite at a variance boundary, so standard errors condition on ",
-      paste(uncertainty$fixed_components, collapse = ", "),
-      " being held at zero. Intervals then describe the remaining components only."))
+      .gt_conditioning_clause(uncertainty$fixed_components, uncertainty$fixed_component_kinds),
+      ". Intervals then describe the remaining components only."))
   else if (isTRUE(uncertainty$available) && length(uncertainty$boundary_components))
     issues <- c(issues, paste0(length(uncertainty$boundary_components),
       " source(s) rest on a variance boundary and report no standard error; the joint",
@@ -871,8 +914,9 @@ fit_openmx_multivariate <- function(
   # Preserve the archive's variance-only, N*D OpenMx criteria under explicit
   # legacy names. For ordinary ML, profiled means remain estimated parameters.
   # N denotes multivariate response vectors; N*D scalar scores is an alternative
-  # BIC convention, not another likelihood. REML is not a full-data ML likelihood
-  # and is left without generic AIC/BIC rather than adding means automatically.
+  # BIC convention, not another likelihood. REML is not a full-data ML likelihood,
+  # so its AIC and BIC elements stay NA rather than adding means automatically;
+  # AIC() and BIC() use the restricted likelihood, recorded under explicit names below.
   native_summary <- summary(model, numObs = prepared$N * D)
   df <- nrow(native_summary$parameters)
   native_bic <- unname(native_summary$informationCriteria["BIC:", "par"])

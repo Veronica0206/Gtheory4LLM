@@ -34,12 +34,26 @@ continues to accept that legacy format.
    never archive integrity or release identity. Existing version tags or a
    published manifest for that version block rebuilding before any build starts.
    `--state published` is rejected even for a rehearsal.
+
+   To make the archive in the manifest the very archive the candidate workflow
+   checked, run that workflow on the source commit first, download its
+   `cran-candidate-checked-<commit>` artifact, and prepare from it:
+
+   ```sh
+   python3 scripts/prepare_release.py --from-checked-candidate /path/to/cran-candidate-checked
+   ```
+
+   The archive is copied unchanged after its manifest is checked against this
+   package, version and commit; the manual is still built here; every other
+   verification runs as before. The manifest records which origin the archive
+   had under `archive_provenance`.
 3. Review the printed source commit, files, hashes and checks. Retain the exact
-   archive checked on each platform; a rebuilt candidate has its own identity.
-   If manual building fell back to plain `R CMD Rd2pdf`, record whether the
-   overfull-box gate ran. Additional R-devel checks of published archives and
-   CRAN submission work remain deferred while the confirmed submission is pending;
-   the existing development CI remains unchanged.
+   archive checked on each platform; a rebuilt candidate has its own identity,
+   which is why the previous step can adopt the checked one. If manual building
+   fell back to plain `R CMD Rd2pdf`, record whether the overfull-box gate ran.
+   The 0.0.6 CRAN submission was returned for README file links; the next
+   submission is the archive this checklist prepares, submitted only after
+   publication.
 4. Commit the checked bundle in `artifacts/` after its recorded source commit.
    The archive's README/NEWS bytes must still equal that source commit. Run the
    relevant artifact installation and release checks before publication.

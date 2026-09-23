@@ -80,7 +80,7 @@ gt_score <- function(weights) {
   unavailable <- function(reason) list(available = FALSE, reason = reason,
     entries = NULL, entry_covariance = NULL, method = NA_character_,
     boundary_components = character(), restricted_to_interior = FALSE,
-    fixed_components = character())
+    fixed_components = character(), fixed_component_kinds = character())
   if (!gaussian)
     return(unavailable("Standard errors are not implemented for the discrete Laplace engine; its coefficients are point estimates only."))
   record <- fit$uncertainty
@@ -93,7 +93,8 @@ gt_score <- function(weights) {
        entry_covariance = record$entry_covariance, method = record$method,
        boundary_components = record$boundary_components,
        restricted_to_interior = isTRUE(record$restricted_to_interior),
-       fixed_components = record$fixed_components)
+       fixed_components = record$fixed_components,
+       fixed_component_kinds = record$fixed_component_kinds)
 }
 
 .gt_reliability_fixed <- function(fit, fixed, counts, observed) {
@@ -361,8 +362,9 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
   if (isTRUE(record$available)) {
     cat(format(100 * x$level, digits = 4), "% intervals: delta method on the logit scale from the fitted parameter covariance.\n", sep = "")
     if (isTRUE(record$restricted_to_interior))
-      cat("Conditional on", .gt_name_sources(record$fixed_components, "fixed_components"),
-          "held at zero; the intervals carry no uncertainty for those.\n")
+      cat("Conditional on ",
+          .gt_conditioning_clause(record$fixed_components, record$fixed_component_kinds),
+          "; the intervals carry no uncertainty for those.\n", sep = "")
     else if (length(record$boundary_components))
       cat("No standard error for", .gt_name_sources(record$boundary_components, "boundary_components"),
           "resting on a variance boundary.\n")

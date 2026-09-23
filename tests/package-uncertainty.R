@@ -202,3 +202,83 @@ stopifnot(identical(name_sources(c("a", "b"), "boundary_components"), "a, b"),
           identical(name_sources(letters[1:13], "fixed_components"),
                     "13 sources (see $uncertainty$fixed_components)"))
 cat("PASS: Gaussian Wald standard errors, entry Jacobian, delta-method coefficient intervals, and unavailability reporting.\n")
+
+# 11. Issue #36. A flagged source is either entirely zero or singular while
+# carrying positive variance, and the interior-block branch must say which it
+# conditions on. The branch is reached deliberately, through a controlled
+# Hessian that is indefinite on one source and positive definite elsewhere, so
+# this fails if the branch is not taken rather than passing vacuously.
+classify <- get(".gt_gaussian_boundary_kinds", envir = asNamespace("Gtheory4LLM"), inherits = FALSE)
+uncertainty_record <- get(".gt_gaussian_uncertainty", envir = asNamespace("Gtheory4LLM"), inherits = FALSE)
+observed <- joint_fit$prepared$observed_variances
+scale <- sqrt(outer(observed, observed))
+kinds <- classify(list(zero = matrix(0, 2, 2), rank_one = matrix(c(1, 2, 2, 4), 2, 2) * scale,
+                       one_zero = diag(c(1.5, 0)) * scale,
+                       healthy = matrix(c(1, .3, .3, 1), 2, 2) * scale), observed)
+stopifnot(identical(unname(kinds$boundary), c(TRUE, TRUE, TRUE, FALSE)),
+          identical(unname(kinds$kind), c("zero", "singular_nonzero", "singular_nonzero", NA_character_)))
+algebra <- setNames(sprintf("G%02d", seq_along(joint_fit$covariance_types)),
+                    names(joint_fit$covariance_types))
+hessian <- joint_fit$diagnostics$hessian
+rater_parameters <- startsWith(rownames(hessian), paste0(algebra[["rater"]], "_"))
+stopifnot(sum(rater_parameters) == 3L)
+controlled <- hessian
+controlled[rater_parameters, ] <- 0
+controlled[, rater_parameters] <- 0
+diag(controlled)[rater_parameters] <- -1
+stopifnot(min(eigen(controlled, symmetric = TRUE, only.values = TRUE)$values) < 0)
+nonzero_wording <- "held fixed at its fitted singular but nonzero covariance"
+cases <- list(
+  zero = list(rater = matrix(0, 2, 2), kind = "zero", wording = "held at zero"),
+  one_zero = list(rater = diag(c(1.5, 0)) * scale, kind = "singular_nonzero", wording = nonzero_wording),
+  rank_one = list(rater = matrix(c(1, 2, 2, 4), 2, 2) * scale, kind = "singular_nonzero",
+                  wording = nonzero_wording))
+for (name in names(cases)) {
+  case <- cases[[name]]
+  components <- joint_fit$covariance_components
+  components$rater <- case$rater
+  flags <- classify(components, observed)
+  stopifnot(identical(names(which(flags$boundary)), "rater"),
+            identical(unname(flags$kind[["rater"]]), case$kind))
+  record <- uncertainty_record(joint_fit$model, algebra, joint_fit$covariance_types,
+                               joint_fit$outcomes, components, controlled, NULL,
+                               boundary = flags$boundary, boundary_kind = flags$kind,
+                               estimator_label = "REML restricted likelihood", check_hessian = TRUE)
+  stopifnot(isTRUE(record$available), isTRUE(record$restricted_to_interior),
+            identical(record$fixed_components, "rater"),
+            identical(unname(record$fixed_component_kinds), case$kind))
+  # The interior block is inverted on its own; the fixed source carries no
+  # curvature-based uncertainty, in the parameter and the entry covariance alike.
+  interior <- !rater_parameters
+  near(record$parameter_covariance[interior, interior],
+       2 * solve(controlled[interior, interior]), 1e-8, paste(name, "interior parameter covariance"))
+  stopifnot(all(record$parameter_covariance[rater_parameters, ] == 0),
+            all(record$parameter_covariance[, rater_parameters] == 0))
+  rater_entries <- record$entries$component == "rater"
+  stopifnot(all(record$entry_covariance[rater_entries, ] == 0),
+            all(diag(record$entry_covariance)[!rater_entries] > 0))
+  errors <- record$variances
+  stopifnot(all(is.na(errors$std_error[errors$component == "rater"])),
+            all(is.finite(errors$std_error[errors$component != "rater"])))
+  # Every extractor must carry the same reading, and a positive fitted
+  # covariance is never called zero anywhere a user can read it.
+  spliced <- joint_fit
+  spliced$covariance_components <- components
+  spliced$uncertainty <- record
+  spliced$component_standard_errors <- record$variances
+  spliced$diagnostics$boundary_components <- flags$boundary
+  reliability_report <- paste(capture.output(print(gt_reliability(spliced))), collapse = "\n")
+  for (text in c(record$interpretation, reliability_report)) {
+    stopifnot(grepl(case$wording, text, fixed = TRUE), grepl("rater", text, fixed = TRUE))
+    if (case$kind != "zero")
+      stopifnot(!grepl("held at zero", text, fixed = TRUE), !grepl("zero-variance", text, fixed = TRUE))
+  }
+  entry_vcov <- gt_component_vcov(spliced)
+  stopifnot(identical(attr(entry_vcov, "conditional_on_fixed"), "rater"),
+            identical(attr(entry_vcov, "conditional_on_zero"),
+                      if (case$kind == "zero") "rater" else character(0)))
+  intervals <- gt_reliability(spliced)$per_trait
+  stopifnot(all(is.finite(intervals$Erho2_se)), all(is.finite(intervals$Erho2_lower)),
+            all(is.finite(intervals$Erho2_upper)))
+}
+cat("PASS: interior-block conditioning names zero and singular-but-nonzero sources correctly.\n")

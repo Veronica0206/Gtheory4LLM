@@ -250,6 +250,61 @@ class PrepareReleaseTests(unittest.TestCase):
         self.assertEqual(previous.read_bytes(), b"previous bundle")
         self.assertFalse((self.artifacts / "Example_1.2.3.tar.gz").exists())
 
+    # --- the checked candidate can be adopted, never rebuilt ------------------
+    def candidate_directory(self, **overrides):
+        import hashlib
+        directory = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(directory, ignore_errors=True))
+        archive = directory / "Example_1.2.3.tar.gz"
+        archive.write_bytes(b"checked archive bytes")
+        manifest = {"schema_version": 1, "package": "Example", "version": "1.2.3",
+                    "source_commit": self.commit, "archive": archive.name,
+                    "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+                    "bytes": archive.stat().st_size, "build_r_version": "4.6.1",
+                    "expected_data_kind": "public_llm_annotations"}
+        manifest.update(overrides)
+        (directory / "candidate.json").write_text(json.dumps(manifest), encoding="utf-8")
+        return directory
+
+    def test_a_checked_candidate_is_adopted_unchanged(self):
+        directory = self.candidate_directory()
+        archive, manual = self.stub_builds()
+        buffer = io.StringIO()
+        with patch.object(RELEASE, "run"), patch.object(RELEASE, "build_archive") as build, manual, \
+                redirect_stdout(buffer):
+            status = RELEASE.main(["--skip-validation", "--from-checked-candidate", str(directory)])
+        self.assertEqual(status, 0)
+        build.assert_not_called()
+        self.assertEqual((self.artifacts / "Example_1.2.3.tar.gz").read_bytes(), b"checked archive bytes")
+        manifest = json.loads((self.artifacts / "manifest.json").read_text())
+        self.assertEqual(manifest["source_commit"], self.commit)
+        self.assertEqual(manifest["archive_provenance"]["origin"], "checked_candidate")
+        self.assertEqual(manifest["archive_provenance"]["build_r_version"], "4.6.1")
+        self.assertEqual(manifest["files"]["Example_1.2.3.tar.gz"]["sha256"],
+                         json.loads((directory / "candidate.json").read_text())["sha256"])
+        self.assertIn("Adopt the checked candidate archive unchanged", buffer.getvalue())
+        del archive
+
+    def test_a_candidate_from_another_commit_or_with_other_bytes_is_refused(self):
+        cases = {"different source commit": {"source_commit": "0" * 40},
+                 "SHA-256": {"sha256": "0" * 64},
+                 "not this package version": {"version": "1.2.4", "archive": "Example_1.2.4.tar.gz"}}
+        for expected, overrides in cases.items():
+            with self.subTest(case=expected):
+                directory = self.candidate_directory(**overrides)
+                before = {p: p.read_bytes() for p in self.artifacts.iterdir()}
+                with patch.object(RELEASE, "run"), patch.object(RELEASE, "build_archive") as build, \
+                        self.assertRaisesRegex(SystemExit, expected):
+                    RELEASE.main(["--skip-validation", "--from-checked-candidate", str(directory)])
+                build.assert_not_called()
+                self.assertEqual(before, {p: p.read_bytes() for p in self.artifacts.iterdir()})
+
+    def test_a_locally_built_archive_records_its_origin(self):
+        with patch.object(RELEASE, "run"):
+            self.run_main(["--skip-validation"])
+        manifest = json.loads((self.artifacts / "manifest.json").read_text())
+        self.assertEqual(manifest["archive_provenance"], {"origin": "built_here"})
+
     # --- validation is run unless explicitly skipped --------------------------
     def test_source_validation_runs_by_default(self):
         with patch.object(RELEASE, "run") as runner:

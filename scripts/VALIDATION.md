@@ -180,7 +180,8 @@ After success, download `cran-candidate-checked-<commit>` for the exact checked
 tarball and manifest, and `cran-candidate-check-evidence-<commit>` for full logs,
 dependency versions, and test timings. A build artifact alone is not a successful
 CRAN check. Preserve this tarball unchanged when making the release manifest or
-submitting to CRAN. Hosted artifacts are retained for 30 days. No workflow submits
+submitting to CRAN: `python3 scripts/prepare_release.py --from-checked-candidate DIR`
+adopts it as the release archive without rebuilding. Hosted artifacts are retained for 30 days. No workflow submits
 to CRAN, publishes a release, or changes repository visibility.
 
 For the same process locally, use current R release for the first command and

@@ -43,8 +43,10 @@ scientifically sufficient. Those are separate questions with separate evidence.
   and do not cover model misspecification.
 - A source resting on a variance boundary has no Wald standard error and reports
   `NA`. Where the joint curvature is indefinite there, the remaining intervals
-  are conditional on that source being held at zero, and say so. What is known
-  about how either branch performs is in [validation scope](VALIDATION_SCOPE.md).
+  are conditional on that source being held fixed, and say which way: a source
+  whose fitted covariance is entirely zero is held at zero, and a singular but
+  nonzero source is held fixed at its fitted covariance. What is known about
+  how either branch performs is in [validation scope](VALIDATION_SCOPE.md).
 - `AIC()` and `BIC()` on a REML fit use the restricted likelihood with the
   covariance parameters only, so they compare covariance structures that share
   the same fixed-effects structure and never an ML value. The fit's own `AIC`
