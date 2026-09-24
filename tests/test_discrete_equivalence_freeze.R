@@ -40,7 +40,7 @@ FROZEN_SOURCES <- c(
   "PROTOCOL.md" = "c05807cfc9801a24fb003ee91e474af8",
   "CALIBRATION.md" = "2e7a53d66714dbaedd50380640ac6448",
   "README.md" = "2f73e051d4be697fa35841eba91a9f81",
-  "cases.R" = "9bf866425c7a697f2649663fff97c6b1",
+  "cases.R" = "f0df69644c1c7c650465f2d865908da4",
   "freeze-fixtures.R" = "96a3ff727d433c5ff4d8c741aa0eaf85",
   "run-equivalence.R" = "7d4ac0eccc1d5d57d31b871fbb98d4a7",
   "results-schema.csv" = "387a602d1dcb6e70ad1eaa62f74cc150")
@@ -176,7 +176,7 @@ FROZEN_DIGESTS <- c(
   "K02" = "03ef8e4d9c792e2500c75dc5751a59e3",
   "K03" = "70ed6c22fcda96a6f11ee40402f61845",
   "K04" = "e18a2d7851e77a56b6ccdb2ece153b6c",
-  "K05" = "e1dddcce3be9f8a72791affcd3b449b0",
+  "K05" = "c31d3ed8439fc056344072bd88b7ad4e",
   "K06" = "cc31a7a33aeb97d3a60c227d73a79fdd")
 FROZEN_OBSERVATIONS <- c(
   "C01" = 90L,
@@ -303,6 +303,70 @@ near <- recorded[recorded$geometry == "near_limit", ]
 ok(nrow(near) == 2L && all(near$random_dimension >= 180L) &&
      all(near$random_dimension <= 200L),
    "the near-limit cases genuinely approach the dense random-dimension ceiling")
+
+# ---- ordinal category composition ------------------------------------------------
+# A digest pins WHICH panel a case uses; it cannot say whether that panel is the
+# one the case is meant to be. K05 was pinned through the whole first freeze while
+# the top category of its "rare tail" held 68.75% of observations, because the
+# level selector and the panel builder recognised tail geometries by different
+# rules. So the composition itself is asserted here, for every ordinal fixture,
+# scored and calibration alike.
+#
+# "Rare" is defined without choosing a number: each extreme category is below the
+# uniform share 1/k, and below every interior category.
+ordinal_shares <- function(y, levels) {
+  counts <- as.integer(table(factor(y, levels = levels)))
+  counts / sum(counts)
+}
+extremes_rare <- function(y, levels) {
+  share <- ordinal_shares(y, levels)
+  k <- length(levels)
+  extremes <- share[c(1L, k)]
+  k >= 3L && all(extremes < 1 / k) && max(extremes) < min(share[-c(1L, k)])
+}
+ok(all(EQ_TAIL_GEOMETRIES %in% c(names(EQ_GEOMETRY), names(EQ_CALIBRATION_GEOMETRY))),
+   "every declared tail geometry is a real scored or calibration geometry")
+# Without this, dropping a geometry from the tail set would quietly turn its case
+# into an ordinary three-level panel that every composition check below accepts.
+ok(.eq_is_tail_geometry(EQ_CORE$geometry[EQ_CORE$case == "C12"]) &&
+     .eq_is_tail_geometry(EQ_CALIBRATION$geometry[EQ_CALIBRATION$case == "K05"]),
+   "C12 and K05, the scored and calibration tail-mass cases, are built as tail geometries")
+for (set in list(list(table = EQ_CORE, geometries = EQ_GEOMETRY),
+                 list(table = EQ_CALIBRATION, geometries = EQ_CALIBRATION_GEOMETRY))) {
+  rows <- set$table[set$table$family == "ordinal", ]
+  for (i in seq_len(nrow(rows))) {
+    row <- rows[i, ]
+    tail <- .eq_is_tail_geometry(row$geometry)
+    levels <- .eq_ordinal_levels(row$geometry)
+    panel <- .eq_panel_for("ordinal", row$geometry, set$geometries[[row$geometry]])
+    ok(identical(length(levels), if (tail) 5L else 3L),
+       paste0(row$case, ": a tail geometry receives five levels and any other receives three"))
+    ok(identical(levels(panel$y), levels) &&
+         identical(.eq_families("ordinal", row$link, row$geometry)[[1L]]$levels, levels),
+       paste0(row$case, ": the panel and the family specification declare the same levels"))
+    ok(all(ordinal_shares(panel$y, levels) > 0),
+       paste0(row$case, ": every declared category is observed"))
+    if (tail) ok(extremes_rare(panel$y, levels),
+                 paste0(row$case, ": both extreme categories are rarer than uniform and than ",
+                        "every interior category"))
+  }
+}
+
+# The pre-correction K05, rebuilt from its original inputs: the rare-extreme
+# construction given three levels. Reproducing its composition exactly, and
+# showing the rarity rule rejects it, is what makes the check above
+# discriminating rather than merely satisfied by the corrected fixture.
+K05_BEFORE_CORRECTION_DIGEST <- "e1dddcce3be9f8a72791affcd3b449b0"
+cal_tail <- EQ_CALIBRATION_GEOMETRY$cal_tail
+three_levels <- c("low", "mid", "high")
+k05_before <- .eq_ordinal_panel(cal_tail$objects, cal_tail$raters, cal_tail$reps,
+                                three_levels, tail_mass = TRUE)
+ok(identical(as.integer(table(k05_before$y)), c(15L, 60L, 165L)),
+   "the pre-correction K05 composition is reproduced exactly: 15, 60 and 165 of 240")
+ok(!extremes_rare(k05_before$y, three_levels),
+   "the rarity rule rejects the pre-correction K05, whose top category held 68.75%")
+ok(!identical(FROZEN_DIGESTS[["K05"]], K05_BEFORE_CORRECTION_DIGEST),
+   "K05 is no longer pinned to its pre-correction panel")
 
 # ---- degeneracy guard -----------------------------------------------------------
 # Three separate builders in this study were degenerate before this guard: a
