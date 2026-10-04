@@ -60,43 +60,69 @@
 # The record is bounded. Counts are kept for every evaluation; the parameters
 # and measurements of at most `limit` invalid evaluations are retained, in
 # order of occurrence, so a fit object stays small however long the optimizer
-# runs. Matrices are never retained in the fit: a failed evaluation's matrix,
+# runs. Routine non-converged evaluations are common enough to use that whole
+# allowance on their own, so a solve- or factor-validity event has a bounded
+# allowance of its own, `validity_limit`, and is not lost behind them; every
+# such event is counted whether or not it is retained.
+#
+# `settings` is the control an evaluation actually ran with. The tightened
+# objective runs under a stricter inner tolerance than the coarse one, and a
+# specimen that described it by the coarse settings would misreport the
+# operation it preserves.
+#
+# Matrices are never retained in the fit: a failed evaluation's matrix,
 # right-hand side, step and factor are written to disk only when
 # GTHEORY_DISCRETE_SPECIMEN_DIR is set, and a failed write is recorded rather
 # than raised, so it can never mask the refusal it was meant to explain.
-.gt_d_evaluation_log <- function(control, prep, limit = 8L) {
+.gt_d_evaluation_log <- function(control, prep, limit = 8L, validity_limit = 8L) {
   state <- new.env(parent = emptyenv())
   state$count <- 0L
   state$invalid <- 0L
+  state$validity <- 0L
+  state$validity_retained <- 0L
   state$at_budget <- 0L
   state$retained <- list()
-  observe <- function(parameters, value, phase) {
+  observe <- function(parameters, value, phase, settings = control) {
     state$count <- state$count + 1L
     if (.gt_d_evaluation_usable(value)) {
       if (is.numeric(value$inner_iterations) && length(value$inner_iterations) == 1L &&
-          value$inner_iterations >= control$inner_maxit)
+          value$inner_iterations >= settings$inner_maxit)
         state$at_budget <- state$at_budget + 1L
       return(value$nll)
     }
     state$invalid <- state$invalid + 1L
-    if (length(state$retained) < limit) {
+    validity <- .gt_d_validity_event(value)
+    if (validity) state$validity <- state$validity + 1L
+    if (length(state$retained) < limit ||
+        (validity && state$validity_retained < validity_limit)) {
       record <- .gt_d_failure_record(value, list(evaluation = state$count, phase = phase,
                                                  parameters = parameters))
-      record$specimen <- .gt_d_write_specimen(value, record, prep, control)
+      record$specimen <- .gt_d_write_specimen(value, record, prep, settings)
       state$retained[[length(state$retained) + 1L]] <- record
+      if (validity) state$validity_retained <- state$validity_retained + 1L
     }
     1e100
   }
   summary <- function() list(
-    count = state$count, invalid = state$invalid,
+    count = state$count, invalid = state$invalid, validity_events = state$validity,
     valid_at_inner_budget = state$at_budget, inner_budget = control$inner_maxit,
     retained_invalid = state$retained, retention_limit = limit,
+    validity_retention_limit = validity_limit,
     scope = paste("Every evaluation of the coarse or tightened objective made by the optimizer",
                   "and by the one tighter-tolerance re-evaluation of the primary fit;",
                   "final validation, stationarity and specimen evaluations are not counted.",
-                  "Retained records carry the failed evaluation's own measurements."))
+                  "Retained records carry the failed evaluation's own measurements.",
+                  "A solve- or factor-validity event is retained beyond the ordinary limit,",
+                  "within its own."))
   list(observe = observe, summary = summary)
 }
+
+# A solve- or factor-validity refusal, as opposed to a conditional solve that
+# merely did not converge: the four reasons the two mode solvers return when a
+# native factorization does not solve its own system.
+.gt_d_validity_event <- function(value)
+  is.list(value) && is.character(value$reason) && length(value$reason) == 1L &&
+    !is.na(value$reason) && grepl("_(newton_solve|final_factor)_invalid$", value$reason)
 
 # The retained description of one failed evaluation: measurements only, never
 # the matrices, which go to a specimen file when one is configured.
@@ -131,7 +157,8 @@
   if (is.null(directory)) return(NULL)
   tryCatch({
     dir.create(directory, showWarnings = FALSE, recursive = TRUE)
-    label <- if (is.null(record$evaluation)) "start" else paste0("evaluation-", record$evaluation)
+    label <- if (!is.null(record$evaluation)) paste0("evaluation-", record$evaluation) else
+      if (identical(record$phase, "final")) "final" else "start"
     path <- tempfile(paste0("gtheory-discrete-specimen-", label, "-"), tmpdir = directory,
                      fileext = ".rds")
     threads <- Sys.getenv(c("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
@@ -861,7 +888,7 @@
   validation_control$reltol <- min(control$reltol, control$validation_reltol)
   tight_objective <- function(par)
     evaluations$observe(par, .laplace(par, prep, groups, setup, validation_control, details = TRUE),
-                        "tight")
+                        "tight", settings = validation_control)
   optimize_tight <- function(at, label) {
     result <- .gt_d_optimize(at, tight_objective, lower, upper,
       list(maxit = control$maxit,
@@ -922,9 +949,21 @@
       setup, settings, details = TRUE))
     valid <- isTRUE(captured$value$valid) &&
       is.finite(captured$value$nll) && captured$value$nll < 1e99
+    # A final check can fail without raising: the evaluator returns a
+    # structured refusal carrying its reason, its measurements and the failed
+    # operation. That record is kept with the check, and the operation is
+    # written as a specimen when a directory is configured, under the settings
+    # this check ran with. The number of final checks is bounded by the number
+    # of candidates, so this needs no allowance of its own.
+    failure <- NULL
+    if (!valid && is.list(captured$value)) {
+      failure <- .gt_d_failure_record(captured$value,
+        list(phase = "final", label = label, parameters = candidate$par))
+      failure$specimen <- .gt_d_write_specimen(captured$value, failure, prep, settings)
+    }
     final_checks[[length(final_checks) + 1L]] <<- list(label = label,
       valid = valid, error = captured$error, warnings = captured$warnings,
-      elapsed_seconds = captured$elapsed_seconds)
+      elapsed_seconds = captured$elapsed_seconds, failure = failure)
     if (valid) captured$value else NULL
   }
   final <- NULL

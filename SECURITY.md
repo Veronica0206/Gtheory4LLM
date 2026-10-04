@@ -61,8 +61,9 @@ through `do.call()`, or an inline expression, is recorded as a marker.
 Data you pass to `gt_fit()` stays in the R session and in the returned object.
 Nothing is uploaded or cached outside the session, and nothing is written to
 disk unless you set the environment variable `GTHEORY_DISCRETE_SPECIMEN_DIR`.
-With that set, a discrete fit writes a specimen file for each refused start and
-for at most eight evaluations its optimizer could not use, holding the failed
+With that set, a discrete fit writes a specimen file for each refused start, for
+at most eight evaluations its optimizer could not use and at most eight further
+solve- or factor-validity events, and for each failed final check, holding the failed
 operation's matrix, right-hand side, step and factor, the model parameters, the
 evaluation's measurements and the numerical environment. A specimen holds no
 observations, but its matrix is a function of them, so treat that directory as

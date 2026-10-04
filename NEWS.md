@@ -112,6 +112,21 @@ below add refusals, evidence and reporting.
 
 ## Corrections
 
+- A specimen of a tightened evaluation records the inner tolerance that
+  evaluation ran with. The evaluation log passed the coarse control to the
+  specimen writer for every phase, so a `tight` specimen reported `1e-7` for an
+  evaluation that ran at `1e-9`. The fit and its acceptance were unaffected.
+- A solve- or factor-validity event is no longer lost behind routine
+  non-converged evaluations. Retained records and specimens shared one
+  allowance of eight, which an ordinary fit can use up on routine failures
+  alone; a later validity event then left only a count. Such events now have
+  a bounded allowance of their own, eight further records, and
+  `fit$diagnostics$evaluations$validity_events` counts every one.
+- A final check that fails with a structured refusal keeps that refusal's
+  reason, measurements and parameters in `fit$diagnostics$final_checks`, and
+  writes its failed operation as a specimen when a directory is configured.
+  Only a raised error's text was kept before, so a refusal returned without
+  an error blocked acceptance and left no account of why.
 - A preflight report no longer keeps the data in its recorded call. Called
   through `do.call()`, or with the data written inline, `gt_preflight()` stored
   the whole data frame in `$call`, unused columns included, whatever

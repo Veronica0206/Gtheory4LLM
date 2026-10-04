@@ -323,8 +323,149 @@ ok(is.character(truncated) &&
      identical(truncated, "The discrete likelihood did not yield a converged finite inner mode at starting values."),
    "a non-converged start refuses with the established message and no invented reason")
 
+# ---- capture describes the operation it preserves, and loses none it should keep
+capture_into <- function() {
+  directory <- tempfile("gt-specimen-")
+  Sys.setenv(GTHEORY_DISCRETE_SPECIMEN_DIR = directory)
+  directory
+}
+read_specimens <- function(directory) lapply(list.files(directory, full.names = TRUE), readRDS)
+refusal <- list(valid = FALSE, reason = "dense_newton_solve_invalid",
+                solve_backward_error = 1e-3, solve_validity_bound = 2.98e-13, random_dimension = 13L,
+                specimen = list(hessian = diag(2), right_hand_side = c(1, 1), step = c(9, 9),
+                                factor = diag(2)))
+unconverged <- list(valid = FALSE, inner_converged = FALSE, inner_gradient = 1, inner_iterations = 60L,
+                    inner_line_search_failed = FALSE, inner_factor_unavailable = FALSE)
+has_matrix <- function(specimen) is.matrix(specimen$specimen$hessian)
+
+# The tightened objective runs under a stricter inner tolerance than the coarse
+# one. Its specimen records the tolerance the evaluation ran with, not the
+# coarse setting the log was created with.
+directory <- capture_into()
+tightened <- NULL
+tight_once <- function(parameters, prep, groups, setup, control, details = FALSE, ...) {
+  if (is.null(tightened) && control$inner_tol < 1e-7 && is.null(list(...)$factors_override)) {
+    tightened <<- control$inner_tol
+    return(if (details) refusal else 1e100)
+  }
+  .gt_d_laplace(parameters, prep, groups, setup, control, details = details, ...)
+}
+invisible(.gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L), .laplace = tight_once))
+Sys.unsetenv("GTHEORY_DISCRETE_SPECIMEN_DIR")
+captured <- read_specimens(directory)
+ok(length(captured) == 1L && identical(captured[[1L]]$record$phase, "tight"),
+   "the tightened evaluation's refusal is the one specimen written")
+ok(is.numeric(tightened) && tightened < 1e-7 && length(captured) == 1L &&
+     identical(captured[[1L]]$dimensions$inner_tol, tightened),
+   "a tightened evaluation's specimen records the tolerance it ran with, not the coarse one")
+unlink(directory, recursive = TRUE)
+
+# Routine non-converged evaluations can use the whole ordinary allowance. A
+# validity event after them keeps its record and its specimen, within a bounded
+# allowance of its own, and every validity event is counted.
+directory <- capture_into()
+log <- .gt_d_evaluation_log(.gt_d_control(list()), list(n = 90L, q = 1L))
+for (i in seq_len(8L)) log$observe(c(a = 0), unconverged, "coarse")
+for (i in seq_len(10L)) log$observe(c(a = 0), refusal, "coarse")
+invisible(log$observe(c(a = 0), unconverged, "coarse"))
+Sys.unsetenv("GTHEORY_DISCRETE_SPECIMEN_DIR")
+kept <- log$summary()
+reasons <- vapply(kept$retained_invalid, function(record) as.character(record$reason), character(1))
+ok(identical(kept$invalid, 19L) && identical(kept$validity_events, 10L),
+   "every invalid evaluation and every validity event is counted")
+ok(identical(length(reasons), 16L) && identical(sum(is.na(reasons)), 8L) &&
+     identical(sum(reasons %in% "dense_newton_solve_invalid"), 8L),
+   "eight routine records and eight further validity records are retained, and no more")
+ok(identical(kept$retention_limit, 8L) && identical(kept$validity_retention_limit, 8L),
+   "both allowances are bounded and declared")
+captured <- read_specimens(directory)
+ok(length(captured) == 16L && sum(vapply(captured, has_matrix, logical(1))) == 8L,
+   "each retained validity event wrote its failed operation; routine records carry none")
+unlink(directory, recursive = TRUE)
+# The same, through a fit: the ninth invalid evaluation is the validity event.
+calls <- 0L
+ninth <- function(parameters, prep, groups, setup, control, details = FALSE, ...) {
+  calls <<- calls + 1L
+  if (calls %in% 3:10) return(if (details) unconverged else 1e100)
+  if (calls == 12L) return(if (details) refusal else 1e100)
+  .gt_d_laplace(parameters, prep, groups, setup, control, details = details, ...)
+}
+late <- tryCatch(.gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L), .laplace = ninth),
+                 error = function(e) NULL)
+ok(!is.null(late), "the fit with a late validity event returns")
+if (!is.null(late)) {
+  record <- late$diagnostics$evaluations
+  last <- record$retained_invalid[[length(record$retained_invalid)]]
+  ok(identical(record$invalid, 9L) && identical(record$validity_events, 1L) &&
+       identical(length(record$retained_invalid), 9L) &&
+       identical(last$reason, "dense_newton_solve_invalid") &&
+       identical(last$solve_backward_error, 1e-3),
+     "a validity event after eight routine failures keeps its reason and measurement in the fit")
+}
+
+# A final check can fail without raising. Its refusal's own record stays with
+# the check, and its failed operation is written when a directory is configured.
+final_only <- function() {
+  armed <- FALSE
+  function(parameters, prep, groups, setup, control, details = FALSE, ...) {
+    from_final <- any(vapply(sys.calls(), function(call)
+      identical(call[[1L]], as.name("evaluate_final")), logical(1)))
+    if (from_final && !armed) {
+      armed <<- TRUE
+      checked_at <<- control$inner_tol
+      return(if (details) refusal else 1e100)
+    }
+    .gt_d_laplace(parameters, prep, groups, setup, control, details = details, ...)
+  }
+}
+checked_at <- NULL
+directory <- capture_into()
+unchecked <- .gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L), .laplace = final_only())
+Sys.unsetenv("GTHEORY_DISCRETE_SPECIMEN_DIR")
+ok(is.numeric(checked_at), "the injected refusal reached a final check")
+ok(!isTRUE(unchecked$numerically_accepted) &&
+     "validation_computation_failed" %in% unchecked$diagnostics$acceptance_failures,
+   "a refused final check still blocks numerical acceptance")
+failed_check <- Filter(function(check) !isTRUE(check$valid), unchecked$diagnostics$final_checks)
+ok(length(failed_check) == 1L && is.null(failed_check[[1L]]$error) &&
+     identical(failed_check[[1L]]$failure$reason, "dense_newton_solve_invalid") &&
+     identical(failed_check[[1L]]$failure$solve_backward_error, 1e-3) &&
+     identical(failed_check[[1L]]$failure$phase, "final") &&
+     is.numeric(failed_check[[1L]]$failure$parameters),
+   "the failed final check keeps the refusal's reason, measurement and parameters")
+written <- list.files(directory, pattern = "^gtheory-discrete-specimen-final-.*\\.rds$", full.names = TRUE)
+ok(length(written) == 1L && length(list.files(directory)) == 1L,
+   "the failed final check writes exactly one specimen, labelled as a final check")
+if (length(written) == 1L) {
+  specimen <- readRDS(written[[1L]])
+  ok(has_matrix(specimen) && identical(specimen$dimensions$inner_tol, checked_at),
+     "the final-check specimen holds the failed operation and the tolerance the check ran with")
+}
+unlink(directory, recursive = TRUE)
+checked_at <- NULL
+quiet <- .gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L), .laplace = final_only())
+quiet_check <- Filter(function(check) !isTRUE(check$valid), quiet$diagnostics$final_checks)
+ok(length(quiet_check) == 1L && is.null(quiet_check[[1L]]$failure$specimen),
+   "without a directory the final check keeps its record and writes nothing")
+
+# Capture is observational: with a directory configured, an uncorrupted fit
+# returns the same estimates, objective and acceptance, and writes no
+# validity specimen.
+directory <- capture_into()
+observed <- .gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L))
+Sys.unsetenv("GTHEORY_DISCRETE_SPECIMEN_DIR")
+ok(identical(observed$parameters, honest$parameters) &&
+     identical(observed$minus2loglik, honest$minus2loglik) &&
+     identical(observed$numerically_accepted, honest$numerically_accepted),
+   "configuring capture changes no estimate, objective or acceptance decision")
+ok(identical(observed$diagnostics$evaluations$validity_events, 0L) &&
+     !any(vapply(read_specimens(directory), has_matrix, logical(1))),
+   "an uncorrupted fit counts no validity event and writes no validity specimen")
+unlink(directory, recursive = TRUE)
+
 if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Dense solve-validity checks passed: backward error, bound, degenerate arithmetic, ",
     "step and factor corruption, probe properties, end-to-end refusal, reason codes, ",
     "diagnosable start-value refusal on the original evaluation, retained invalid ",
-    "evaluations, and opt-in specimen capture.\n", sep = "")
+    "evaluations, opt-in specimen capture, phase-accurate specimen settings, the ",
+    "validity allowance, and final-check records.\n", sep = "")
