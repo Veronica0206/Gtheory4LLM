@@ -68,13 +68,23 @@ def check_status(log, as_cran=False, vignettes_built=True, version=None):
         if not vignettes_built and lines and lines[-1] == NO_VIGNETTE_INDEX_NOTE:
             lines = lines[:-1]
         development = bool(version and DEVELOPMENT_VERSION.fullmatch(version))
-        if development and lines and lines[-1] == large_version_note(version):
-            lines = lines[:-1]
-        if (as_cran and title.strip() == "CRAN incoming feasibility" and
-                len(lines) == 2 and lines[0].startswith("Maintainer:") and lines[1] == "New submission"):
-            allowed.append("CRAN incoming feasibility: New submission" +
+        maintainer = bool(lines and re.fullmatch(r"Maintainer:\s+\S.*", lines[0]))
+        messages = lines[1:]
+        version_message = large_version_note(version)
+        cadence = [line for line in messages
+                   if re.fullmatch(r"Days since last update: [0-9]+", line)]
+        # A development checkout may already be known to CRAN. Its timing
+        # metadata is expected only alongside this exact development-version
+        # warning; it must never excuse a release's submission-frequency NOTE.
+        development_metadata = (development and version_message in messages and
+                                len(messages) == len(set(messages)) and len(cadence) <= 1 and
+                                all(line in ("New submission", version_message) or line in cadence
+                                    for line in messages))
+        if (as_cran and title.strip() == "CRAN incoming feasibility" and maintainer and
+                (messages == ["New submission"] or development_metadata)):
+            allowed.append("CRAN incoming feasibility: " + "; ".join(messages) +
                            (f"; development version {version} flagged for its fourth component"
-                            if development else ""))
+                            if development_metadata else ""))
         else:
             raise RuntimeError("R CMD check reported a substantive NOTE: " + title.strip())
     if errors or warnings or "* DONE" not in log:
@@ -90,7 +100,8 @@ def check_status(log, as_cran=False, vignettes_built=True, version=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rscript', default='Rscript')
-    parser.add_argument('--as-cran', action='store_true', help='Run CRAN incoming checks; only the explicit new-submission NOTE is expected.')
+    parser.add_argument('--as-cran', action='store_true',
+                        help='Run CRAN incoming checks; accept only explicit submission/development metadata.')
     parser.add_argument('--output-dir', type=Path,
                         default=os.environ.get('GTHEORY_PACKAGE_CHECK_DIR'),
                         help='Keep build/check artifacts here (also settable with GTHEORY_PACKAGE_CHECK_DIR).')

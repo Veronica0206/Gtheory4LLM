@@ -137,10 +137,14 @@ class IncomingNoteTests(unittest.TestCase):
 
     def test_both_paths_agree_on_a_development_candidate(self):
         from check_package import check_status
-        report = check_status(self.LOG, as_cran=True, version="0.1.0.9000")
-        self.assertEqual(len(report["allowed_notes"]), 1)
-        with self.assertRaises(RuntimeError):
-            check_status(self.LOG, as_cran=True, version="0.1.0")
+        update = self.LOG.replace("New submission\n\n", "").replace(
+            "* checking tests", "Days since last update: 0\n* checking tests")
+        for log in (self.LOG, update):
+            with self.subTest(log=log):
+                report = check_status(log, as_cran=True, version="0.1.0.9000")
+                self.assertEqual(len(report["allowed_notes"]), 1)
+                with self.assertRaises(RuntimeError):
+                    check_status(log, as_cran=True, version="0.1.0")
 
 if __name__ == "__main__":
     unittest.main()

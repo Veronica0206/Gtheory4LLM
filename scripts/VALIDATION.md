@@ -60,9 +60,15 @@ When they are absent, `scripts/check_package.py` records that fact under
 then prints `NOT RUN` instead of passing silently, because the end-to-end
 workflow really is unverified in that run.
 
-`--as-cran` adds CRAN incoming checks. Only a CRAN incoming NOTE consisting of the
-maintainer line and `New submission` is classified as expected. It remains counted
-and reported. Other notes, warnings, errors, or incomplete checks fail validation.
+`--as-cran` adds CRAN incoming checks. For release versions, only a CRAN incoming
+NOTE consisting of the maintainer line and `New submission` is classified as
+expected. A development checkout may also carry the exact version's
+`Version contains large components (...)` line. For that development-only case,
+the package may already be known to CRAN, and a nonnegative integer
+`Days since last update: ...` line is reported as expected submission-timing
+metadata. No other incoming findings are excused. The recognized notes remain
+counted and reported; warnings, errors and incomplete checks still fail.
+Development versions cannot be adopted as release bundles.
 The package check uses `--no-manual` so it does not require TeX on every platform,
 and R CMD check would accept overfull boxes in any case. `scripts/build_manual.R`
 is the only gate that rejects them, so the source scope runs it as the
@@ -174,8 +180,9 @@ require the approved real annotations.
 The downstream job downloads that archive and manifest, verifies their source
 commit and hash, then checks the archive with current R-devel using
 `R CMD check --as-cran --timings`, including PDF manual generation. It does not
-rebuild the candidate. Only the explicit new-submission NOTE described above is
-accepted; inaccessible repository URLs or other incoming-check findings fail.
+rebuild the candidate. The same narrow NOTE policy described above applies;
+inaccessible repository URLs or other incoming-check findings fail. A successful
+development-version check is development CI evidence, not a submission candidate.
 Dependencies in this readiness job are current compatible CRAN versions, recorded
 with the check evidence; it does not replace the separately locked numerical gate.
 
