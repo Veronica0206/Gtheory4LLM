@@ -112,6 +112,11 @@ below add refusals, evidence and reporting.
 
 ## Corrections
 
+- A preflight report no longer keeps the data in its recorded call. Called
+  through `do.call()`, or with the data written inline, `gt_preflight()` stored
+  the whole data frame in `$call`, unused columns included, whatever
+  `max_examples` was. A `data` argument that is not a plain object name is now
+  recorded as a marker, as a fit records it when its data is dropped.
 - Fit summaries match variance-component standard errors and boundary flags
   by source and outcome separately. Names containing spaces can no longer
   make distinct source/outcome pairs select the same uncertainty row.

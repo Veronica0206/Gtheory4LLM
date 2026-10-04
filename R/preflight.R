@@ -393,7 +393,14 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
     "Analytic reliability and D studies require a complete balanced coded panel even when discrete fitting permits missing whole cells.")
   if (any(kinds == "categorical")) notes <- c(notes,
     "Unordered categorical outcomes have no implemented scalar G/Phi; category contrasts are not separate measured outcomes.")
-  structure(list(call = match.call(), outcomes = outcomes, families = families,
+  # The call is kept as a record of the request; nothing reads it back. Through
+  # do.call(), or with the data written inline, its data argument is the data
+  # frame itself, unused columns included. Only a plain object name is kept;
+  # anything else is replaced by the marker a fit uses when its data is dropped.
+  recorded_call <- match.call()
+  if ("data" %in% names(recorded_call) && !is.name(recorded_call$data))
+    recorded_call$data <- as.name("<dropped>")
+  structure(list(call = recorded_call, outcomes = outcomes, families = families,
     engine = if (gaussian) "exact_balanced_gaussian" else "dense_joint_discrete_laplace",
     observations = n, observed_counts = counts, observed_cells = length(cell_counts),
     expected_cells = expected_cells, observed_replication = sort(unique(as.integer(cell_counts))),

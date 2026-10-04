@@ -33,7 +33,15 @@ pass these checks but are not part of the validated gate; to use one, install
 from source with a relaxed floor, or `source("load_functions.R")`, which
 imposes no version requirement.
 
-For example, install the versioned [v0.2.0 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.2.0):
+The current CRAN release, which can be older than this source version, installs
+with its dependencies:
+
+```r
+install.packages("Gtheory4LLM")
+```
+
+A specific release can also be installed from its versioned archive, for example
+the [v0.2.0 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.2.0):
 
 ```r
 install.packages("OpenMx")
@@ -48,8 +56,8 @@ The repository keeps checksummed release files in [`artifacts/`](https://github.
 To install this source version, run `R CMD build .`, then
 `R CMD INSTALL Gtheory4LLM_0.3.0.9000.tar.gz`, the development archive it creates. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
-CRAN availability is separate from GitHub availability. Current submission
-status is recorded in the repository [development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
+CRAN availability is separate from GitHub availability. The version CRAN
+carries is recorded in the repository [development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
 
 ## A complete LLM reliability workflow
 

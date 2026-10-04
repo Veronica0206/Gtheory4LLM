@@ -54,7 +54,9 @@ individual outcome values and unrelated columns. Outcome profiles retain
 aggregate category counts and the declared category labels. These identifiers may
 still identify participants or evaluators. `max_examples = 0` omits the audit
 examples; it does not remove category labels, aggregate summaries or values
-supplied literally in the recorded call.
+supplied literally in the recorded call's other arguments. The call's `data`
+argument is kept only when it is a plain object name: a data frame passed
+through `do.call()`, or an inline expression, is recorded as a marker.
 
 Data you pass to `gt_fit()` stays in the R session and in the returned object.
 Nothing is uploaded or cached outside the session, and nothing is written to

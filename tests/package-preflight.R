@@ -18,6 +18,27 @@ stopifnot(p$fitting_feasible, identical(d, original), identical(seed, .Random.se
   p$parameters[["total"]] == 8, p$random_dimension == 59,
   identical(p$supported_reliability_scales, "observed"))
 
+# The recorded call never carries the data. A plain object name is kept as
+# written; a data frame embedded by do.call() or bquote(), or an inline
+# expression, becomes a marker, so no unused column travels with the report.
+holds <- function(object, sentinel)
+  length(grepRaw(charToRaw(sentinel), serialize(object, NULL), fixed = TRUE)) > 0L
+carried <- d
+carried$unused <- "PREFLIGHT_UNUSED_SENTINEL"
+embedded <- list(
+  do.call(gt_preflight, list(carried, "score", design, max_examples = 0L)),
+  do.call(gt_preflight, list(data = carried, outcomes = "score", design = design)),
+  eval(bquote(gt_preflight(.(carried), "score", design))),
+  gt_preflight(carried[seq_len(nrow(carried)), ], "score", design))
+stopifnot(identical(p$call$data, as.name("d")),
+  identical(gt_preflight(carried, "score", design)$call$data, as.name("carried")),
+  holds(carried, "PREFLIGHT_UNUSED_SENTINEL"))
+for (report in embedded)
+  stopifnot(identical(report$call$data, as.name("<dropped>")),
+    identical(report$call$outcomes, "score"),
+    !holds(report, "PREFLIGHT_UNUSED_SENTINEL"),
+    identical(report$checks, p$checks), identical(report$sources, p$sources))
+
 # A full missing cell differs from duplicate or unevenly replicated cells.
 incomplete <- gt_preflight(d[-1, ], "score", design)
 stopifnot(!incomplete$fitting_feasible, !incomplete$complete_balanced_panel,

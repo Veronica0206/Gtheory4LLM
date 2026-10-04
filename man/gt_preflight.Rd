@@ -64,7 +64,7 @@ has exactly the declared replication; under-replicated cells have at least one
 row but fewer than declared; missing cells have no rows.
 \code{cell_count_exact} stores exact decimal counts as character strings.
 \code{cell_count} is a numeric convenience column: counts above
-\eqn{2^{53}} can be rounded, and counts beyond the finite numeric range are
+\code{2^53} can be rounded, and counts beyond the finite numeric range are
 \code{Inf}. \code{expected_cells_exact} gives the exact full-product count.
 \item \code{missing_cells}: representative absent full cells, retaining the
 original design-column names, sampled values, and classes. Factor levels not
@@ -147,17 +147,21 @@ sensitive. \code{max_examples = 0} suppresses group identifiers in example
 tables, including unused factor levels, but leaves aggregate counts and
 category/outcome labels. The preflight object is not anonymized.
 }
+The recorded call keeps its data argument only when that argument is a plain
+object name. A data frame supplied through \code{do.call()}, or an inline
+expression, is recorded as a marker rather than stored in the call.
+
 For absent declared categories, the profile and structural/resource estimates
 remain available; free-covariance and source-kernel checks are skipped after
 the failed category check, and no reliability scale is offered.
 
 The default plot shows horizontal bars for the four exclusive cell categories.
 Direct count labels make zero and small counts visible beside large bars;
-labels above \eqn{10^{12}} use abbreviated scientific notation marked with a
+labels above \code{1e12} use abbreviated scientific notation marked with a
 tilde. Exact counts remain available in the audit table.
 The source plot shows the largest random dimensions, up to \code{max_sources}.
 Plots describe observed coded levels, not runtime, statistical identification,
-or fit acceptance. Numeric cell bars may be rounded above \eqn{2^{53}}; a cell
+or fit acceptance. Numeric cell bars may be rounded above \code{2^53}; a cell
 plot raises an error when counts exceed the finite plotting range. Consult the
 exact count strings in that case.
 

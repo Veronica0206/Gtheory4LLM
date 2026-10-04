@@ -17,7 +17,7 @@ in [limitations](LIMITATIONS.md).
 | Branch protection | Configured on `main`; the authenticated policy verifier passed |
 | Release-tag protection | Active for `v*`; updates and deletions blocked with no bypass actors |
 | Future GitHub releases | Immutable releases enabled; existing 0.1.0 remains `immutable: false` |
-| CRAN | `0.0.6` submission returned by CRAN: two README links (`scripts/VALIDATION.md`, `LICENSE`) pointed at files the archive does not ship; fixed in the published 0.2.0 release. The recorded resubmission candidate remains its unchanged archive; no subsequent submission or acceptance is recorded here |
+| CRAN | `0.2.0`, published by CRAN on 2026-10-04. CRAN's record carries the `Packaged` stamp of the archive in `artifacts/`; the file CRAN distributes has its own checksum, so the manifest's SHA-256 identifies the GitHub release asset rather than CRAN's copy. The earlier `0.0.6` submission had been returned for two README links (`scripts/VALIDATION.md`, `LICENSE`) to files the archive does not ship |
 
 The checkout, published bundle, GitHub release and CRAN submission are separate
 states. Development changes do not rebuild the published archive or move its
@@ -96,8 +96,6 @@ complete the full native-panel qualification benchmark.
   published release and development checkout.
 - Maintain release-tag protection and update pinned Actions to supported
   runtimes through a separate maintenance change.
-- Resubmit 0.2.0 to CRAN with the published archive, and record the
-  submission outcome here.
 - Finish qualifying the private sparse discrete backend for 0.3.0 against
   the release gates in [the roadmap](ROADMAP.md); 0.2.0 ships it only as a
   private prototype. On the development line since 0.2.0 (see the top of
