@@ -30,6 +30,22 @@ jobs:
         with:
           # Release manifests record the source commit preceding the bundle.
           fetch-depth: 0
+      # The solve-validity refusals this matrix has met were tied to the CPU a
+      # runner happened to have, and a job that fails early prints nothing
+      # about it. Recorded first, in the log and beside the uploaded evidence.
+      - name: Record the runner CPU
+        shell: bash
+        run: |
+          {
+            case "$RUNNER_OS" in
+              Linux)
+                grep -m1 'model name' /proc/cpuinfo
+                grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' | grep -E '^(sse4_2|avx|avx2|fma|avx512f|avx512dq|avx512bw|avx512vl)$' | tr '\n' ' '
+                echo ;;
+              macOS) sysctl -n machdep.cpu.brand_string ;;
+              Windows) powershell -NoProfile -Command "(Get-CimInstance Win32_Processor).Name" ;;
+            esac
+          } 2>&1 | tee "$RUNNER_TEMP/runner-cpu.txt" || true
       - uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           r-version: "4.5.3"
@@ -86,6 +102,9 @@ jobs:
           # them. Outside the repository on purpose: the last step of this job
           # asserts that running the tests changed no tracked file.
           GTHEORY_ISSUE14_ARTIFACT_DIR: ${{ runner.temp }}/gtheory-issue14
+          # The package's own capture, as in the compatibility matrix: a refused
+          # start or an unusable evaluation writes its failed operation here.
+          GTHEORY_DISCRETE_SPECIMEN_DIR: ${{ runner.temp }}/gtheory-specimens
         shell: bash
         run: |
           set -o pipefail
@@ -107,6 +126,8 @@ jobs:
             ${{ runner.temp }}/gtheory-manual/work/*.log
             ${{ runner.temp }}/gtheory-manual/work/*.tex
             ${{ runner.temp }}/gtheory-issue14/*.rds
+            ${{ runner.temp }}/gtheory-specimens/*.rds
+            ${{ runner.temp }}/runner-cpu.txt
           if-no-files-found: ignore
       - name: Ensure verification and tests did not change tracked files
         run: git diff --exit-code
