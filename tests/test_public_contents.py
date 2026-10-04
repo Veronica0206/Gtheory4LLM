@@ -172,6 +172,56 @@ class PublicContentsTests(unittest.TestCase):
                    "/" + "Users" + "/private-person/source.csv")
         self.assertTrue(any("private home-directory" in x["reason"] for x in self.check().findings))
 
+    def test_reviewed_usability_and_pilot_csvs_have_an_exact_finite_allowlist(self):
+        gallery = {f"docs/figures/usability-030/{name}" for name in (
+            "reliability.csv", "decision-study.csv", "target-screen.csv")}
+        prefix = "validation-studies/discrete-030-usability-pilot/"
+        pilot = {prefix + name for name in (
+            "config.csv", "results/frozen-source/config.csv",
+            "results/acceptance.csv", "results/archive-source-files.csv",
+            "results/attempts.csv", "results/checkout-source-files.csv",
+            "results/installed-files.csv", "results/plan.csv",
+            "results/postrun-source-files.csv", "results/recovery.csv",
+            "results/study-source-files.csv")}
+        pilot.update(f"{prefix}results/{kind}/{panel:02d}.csv"
+                     for kind in ("panels", "worker") for panel in range(1, 41))
+        self.assertEqual(len(pilot), 91)
+        self.assertEqual({path for path in module.STUDY_CSV_FILES
+                          if path.startswith(prefix)}, pilot)
+        self.assertEqual({path for path in module.STUDY_CSV_FILES
+                          if path.startswith("docs/figures/usability-030/")}, gallery)
+        for path in gallery | pilot:
+            self.write(path, "scenario,estimate\nsynthetic,0.5\n")
+        self.assertFalse(self.check().findings)
+
+    def test_pilot_approval_does_not_admit_extra_panels_or_opaque_outputs(self):
+        prefix = "validation-studies/discrete-030-usability-pilot/results/"
+        rejected = (
+            prefix + "panels/41.csv", prefix + "worker/00.csv",
+            prefix + "panels/001.csv", prefix + "worker/41.csv",
+            prefix + "newcollected.csv", prefix + "panels/newcollected.csv",
+            "docs/figures/usability-030/newcollected.csv",
+            prefix + "pilot.pdf", prefix + "details/01.rds",
+            "docs/figures/usability-030/figures.pdf",
+            "docs/figures/usability-030/snapshot.rds",
+            prefix + "panels.zip", prefix + "worker.tar.gz")
+        for path in rejected:
+            with self.subTest(path=path):
+                audit = module.PublicAudit(self.root, "synthetic")
+                self.assertFalse(audit.allowed_path(path, path))
+                self.assertTrue(audit.findings)
+
+    def test_newly_approved_csvs_still_reject_private_content(self):
+        for path in (
+            "docs/figures/usability-030/reliability.csv",
+            "validation-studies/discrete-030-usability-pilot/results/panels/01.csv",
+            "validation-studies/discrete-030-usability-pilot/results/worker/40.csv"):
+            with self.subTest(path=path):
+                fixture = self.write(path, "/" + "Users" + "/private-person/source.csv")
+                self.assertTrue(any("private home-directory" in finding["reason"]
+                                    for finding in self.check().findings))
+                fixture.unlink()
+
     def test_os_metadata_is_skipped_in_a_working_tree_but_never_in_an_archive(self):
         # A desktop environment recreates these files on sight and git ignores
         # them, so flagging them locally only teaches maintainers to ignore the

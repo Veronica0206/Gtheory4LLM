@@ -94,7 +94,11 @@
 # iteration.
 .gt_d_backward_error <- function(H, b, x) {
   residual <- max(abs(as.numeric(H %*% x) - b))
-  denominator <- norm(H, "I") * max(abs(x)) + max(abs(b))
+  # The infinity norm is the largest absolute row sum on both storage forms.
+  # The dense branch is unchanged; the sparse branch takes the same quantity
+  # from Matrix's own method rather than densifying H to obtain it.
+  infinity_norm <- if (is.matrix(H)) norm(H, "I") else Matrix::norm(H, "I")
+  denominator <- infinity_norm * max(abs(x)) + max(abs(b))
   # Any non-finite quantity anywhere in the ratio is a failure, never a pass.
   if (!is.finite(residual) || !is.finite(denominator)) return(Inf)
   # An exactly zero residual on an exactly zero problem is exact, not undefined.

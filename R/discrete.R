@@ -16,32 +16,161 @@
 
 # Why a starting-value refusal happened, for the error message and the CI log.
 #
-# The scalar objective has already refused by the time this runs. It describes
-# that refusal and nothing else: it is observational, and can never convert the
-# refusal into a usable start.
-#
-# That rule carries weight. The native defect this guards against is
-# intermittent, so a replay that happens to succeed establishes only that the
-# failure did not reproduce on a second call. It is not evidence that the first
-# evaluation was valid. Treating a successful replay as a rescue would turn the
-# numerical policy into "retry until the library behaves", which is precisely
-# the behaviour the invariant exists to prevent.
-.gt_d_start_failure_detail <- function(replay) {
-  if (!is.list(replay)) return("; diagnostic replay was unavailable")
-  if (isTRUE(replay$valid)) return("; diagnostic replay did not reproduce the invalid solve")
-  if (is.null(replay$reason)) return("")
-  detail <- paste0("; reason=", replay$reason)
-  eta <- replay$solve_backward_error
-  bound <- replay$solve_validity_bound
+# It describes the detailed record of the evaluation that refused, and nothing
+# else: it is observational, and can never convert the refusal into a usable
+# start. The record is the original evaluation's own, never a replay's. The
+# native defect this guards against is intermittent, so a second evaluation
+# that happened to succeed would establish only that the failure did not
+# reproduce, not that the first evaluation was valid, and a second one that
+# failed would only describe itself. Treating a replay as either evidence or
+# rescue would turn the numerical policy into "retry until the library
+# behaves", which is precisely the behaviour the invariant exists to prevent.
+.gt_d_start_failure_detail <- function(evidence) {
+  if (!is.list(evidence)) return("; no detailed evaluation record was returned")
+  if (isTRUE(evidence$valid)) return("; the evaluation reported valid without a finite objective")
+  if (is.null(evidence$reason)) return("")
+  detail <- paste0("; reason=", evidence$reason)
+  eta <- evidence$solve_backward_error
+  bound <- evidence$solve_validity_bound
   if (is.numeric(eta) && length(eta) == 1L && is.numeric(bound) && length(bound) == 1L)
     detail <- paste0(detail, ", backward_error=", format(eta, digits = 6),
                      ", solve_validity_bound=", format(bound, digits = 6),
                      ", backward_error_over_bound=", format(eta / bound, digits = 6),
-                     ", random_dimension=", replay$random_dimension)
-  if (!is.null(replay$probe_index) && length(replay$probe_index) == 1L &&
-      !is.na(replay$probe_index))
-    detail <- paste0(detail, ", probe_index=", replay$probe_index)
+                     ", random_dimension=", evidence$random_dimension)
+  if (!is.null(evidence$probe_index) && length(evidence$probe_index) == 1L &&
+      !is.na(evidence$probe_index))
+    detail <- paste0(detail, ", probe_index=", evidence$probe_index)
   detail
+}
+
+# A detailed evaluation that the outer optimizer may use as a finite objective.
+.gt_d_evaluation_usable <- function(value)
+  is.list(value) && isTRUE(value$valid) && is.numeric(value$nll) &&
+    length(value$nll) == 1L && is.finite(value$nll) && value$nll < 1e99
+
+# Original-operation evidence for evaluations the optimizer could not use.
+#
+# Every objective evaluation is performed in detailed form and reduced to its
+# scalar here, so what is recorded about an evaluation that failed is the
+# record of THAT evaluation: its reason, its measurements and the parameters
+# it was asked about. Nothing is recomputed to describe it. The arithmetic is
+# unchanged, because `details` selects what a mode solver returns and never
+# what it computes.
+#
+# The record is bounded. Counts are kept for every evaluation; the parameters
+# and measurements of at most `limit` invalid evaluations are retained, in
+# order of occurrence, so a fit object stays small however long the optimizer
+# runs. Matrices are never retained in the fit: a failed evaluation's matrix,
+# right-hand side, step and factor are written to disk only when
+# GTHEORY_DISCRETE_SPECIMEN_DIR is set, and a failed write is recorded rather
+# than raised, so it can never mask the refusal it was meant to explain.
+.gt_d_evaluation_log <- function(control, prep, limit = 8L) {
+  state <- new.env(parent = emptyenv())
+  state$count <- 0L
+  state$invalid <- 0L
+  state$at_budget <- 0L
+  state$retained <- list()
+  observe <- function(parameters, value, phase) {
+    state$count <- state$count + 1L
+    if (.gt_d_evaluation_usable(value)) {
+      if (is.numeric(value$inner_iterations) && length(value$inner_iterations) == 1L &&
+          value$inner_iterations >= control$inner_maxit)
+        state$at_budget <- state$at_budget + 1L
+      return(value$nll)
+    }
+    state$invalid <- state$invalid + 1L
+    if (length(state$retained) < limit) {
+      record <- .gt_d_failure_record(value, list(evaluation = state$count, phase = phase,
+                                                 parameters = parameters))
+      record$specimen <- .gt_d_write_specimen(value, record, prep, control)
+      state$retained[[length(state$retained) + 1L]] <- record
+    }
+    1e100
+  }
+  summary <- function() list(
+    count = state$count, invalid = state$invalid,
+    valid_at_inner_budget = state$at_budget, inner_budget = control$inner_maxit,
+    retained_invalid = state$retained, retention_limit = limit,
+    scope = paste("Every evaluation of the coarse or tightened objective made by the optimizer",
+                  "and by the one tighter-tolerance re-evaluation of the primary fit;",
+                  "final validation, stationarity and specimen evaluations are not counted.",
+                  "Retained records carry the failed evaluation's own measurements."))
+  list(observe = observe, summary = summary)
+}
+
+# The retained description of one failed evaluation: measurements only, never
+# the matrices, which go to a specimen file when one is configured.
+.gt_d_failure_record <- function(value, record) {
+  fields <- c("reason", "inner_converged", "inner_gradient", "inner_iterations",
+              "inner_line_search_failed", "inner_factor_unavailable",
+              .GT_D_SOLVE_DETAIL, "probe_index")
+  if (is.list(value)) for (field in fields) if (!is.null(value[[field]]))
+    record[[field]] <- value[[field]]
+  if (is.null(record$reason)) record$reason <- NA_character_
+  record
+}
+
+.gt_d_specimen_directory <- function() {
+  configured <- Sys.getenv("GTHEORY_DISCRETE_SPECIMEN_DIR", "")
+  if (nzchar(configured)) configured else NULL
+}
+
+# Opt-in capture of a failed evaluation, at the site of the failure.
+#
+# Off unless GTHEORY_DISCRETE_SPECIMEN_DIR names a directory. When on, the
+# specimen holds the failed evaluation's own matrix, right-hand side, step and
+# factor where the failure produced them, the parameters it was asked about,
+# its measurements, and the identity of the numerical environment, as numeric
+# objects that can be reloaded and replayed. It holds no observations: the
+# dimensions of the response are recorded, the response itself is not. The
+# file name is unique per call. Returns the path, or the error message of a
+# failed write; it never raises, because the refusal it documents must not be
+# replaced by a failure to document it.
+.gt_d_write_specimen <- function(value, record, prep, control) {
+  directory <- .gt_d_specimen_directory()
+  if (is.null(directory)) return(NULL)
+  tryCatch({
+    dir.create(directory, showWarnings = FALSE, recursive = TRUE)
+    label <- if (is.null(record$evaluation)) "start" else paste0("evaluation-", record$evaluation)
+    path <- tempfile(paste0("gtheory-discrete-specimen-", label, "-"), tmpdir = directory,
+                     fileext = ".rds")
+    threads <- Sys.getenv(c("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+                            "VECLIB_MAXIMUM_THREADS"))
+    saveRDS(list(
+      schema = "gtheory-discrete-specimen/1",
+      package_version = tryCatch(as.character(utils::packageVersion("Gtheory4LLM")),
+                                 error = function(e) NA_character_),
+      created = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+      record = record[setdiff(names(record), "specimen")],
+      specimen = if (is.list(value)) value$specimen else NULL,
+      dimensions = list(observations = prep$n, latent_dimensions = prep$q,
+                        inner_maxit = control$inner_maxit, inner_tol = control$inner_tol),
+      environment = list(
+        R = R.version.string, platform = R.version$platform,
+        os = unname(Sys.info()[["sysname"]]), machine = unname(Sys.info()[["machine"]]),
+        BLAS = extSoftVersion()[["BLAS"]], LAPACK = La_library(), LAPACK_version = La_version(),
+        Matrix = tryCatch(as.character(utils::packageVersion("Matrix")),
+                          error = function(e) NA_character_),
+        threads = paste(names(threads), ifelse(nzchar(threads), threads, "unset"),
+                        sep = "=", collapse = " "))),
+      path)
+    list(path = path)
+  }, error = function(e) list(error = conditionMessage(e)))
+}
+
+.gt_d_specimen_note <- function(written) {
+  if (is.null(written)) return("")
+  if (!is.null(written$path)) return(paste0("; specimen=", written$path))
+  paste0("; specimen not written: ", written$error)
+}
+
+# The public engine label for a marginal backend. The dense label is the
+# established one and is unchanged; any other backend names itself, so a fit
+# always says which implementation produced it, in the public field that
+# reliability, decision studies and diagnostics read.
+.gt_d_engine_label <- function(marginal_backend) {
+  if (identical(marginal_backend, "dense_marginal_laplace")) return("dense_joint_discrete_laplace")
+  paste0(sub("_marginal_laplace$", "", marginal_backend), "_joint_discrete_laplace")
 }
 
 .gt_d_control <- function(control) {
@@ -702,16 +831,21 @@
     .gt_d_stop("Discrete start parameters must lie within their model bounds; check start_sd and explicit start values.")
   if (length(start) > control$max_parameters)
     .gt_d_stop("Discrete prototype exceeds max_parameters (", control$max_parameters, ").")
-  objective <- function(par) .laplace(par, prep, groups, setup, control)
-  initial <- objective(start)
-  if (!is.finite(initial) || initial >= 1e99) {
-    # One detailed replay, to describe the refusal above rather than to retry
-    # it. A replay that succeeds does not rescue it; see
-    # .gt_d_start_failure_detail. The refusal stands either way.
-    replay <- tryCatch(.laplace(start, prep, groups, setup, control, details = TRUE),
-                       error = function(e) NULL)
+  # Every objective evaluation is performed in detailed form and reduced to its
+  # scalar by the log, so an evaluation that fails is described by its own
+  # record; see .gt_d_evaluation_log(). The arithmetic is unchanged.
+  evaluations <- .gt_d_evaluation_log(control, prep)
+  objective <- function(par)
+    evaluations$observe(par, .laplace(par, prep, groups, setup, control, details = TRUE), "coarse")
+  # The start is evaluated once and its record read directly. There is no
+  # replay: see .gt_d_start_failure_detail. The refusal stands on the evidence
+  # of the evaluation that refused.
+  initial <- .laplace(start, prep, groups, setup, control, details = TRUE)
+  if (!.gt_d_evaluation_usable(initial)) {
+    record <- .gt_d_failure_record(initial, list(phase = "start", parameters = start))
     .gt_d_stop("The discrete likelihood did not yield a converged finite inner mode at starting values",
-               .gt_d_start_failure_detail(replay), ".")
+               .gt_d_start_failure_detail(initial),
+               .gt_d_specimen_note(.gt_d_write_specimen(initial, record, prep, control)), ".")
   }
   optimizer_control <- list(maxit = control$maxit,
     factr = control$reltol / .Machine$double.eps, trace = control$trace)
@@ -725,7 +859,9 @@
   validation_control <- control
   validation_control$inner_tol <- min(control$inner_tol, control$validation_inner_tol)
   validation_control$reltol <- min(control$reltol, control$validation_reltol)
-  tight_objective <- function(par) .laplace(par, prep, groups, setup, validation_control)
+  tight_objective <- function(par)
+    evaluations$observe(par, .laplace(par, prep, groups, setup, validation_control, details = TRUE),
+                        "tight")
   optimize_tight <- function(at, label) {
     result <- .gt_d_optimize(at, tight_objective, lower, upper,
       list(maxit = control$maxit,
@@ -953,18 +1089,14 @@
                        # Which marginal evaluator produced this fit. Retained so
                        # a qualification run can prove the backend it claims to
                        # exercise actually ran, rather than inferring it from a
-                       # green result. Not a public selector.
-                       #
-                       # Deliberately not called engine. The public fit$engine is
-                       # "dense_joint_discrete_laplace", which conflates the
-                       # estimator identity with the implementation that produced
-                       # it, and reliability.R and preflight.R both key on that
-                       # exact string. Changing it is a public behaviour change
-                       # and is out of scope here; naming this field separately
-                       # keeps the two distinguishable until the public
-                       # integration step decides how a sparse-backed fit should
-                       # describe itself.
+                       # green result. Not a public selector. The public
+                       # fit$engine is derived from it by .gt_d_engine_label(),
+                       # so a fit produced through the private seam by another
+                       # backend never describes itself as the dense engine.
                        marginal_backend = .engine,
+                       # Original-operation evidence for the evaluations the
+                       # optimizer could not use; see .gt_d_evaluation_log().
+                       evaluations = evaluations$summary(),
                        covariance_parameterization = setup$parameterization,
                        covariance_parameterization_requested = control$covariance_parameterization,
                        zero_variance_parameters = zero_variances,
@@ -989,7 +1121,7 @@
   design <- .gt_design_validated(design, if (is.null(setup$fixed))
     "Observed grouping columns, repeated groups, and linear independence of source kernels plus observation identity; this is not proof of discrete-model identification." else
     "Observed grouping columns and repeated groups checked; all source covariances fixed, so covariance-estimation rank guards were not enforced.")
-  list(engine = "dense_joint_discrete_laplace", estimator = "ML_Laplace", method = "ML_Laplace",
+  list(engine = .gt_d_engine_label(.engine), estimator = "ML_Laplace", method = "ML_Laplace",
        means = means, coefficients = means, thresholds = thresholds,
        covariance_components = components, latent_residual_variances = residual,
        link_dimensions = do.call(rbind, mapping), minus2loglik = 2 * final$nll,

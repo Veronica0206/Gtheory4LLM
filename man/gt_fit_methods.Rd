@@ -25,7 +25,7 @@ gt_component_vcov(fit, type = c("components", "parameters"), ...)
 
 \strong{Observations.} \code{nobs()} counts measurement rows, which are the response vectors of the likelihood. A joint fit of D outcomes on N rows has N response vectors and not N * D independent observations, because the outcomes within a row share the same random sources. \code{BIC()} therefore uses N. The alternative N * D scalar-score convention and the archive's variance-only conventions remain in the fit object under explicit names; see \code{\link{gt_fit}}.
 
-\strong{Rejected fits.} A fit that failed numerical acceptance is refused by \code{logLik()}, and through it by \code{AIC()} and \code{BIC()}, just as \code{\link{gt_reliability}} refuses it. Its objective is retained in \code{minus2loglik} for diagnosis, but a likelihood that did not pass the fit's own numerical checks is not a basis for model selection.
+\strong{Rejected fits.} A fit that failed numerical acceptance is refused by \code{logLik()}, and through it by \code{AIC()} and \code{BIC()}, just as \code{\link{gt_reliability}} refuses it. The two apply one rule: a Gaussian fit is refused on an explicit failure, and a discrete fit must carry an affirmative acceptance, so a discrete object whose acceptance flag is missing or \code{NA} is refused rather than read as accepted. Its objective is retained in \code{minus2loglik} for diagnosis, but a likelihood that did not pass the fit's own numerical checks is not a basis for model selection.
 
 \strong{Discrete fits.} The log likelihood is a first-order Laplace approximation to the marginal log likelihood, labelled as such in the returned object. Comparing two Laplace-approximated values compares two approximations, not two exact likelihoods.
 

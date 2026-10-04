@@ -1,0 +1,5 @@
+scenario,family,n_items,repetitions,variance,event_probability,cumulative_1,cumulative_2,replicates,seed_base
+binary_balanced,binary,24,8,0.5,0.5,NA,NA,10,2026100310
+binary_rare,binary,12,6,0.5,0.1,NA,NA,10,2026100410
+ordinal_balanced,ordinal,24,8,0.5,NA,0.3,0.7,10,2026100510
+ordinal_rare,ordinal,12,6,0.5,NA,0.1,0.95,10,2026100610

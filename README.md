@@ -14,7 +14,7 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Source version: **0.2.0**.
+Source version: **0.3.0.9000**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -33,12 +33,12 @@ pass these checks but are not part of the validated gate; to use one, install
 from source with a relaxed floor, or `source("load_functions.R")`, which
 imposes no version requirement.
 
-For example, install the versioned [v0.1.0 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.1.0):
+For example, install the versioned [v0.2.0 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.2.0):
 
 ```r
 install.packages("OpenMx")
 install.packages(
-  "https://github.com/Veronica0206/Gtheory4LLM/releases/download/v0.1.0/Gtheory4LLM_0.1.0.tar.gz",
+  "https://github.com/Veronica0206/Gtheory4LLM/releases/download/v0.2.0/Gtheory4LLM_0.2.0.tar.gz",
   repos = NULL, type = "source"
 )
 library(Gtheory4LLM)
@@ -46,7 +46,7 @@ library(Gtheory4LLM)
 
 The repository keeps checksummed release files in [`artifacts/`](https://github.com/Veronica0206/Gtheory4LLM/tree/main/artifacts).
 To install this source version, run `R CMD build .`, then
-`R CMD INSTALL Gtheory4LLM_0.2.0.tar.gz`, the versioned archive it creates. Building the vignette
+`R CMD INSTALL Gtheory4LLM_0.3.0.9000.tar.gz`, the development archive it creates. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
 CRAN availability is separate from GitHub availability. Current submission
 status is recorded in the repository [development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
@@ -120,6 +120,44 @@ gt_reliability(fit, fixed = "temp")
 
 A fixed facet's count cannot be changed, and a decision study may not project
 over it.
+
+### Tables and figures
+
+`as.data.frame()` exports reliability or D-study results with allocation,
+coefficient scale, uncertainty status and extrapolation recorded alongside each
+estimate. `gt_dstudy_target()` identifies supplied allocations meeting an
+estimated target and preserves ties for the fewest measurements among them.
+It does not optimize beyond the supplied grid or guarantee future reliability.
+
+```r
+reliability <- gt_reliability(fit)
+as.data.frame(reliability)
+plot(reliability, target = 0.80)
+```
+
+Preflight plots show cell completeness and replication, random-source
+dimensions, or category representation across design groups. Outcome profiles
+include category counts and groups with no observed variation; they do not
+certify adequate information. D-study plots show coefficients against measurements per object,
+with optional target lines and extrapolation markers. Figures use base R
+graphics, so standard PNG/PDF devices can save them. The installed
+`LLM-workflow` vignette demonstrates these views and CSV export;
+[the visualization guide](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/VISUALIZATION.md)
+explains their interpretation.
+
+A portable report combines retained model context, diagnostics, result tables
+and figures without rerunning optimization:
+
+```r
+report <- gt_report(fit, reliability = reliability)
+# Writes a standalone offline HTML file; existing files are protected.
+# gt_export_report(report, "analysis-report.html")
+```
+
+Reports exclude observations and group-level identifiers, while retaining
+variable/source names and aggregate results. Review those names before sharing.
+Unavailable fitting provenance stays unavailable; the report-generation
+session is recorded separately. See the [reporting guide](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/ANALYSIS_REPORT.md).
 
 ## Designs and outcome types
 

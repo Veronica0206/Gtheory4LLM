@@ -4,25 +4,241 @@
 # richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Structural and resource checks without optimization or dense model matrices.
 
+# Exact decimal products and subtraction keep very large panel counts honest.
+# Digits are stored least significant first; each multiplier is an observed
+# level count, so the small intermediate arithmetic is exact in a double.
+.gt_preflight_cell_total <- function(counts, subtract = 0) {
+  digits <- 1
+  for (count in counts) {
+    carry <- 0
+    for (i in seq_along(digits)) {
+      value <- digits[i] * count + carry
+      digits[i] <- value %% 10
+      carry <- floor(value / 10)
+    }
+    while (carry > 0) {
+      digits <- c(digits, carry %% 10)
+      carry <- floor(carry / 10)
+    }
+  }
+  borrow <- 0
+  for (i in seq_along(digits)) {
+    value <- digits[i] - subtract %% 10 - borrow
+    subtract <- floor(subtract / 10)
+    borrow <- as.integer(value < 0)
+    digits[i] <- value + 10 * borrow
+  }
+  while (length(digits) > 1L && utils::tail(digits, 1L) == 0) digits <- head(digits, -1L)
+  paste(rev(digits), collapse = "")
+}
+
+.gt_preflight_example_limit <- function(x, name, zero = TRUE) {
+  if (!is.numeric(x) || is.complex(x) || length(x) != 1L || !is.finite(x) ||
+      x != floor(x) || x < (if (zero) 0 else 1) || x > .Machine$integer.max)
+    stop(name, " must be a ", if (zero) "nonnegative" else "positive",
+         " finite integer no greater than .Machine$integer.max.", call. = FALSE)
+  as.integer(x)
+}
+
+# A factor subset otherwise retains every original label in its levels
+# attribute, even with zero rows. Keep only identifiers actually shown.
+.gt_preflight_drop_example_levels <- function(data) {
+  for (name in names(data)) if (is.factor(data[[name]])) data[[name]] <- droplevels(data[[name]])
+  data
+}
+
+.gt_preflight_panel_audit <- function(data, variables, replicates, max_examples) {
+  values <- lapply(data[variables], unique)
+  counts <- vapply(values, length, integer(1))
+  codes <- Map(match, data[variables], values)
+  keys <- do.call(paste, c(unname(codes), list(sep = ":")))
+  unique_keys <- unique(keys)
+  cell <- match(keys, unique_keys)
+  first <- match(unique_keys, keys)
+  frequencies <- tabulate(cell, nbins = length(unique_keys))
+  status <- ifelse(frequencies < replicates, "under_replicated",
+                   ifelse(frequencies > replicates, "over_replicated", "complete"))
+  missing_exact <- .gt_preflight_cell_total(counts, length(unique_keys))
+  summary <- data.frame(status = c("complete", "under_replicated", "over_replicated", "missing"),
+    cell_count_exact = c(as.character(sum(status == "complete")),
+      as.character(sum(status == "under_replicated")),
+      as.character(sum(status == "over_replicated")), missing_exact), stringsAsFactors = FALSE)
+  summary$cell_count <- as.numeric(summary$cell_count_exact)
+  summary <- summary[c("status", "cell_count", "cell_count_exact")]
+
+  # Never format identifiers into keys. Enumerate only the first requested
+  # absent cells, using native values via integer codes. At most the number of
+  # observed cells plus the requested missing examples can be visited.
+  absent <- data[FALSE, variables, drop = FALSE]
+  needed <- min(max_examples, as.numeric(missing_exact))
+  if (needed > 0) {
+    present <- list2env(stats::setNames(rep(list(TRUE), length(unique_keys)), unique_keys),
+                        parent = emptyenv(), hash = TRUE)
+    indices <- matrix(0L, nrow = needed, ncol = length(variables))
+    candidate <- rep(1L, length(variables))
+    found <- 0L
+    while (found < needed) {
+      key <- paste(candidate, collapse = ":")
+      if (!exists(key, envir = present, inherits = FALSE)) {
+        found <- found + 1L
+        indices[found, ] <- candidate
+      }
+      if (found < needed) for (j in seq_along(candidate)) {
+        if (candidate[j] < counts[j]) {
+          candidate[j] <- candidate[j] + 1L
+          break
+        }
+        candidate[j] <- 1L
+      }
+    }
+    # Subset a data-frame template to preserve column classes and names.
+    absent <- data[rep(1L, needed), variables, drop = FALSE]
+    for (j in seq_along(variables)) absent[[j]] <- values[[j]][indices[, j]]
+    rownames(absent) <- NULL
+  }
+
+  fields <- c(row = "row", observed_replicates = "observed_replicates",
+              declared_replicates = "declared_replicates", status = "status")
+  prefix <- ".gt_"
+  while (any(paste0(prefix, fields) %in% names(data))) prefix <- paste0(".", prefix)
+  metadata <- stats::setNames(paste0(prefix, fields), names(fields))
+  issue_ids <- which(status != "complete")
+  selected <- head(issue_ids, max_examples)
+  issues <- data[first[selected], variables, drop = FALSE]
+  annotate <- function(table, ids) {
+    table[[metadata[["observed_replicates"]]]] <- frequencies[ids]
+    table[[metadata[["declared_replicates"]]]] <- rep(replicates, length(ids))
+    table[[metadata[["status"]]]] <- status[ids]
+    rownames(table) <- NULL
+    table
+  }
+  issues <- annotate(issues, selected)
+  issue_rows <- which(status[cell] != "complete")
+  rows <- head(issue_rows, max_examples)
+  examples <- annotate(data[rows, variables, drop = FALSE], cell[rows])
+  examples[[metadata[["row"]]]] <- rows
+  sampling <- data.frame(table = c("missing_cells", "replication_issues", "row_examples"),
+    total_exact = c(missing_exact, as.character(length(issue_ids)), as.character(length(issue_rows))),
+    shown = c(nrow(absent), nrow(issues), nrow(examples)),
+    limit = max_examples, stringsAsFactors = FALSE)
+  sampling$total <- as.numeric(sampling$total_exact)
+  sampling$truncated <- sampling$total > sampling$shown
+  list(cell_counts = frequencies, audit = list(
+    scope = "Cartesian product of observed coded levels; unused factor levels are excluded.",
+    declared_replicates = replicates, summary = summary,
+    expected_cells_exact = .gt_preflight_cell_total(counts),
+    missing_cells = .gt_preflight_drop_example_levels(absent),
+    replication_issues = .gt_preflight_drop_example_levels(issues),
+    row_examples = .gt_preflight_drop_example_levels(examples),
+    metadata_columns = metadata, examples = sampling,
+    example_order = "Missing cells use first-observed level order, first axis varying fastest; observed cells and rows use input order."))
+}
+
+.gt_preflight_outcome_profile <- function(data, outcomes, families, design, max_examples) {
+  variables <- c(design$object, design$facets)
+  members <- stats::setNames(lapply(variables, function(variable) {
+    if (variable %in% names(design$nested_groups))
+      strsplit(design$nested_groups[[variable]], ":", fixed = TRUE)[[1L]] else variable
+  }), variables)
+  grouping <- lapply(members, function(columns) {
+    key <- .gt_tuple_key(data, columns)
+    unique_keys <- unique(key)
+    list(index = match(key, unique_keys), first = match(unique_keys, key), n = length(unique_keys))
+  })
+  fields <- c(row_count = "row_count", distinct_values = "distinct_values")
+  prefix <- ".gt_"
+  while (any(paste0(prefix, fields) %in% names(data))) prefix <- paste0(".", prefix)
+  metadata <- stats::setNames(paste0(prefix, fields), names(fields))
+  stats::setNames(lapply(outcomes, function(outcome) {
+    spec <- families[[outcome]]
+    y <- data[[outcome]]
+    categorical <- spec$family != "gaussian"
+    codes <- if (!categorical) match(y, unique(y)) else
+      if (spec$family == "binary") as.integer(y) + 1L else match(as.character(y), spec$levels)
+    category_counts <- if (categorical) tabulate(codes, nbins = length(spec$levels)) else integer()
+    categories <- if (categorical) data.frame(category = spec$levels, count = category_counts,
+      proportion = category_counts / length(y), observed = category_counts > 0L,
+      stringsAsFactors = FALSE) else NULL
+    finite_statistic <- function(value) if (is.finite(value)) value else NA_real_
+    summary <- data.frame(observations = length(y), distinct_values = length(unique(codes)),
+      declared_categories = if (categorical) length(spec$levels) else NA_integer_,
+      observed_categories = if (categorical) sum(category_counts > 0L) else NA_integer_,
+      minimum = if (!categorical) min(y) else NA_real_,
+      maximum = if (!categorical) max(y) else NA_real_,
+      mean = if (!categorical) finite_statistic(mean(y)) else NA_real_,
+      standard_deviation = if (!categorical) finite_statistic(stats::sd(y)) else NA_real_)
+    grouped <- lapply(variables, function(variable) {
+      group <- grouping[[variable]]
+      row_count <- tabulate(group$index, nbins = group$n)
+      # Distinct group/value pairs occupy at most one entry per input row;
+      # never construct a dense group-by-category contingency table.
+      pairs <- unique(data.frame(group = group$index, value = codes))
+      distinct <- tabulate(pairs$group, nbins = group$n)
+      no_variation <- which(distinct == 1L)
+      selected <- head(no_variation, max_examples)
+      examples <- data[group$first[selected], members[[variable]], drop = FALSE]
+      examples[[metadata[["row_count"]]]] <- row_count[selected]
+      examples[[metadata[["distinct_values"]]]] <- distinct[selected]
+      rownames(examples) <- NULL
+      examples <- .gt_preflight_drop_example_levels(examples)
+      scope <- if (variable %in% names(design$nested_groups)) "declared_parent_scoped" else "marginal_coded_levels"
+      coverage <- if (categorical) {
+        present <- tabulate(pairs$value, nbins = length(spec$levels))
+        data.frame(variable = variable, category = spec$levels, groups_present = present,
+          total_groups = group$n, proportion = present / group$n, stringsAsFactors = FALSE)
+      } else NULL
+      list(summary = data.frame(variable = variable, grouping_scope = scope,
+        total_groups = group$n, no_variation_groups = length(no_variation),
+        single_row_groups = sum(row_count == 1L), no_variation_proportion = length(no_variation) / group$n,
+        stringsAsFactors = FALSE), coverage = coverage, examples = examples,
+        sampling = data.frame(variable = variable, total = length(no_variation), shown = length(selected),
+          limit = max_examples, truncated = length(selected) < length(no_variation), stringsAsFactors = FALSE))
+    })
+    list(family = spec$family, link = spec$link, summary = summary, categories = categories,
+      by_variable = do.call(rbind, lapply(grouped, `[[`, "summary")),
+      category_coverage = if (categorical) do.call(rbind, lapply(grouped, `[[`, "coverage")) else NULL,
+      group_members = members,
+      no_variation_examples = stats::setNames(lapply(grouped, `[[`, "examples"), variables),
+      examples = do.call(rbind, lapply(grouped, `[[`, "sampling")), metadata_columns = metadata,
+      scope = paste("Descriptive observed response information only; no adequacy threshold or category collapsing.",
+        "Declared nested facets use ancestor-scoped groups; other variables use marginal coded levels.",
+        "Single-row groups are included in no-variation counts and counted separately.",
+        "Gaussian values are never treated as categories; nonfinite derived summaries are NA."),
+      privacy = paste("Tables contain outcome/category labels and bounded design-group identifiers.",
+        "No response rows or unrelated columns are retained. Small counts and identifiers can still be sensitive;",
+        "review before sharing. max_examples = 0 suppresses group identifiers, not aggregate counts or labels."))
+  }), outcomes)
+}
+
 # Inspect an observed design before fitting
 gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
                          covariance = "unstructured", residual = NULL,
-                         control = gt_control()) {
+                         control = gt_control(), max_examples = 10L) {
+  max_examples <- .gt_preflight_example_limit(max_examples, "max_examples")
   if (!inherits(design, "gt_design")) stop("Use gt_design() to declare the design.", call. = FALSE)
   if (!is.data.frame(data) || !nrow(data) || anyDuplicated(names(data)))
     stop("data must be a nonempty data frame with unique column names.", call. = FALSE)
   outcomes <- .gt_design_names(outcomes, "outcomes")
   variables <- c(design$object, design$facets)
   if (length(intersect(outcomes, variables))) stop("Outcome and design columns must differ.", call. = FALSE)
-  if (!all(c(variables, outcomes) %in% names(data))) stop("Missing outcome or design columns.", call. = FALSE)
+  missing_columns <- setdiff(c(variables, outcomes), names(data))
+  if (length(missing_columns)) stop("Missing outcome or design columns: ",
+    paste(sQuote(missing_columns), collapse = ", "), ".", call. = FALSE)
   if (!inherits(control, "gt_control")) stop("control must be created by gt_control().", call. = FALSE)
   for (v in variables) {
     x <- data[[v]]
-    if (!is.atomic(x) || anyNA(x) || (is.numeric(x) && any(!is.finite(x))) ||
-        length(unique(x)) < 2L)
-      stop("Each design variable needs at least two finite, nonmissing levels: ", v, ".", call. = FALSE)
+    invalid <- if (is.atomic(x)) which(is.na(x) | if (is.numeric(x)) !is.finite(x) else FALSE) else integer()
+    if (!is.atomic(x) || length(invalid) || length(unique(x)) < 2L) {
+      detail <- if (length(invalid)) paste0(" Invalid rows: ",
+        paste(head(invalid, max_examples), collapse = ", "),
+        if (length(invalid) > max_examples)
+          paste0(" (", length(invalid), " total; examples truncated)") else "", ".") else
+        if (!is.atomic(x)) " The column must be atomic." else
+          paste0(" Observed distinct levels: ", length(unique(x)), ".")
+      stop("Each design variable needs at least two finite, nonmissing levels: ", v, ".", detail, call. = FALSE)
+    }
   }
-  resolved <- .gt_resolve_families(data[c(variables, outcomes)], outcomes, family)
+  resolved <- .gt_resolve_families(data[c(variables, outcomes)], outcomes, family, allow_absent = TRUE)
   families <- resolved$families
   kinds <- vapply(families, `[[`, character(1), "family")
   gaussian <- all(kinds == "gaussian")
@@ -35,9 +251,17 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
     checks <<- rbind(checks, data.frame(check = name, passed = passed,
                                        detail = detail, stringsAsFactors = FALSE))
   }
+  outcome_profile <- .gt_preflight_outcome_profile(resolved$data, outcomes, families, design, max_examples)
+  category_complete <- vapply(outcome_profile, function(profile)
+    is.null(profile$categories) || all(profile$categories$observed), logical(1))
+  if (!gaussian) add_check("outcome_category_coverage", all(category_complete),
+    if (all(category_complete)) "Every declared category is observed in each discrete outcome." else
+      paste0("Absent declared categories in ", paste(sQuote(outcomes[!category_complete]), collapse = ", "),
+        "; fitting still refuses these outcomes. Inspect outcome_profile category counts."))
   n <- nrow(data)
   counts <- vapply(data[variables], function(x) length(unique(x)), integer(1))
-  cell_counts <- table(.gt_tuple_key(data, variables))
+  panel <- .gt_preflight_panel_audit(data, variables, design$replicates, max_examples)
+  cell_counts <- panel$cell_counts
   expected_cells <- prod(as.double(counts))
   complete <- length(cell_counts) == expected_cells
   replicated <- all(cell_counts == design$replicates)
@@ -158,7 +382,7 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
     predictor_dimensions = q, random_dimension = unname(as.double(levels) * q),
     covariance_parameters = unname(covariance_parameters), stringsAsFactors = FALSE)
   balanced <- complete && replicated
-  scales <- if (!balanced || any(kinds == "categorical")) character() else
+  scales <- if (!balanced || !all(category_complete) || any(kinds == "categorical")) character() else
     if (gaussian) "observed" else "latent"
   notes <- c("Preflight checks structure and configured size limits. It does not establish identification, approximation adequacy, fit acceptance, or scientific validity.",
     "A supported reliability scale is conditional on a numerically accepted fit and the stated averaging design.",
@@ -173,7 +397,7 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
     engine = if (gaussian) "exact_balanced_gaussian" else "dense_joint_discrete_laplace",
     observations = n, observed_counts = counts, observed_cells = length(cell_counts),
     expected_cells = expected_cells, observed_replication = sort(unique(as.integer(cell_counts))),
-    complete_balanced_panel = balanced, sources = sources,
+    complete_balanced_panel = balanced, panel_audit = panel$audit, outcome_profile = outcome_profile, sources = sources,
     source_counts = c(requested = length(design$terms_requested), retained = length(terms)),
     aliased_terms = if (is.null(checked)) character() else checked$aliased_terms,
     random_dimension = random_dimension, predictor_dimensions = q,
@@ -195,10 +419,144 @@ print.gt_preflight <- function(x, ...) {
       "| Random dimensions:", x$random_dimension,
       "| Model parameters:", x$parameters[["total"]], "\n")
   cat("Structural/resource checks:", if (x$fitting_feasible) "PASS" else "BLOCKED", "\n")
+  cat("Panel cells (observed coded levels):\n")
+  print(x$panel_audit$summary[c("status", "cell_count_exact")], row.names = FALSE)
+  cat("Audit examples returned:", paste(paste(x$panel_audit$examples$table,
+    x$panel_audit$examples$shown, sep = "="), collapse = ", "),
+    "| Per-table limit:", x$panel_audit$examples$limit[[1L]], "\n")
+  if (any(x$panel_audit$examples$truncated)) cat("Some audit example tables are truncated; see panel_audit$examples.\n")
+  cat("Outcome profiles:", length(x$outcome_profile),
+    "| See outcome_profile for category coverage, numeric summaries, and descriptive group variation.\n")
   if (!x$fitting_feasible) print(x$checks[!x$checks$passed, , drop = FALSE], row.names = FALSE)
   cat("Supported reliability scale:", if (length(x$supported_reliability_scales))
     paste(x$supported_reliability_scales, collapse = ", ") else "none", "\n")
   cat(x$scale_interpretation, "\n")
   cat(x$notes[[1L]], "\n")
+  invisible(x)
+}
+
+.gt_preflight_plot_outcomes <- function(x, outcome, max_categories, max_variables, max_label_chars, ...) {
+  if (is.null(outcome)) {
+    if (length(x$outcomes) != 1L)
+      stop("Select one outcome by name for the outcome coverage plot.", call. = FALSE)
+    outcome <- x$outcomes[[1L]]
+  }
+  if (!is.character(outcome) || length(outcome) != 1L || is.na(outcome) || !outcome %in% x$outcomes)
+    stop("outcome must name exactly one preflight outcome.", call. = FALSE)
+  profile <- x$outcome_profile[[outcome]]
+  if (profile$family == "gaussian")
+    stop("Gaussian outcomes have no category heatmap; inspect outcome_profile summary and by_variable tables.",
+         call. = FALSE)
+  categories <- head(profile$categories$category, max_categories)
+  variables <- head(profile$by_variable$variable, max_variables)
+  nc <- length(categories)
+  nv <- length(variables)
+  coverage <- matrix(profile$category_coverage$proportion,
+    nrow = nrow(profile$categories), ncol = nrow(profile$by_variable))
+  coverage <- coverage[seq_len(nc), seq_len(nv), drop = FALSE]
+  abbreviate_label <- function(labels) {
+    abbreviated <- ifelse(nchar(labels) > max_label_chars,
+      paste0(substr(labels, 1L, max_label_chars - 3L), "..."), labels)
+    # Numbered labels keep duplicate abbreviations unambiguous and map back to
+    # their declaration/design order in the complete profile tables.
+    paste0(seq_along(labels), ". ", abbreviated)
+  }
+  category_labels <- abbreviate_label(categories)
+  variable_labels <- abbreviate_label(variables)
+  nested <- profile$by_variable$grouping_scope[seq_len(nv)] == "declared_parent_scoped"
+  variable_labels[nested] <- paste0(variable_labels[nested], "*")
+  old_margins <- graphics::par("mar")
+  on.exit(graphics::par(mar = old_margins), add = TRUE)
+  line_height <- graphics::par("cin")[[2L]] * graphics::par("mex")
+  margins <- old_margins
+  margins[[1L]] <- max(margins[[1L]],
+    (max(graphics::strwidth(variable_labels, units = "inches", cex = 0.7)) + 0.5) / line_height)
+  margins[[2L]] <- max(margins[[2L]],
+    (max(graphics::strwidth(category_labels, units = "inches", cex = 0.7)) + 0.3) / line_height)
+  graphics::par(mar = margins)
+  title_outcome <- if (nchar(outcome) > max_label_chars)
+    paste0(substr(outcome, 1L, max_label_chars - 3L), "...") else outcome
+  defaults <- list(x = 0:nv, y = 0:nc, z = t(coverage[nc:1L, , drop = FALSE]),
+    zlim = c(0, 1), col = grDevices::colorRampPalette(c("#F4F7FA", "#296A96"))(51L),
+    xlab = "", ylab = "", axes = FALSE, main = paste("Category coverage:", title_outcome))
+  arguments <- list(...)
+  defaults[names(arguments)] <- NULL
+  do.call(graphics::image, c(defaults, arguments))
+  graphics::axis(1L, at = seq_len(nv) - 0.5, labels = variable_labels, las = 2L, cex.axis = 0.7)
+  graphics::axis(2L, at = seq_len(nc) - 0.5, labels = rev(category_labels), las = 1L, cex.axis = 0.7)
+  if (nv <= 8L && nc <= 12L) for (i in seq_len(nv)) for (j in seq_len(nc)) {
+    value <- coverage[j, i]
+    label <- if (value == 0) "0%" else if (value == 1) "100%" else
+      if (value >= 0.9995) "<100%" else if (value < 0.0001) "<0.01%" else
+      paste0(format(100 * value, digits = 3L, trim = TRUE), "%")
+    graphics::text(i - 0.5, nc - j + 0.5, label,
+      col = if (value >= 0.6) "white" else "#152A3A", cex = 0.7)
+  }
+  truncated <- nc < nrow(profile$categories) || nv < nrow(profile$by_variable)
+  shown <- paste0(nc, "/", nrow(profile$categories), " categories; ", nv, "/",
+    nrow(profile$by_variable), " variables", if (truncated) " (truncated)" else "",
+    if (any(nested)) "; * parent-scoped" else "")
+  graphics::mtext(shown, side = 3L, line = 0.3, cex = 0.65)
+  graphics::mtext("Groups with category (0-100%); darker = higher. Descriptive only.",
+    side = 1L, line = margins[[1L]] - 1, cex = 0.65)
+  invisible(x)
+}
+
+plot.gt_preflight <- function(x, type = c("cells", "sources", "outcomes"), max_sources = 20L,
+                             outcome = NULL, max_categories = 12L, max_variables = 8L,
+                             max_label_chars = 18L, ...) {
+  type <- match.arg(type)
+  max_sources <- .gt_preflight_example_limit(max_sources, "max_sources", zero = FALSE)
+  max_categories <- .gt_preflight_example_limit(max_categories, "max_categories", zero = FALSE)
+  max_variables <- .gt_preflight_example_limit(max_variables, "max_variables", zero = FALSE)
+  max_label_chars <- .gt_preflight_example_limit(max_label_chars, "max_label_chars", zero = FALSE)
+  if (max_label_chars < 4L) stop("max_label_chars must be at least 4.", call. = FALSE)
+  if (type == "outcomes") return(.gt_preflight_plot_outcomes(x, outcome, max_categories,
+    max_variables, max_label_chars, ...))
+  if (type == "cells") {
+    plotted <- x$panel_audit$summary
+    heights <- plotted$cell_count
+    labels <- c("Complete", "Under-replicated", "Over-replicated", "Missing")
+    title <- "Panel cells: observed coded levels"
+    axis <- "Full cells (mutually exclusive categories)"
+    subtitle <- "Complete = declared replication; not a fit-quality check."
+  } else {
+    order <- order(-x$sources$random_dimension, seq_len(nrow(x$sources)))
+    plotted <- x$sources[head(order, max_sources), , drop = FALSE]
+    heights <- plotted$random_dimension
+    labels <- plotted$source
+    title <- "Source dimensions: observed coded levels"
+    axis <- "Random-effect dimensions (Gaussian: conceptual)"
+    subtitle <- paste0("Showing ", nrow(plotted), " of ", nrow(x$sources),
+      " sources; largest first", if (nrow(plotted) < nrow(x$sources)) "; truncated" else "",
+      ". Not a fit-quality check.")
+  }
+  if (any(!is.finite(heights)))
+    stop("Cell counts exceed the finite plotting range; inspect panel_audit$summary$cell_count_exact.", call. = FALSE)
+  arguments <- list(...)
+  defaults <- list(horiz = TRUE, las = 1L, names.arg = rev(labels), main = title,
+                   xlab = axis, sub = subtitle, col = "steelblue", border = NA,
+                   cex.names = 0.8, cex.sub = 0.8)
+  label_counts <- type == "cells" && !isFALSE(arguments$horiz) && !isFALSE(arguments$plot)
+  if (label_counts) {
+    largest <- max(heights)
+    defaults$xlim <- c(0, largest + min(largest * 0.15, (.Machine$double.xmax - largest) / 2))
+  }
+  old_margins <- graphics::par("mar")
+  on.exit(graphics::par(mar = old_margins), add = TRUE)
+  margins <- old_margins
+  line_height <- graphics::par("cin")[[2L]] * graphics::par("mex")
+  label_width <- max(graphics::strwidth(labels, units = "inches", cex = 0.8)) + 0.45
+  margins[[2L]] <- max(margins[[2L]], min(label_width,
+    graphics::par("fin")[[1L]] * 0.4) / line_height)
+  graphics::par(mar = margins)
+  defaults[names(arguments)] <- NULL
+  positions <- do.call(graphics::barplot, c(list(height = rev(heights)), defaults, arguments))
+  if (label_counts) {
+    count_labels <- vapply(heights, function(value)
+      if (value > 1e12) paste0("~", format(value, digits = 3, scientific = TRUE)) else
+        format(value, scientific = FALSE, trim = TRUE), character(1))
+    graphics::text(rev(heights), positions, rev(count_labels), pos = 4L, offset = 0.35, cex = 0.8)
+  }
   invisible(x)
 }

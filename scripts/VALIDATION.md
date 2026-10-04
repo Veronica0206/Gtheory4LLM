@@ -29,16 +29,19 @@ tag in this checkout, and `prepared` fails once that tag exists. A published
 bundle is tag-verified even when no tag is named on the command line. Historical NEWS sections are preserved. A clearly
 labelled `.9000` development checkout may retain the preceding release; a new
 ordinary release version cannot silently use an older bundle. The archive still
-compares to its recorded source commit, not to a later checkout. Check the local
-release tag's DESCRIPTION and manifest explicitly before publication:
+compares to its recorded source commit, not to a later checkout. Check a
+development checkout and its retained published bundle with:
 
 ```sh
-python3 scripts/check_committed_artifact.py --verify-only --check-release-identity --release-tag v0.1.0
+python3 scripts/check_committed_artifact.py --verify-only --check-release-identity
 ```
 
-The tag example must be updated for a new release. The ordinary gate reports
-whether a tag was checked; it never treats an unfetched tag or unqueried GitHub
-release as verified. `scripts/prepare_release.py` performs the whole preparation in one step and
+This verifies the published bundle's tag automatically. An explicit
+`--release-tag v<version>` additionally asserts that the source checkout is that
+release, so it is for a release checkout and deliberately refuses a `.9000`
+development checkout. The ordinary gate reports whether a tag was checked; it
+never treats an unfetched tag or unqueried GitHub release as verified.
+`scripts/prepare_release.py` performs the whole preparation in one step and
 stops before publication. Its staged bundle is checked using
 `run_validation.py --release-manifest PATH`, which changes only the manifest
 location used by both source identity and artifact checks. Archive correspondence

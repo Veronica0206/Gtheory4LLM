@@ -19,11 +19,12 @@
   baseline <- .gt_d_baseline(parameters, prep)
   u <- numeric(ncol(W))
   converged <- FALSE
+  accepted <- TRUE
   last_gradient <- Inf
   for (iter in seq_len(control$inner_maxit)) {
     eta <- baseline + matrix(W %*% u, prep$n, prep$q)
     response <- .gt_d_dense_evaluate(eta, parameters, prep, backend)
-    if (!response$valid) return(if (details) list(valid = FALSE) else 1e100)
+    if (!response$valid) return(if (details) list(valid = FALSE, inner_iterations = iter) else 1e100)
     gradient <- as.vector(crossprod(W, response$gradient)) + u
     last_gradient <- max(abs(gradient))
     if (last_gradient <= control$inner_tol) { converged <- TRUE; break }
@@ -38,7 +39,12 @@
     solve_check <- .gt_d_solve_check(response$H, gradient, step)
     if (!isTRUE(solve_check$valid))
       return(if (details) c(list(valid = FALSE, reason = "dense_newton_solve_invalid"),
-                            solve_check[.GT_D_SOLVE_DETAIL]) else 1e100)
+                            solve_check[.GT_D_SOLVE_DETAIL],
+                            # The failed operation itself, for a specimen file.
+                            # Built only on failure; never retained in a fit.
+                            list(inner_iterations = iter,
+                                 specimen = list(hessian = response$H, right_hand_side = gradient,
+                                                 step = step, factor = R))) else 1e100)
     objective <- response$nll + sum(u^2) / 2
     descent <- sum(gradient * step)
     multiplier <- 1
@@ -60,12 +66,17 @@
   # Always recompute at the final mode, including when max iterations was hit.
   eta <- baseline + matrix(W %*% u, prep$n, prep$q)
   response <- .gt_d_dense_evaluate(eta, parameters, prep, backend)
-  if (!response$valid) return(if (details) list(valid = FALSE) else 1e100)
+  if (!response$valid) return(if (details) list(valid = FALSE, inner_iterations = iter) else 1e100)
   last_gradient <- max(abs(as.vector(crossprod(W, response$gradient)) + u))
   converged <- is.finite(last_gradient) && last_gradient <= control$inner_tol * 10
   R <- tryCatch(chol(response$H), error = function(e) NULL)
+  # A solve that did not converge says how it stopped: at the iteration budget,
+  # or because the line search could not improve the penalised objective. The
+  # two are different limitations and the record keeps them apart.
   if (is.null(R) || !converged) return(if (details)
-    list(valid = FALSE, inner_converged = converged, inner_gradient = last_gradient) else 1e100)
+    list(valid = FALSE, inner_converged = converged, inner_gradient = last_gradient,
+         inner_iterations = iter, inner_line_search_failed = !accepted,
+         inner_factor_unavailable = is.null(R)) else 1e100)
   # The final factor feeds a log determinant rather than a solve, so the Newton
   # check above does not cover it. Validated with fixed deterministic probes
   # before its diagonal contributes to the Laplace objective, which is where the
@@ -73,8 +84,10 @@
   factor_check <- .gt_d_final_factor_check(response$H, R)
   if (!isTRUE(factor_check$valid)) return(if (details)
     c(list(valid = FALSE, reason = "dense_final_factor_invalid",
-           inner_converged = converged, inner_gradient = last_gradient),
-      factor_check[c(.GT_D_SOLVE_DETAIL, "probe_index")]) else 1e100)
+           inner_converged = converged, inner_gradient = last_gradient,
+           inner_iterations = iter),
+      factor_check[c(.GT_D_SOLVE_DETAIL, "probe_index")],
+      list(specimen = list(hessian = response$H, factor = R))) else 1e100)
   value <- response$nll + sum(u^2) / 2 + sum(log(diag(R)))
   if (!details) return(value)
   list(valid = TRUE, nll = value, mode = u, eta = eta,

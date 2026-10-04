@@ -32,7 +32,11 @@ into subdirectories without silently removing them from the release gate.
 | `package-binary-probabilities.R` | Binary tail probabilities |
 | `package-stationarity-validity.R` | Rejection of invalid stationarity probes |
 | `package-preflight.R` | Preflight reporting, including the installed tutorial |
-| `package-argument-parity.R` | Preflight and fitting accept and reject the same requests |
+| `package-outcome-profile.R` | Outcome category counts, group coverage and descriptive profile plots |
+| `package-analysis-report.R` | Portable reports, provenance, privacy and HTML export |
+| `package-reporting.R` | Flat coefficient tables, allocation joins, target screening and D-study plots |
+| `package-visualizations.R` | Reliability forest plots, unavailable uncertainty and graphical state preservation |
+| `package-argument-parity.R` | Shared fitting/preflight argument validation; absent categories are additionally reported as blocked preflight objects |
 | `package-tuple-keys.R` | Interaction keys that user labels must not collide with |
 | `package-user-interface.R` | Printing, summaries, and what they must never leak |
 
@@ -54,6 +58,8 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_sparse_hessian.R` | Sparse Hessian assembly reproduces the dense matrix and frozen targets |
 | `test_discrete_sparse_factor.R` | Sparse factor solves and log determinants match the frozen targets |
 | `test_discrete_sparse_mode.R` | Sparse conditional mode reproduces the dense solve and the frozen targets |
+| `test_discrete_sparse_validity.R` | Sparse solve-validity invariants: the dense rule on sparse storage, both refusal reasons, end-to-end containment, backend identity |
+| `test_specimen_replay.R` | `scripts/replay_specimen.R` reads specimens back and judges the stored factor and a fresh one separately, on both storage forms |
 | `test_discrete_fitted_smoke.R` | Frozen fitted smoke cases reproduce their dense class contract |
 | `test_discrete_fitted_sparse.R` | Frozen fitted matrix reproduces through the sparse marginal evaluator |
 | `test_examples.R` | Bundled example loading |

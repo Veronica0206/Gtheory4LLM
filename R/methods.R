@@ -43,9 +43,11 @@ logLik.gt_fit <- function(object, ...) {
   .gt_require_fit(object)
   # A fit that failed numerical acceptance keeps its objective for diagnosis in
   # minus2loglik, but a likelihood that did not pass its own checks is not a
-  # basis for model selection. The generics refuse it the way gt_reliability()
-  # does, rather than letting AIC() and BIC() read as ordinary values.
-  if (isFALSE(object$numerically_accepted))
+  # basis for model selection. The generics refuse it by the same rule
+  # gt_reliability() applies, .gt_fit_usable(), so a discrete fit needs an
+  # affirmative acceptance here too, rather than letting AIC() and BIC() read
+  # as ordinary values on missing evidence.
+  if (!.gt_fit_usable(object))
     stop("Model-selection generics require a numerically accepted fit; this fit's likelihood is ",
          "diagnostic only. Inspect gt_diagnostics(fit). The retained objective is fit$minus2loglik.",
          call. = FALSE)

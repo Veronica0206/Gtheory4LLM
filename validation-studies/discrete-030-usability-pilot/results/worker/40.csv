@@ -1,0 +1,2 @@
+"attempt","status","accepted","optimizer_completed","variance_estimate","reliability_estimate","boundary","observations","category_counts","engine","approximation_adequacy","acceptance_failures","invalid_evaluations","fit_seconds","warnings","error"
+40,"error",FALSE,FALSE,NA,NA,NA,72,"low:10;middle:62;high:0","","","",NA,0.002,"","Every declared category must occur in y; absent categories are not estimable in this initial implementation."

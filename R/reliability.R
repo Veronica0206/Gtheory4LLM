@@ -30,9 +30,7 @@ gt_score <- function(weights) {
 
 .gt_reliability_context <- function(fit, scale) {
   if (!inherits(fit, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
-  if (isFALSE(fit$converged) || isFALSE(fit$numerically_accepted) ||
-      (!is.null(fit$engine) && identical(fit$engine, "dense_joint_discrete_laplace") &&
-       !isTRUE(fit$numerically_accepted)))
+  if (!.gt_fit_usable(fit))
     stop("Reliability and D studies require a numerically converged fit. Inspect gt_diagnostics(fit) and resolve the fitting failure first.", call. = FALSE)
   types <- vapply(fit$families, `[[`, character(1), "family")
   gaussian <- all(types == "gaussian")
@@ -333,6 +331,140 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
                  fit_diagnostics = gt_diagnostics(fit)), class = "gt_dstudy")
 }
 
+# Join by the recorded design identity, not by coefficient-row position: a
+# multivariate study has several result rows for each allocation.
+.gt_reporting_table <- function(results, allocations, measurements, extrapolated,
+                                x, row.names = NULL) {
+  ids <- results$design_id
+  if (!is.numeric(ids) || anyNA(ids) || any(!is.finite(ids)) ||
+      any(ids != floor(ids)))
+    stop("Result design_id values must identify allocation rows.", call. = FALSE)
+  position <- match(ids, seq_len(nrow(allocations)))
+  if (anyNA(position))
+    stop("Result design_id values must identify allocation rows.", call. = FALSE)
+  if (length(measurements) != nrow(allocations) || length(extrapolated) != nrow(allocations))
+    stop("Allocation metadata does not match the allocation rows.", call. = FALSE)
+  allocation_columns <- make.unique(paste0("allocation_", names(allocations)), sep = "_")
+  # Prefixes keep facets such as 'outcome', 'kind', and 'Phi' from replacing
+  # coefficient fields. Keep exact original labels in an explicit mapping.
+  for (j in seq_along(allocations))
+    results[[allocation_columns[j]]] <- allocations[[j]][position]
+  record <- x$uncertainty
+  reason <- if (length(record$reason)) as.character(record$reason)[1L] else NA_character_
+  conditional <- isTRUE(record$restricted_to_interior)
+  conditioning <- if (conditional && length(record$fixed_components))
+    .gt_conditioning_clause(record$fixed_components, record$fixed_component_kinds) else NA_character_
+  results$scale <- rep(x$scale, nrow(results))
+  results$interval_level <- rep(x$level, nrow(results))
+  results$uncertainty_available <- rep(isTRUE(record$available), nrow(results))
+  results$uncertainty_reason <- rep(reason, nrow(results))
+  results$uncertainty_conditional <- rep(conditional, nrow(results))
+  results$uncertainty_conditioning <- rep(conditioning, nrow(results))
+  for (coefficient in c("Erho2", "Phi"))
+    results[[paste0(coefficient, "_interval_available")]] <-
+      is.finite(results[[coefficient]]) & is.finite(results[[paste0(coefficient, "_lower")]]) &
+      is.finite(results[[paste0(coefficient, "_upper")]])
+  results$fixed_facets <- rep(paste(encodeString(x$fixed_facets, quote = '"'),
+                                    collapse = "; "), nrow(results))
+  weights <- if (!is.null(x$score)) paste(
+    paste0(encodeString(names(x$score$weights), quote = '"'), " = ",
+           format(x$score$weights, digits = 17L, trim = TRUE)), collapse = "; ") else NA_character_
+  results$composite_weights <- ifelse(results$kind == "composite", weights, NA_character_)
+  results$measurements_per_object <- measurements[position]
+  results$measurement_count_exact <- is.finite(results$measurements_per_object) &
+    results$measurements_per_object < 2^53
+  results$extrapolated <- extrapolated[position]
+  rownames(results) <- row.names
+  attr(results, "allocation_columns") <- stats::setNames(names(allocations), allocation_columns)
+  attr(results, "fixed_facets") <- x$fixed_facets
+  attr(results, "score") <- x$score
+  attr(results, "uncertainty") <- record[intersect(names(record),
+    c("available", "reason", "method", "boundary_components", "restricted_to_interior",
+      "fixed_components", "fixed_component_kinds"))]
+  attr(results, "interpretation") <- paste("Conditional projections from fitted source covariances;",
+    "intervals describe estimation uncertainty, not future-panel prediction or accuracy.")
+  results
+}
+
+as.data.frame.gt_reliability <- function(x, row.names = NULL, optional = FALSE, ...) {
+  if (!inherits(x, "gt_reliability")) stop("Expected a gt_reliability object.", call. = FALSE)
+  results <- data.frame(design_id = 1L, kind = "outcome", x$per_trait,
+                        stringsAsFactors = FALSE, check.names = FALSE)
+  if (!is.null(x$composite)) results <- rbind(results,
+    data.frame(design_id = 1L, kind = "composite", outcome = "composite", x$composite,
+               stringsAsFactors = FALSE, check.names = FALSE))
+  allocations <- as.data.frame(as.list(x$design), check.names = FALSE)
+  .gt_reporting_table(results, allocations, prod(x$design) * x$replicates,
+                       x$extrapolated, x, row.names)
+}
+
+as.data.frame.gt_dstudy <- function(x, row.names = NULL, optional = FALSE, ...) {
+  if (!inherits(x, "gt_dstudy")) stop("Expected a gt_dstudy object.", call. = FALSE)
+  .gt_reporting_table(x$results, x$allocations, x$measurements_per_object,
+                       x$extrapolated, x, row.names)
+}
+
+.gt_check_coefficient <- function(coefficient) {
+  if (!is.character(coefficient) || length(coefficient) != 1L || is.na(coefficient) ||
+      !coefficient %in% c("Erho2", "Phi"))
+    stop("coefficient must be one of \"Erho2\" or \"Phi\".", call. = FALSE)
+}
+
+.gt_check_target <- function(target) {
+  if (!is.numeric(target) || length(target) != 1L || is.na(target) ||
+      !is.finite(target) || target < 0 || target > 1)
+    stop("target must be one finite number from 0 to 1.", call. = FALSE)
+}
+
+.gt_reporting_select <- function(table, outcome, kind, single = FALSE) {
+  if (!is.null(kind) && (!is.character(kind) || length(kind) != 1L || is.na(kind) ||
+                        !kind %in% c("outcome", "composite")))
+    stop("kind must be \"outcome\" or \"composite\".", call. = FALSE)
+  if (!is.null(outcome) && (!is.character(outcome) || length(outcome) != 1L ||
+                           is.na(outcome) || !nzchar(outcome)))
+    stop("outcome must name one reported outcome.", call. = FALSE)
+  if (!is.null(kind)) table <- table[table$kind == kind, , drop = FALSE]
+  if (!is.null(outcome)) table <- table[table$outcome == outcome, , drop = FALSE]
+  if (!nrow(table)) stop("No results match the requested outcome and kind.", call. = FALSE)
+  if (single && length(unique(table$outcome)) > 1L)
+    stop("Specify outcome explicitly when more than one outcome is reported.", call. = FALSE)
+  if (!is.null(outcome) && is.null(kind) && length(unique(table$kind)) > 1L)
+    stop("This outcome label occurs in more than one kind; specify kind explicitly.", call. = FALSE)
+  table
+}
+
+# Screen only supplied candidates using their point projections. Unknown
+# coefficients stay unknown, and every qualifying minimum-count tie survives.
+gt_dstudy_target <- function(x, target, coefficient = "Erho2", outcome = NULL,
+                             kind = "outcome") {
+  if (!inherits(x, "gt_dstudy")) stop("Expected a gt_dstudy object.", call. = FALSE)
+  .gt_check_target(target)
+  .gt_check_coefficient(coefficient)
+  if (is.null(kind)) stop("kind must be \"outcome\" or \"composite\".", call. = FALSE)
+  table <- .gt_reporting_select(as.data.frame(x), outcome, kind, single = TRUE)
+  table$coefficient <- rep(coefficient, nrow(table))
+  table$target <- rep(target, nrow(table))
+  table$estimate <- table[[coefficient]]
+  table$meets_target <- ifelse(is.finite(table$estimate), table$estimate >= target, NA)
+  table$fewest_measurements <- ifelse(is.na(table$meets_target), NA, FALSE)
+  qualified <- which(table$meets_target)
+  exact <- qualified[table$measurement_count_exact[qualified]]
+  # Beyond the exact-integer range, distinct allocations can round to an
+  # apparent tie. Any eligible exact small count beats these large totals;
+  # otherwise their ordering is unknown without exact integer arithmetic.
+  if (length(exact)) table$fewest_measurements[exact] <-
+    table$measurements_per_object[exact] == min(table$measurements_per_object[exact])
+  else table$fewest_measurements[qualified] <- NA
+  attr(table, "target_context") <- list(coefficient = coefficient, target = target,
+    outcome = unique(table$outcome), kind = kind, scale = x$scale,
+    comparison = "point_estimate", scope = "supplied_candidates_only",
+    note = paste("Fewest measurements among supplied candidates with a known point projection",
+      "meeting the target; ties retained. This is not a global optimum, a cost optimum,",
+      "or a guarantee that a future panel reaches the target."))
+  rownames(table) <- NULL
+  table
+}
+
 .gt_print_coefficient_options <- function(digits, max_rows) {
   if (!is.numeric(digits) || length(digits) != 1L || is.na(digits) ||
       !is.finite(digits) || digits < 1 || digits > 22 || digits != floor(digits))
@@ -412,27 +544,48 @@ print.gt_dstudy <- function(x, ..., digits = 4L, max_rows = 12L) {
   invisible(x)
 }
 
-plot.gt_dstudy <- function(x, coefficient = "Erho2", interval = TRUE, ...) {
-  # Check the shape before the value: `NULL %in% choices` is logical(0), which
-  # would make `if` fail with "argument is of length zero" instead of saying
-  # what was wrong with the argument.
-  if (!is.character(coefficient) || length(coefficient) != 1L || is.na(coefficient) ||
-      !coefficient %in% c("Erho2", "Phi"))
-    stop("coefficient must be one of \"Erho2\" or \"Phi\".", call. = FALSE)
+plot.gt_dstudy <- function(x, coefficient = "Erho2", interval = TRUE, ...,
+                           target = NULL, outcome = NULL, kind = NULL) {
+  .gt_check_coefficient(coefficient)
   if (!is.logical(interval) || length(interval) != 1L || is.na(interval))
     stop("interval must be TRUE or FALSE.", call. = FALSE)
-  tab <- x$results
-  series <- interaction(tab$kind, tab$outcome, drop = TRUE)
-  colors <- seq_len(nlevels(series))
-  xx <- x$measurements_per_object[tab$design_id]
+  if (!is.null(target)) .gt_check_target(target)
+  tab <- .gt_reporting_select(as.data.frame(x), outcome, kind)
+  keys <- unique(tab[c("kind", "outcome")])
+  series <- vapply(seq_len(nrow(tab)), function(i)
+    match(TRUE, keys$kind == tab$kind[i] & keys$outcome == tab$outcome[i]), integer(1))
+  colors <- seq_len(nrow(keys))
+  xx <- tab$measurements_per_object
   lower <- tab[[paste0(coefficient, "_lower")]]
   upper <- tab[[paste0(coefficient, "_upper")]]
-  drawn <- interval && !is.null(lower) && any(is.finite(lower) & is.finite(upper))
-  limits <- if (drawn) range(c(tab[[coefficient]], lower, upper), na.rm = TRUE) else
-    range(tab[[coefficient]], na.rm = TRUE)
-  graphics::plot(xx, tab[[coefficient]], col = colors[series], pch = 19, ylim = limits,
-                 xlab = "Measurements per object", ylab = paste(coefficient, "-", x$scale, "scale"), ...)
-  if (drawn) graphics::segments(xx, lower, xx, upper, col = colors[series])
-  graphics::legend("bottomright", legend = levels(series), col = colors, pch = 19, bty = "n")
+  interval_rows <- interval & is.finite(xx) & is.finite(tab[[coefficient]]) &
+    is.finite(lower) & is.finite(upper)
+  drawn <- any(interval_rows)
+  if (!any(is.finite(tab[[coefficient]])))
+    stop("No finite coefficient estimates are available to plot.", call. = FALSE)
+  values <- c(tab[[coefficient]], if (drawn) c(lower[interval_rows], upper[interval_rows]), target)
+  limits <- range(values[is.finite(values)])
+  # The graphical settings below are defaults, not fixed arguments. One the
+  # caller passes through `...` replaces the matching default instead of being
+  # supplied a second time, which is what made plot(study, col = "red") fail
+  # with "formal argument matched by multiple actual arguments" (#39).
+  dots <- list(...)
+  named <- if (is.null(names(dots))) rep(FALSE, length(dots)) else nzchar(names(dots))
+  defaults <- list(col = colors[series], pch = ifelse(tab$extrapolated, 1L, 19L),
+                   type = "p", ylim = limits,
+                   xlab = "Measurements per object",
+                   ylab = paste(coefficient, "-", x$scale, "scale"))
+  resolved <- utils::modifyList(defaults, dots[named])
+  do.call(graphics::plot, c(list(xx, tab[[coefficient]]), resolved, dots[!named]))
+  if (drawn) graphics::segments(xx[interval_rows], lower[interval_rows],
+    xx[interval_rows], upper[interval_rows],
+    col = rep(resolved$col, length.out = nrow(tab))[interval_rows])
+  if (!is.null(target)) graphics::abline(h = target, lty = 2L, col = "grey40")
+  legend_rows <- which(!duplicated(data.frame(series = series, extrapolated = tab$extrapolated)))
+  labels <- paste0(tab$kind[legend_rows], ": ", tab$outcome[legend_rows],
+    ifelse(tab$extrapolated[legend_rows], " (extrapolated)", ""))
+  graphics::legend("bottomright", legend = labels,
+    col = rep(resolved$col, length.out = nrow(tab))[legend_rows],
+    pch = rep(resolved$pch, length.out = nrow(tab))[legend_rows], bty = "n")
   invisible(x)
 }

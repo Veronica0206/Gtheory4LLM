@@ -70,6 +70,9 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   result$N <- nrow(data)
   result$D <- length(outcomes)
   result$control <- control
+  # Record the actual fitting session for both engines before applying retention.
+  # Older saved fits without this record remain unknown to reporting helpers.
+  if (is.null(result[["session"]])) result$session <- utils::sessionInfo()
   # A compact description of the fitted panel, so that reliability and decision
   # studies remain available after the modelled data is dropped. It records
   # what was observed; it never stands in for data that was checked.
@@ -193,6 +196,24 @@ gt_diagnostics <- function(fit) {
        notes = fit$design$notes), class = "gt_diagnostics")
 }
 
+# One acceptance rule for every extractor that needs an accepted fit:
+# reliability, decision studies, and the model-selection generics.
+#
+# A Gaussian fit is refused on an explicit failure only. Its acceptance flag is
+# derived from convergence when the fit is assembled, so an older object that
+# lacks the flag is read as not having failed. A discrete fit must carry an
+# affirmative acceptance: its Laplace objective is provisional until the
+# engine's own checks pass, and a missing or NA flag on a discrete object is
+# not evidence that they did. Each extractor reads this one rule rather than
+# interpreting absent evidence its own way.
+.gt_fit_usable <- function(fit) {
+  if (isFALSE(fit$converged) || isFALSE(fit$numerically_accepted)) return(FALSE)
+  families <- vapply(fit$families, `[[`, character(1), "family")
+  discrete <- length(families) > 0L && any(families != "gaussian")
+  if (!discrete) return(TRUE)
+  isTRUE(fit$numerically_accepted)
+}
+
 # Summarize existing engine decisions only. This never reruns or relaxes an
 # acceptance check, nor interprets an unchecked trial as accepted/rejected.
 .gt_fit_status <- function(fit) {
@@ -287,8 +308,10 @@ summary.gt_fit <- function(object, ...) {
   }))
   errors <- object$component_standard_errors
   if (is.data.frame(errors) && nrow(errors) == nrow(variances)) {
-    matched <- match(paste(variances$source, variances$trait),
-                     paste(errors$component, errors$trait))
+    matched <- vapply(seq_len(nrow(variances)), function(i) {
+      match(TRUE, errors$component == variances$source[i] &
+                  errors$trait == variances$trait[i])
+    }, integer(1L))
     variances$std_error <- errors$std_error[matched]
     variances$at_boundary <- errors$at_boundary[matched]
   }

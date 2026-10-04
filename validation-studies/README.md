@@ -22,6 +22,16 @@ approximation effects; this pilot does not separate them.
 The [real-data tutorial](../docs/REAL_DATA_WORKFLOW.md) separately audits the
 three bundled annotation panels and explains their current fitting limits.
 
+## Development 0.3.0 usability pilot
+
+The [binary/ordinal pilot](discrete-030-usability-pilot/README.md) retained 40
+predeclared fits from a separately fingerprinted 0.3.0.9000 development archive.
+Thirty-eight were accepted, one was numerically rejected, and one failed because
+a declared ordinal category was absent. Rare-outcome recovery was unstable;
+acceptance is not evidence of close parameter or reliability recovery. All
+attempts, Monte Carlo uncertainty, source identities and figures are retained.
+This small public-dense-engine study does not qualify the private sparse backend.
+
 ## Reproduce without overwriting evidence
 
 From the repository root, use new output directories:

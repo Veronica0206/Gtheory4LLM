@@ -8,7 +8,7 @@ for (.gt_loader_name in c("design.R", "family.R", "gaussian_retry.R", "gaussian_
                           "discrete_response.R", "discrete_dense.R", "discrete_sparse.R",
                           "discrete_mode.R", "discrete_sparse_mode.R", "discrete.R", "preflight.R",
                           "diagnostics_stages.R", "fit.R", "methods.R",
-                          "reliability.R", "examples.R")) {
+                          "reliability.R", "visualization.R", "report.R", "examples.R")) {
   .gt_loader_path <- file.path(.gt_loader_root, "R", .gt_loader_name)
   if (!file.exists(.gt_loader_path)) stop("Missing standalone implementation file: ", .gt_loader_name)
   sys.source(.gt_loader_path, envir = environment())

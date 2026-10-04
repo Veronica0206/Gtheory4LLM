@@ -48,8 +48,23 @@ the reporter is credited unless they ask otherwise.
 
 ## What this package does with data
 
+Preflight's bounded audit and no-variation examples retain sampled design
+labels and counts (panel examples also retain input row numbers), excluding
+individual outcome values and unrelated columns. Outcome profiles retain
+aggregate category counts and the declared category labels. These identifiers may
+still identify participants or evaluators. `max_examples = 0` omits the audit
+examples; it does not remove category labels, aggregate summaries or values
+supplied literally in the recorded call.
+
 Data you pass to `gt_fit()` stays in the R session and in the returned object.
-Nothing is uploaded, cached outside the session, or written to disk. A fitted
+Nothing is uploaded or cached outside the session, and nothing is written to
+disk unless you set the environment variable `GTHEORY_DISCRETE_SPECIMEN_DIR`.
+With that set, a discrete fit writes a specimen file for each refused start and
+for at most eight evaluations its optimizer could not use, holding the failed
+operation's matrix, right-hand side, step and factor, the model parameters, the
+evaluation's measurements and the numerical environment. A specimen holds no
+observations, but its matrix is a function of them, so treat that directory as
+you would a saved fit; `scripts/replay_specimen.R` reads one back. A fitted
 object retains the modelled data by default, in `$data`, in the recorded call
 when the data were passed by value, and, for Gaussian fits, as summary
 metadata inside the retained OpenMx model, so treat a saved `.rds` of a fit
@@ -60,3 +75,15 @@ serialized fit for a sentinel observation. Facet level labels are design
 metadata, not observations, and stay in the retained model's prepared
 statistics; drop the model as well, or relabel facets before fitting, if the
 labels themselves identify people.
+
+
+## Portable report exports
+
+`gt_report()` selects aggregate model and reporting fields rather than saving
+its input objects. It excludes observations, calls, model objects, row examples,
+facet-level identifiers and category labels. `gt_export_report()` writes the
+result as a standalone HTML file only when requested, protecting an existing
+file unless replacement is explicit. Text is escaped, and the export uses no
+external resources or scripts. Variable, outcome and source names and aggregate
+results remain visible; review these before sharing. This is not anonymization.
+Creating a report does not change retention of the original fit or preflight.

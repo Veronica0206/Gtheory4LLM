@@ -141,6 +141,31 @@ discrete <- fit
 discrete$families <- list(trait.A = gt_family("binary", "probit", c("no", "yes")),
                           trait.B = gt_family("ordinal", "logit", c("low", "mid", "high")))
 discrete$covariance_components$Residual <- NULL
+# A discrete fit must carry an affirmative acceptance; every fitted discrete
+# object does, and a fixture standing in for one declares it the same way.
+discrete$converged <- TRUE
+discrete$numerically_accepted <- TRUE
+
+# The one acceptance rule, and its sensitivity. A discrete object whose flag is
+# missing or NA is refused; a Gaussian object without the flag is not. The
+# mutant below is the rule this replaced, refusing only an explicit FALSE:
+# it accepts the NA fixture, so the assertion above it is what catches a
+# regression to it. Checked here rather than assumed.
+unflagged <- discrete
+unflagged$numerically_accepted <- NA
+if (!isFALSE(.gt_fit_usable(unflagged))) stop("a discrete fit with an NA acceptance flag must be refused")
+expect_error(gt_reliability(unflagged, scale = "latent"), "numerically converged fit")
+unflagged$numerically_accepted <- NULL
+if (!isFALSE(.gt_fit_usable(unflagged))) stop("a discrete fit without an acceptance flag must be refused")
+legacy_gaussian <- fit
+legacy_gaussian$numerically_accepted <- NULL
+if (!isTRUE(.gt_fit_usable(legacy_gaussian))) stop("a Gaussian fit without the flag stays usable")
+failed_gaussian <- fit
+failed_gaussian$numerically_accepted <- FALSE
+if (!isFALSE(.gt_fit_usable(failed_gaussian))) stop("an explicit failure is refused on every engine")
+mutant <- function(fit) !isFALSE(fit$numerically_accepted)
+if (!isTRUE(mutant(unflagged))) stop("the mutant must accept the NA fixture, or this check proves nothing")
+cat("PASS: one acceptance rule for reliability and the generics; the FALSE-only mutant is detected.\n")
 latent <- components; latent$Residual <- diag(c(1, pi^2 / 3))
 invisible(check_reliability(discrete, counts, score, scale = "latent", dense_components = latent))
 expect_error(gt_reliability(discrete), "explicitly request scale='latent'")

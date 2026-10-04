@@ -1,0 +1,5 @@
+"scenario","planned","attempted","accepted","rejected","errors","timeouts","unstarted","acceptance","wilson95_lower","wilson95_upper","accepted_boundaries","seconds"
+"binary_balanced",10,10,10,0,0,0,0,1,0.722467200137111,1,0,2.358834
+"binary_rare",10,10,10,0,0,0,0,1,0.722467200137111,1,4,1.426295
+"ordinal_balanced",10,10,9,1,0,0,0,0.9,0.595849973204762,0.982123786904927,0,4.569246
+"ordinal_rare",10,10,9,0,1,0,0,0.9,0.595849973204762,0.982123786904927,0,2.81978

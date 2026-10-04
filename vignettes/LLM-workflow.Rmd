@@ -97,6 +97,20 @@ It does not prove identification, reliable estimation, numerical acceptance, or
 approximation adequacy. Read failed checks before changing a resource limit or
 simplifying a scientific model.
 
+The panel audit counts missing cells and cells above or below the declared
+replication. It retains only a bounded set of examples, using the observed
+coded levels; it cannot discover a level that never appeared in the data.
+
+```{r panel-audit, fig.width=7, fig.height=4}
+preflight$panel_audit$summary
+plot(preflight, type = "cells")
+incomplete <- gt_preflight(llm_data[-1, ], "quality", llm_design)
+incomplete$panel_audit$missing_cells
+```
+
+These diagnostics do not fill cells or remove records. Investigate unexpected
+codes or missing measurements before deciding how the study should be analysed.
+
 ## 3. Fit and inspect acceptance
 
 ```{r fit}
@@ -149,18 +163,29 @@ fitted parameter covariance matrix through the source covariances. It describes
 estimation uncertainty in those covariances under the declared model. It is not
 a guarantee about a future sample of evaluators or prompts.
 
+```{r reliability-figure, fig.width=8, fig.height=4.5}
+plot(reliability, target = 0.80,
+  main = "Reliability of the declared mean quality score")
+reliability_table <- as.data.frame(reliability)
+```
+
+The dashed reference is an illustrative target. Missing intervals are shown as
+unavailable, never as a claim of perfect precision. The table records the scale,
+uncertainty status and any conditional inference, alongside the estimates.
+
 ## 5. Compare measurement budgets
 
 ```{r dstudy}
 grid <- expand.grid(evaluator = c(2L, 4L, 6L),
   prompt = c(2L, 3L, 4L), run = c(1L, 2L))
 dstudy <- gt_dstudy(fit, grid)
-allocation <- dstudy$allocations
-allocation$measurements_per_item <- dstudy$measurements_per_object
-allocation$extrapolated <- dstudy$extrapolated
-planning <- cbind(allocation,
-  dstudy$results[, c("outcome", "Erho2", "Erho2_lower", "Erho2_upper",
-                     "Phi", "Phi_lower", "Phi_upper")])
+planning <- as.data.frame(dstudy)
+# Prefixed allocation columns avoid collisions with outcome/estimate names.
+# These readable aliases are just for this tutorial's known facet names.
+planning$evaluator <- planning$allocation_evaluator
+planning$prompt <- planning$allocation_prompt
+planning$run <- planning$allocation_run
+planning$measurements_per_item <- planning$measurements_per_object
 planning <- planning[order(planning$measurements_per_item, -planning$Phi), ]
 rownames(planning) <- NULL
 print(planning)
@@ -171,7 +196,10 @@ evaluators x prompts x runs. A row using more levels than observed extrapolates
 the fitted variance model to the declared exchangeable population.
 
 ```{r threshold}
-planning[planning$Phi >= 0.80, ]
+screen <- gt_dstudy_target(dstudy, target = 0.80, coefficient = "Phi",
+  outcome = "quality")
+screen[screen$meets_target %in% TRUE, ]
+screen[screen$fewest_measurements %in% TRUE, ]
 ```
 
 A threshold of 0.80 is illustrative; choose and justify your own criterion. Read
@@ -179,7 +207,58 @@ the interval columns alongside the point projection: several allocations here
 have overlapping intervals, so the ordering of nearby rows is not established by
 these data.
 
-## 6. Fixed facets
+The screening helper keeps every supplied candidate, including those that miss
+the target or have an unavailable estimate. It marks all ties for the fewest
+measurements among qualifying candidates. It performs no search outside this
+grid and does not guarantee that a future panel will meet the target.
+
+```{r dstudy-figure, fig.width=7, fig.height=5}
+plot(dstudy, coefficient = "Phi", outcome = "quality", target = 0.80,
+  main = "Candidate measurement allocations")
+```
+
+Different allocations can use the same total number of measurements; they are
+separate points rather than one assumed smooth curve. The figure identifies
+allocations extending beyond the observed facet counts. Such projections keep
+the fitted source distributions fixed.
+
+Both result tables contain ordinary scalar columns, suitable for CSV output:
+
+```{r export, eval=FALSE, purl=FALSE}
+write.csv(reliability_table, "reliability.csv", row.names = FALSE)
+write.csv(as.data.frame(dstudy), "decision-study.csv", row.names = FALSE)
+pdf("decision-study.pdf", width = 7, height = 5)
+plot(dstudy, coefficient = "Phi", outcome = "quality", target = 0.80)
+dev.off()
+```
+
+## 6. Save a portable analysis report
+
+A report collects the design, fitted model context, diagnostic flags, coefficient
+and decision-study tables, and figures. It does not rerun optimization. Supplied
+coefficient results are checked against projections from the fit; supplied
+preflight information is checked for compatible aggregate specifications, which
+does not prove that it came from identical observations.
+
+```{r analysis-report}
+analysis_report <- gt_report(fit, preflight = preflight,
+  reliability = reliability, dstudy = dstudy)
+print(analysis_report)
+```
+
+```{r save-analysis-report, eval=FALSE, purl=FALSE}
+gt_export_report(analysis_report, "analysis-report.html")
+```
+
+The HTML file contains its figures and styling and can be opened offline. An
+existing destination is refused unless replacement is explicitly requested.
+The report omits observations, row examples and group-level identifiers, while
+keeping variable and source names and aggregate results. This is not an
+anonymization guarantee. Inspect study-specific names before sharing it.
+Retained fitting provenance and the report-generation environment are separate;
+missing fitting provenance is reported as unavailable.
+
+## 7. Fixed facets
 
 A facet is *random* when the study generalizes to a population of its levels,
 and *fixed* when the universe of generalization is exactly the levels used. LLM
@@ -212,7 +291,7 @@ raise doubts about pooling temperatures, fitting within one temperature is a
 useful sensitivity analysis for a conditional estimand; declaring a facet fixed
 is a separate decision about generalization.
 
-## 7. Match other outcomes to their observation model
+## 8. Match other outcomes to their observation model
 
 | Outcome | Current scalar reliability support |
 |---|---|
@@ -237,10 +316,34 @@ without it:
 gt_design("item", "rater", full_cell = FALSE)$terms_requested
 ```
 
+A complete panel can still contain little observed outcome variation. This
+small, deliberately imbalanced example has one positive response. It is a data
+profile, not an estimation example or a recommended design.
+
+```{r outcome-information, fig.width=7, fig.height=4}
+information_data <- expand.grid(item = seq_len(6), rater = seq_len(3))
+information_data$label <- as.integer(information_data$item == 1 &
+  information_data$rater == 1)
+information_design <- gt_design("item", "rater", random = ~ item + rater)
+information <- gt_preflight(information_data, "label", information_design,
+  gt_family("binary"), max_examples = 0)
+information$outcome_profile$label$categories
+information$outcome_profile$label$by_variable
+plot(information, type = "outcomes", outcome = "label")
+```
+
+The heatmap describes the fraction of groups in which each category appears.
+A group with one observation necessarily has no observed variation. These
+summaries supply no minimum-count threshold, independence claim or guarantee of
+parameter recovery. Declared categories absent from the entire panel are shown
+with zero counts and block fitting; the preflight report does not merge them or
+silently change their order. No finite panel can reveal a category never
+observed and never declared.
+
 ## Where to read next
 
 Installed help: `?gt_design`, `?gt_family`, `?gt_preflight`, `?gt_control`,
-`?gt_fit`, `?gt_diagnostics`, `?gt_reliability`, and `?gt_dstudy`.
+`?gt_fit`, `?gt_diagnostics`, `?gt_reliability`, `?gt_dstudy`, and `?gt_report`.
 
 Brennan, R. L. (2001). *Generalizability Theory*. Springer.
 <doi:10.1007/978-1-4757-3456-0>

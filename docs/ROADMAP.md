@@ -1,9 +1,9 @@
 # Roadmap
 
-Release milestones and planned work, with the reason for their order. Version
-0.1.0 is published and 0.2.0 is cut from its development line; the later
-milestones remain planned. Completed work is
-recorded in [NEWS.md](../NEWS.md), and current evidence is in
+Release milestones and planned work, with the reason for their order. Versions
+0.1.0 and 0.2.0 are published; the later milestones remain planned, and work
+on the 0.3.0 line since 0.2.0 is recorded at the top of [NEWS.md](../NEWS.md).
+Completed work is recorded in [NEWS.md](../NEWS.md), and current evidence is in
 [development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
 
 The ordering rule this follows is worth stating once, because it explains most
@@ -15,8 +15,8 @@ moves, it must be obvious which of those caused it.
 |---|---|
 | 0.1.0 (published) | Research beta with retry controller, standard methods, retention controls, memory guard, characterization tests and release automation |
 | 0.1.x | Maintenance: release/documentation consistency, repository protection, Action-runtime updates and fixes that preserve statistical scope |
-| 0.2.0 | Maintenance release from the 0.2.0 development line: CRAN resubmission fix, staged numerical diagnostics, solve-validity refusal, and the sparse discrete prototype kept private behind the evaluator seam |
-| 0.3.0 | Scalable discrete architecture: qualified sparse discrete backend, dense-sparse equivalence, full native-panel benchmark |
+| 0.2.0 (published) | Maintenance release from the 0.2.0 development line: CRAN resubmission fix, staged numerical diagnostics, solve-validity refusal, and the sparse discrete prototype kept private behind the evaluator seam |
+| 0.3.0 | First qualified, publicly selectable sparse backend for single binary and ordinal outcomes: dense-sparse equivalence, explicit backend selection with a resource contract, one full native-panel benchmark; no new statistical estimands |
 | 0.4.x | Broader statistical operating range: unbalanced designs, larger validation campaigns, cost-aware D studies, discrete uncertainty |
 | 1.0 | Stable general research package: defined API stability, broad validation envelope, mature Gaussian and discrete implementations |
 
@@ -68,6 +68,23 @@ Every refactor below is judged against it. Its purpose is to make one question
 answerable: *did we change the statistical result on purpose, or by accident?*
 
 ## 0.3.0
+
+### Release gates
+
+Five gates decide readiness, each with evidence tied to the exact source
+identity, and a failed gate is recorded rather than re-scoped:
+
+| Gate | Required evidence |
+|---|---|
+| Numerical safety | Sparse and dense enforce the same solve-validity and final-factor invariants, with deterministic injected-failure tests; original-evaluation evidence and opt-in specimens for failures (done on this line, see NEWS) |
+| Qualification | The frozen dense-sparse equivalence study executed end to end: measurement layer, calibrated tolerances committed in their own change, the reviewed runner, and a record that reports planned, unsupported, validity-event and compared cases separately |
+| Public usability | An explicit backend selector with a resource contract shared by `gt_preflight()` and `gt_fit()`; an explicit sparse request runs sparse or refuses, never substitutes; the backend identity survives retention and serialization |
+| Scalability | One predeclared nine-source full-row native binary or ordinal panel accepted within a resource budget declared before the run, from a freshly installed archive |
+| Interpretation and provenance | Latent-only coefficients, no discrete intervals, and a support table whose claims match the retained records |
+
+Warm starts remain conditional on the measured need recorded in
+`validation-studies/discrete-sparse-profile/results.md`; automatic
+differentiation is deferred by default.
 
 ### Extract the engines into ordinary modules
 

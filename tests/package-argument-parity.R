@@ -103,5 +103,11 @@ on.exit(grDevices::dev.off(), add = TRUE)
 for (coefficient in c("Erho2", "Phi"))
   expect(identical(outcome(plot(study, coefficient = coefficient)), "accepted"),
          paste("plot accepts", coefficient))
+# Graphical settings are defaults: a named argument through `...` replaces the
+# matching one instead of being supplied twice (#39, plotting).
+for (override in list(list(col = "red"), list(pch = 3), list(xlab = "n"), list(ylab = "coef"),
+                      list(ylim = c(0, 1)), list(col = "blue", pch = 1, main = "title")))
+  expect(identical(outcome(do.call(plot, c(list(study), override))), "accepted"),
+         paste0("plot() accepts ", paste(names(override), collapse = ", "), " through ..."))
 
 cat("PASS: preflight and fitting share one definition of every covariance and residual rule.\n")
