@@ -21,6 +21,34 @@ result$audit$hate_speech$preflight$sources
 result$audit$hate_speech$preflight$checks
 ```
 
+The development workflow also retains bounded cell-audit examples and
+plot-ready preflight objects for every native panel:
+
+```r
+result$audit$hate_speech$preflight$panel_audit$summary
+plot(result$audit$hate_speech$preflight, type = "cells")
+plot(result$audit$hate_speech$preflight, type = "sources")
+```
+
+For the separately labelled synthetic binary example, an accepted fit now
+also supplies `coefficient_table`, `decision_study` and `target_screen`.
+These remain `NULL` if that fit is rejected. They demonstrate table exports,
+latent-reliability figures and candidate screening without presenting a
+synthetic estimate as a result from the bundled annotation datasets.
+
+```r
+if (!is.null(result$decision_study)) {
+  result$coefficient_table
+  result$target_screen
+  plot(result$latent_coefficient, target = .8)
+  plot(result$decision_study, coefficient = "Phi", outcome = "y", target = .8)
+}
+```
+
+A full native binary/ordinal fit-and-report tutorial remains dependent on
+the sparse backend's public selection and qualification gates. The current
+example does not dispatch to private sparse code or report a full-panel fit.
+
 Category proportions describe recorded annotation rows, which are repeated measurements on the same items. They are not accuracy estimates or independent-text prevalences. The modeling tables omit original reference labels and raw text. Their preprocessing retains the source study's defaults for omitted items in successfully parsed batches; a complete table does not prove that every API response contained a usable annotation.
 
 ## Keep the outcome and estimand explicit

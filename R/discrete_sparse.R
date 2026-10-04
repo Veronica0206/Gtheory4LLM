@@ -185,6 +185,33 @@
             class = "gt_discrete_sparse_factor")
 }
 
+# The sparse twin of .gt_d_final_factor_check(). The final-mode factor feeds a
+# log determinant rather than a solve, so the Newton-step check does not cover
+# it; the same two fixed probes are solved through the factor object and judged
+# by the same backward-error invariant and bound, so a factor that CHOLMOD
+# returned without error but that does not solve its own system is refused
+# before its diagonal contributes to the Laplace objective. The probes go
+# through .gt_d_sparse_solve(), which applies and undoes the fill-reducing
+# permutation, so the residual is taken in the original coordinate order.
+.gt_d_sparse_final_factor_check <- function(H, factorization) {
+  probes <- .gt_d_solve_probes(nrow(H))
+  for (k in seq_along(probes)) {
+    y <- tryCatch(.gt_d_sparse_solve(factorization, probes[[k]]), error = function(e) NULL)
+    if (is.null(y))
+      return(list(valid = FALSE, solve_backward_error = Inf,
+                  solve_validity_bound = .gt_d_solve_bound(nrow(H)),
+                  random_dimension = nrow(H), probe_index = k))
+    check <- .gt_d_solve_check(H, probes[[k]], y)
+    if (!isTRUE(check$valid)) return(c(check, list(probe_index = k)))
+  }
+  list(valid = TRUE, solve_backward_error = NA_real_,
+       solve_validity_bound = .gt_d_solve_bound(nrow(H)),
+       random_dimension = nrow(H), probe_index = NA_integer_)
+}
+
+.gt_d_sparse_final_factor_valid <- function(H, factorization)
+  isTRUE(.gt_d_sparse_final_factor_check(H, factorization)$valid)
+
 .gt_d_sparse_logdet <- function(factorization) {
   if (!inherits(factorization, "gt_discrete_sparse_factor"))
     .gt_d_stop("A sparse log determinant needs a factorization from .gt_d_sparse_factor().")

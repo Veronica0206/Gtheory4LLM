@@ -102,6 +102,23 @@ STUDY_CSV_FILES = {
 } | {
     "validation-studies/discrete-recovery/results/" + name for name in (
         "config.csv", "source-files.csv", "replicates.csv", "summary.csv")
+} | {
+    f"docs/figures/usability-030/{name}" for name in (
+        "reliability.csv", "decision-study.csv", "target-screen.csv")
+} | {
+    # Reviewed synthetic pilot records. The frozen generator/configuration and
+    # all forty panels were checked independently before these exact paths
+    # were approved; this grants no exception to later files in the directory.
+    f"validation-studies/discrete-030-usability-pilot/{name}" for name in (
+        "config.csv", "results/frozen-source/config.csv",
+        "results/acceptance.csv", "results/archive-source-files.csv",
+        "results/attempts.csv", "results/checkout-source-files.csv",
+        "results/installed-files.csv", "results/plan.csv",
+        "results/postrun-source-files.csv", "results/recovery.csv",
+        "results/study-source-files.csv")
+} | {
+    f"validation-studies/discrete-030-usability-pilot/results/{kind}/{panel:02d}.csv"
+    for kind in ("panels", "worker") for panel in range(1, 41)
 }
 PUBLIC_FILES = {
     "DESCRIPTION", "NAMESPACE", "LICENSE", "LICENCE", "LICENSE.note",

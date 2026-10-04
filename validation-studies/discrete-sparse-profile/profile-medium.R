@@ -76,15 +76,20 @@ instrumented <- function(parameters, prep, groups, setup, control,
 # distribution can be observed. Its wall time is not reported, because
 # requesting details changes what the evaluator does.
 work_evaluator <- if (identical(backend, "sparse")) .gt_d_sparse_evaluator() else .gt_d_laplace
-# Invalid evaluations carry no iteration count. Both mode solvers return
-# list(valid = FALSE, inner_converged, inner_gradient) with no inner_iterations
-# field, so an evaluation that failed cannot contribute to the iteration
-# statistics and its cause cannot be attributed from here. Valid and invalid
-# calls are therefore counted separately, and the iteration figures are stated
-# as what they are: properties of the valid solves only.
+# Valid and invalid calls are counted separately, and the iteration figures are
+# stated as what they are: properties of the valid solves only. An invalid
+# evaluation now says how it stopped -- both mode solvers return
+# inner_iterations and inner_line_search_failed for a solve that did not
+# converge -- so the invalid count is split into solves that ran the whole
+# inner budget without converging, solves the line search abandoned, and the
+# rest (a response or factorization failure, or a violated validity
+# invariant, which carries a reason).
 work_calls <- 0L
 valid_calls <- 0L
 invalid_calls <- 0L
+invalid_at_budget <- 0L
+invalid_line_search <- 0L
+invalid_other <- 0L
 observed <- function(parameters, prep, groups, setup, control,
                      details = FALSE, factors_override = NULL) {
   work_calls <<- work_calls + 1L
@@ -96,6 +101,12 @@ observed <- function(parameters, prep, groups, setup, control,
     if (value$inner_iterations >= control$inner_maxit) budget_hits <<- budget_hits + 1L
   } else {
     invalid_calls <<- invalid_calls + 1L
+    if (is.list(value) && isTRUE(value$inner_line_search_failed))
+      invalid_line_search <<- invalid_line_search + 1L
+    else if (is.list(value) && is.null(value$reason) && !isTRUE(value$inner_converged) &&
+             is.numeric(value$inner_iterations) && value$inner_iterations >= control$inner_maxit)
+      invalid_at_budget <<- invalid_at_budget + 1L
+    else invalid_other <<- invalid_other + 1L
   }
   if (details) value else if (is.list(value) && isTRUE(value$valid)) value$nll else 1e100
 }
@@ -112,6 +123,8 @@ if (identical(mode, "work")) {
               max(iterations)))
   cat(sprintf("valid_solves_ending_at_inner_maxit=%d inner_maxit=%d\n",
               budget_hits, control$inner_maxit))
+  cat(sprintf("invalid_stopped: at_inner_maxit=%d line_search_failed=%d other=%d\n",
+              invalid_at_budget, invalid_line_search, invalid_other))
   quit(save = "no")
 }
 

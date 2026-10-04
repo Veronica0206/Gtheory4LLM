@@ -133,6 +133,7 @@ gt_real_data_workflow <- local({
     expected_failure(gt_reliability(unchecked$result, scale = "latent")) else
       "No usable fit was returned; inspect the retained failure condition."
   coefficient <- NULL
+  coefficient_table <- decision_study <- target_screen <- NULL
   unsupported_observed <- NULL
   diagnostics <- NULL
   if (inherits(checked$result, "gt_fit")) {
@@ -140,6 +141,11 @@ gt_real_data_workflow <- local({
     cat("Approximation adequacy:", diagnostics$approximation_adequacy, "\n")
     if (checked$result$numerically_accepted) {
       coefficient <- gt_reliability(checked$result, scale = "latent")
+      coefficient_table <- as.data.frame(coefficient)
+      decision_study <- gt_dstudy(checked$result, data.frame(occasion = c(6L, 12L, 24L)),
+                                  scale = "latent")
+      target_screen <- gt_dstudy_target(decision_study, target = .8,
+                                        coefficient = "Phi", outcome = "y")
       cat("Synthetic latent coefficient; discrete intervals remain unavailable:\n")
       print(coefficient$per_trait, row.names = FALSE)
       stopifnot(!diagnostics$standard_errors_available,
@@ -155,7 +161,9 @@ gt_real_data_workflow <- local({
       gaussian_missing_cell = gaussian_missing, discrete_full_cell = discrete_alias,
       discrete_repeated = repeat_preflight, discrete_missing_cell = missing_discrete),
     fits = fits, fit_status = fit_status, diagnostics = diagnostics,
-    latent_coefficient = coefficient, rejected_coefficient_message = rejected_coefficient,
+    latent_coefficient = coefficient, coefficient_table = coefficient_table,
+    decision_study = decision_study, target_screen = target_screen,
+    rejected_coefficient_message = rejected_coefficient,
     unsupported_observed_message = unsupported_observed,
     elapsed_seconds = proc.time()[["elapsed"]] - started,
     environment = list(R = R.version.string, platform = R.version$platform,

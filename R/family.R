@@ -42,7 +42,11 @@ gt_family <- function(family = "gaussian", link = NULL, levels = NULL,
                  reference = reference, ordered = family == "ordinal"), class = "gt_family")
 }
 
-.gt_resolve_families <- function(data, outcomes, family) {
+.gt_resolve_families <- function(data, outcomes, family, allow_absent = FALSE) {
+  # Preflight can describe declared-but-unobserved categories as a failed
+  # check. Fitting and every other caller retain the strict default.
+  if (!is.logical(allow_absent) || length(allow_absent) != 1L || is.na(allow_absent))
+    stop("allow_absent must be TRUE or FALSE.", call. = FALSE)
   if (inherits(family, "gt_family")) {
     families <- stats::setNames(rep(list(family), length(outcomes)), outcomes)
   } else {
@@ -78,7 +82,7 @@ gt_family <- function(family = "gaussian", link = NULL, levels = NULL,
     }
     spec <- gt_family(spec$family, spec$link, spec$levels, spec$reference)
     if (any(!labels %in% spec$levels)) stop("Undeclared categories in ", outcome, ".", call. = FALSE)
-    if (!setequal(unique(labels), spec$levels))
+    if (!allow_absent && !setequal(unique(labels), spec$levels))
       stop("Every declared category must occur in ", outcome, "; absent categories are not estimable in this initial implementation.", call. = FALSE)
     if (spec$family == "binary") {
       encoded[[outcome]] <- match(labels, spec$levels) - 1L

@@ -29,3 +29,8 @@ __pycache__/
 /benchmarks/
 *.patch
 *.zip
+
+# Reproducible local graphics/diagnostic files; public evidence uses PNG/CSV.
+/docs/figures/usability-030/figures.pdf
+/validation-studies/discrete-030-usability-pilot/results/pilot.pdf
+/validation-studies/discrete-030-usability-pilot/results/details/*.rds

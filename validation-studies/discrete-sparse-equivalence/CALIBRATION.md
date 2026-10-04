@@ -120,3 +120,33 @@ the margin visible, in the same way the solve-validity bound in #34 was set at
    result.
 4. The calibration table is committed before qualification begins, in its own
    change against this merged protocol.
+
+## Pre-calibration amendment: K05 tail composition
+
+Recorded before any calibration run and before any tolerance value exists.
+Nothing had been scored, derived or judged against the original fixture, so
+this amends a fixture identity, not a result.
+
+`cases.R` selected the ordinal level set by the exact geometry name
+`"tail_mass"` while the panel builder applied the tail-mass construction to any
+geometry name containing `"tail"`. The calibration case K05 (`cal_tail`)
+therefore received the five-level tail construction on a three-level scale.
+Its categories came out 15, 60 and 165, with 68.75% of the panel in the top
+category: the opposite of the rare-extreme regime the case exists to
+calibrate. The scored case C12 uses the exact name and was never affected.
+
+The correction is one explicit definition, `EQ_TAIL_GEOMETRIES`, consulted by
+both the level selector and the panel builder, and the freeze test now asserts
+the category composition of every tail-mass panel rather than only its digest.
+A frozen digest establishes a fixture's identity, not its suitability; a
+documented correction before scoring is preferable to calibrating faithfully
+against the wrong scenario.
+
+    K05 original   panel digest e1dddcce3be9f8a72791affcd3b449b0   levels 3   counts 15 / 60 / 165
+    K05 corrected  panel digest c31d3ed8439fc056344072bd88b7ad4e   levels 5   counts 15 / 60 / 80 / 70 / 15
+
+Observations (240), random dimension (34) and kernel rank (2) are unchanged,
+as are the digests of every other qualification and calibration fixture. The
+frozen source digests of `cases.R` and of this file move with this amendment
+and are re-pinned in `tests/test_discrete_equivalence_freeze.R` as a reviewed
+change.

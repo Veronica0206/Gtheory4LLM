@@ -152,11 +152,28 @@
   .eq_nondegenerate(.eq_nondegenerate(d, "a"), "b")
 }
 
+# Which geometry names carry the tail-mass composition. ONE definition, used by
+# both the level selector below and the panel builder in .eq_panel_for(), so
+# the scale a tail panel is built on and the construction that fills it can
+# never disagree again.
+#
+# Pre-calibration amendment. Before this existed, the selector recognised the
+# exact name "tail_mass" while the builder recognised any name containing
+# "tail", so the calibration case K05 (`cal_tail`) was built with the
+# five-level tail construction on a THREE-level scale: its categories came out
+# 15/60/165 and the top category held 68.75% of the panel, the opposite of the
+# rare-extreme regime it exists to calibrate. The scored case C12 uses the
+# exact name and was never affected. No tolerance had been derived from the
+# defective panel; the correction and both fixture identities are recorded in
+# CALIBRATION.md.
+EQ_TAIL_GEOMETRIES <- c("tail_mass", "cal_tail")
+.eq_tail_geometry <- function(geometry_name) geometry_name %in% EQ_TAIL_GEOMETRIES
+
 # Ordinal category count by geometry. Tail mass needs five levels so the
 # interior can carry between-object variation while the extremes stay rare;
 # three levels cannot do both at once.
 .eq_ordinal_levels <- function(geometry) {
-  if (identical(geometry, "tail_mass"))
+  if (.eq_tail_geometry(geometry))
     c("lowest", "low", "mid", "high", "highest")
   else
     c("low", "mid", "high")
@@ -438,7 +455,7 @@ EQ_DESIGNS <- list(single = .eq_design_single, crossed2 = .eq_design_crossed2,
     binary = .eq_binary_panel(geometry$objects, geometry$raters, geometry$reps),
     ordinal = .eq_ordinal_panel(geometry$objects, geometry$raters, geometry$reps,
                                 .eq_ordinal_levels(geometry_name),
-                                tail_mass = grepl("tail", geometry_name, fixed = TRUE)),
+                                tail_mass = .eq_tail_geometry(geometry_name)),
     categorical = .eq_categorical_panel(geometry$objects, geometry$raters, geometry$reps,
                                         c("a", "b", "c")),
     joint_binary = .eq_joint_panel(geometry$objects, geometry$raters, geometry$reps),

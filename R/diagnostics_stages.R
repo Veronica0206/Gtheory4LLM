@@ -132,6 +132,16 @@
     inner_final_acceptance_tolerance = if (!is.null(requested)) requested * 10 else NULL,
     inner_strict_tolerance_met = strict,
     tight_final_mode = .gt_stage_flag(d$tight_final_mode))
+  # Retained by fits from this version: how many objective evaluations the
+  # optimizer made, how many it could not use, and how many valid solves ended
+  # at the iteration budget. Absent on older objects, and then omitted.
+  evaluations <- d$evaluations
+  if (is.list(evaluations)) {
+    measurements$optimizer_evaluations <- .gt_stage_number(evaluations$count)
+    measurements$invalid_evaluations <- .gt_stage_number(evaluations$invalid)
+    measurements$valid_evaluations_at_inner_budget <-
+      .gt_stage_number(evaluations$valid_at_inner_budget)
+  }
   if (is.null(converged))
     return(.gt_stage("not_assessed", "No conditional mode was recorded for this fit.",
                      measurements))

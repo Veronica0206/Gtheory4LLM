@@ -197,6 +197,23 @@ class PrepareReleaseTests(unittest.TestCase):
             self.run_main(["--skip-validation"])
         self.assertIn("development version", str(raised.exception))
 
+    def test_a_checked_development_candidate_cannot_be_adopted(self):
+        (self.root / "DESCRIPTION").write_text(
+            DESCRIPTION.replace("Version: 1.2.3", "Version: 1.2.3.9000"), encoding="utf-8")
+        self.git("commit", "-qam", "development")
+        self.commit = self.git("rev-parse", "HEAD")
+        directory = self.candidate_directory(version="1.2.3.9000", archive="Example_1.2.3.9000.tar.gz")
+        (directory / "Example_1.2.3.tar.gz").rename(directory / "Example_1.2.3.9000.tar.gz")
+        before = {p: p.read_bytes() for p in self.artifacts.iterdir()}
+        with patch.object(RELEASE, "run") as run, patch.object(RELEASE, "build_archive") as build, \
+                patch.object(RELEASE, "adopt_checked_candidate") as adopt, \
+                self.assertRaisesRegex(SystemExit, "development version"):
+            RELEASE.main(["--skip-validation", "--from-checked-candidate", str(directory)])
+        run.assert_not_called()
+        build.assert_not_called()
+        adopt.assert_not_called()
+        self.assertEqual(before, {p: p.read_bytes() for p in self.artifacts.iterdir()})
+
     def test_a_failing_step_stops_before_anything_is_published(self):
         def failing(step, command, cwd=None):
             raise SystemExit(f"{step} failed (exit 1); nothing was published")

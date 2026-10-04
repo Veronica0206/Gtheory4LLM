@@ -196,9 +196,9 @@ ok(is.na(.gt_d_final_factor_check(H, R)$probe_index),
    "a passing factor names no failing probe")
 
 # ---- a start-value refusal is diagnosable ------------------------------------
-# Injected through the private evaluator seam rather than by corrupting chol(),
-# so the two cases below differ in exactly one respect: whether the detailed
-# replay reproduces the failure.
+# Injected through the private evaluator seam rather than by corrupting chol().
+# The start is evaluated once, in detailed form, and the refusal reports that
+# evaluation's own record.
 message_of <- function(expr) tryCatch({ force(expr); NA_character_ },
                                       error = function(e) conditionMessage(e))
 reproduces <- function(parameters, prep, groups, setup, control, details = FALSE, ...) {
@@ -220,26 +220,111 @@ ok(grepl("backward_error_over_bound=", reported, fixed = TRUE),
 ok(grepl("random_dimension=42", reported, fixed = TRUE),
    "a start-value refusal reports the dimension")
 
-# ---- the diagnostic replay must never rescue ---------------------------------
-# The scalar evaluation refuses and the detailed replay then succeeds, which is
-# exactly what an intermittent native defect looks like. The fit must still
-# refuse: a second call behaving is not evidence that the first was valid, and
-# the alternative is a numerical policy of retrying until the library complies.
+# ---- the original evaluation is the evidence; nothing is replayed -----------
+# An evaluator that refuses on its first call and would succeed on any later
+# one is exactly what an intermittent native defect looks like. The fit refuses
+# on the evidence of the first call, and the second call never happens: a
+# second call behaving would not be evidence that the first was valid, and the
+# alternative is a numerical policy of retrying until the library complies.
 calls <- 0L
 intermittent <- function(parameters, prep, groups, setup, control, details = FALSE, ...) {
   calls <<- calls + 1L
   if (calls == 1L)
-    return(if (details) list(valid = FALSE, reason = "dense_newton_solve_invalid") else 1e100)
+    return(if (details) list(valid = FALSE, reason = "dense_newton_solve_invalid",
+                             solve_backward_error = 4.82807e-02,
+                             solve_validity_bound = 2.98e-13, random_dimension = 42L) else 1e100)
   .gt_d_laplace(parameters, prep, groups, setup, control, details = details, ...)
 }
-rescued <- message_of(.gt_fit_discrete(d, "y", design, family,
+refused <- message_of(.gt_fit_discrete(d, "y", design, family,
                                        control = list(maxit = 60L), .laplace = intermittent))
-ok(!is.na(rescued), "an intermittent invalid start still refuses when the replay succeeds")
-ok(grepl("diagnostic replay did not reproduce the invalid solve", rescued, fixed = TRUE),
-   "the refusal records that the replay did not reproduce, instead of silently retrying")
-ok(identical(calls, 2L), "exactly one diagnostic replay is performed, never a retry loop")
+ok(!is.na(refused), "an invalid first evaluation refuses, whatever a later call would have done")
+ok(grepl("reason=dense_newton_solve_invalid", refused, fixed = TRUE) &&
+     grepl("backward_error=", refused, fixed = TRUE),
+   "the refusal carries the first evaluation's own reason and measurement")
+ok(identical(calls, 1L), "the refused evaluation is the only one performed: no replay, no retry")
+ok(!grepl("replay", refused, fixed = TRUE), "the refusal does not describe a replay, because there is none")
+
+# ---- invalid evaluations inside the optimizer are recorded, not recomputed ---
+# An evaluator that fails on a chosen later evaluation, with a reason and a
+# measurement, must leave that record in the fit: the count, the parameters it
+# was asked about, and the measurements it reported at the time.
+calls <- 0L
+flaky <- function(parameters, prep, groups, setup, control, details = FALSE, ...) {
+  calls <<- calls + 1L
+  if (calls %in% c(7L, 9L))
+    return(if (details) list(valid = FALSE, reason = "dense_newton_solve_invalid",
+                             solve_backward_error = 1e-3, solve_validity_bound = 3e-13,
+                             random_dimension = 13L, inner_iterations = 4L) else 1e100)
+  .gt_d_laplace(parameters, prep, groups, setup, control, details = details, ...)
+}
+recorded <- tryCatch(.gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L),
+                                      .laplace = flaky), error = function(e) NULL)
+ok(!is.null(recorded), "a fit survives isolated invalid evaluations inside the optimizer")
+if (!is.null(recorded)) {
+  log <- recorded$diagnostics$evaluations
+  ok(is.list(log) && identical(log$invalid, 2L),
+     "both invalid evaluations are counted")
+  ok(log$count > log$invalid, "valid evaluations are counted alongside the invalid ones")
+  ok(length(log$retained_invalid) == 2L, "both invalid evaluations are retained")
+  first <- log$retained_invalid[[1L]]
+  ok(identical(first$reason, "dense_newton_solve_invalid") &&
+       identical(first$solve_backward_error, 1e-3) && identical(first$random_dimension, 13L),
+     "a retained record carries the failed evaluation's own reason and measurements")
+  ok(is.numeric(first$parameters) && length(first$parameters) == length(recorded$parameters),
+     "a retained record carries the parameters the evaluation was asked about")
+  ok(is.null(first$specimen), "no specimen is written unless a directory is configured")
+  ok(identical(log$retention_limit, 8L), "retention is bounded")
+}
+
+# ---- opt-in specimen capture at the refusal site ----------------------------
+# With a directory configured the refusal writes the failed operation's own
+# numbers and is otherwise unchanged; without one, nothing is written.
+specimen_dir <- tempfile("gt-specimen-")
+Sys.setenv(GTHEORY_DISCRETE_SPECIMEN_DIR = specimen_dir)
+with_specimen <- message_of(.gt_fit_discrete(d, "y", design, family,
+                                             control = list(maxit = 60L), .laplace = reproduces))
+Sys.unsetenv("GTHEORY_DISCRETE_SPECIMEN_DIR")
+ok(grepl("did not yield a converged finite inner mode at starting values", with_specimen, fixed = TRUE) &&
+     grepl("reason=dense_newton_solve_invalid", with_specimen, fixed = TRUE),
+   "the refusal is unchanged when a specimen directory is configured")
+ok(grepl("specimen=", with_specimen, fixed = TRUE), "the refusal names the specimen it wrote")
+written <- list.files(specimen_dir, pattern = "^gtheory-discrete-specimen-start-.*\\.rds$",
+                      full.names = TRUE)
+ok(length(written) == 1L, "exactly one specimen file is written for the refused start")
+if (length(written) == 1L) {
+  specimen <- readRDS(written[[1L]])
+  ok(identical(specimen$schema, "gtheory-discrete-specimen/1"), "the specimen declares its schema")
+  ok(identical(specimen$record$reason, "dense_newton_solve_invalid") &&
+       identical(specimen$record$random_dimension, 42L),
+     "the specimen carries the refused evaluation's reason and measurements")
+  ok(is.numeric(specimen$record$parameters), "the specimen carries the starting parameters")
+  ok(is.character(specimen$environment$R) && is.character(specimen$environment$BLAS),
+     "the specimen records the numerical environment")
+  ok(is.null(specimen$observations) && is.null(specimen$data),
+     "the specimen carries no observations")
+}
+unlink(specimen_dir, recursive = TRUE)
+# A specimen directory that cannot be written must not mask the refusal.
+Sys.setenv(GTHEORY_DISCRETE_SPECIMEN_DIR = file.path(tempfile("gt-blocked-"), "a", "b"))
+blocked_parent <- dirname(dirname(Sys.getenv("GTHEORY_DISCRETE_SPECIMEN_DIR")))
+writeLines("not a directory", blocked_parent)
+unwritable <- message_of(.gt_fit_discrete(d, "y", design, family,
+                                          control = list(maxit = 60L), .laplace = reproduces))
+Sys.unsetenv("GTHEORY_DISCRETE_SPECIMEN_DIR")
+unlink(blocked_parent)
+ok(grepl("reason=dense_newton_solve_invalid", unwritable, fixed = TRUE),
+   "the refusal stands when the specimen cannot be written")
+ok(grepl("specimen not written", unwritable, fixed = TRUE),
+   "a failed specimen write is reported rather than raised")
+# A real refused start, through the real dense solver, records how it stopped.
+truncated <- tryCatch(.gt_fit_discrete(d, "y", design, family, control = list(inner_maxit = 1L)),
+                      error = function(e) conditionMessage(e))
+ok(is.character(truncated) &&
+     identical(truncated, "The discrete likelihood did not yield a converged finite inner mode at starting values."),
+   "a non-converged start refuses with the established message and no invented reason")
 
 if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Dense solve-validity checks passed: backward error, bound, degenerate arithmetic, ",
     "step and factor corruption, probe properties, end-to-end refusal, reason codes, ",
-    "diagnosable start-value refusal, and no rescue from the diagnostic replay.\n", sep = "")
+    "diagnosable start-value refusal on the original evaluation, retained invalid ",
+    "evaluations, and opt-in specimen capture.\n", sep = "")

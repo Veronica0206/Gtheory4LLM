@@ -38,9 +38,9 @@ content_digest <- function(path) {
 # ---- the governed sources are pinned from outside themselves -------------------
 FROZEN_SOURCES <- c(
   "PROTOCOL.md" = "c05807cfc9801a24fb003ee91e474af8",
-  "CALIBRATION.md" = "2e7a53d66714dbaedd50380640ac6448",
+  "CALIBRATION.md" = "3d2bdba8bae3a0cf98e1ca8a87b9b3f8",
   "README.md" = "2f73e051d4be697fa35841eba91a9f81",
-  "cases.R" = "9bf866425c7a697f2649663fff97c6b1",
+  "cases.R" = "b9a9d16f49f9057e9b169db72234e3f1",
   "freeze-fixtures.R" = "96a3ff727d433c5ff4d8c741aa0eaf85",
   "run-equivalence.R" = "7d4ac0eccc1d5d57d31b871fbb98d4a7",
   "results-schema.csv" = "387a602d1dcb6e70ad1eaa62f74cc150")
@@ -176,7 +176,7 @@ FROZEN_DIGESTS <- c(
   "K02" = "03ef8e4d9c792e2500c75dc5751a59e3",
   "K03" = "70ed6c22fcda96a6f11ee40402f61845",
   "K04" = "e18a2d7851e77a56b6ccdb2ece153b6c",
-  "K05" = "e1dddcce3be9f8a72791affcd3b449b0",
+  "K05" = "c31d3ed8439fc056344072bd88b7ad4e",
   "K06" = "cc31a7a33aeb97d3a60c227d73a79fdd")
 FROZEN_OBSERVATIONS <- c(
   "C01" = 90L,
@@ -303,6 +303,46 @@ near <- recorded[recorded$geometry == "near_limit", ]
 ok(nrow(near) == 2L && all(near$random_dimension >= 180L) &&
      all(near$random_dimension <= 200L),
    "the near-limit cases genuinely approach the dense random-dimension ceiling")
+
+# ---- tail-mass composition ---------------------------------------------------
+# A digest pins a fixture's identity, not its suitability. K05 was frozen with
+# the five-level tail construction applied to a three-level scale (categories
+# 15/60/165, 68.75% in the top category) because the level selector and the
+# panel builder recognised "tail" differently; see the pre-calibration
+# amendment in CALIBRATION.md. Every tail-mass panel, scored or calibration,
+# is now asserted to have the composition the construction promises.
+ok(identical(EQ_TAIL_GEOMETRIES, c("tail_mass", "cal_tail")),
+   "the tail-mass geometries are frozen as one explicit set")
+ok(all(EQ_CORE$geometry[EQ_CORE$geometry %in% EQ_TAIL_GEOMETRIES] == "tail_mass") &&
+     all(EQ_CALIBRATION$geometry[EQ_CALIBRATION$geometry %in% EQ_TAIL_GEOMETRIES] == "cal_tail"),
+   "the scored and calibration tail geometries are the two frozen names")
+tail_rows <- rbind(
+  data.frame(case = EQ_CORE$case, family = EQ_CORE$family, geometry = EQ_CORE$geometry,
+             stringsAsFactors = FALSE),
+  data.frame(case = EQ_CALIBRATION$case, family = EQ_CALIBRATION$family,
+             geometry = EQ_CALIBRATION$geometry, stringsAsFactors = FALSE))
+tail_rows <- tail_rows[tail_rows$geometry %in% EQ_TAIL_GEOMETRIES, ]
+ok(identical(sort(tail_rows$case), c("C12", "K05")), "exactly C12 and K05 are tail-mass cases")
+for (i in seq_len(nrow(tail_rows))) {
+  row <- tail_rows[i, ]
+  geometry <- c(EQ_GEOMETRY, EQ_CALIBRATION_GEOMETRY)[[row$geometry]]
+  panel <- .eq_panel_for(row$family, row$geometry, geometry)
+  counts <- table(panel$y)
+  label <- paste0("tail-mass case ", row$case)
+  ok(identical(nlevels(panel$y), 5L) && identical(length(counts), 5L),
+     paste0(label, " is built on the five-level scale"))
+  ok(all(counts > 0L), paste0(label, " observes every category"))
+  extremes <- c(counts[[1L]], counts[[5L]])
+  ok(all(extremes / nrow(panel) <= 0.10),
+     paste0(label, " keeps each extreme category at or below 10% of the panel"))
+  ok(max(counts) / nrow(panel) < 0.5,
+     paste0(label, " has no majority category"))
+  per_object <- table(panel$item, panel$y)
+  ok(max(per_object[, c(1L, 5L)]) <= 1L,
+     paste0(label, " gives each object at most one row per extreme category"))
+  ok(length(unique(apply(per_object, 1L, paste, collapse = ","))) > 1L,
+     paste0(label, " varies the per-object composition"))
+}
 
 # ---- degeneracy guard -----------------------------------------------------------
 # Three separate builders in this study were degenerate before this guard: a

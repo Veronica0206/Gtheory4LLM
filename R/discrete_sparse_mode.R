@@ -8,7 +8,7 @@
 # all stay in their original order, because the dense file records that order
 # as a requirement and the frozen reference was produced by it.
 #
-# Only six operations differ, and each is a call into the sparse algebra that
+# Only seven operations differ, and each is a call into the sparse algebra that
 # earlier steps already established:
 #
 #   dense                                sparse
@@ -18,6 +18,14 @@
 #   chol(H)                              .gt_d_sparse_factor(H)
 #   backsolve(R, forwardsolve(t(R), g))  .gt_d_sparse_solve(factor, g)
 #   sum(log(diag(R)))                    .gt_d_sparse_logdet(factor) / 2
+#   .gt_d_final_factor_check(H, R)       .gt_d_sparse_final_factor_check(H, factor)
+#
+# The solve-validity check after the Newton step is the SAME function on both
+# sides, .gt_d_solve_check(), applied to the sparse H without densifying it;
+# only the final-factor probe solve differs, because it goes through the
+# factor object rather than a triangular matrix. The invariant, the bound and
+# the refusal are otherwise identical, so a sparse fit is refused at exactly
+# the points a dense fit would be refused.
 #
 # The last line is the one to read twice. The dense value adds the log
 # determinant of the Cholesky factor, which is half the log determinant of the
@@ -60,11 +68,12 @@
   baseline <- .gt_d_baseline(parameters, prep)
   u <- numeric(ncol(W))
   converged <- FALSE
+  accepted <- TRUE
   last_gradient <- Inf
   for (iter in seq_len(control$inner_maxit)) {
     eta <- baseline + matrix(as.numeric(W %*% u), prep$n, prep$q)
     response <- .gt_d_response_kernel(eta, parameters, prep)
-    if (!response$valid) return(if (details) list(valid = FALSE) else 1e100)
+    if (!response$valid) return(if (details) list(valid = FALSE, inner_iterations = iter) else 1e100)
     gradient <- as.numeric(Matrix::crossprod(W, response$gradient)) + u
     last_gradient <- max(abs(gradient))
     if (last_gradient <= control$inner_tol) { converged <- TRUE; break }
@@ -76,6 +85,22 @@
     factorization <- tryCatch(.gt_d_sparse_factor(H), error = function(e) NULL)
     if (is.null(factorization)) return(if (details) list(valid = FALSE) else 1e100)
     step <- .gt_d_sparse_solve(factorization, gradient)
+    # The same invariant, at the same point, as the dense solver: checked
+    # immediately after the solve and before the line search consumes the
+    # step. A sparse Cholesky can likewise return without error and still hand
+    # back a factor of some other matrix (issue #14), and a violated invariant
+    # makes the sparse conditional solve unavailable, with no rescue. The
+    # backward error is taken against the sparse H directly, so nothing here
+    # densifies the matrix.
+    solve_check <- .gt_d_solve_check(H, gradient, step)
+    if (!isTRUE(solve_check$valid))
+      return(if (details) c(list(valid = FALSE, reason = "sparse_newton_solve_invalid"),
+                            solve_check[.GT_D_SOLVE_DETAIL],
+                            # The failed operation itself, for a specimen file.
+                            # Built only on failure; never retained in a fit.
+                            list(inner_iterations = iter,
+                                 specimen = list(hessian = H, right_hand_side = gradient,
+                                                 step = step, factor = factorization$factor))) else 1e100)
     objective <- response$nll + sum(u^2) / 2
     descent <- sum(gradient * step)
     multiplier <- 1
@@ -97,13 +122,27 @@
   # Always recompute at the final mode, including when max iterations was hit.
   eta <- baseline + matrix(as.numeric(W %*% u), prep$n, prep$q)
   response <- .gt_d_response_kernel(eta, parameters, prep)
-  if (!response$valid) return(if (details) list(valid = FALSE) else 1e100)
+  if (!response$valid) return(if (details) list(valid = FALSE, inner_iterations = iter) else 1e100)
   last_gradient <- max(abs(as.numeric(Matrix::crossprod(W, response$gradient)) + u))
   converged <- is.finite(last_gradient) && last_gradient <= control$inner_tol * 10
   H <- .gt_d_sparse_hessian(response$curvature, W, prep$n)
   factorization <- tryCatch(.gt_d_sparse_factor(H), error = function(e) NULL)
+  # As in the dense solver: how a non-converged solve stopped is recorded.
   if (is.null(factorization) || !converged) return(if (details)
-    list(valid = FALSE, inner_converged = converged, inner_gradient = last_gradient) else 1e100)
+    list(valid = FALSE, inner_converged = converged, inner_gradient = last_gradient,
+         inner_iterations = iter, inner_line_search_failed = !accepted,
+         inner_factor_unavailable = is.null(factorization)) else 1e100)
+  # The final factor feeds a log determinant rather than a solve, so the Newton
+  # check above does not cover it. Validated with the same fixed probes the
+  # dense solver uses, through the factor object's own permutation-aware solve,
+  # before its diagonal contributes to the Laplace objective.
+  factor_check <- .gt_d_sparse_final_factor_check(H, factorization)
+  if (!isTRUE(factor_check$valid)) return(if (details)
+    c(list(valid = FALSE, reason = "sparse_final_factor_invalid",
+           inner_converged = converged, inner_gradient = last_gradient,
+           inner_iterations = iter),
+      factor_check[c(.GT_D_SOLVE_DETAIL, "probe_index")],
+      list(specimen = list(hessian = H, factor = factorization$factor))) else 1e100)
   # Half the log determinant, matching sum(log(diag(R))) in the dense solver.
   value <- response$nll + sum(u^2) / 2 + .gt_d_sparse_logdet(factorization) / 2
   if (!details) return(value)

@@ -107,6 +107,46 @@ expect(isTRUE(all.equal(parameters, unname(reml$uncertainty$parameter_covariance
        "the parameter covariance is the fit's own 2 H^-1")
 expect_error(gt_component_vcov(reml, "nonsense"), "arg", "an unknown covariance type")
 
+# --- Summary matches source and outcome names as separate fields ------------
+# Spaces are supported in both kinds of names. These pairs collide if joined
+# with a space: source "p" / outcome "x y", and source "p x" / outcome "y".
+set.seed(911)
+spaced_panel <- expand.grid(p = 1:40, r = 1:8)
+spaced_panel[["x y"]] <- rnorm(40, sd = .7)[spaced_panel$p] +
+  rnorm(8, sd = 2)[spaced_panel$r] + rnorm(nrow(spaced_panel), sd = .9)
+spaced_panel$y <- rnorm(40, sd = 1.5)[spaced_panel$p] +
+  rnorm(8, sd = .8)[spaced_panel$r] + rnorm(nrow(spaced_panel), sd = 1.2)
+names(spaced_panel)[2L] <- "p x"
+spaced_fit <- gt_fit(spaced_panel, c("x y", "y"), gt_design("p", "p x"),
+                     covariance = "diagonal", residual = "diagonal")
+expect(isTRUE(spaced_fit$numerically_accepted) && isTRUE(spaced_fit$uncertainty$available),
+       "the spaced-name fixture is accepted and has component standard errors")
+spaced_errors <- spaced_fit$component_standard_errors
+spaced_summary <- summary(spaced_fit)$variances
+for (i in seq_len(nrow(spaced_errors))) {
+  row <- spaced_summary$source == spaced_errors$component[i] &
+    spaced_summary$trait == spaced_errors$trait[i]
+  expect(sum(row) == 1L, "each component and outcome has one summary row")
+  near(spaced_summary$std_error[row], spaced_errors$std_error[i],
+       "summary standard errors match both source and outcome names")
+}
+
+# Distinct marker flags and reordered error rows test boundary mapping without
+# depending on a numerical optimizer landing on a particular boundary.
+boundary_fixture <- spaced_fit
+boundary_errors <- spaced_errors[rev(seq_len(nrow(spaced_errors))), ]
+boundary_errors$at_boundary <- boundary_errors$component == "p x"
+boundary_fixture$component_standard_errors <- boundary_errors
+boundary_summary <- summary(boundary_fixture)$variances
+for (i in seq_len(nrow(boundary_errors))) {
+  row <- boundary_summary$source == boundary_errors$component[i] &
+    boundary_summary$trait == boundary_errors$trait[i]
+  near(boundary_summary$std_error[row], boundary_errors$std_error[i],
+       "summary standard errors match correctly after error rows are reordered")
+  expect(identical(boundary_summary$at_boundary[row], boundary_errors$at_boundary[i]),
+         "summary boundary flags match both source and outcome names")
+}
+
 # Disabling the Hessian removes the uncertainty, and the refusal must say which.
 without <- gt_fit(panel, "y", design,
                   control = gt_control(gaussian = list(check_hessian = FALSE)))
@@ -205,6 +245,20 @@ for (generic in list(logLik, AIC, BIC))
   expect_error(generic(rejected), "numerically accepted",
                "a rejected fit refuses the model-selection generics")
 expect(is.finite(rejected$minus2loglik), "the rejected fit keeps its objective for diagnosis")
+
+# One acceptance rule for the generics and for reliability: a discrete fit must
+# carry an affirmative acceptance, so a missing or NA flag is refused rather
+# than read as accepted, while a Gaussian fit is refused only on an explicit
+# failure and an older Gaussian object without the flag stays usable.
+unflagged <- binary
+unflagged$numerically_accepted <- NA
+expect_error(logLik(unflagged), "numerically accepted",
+             "a discrete fit whose acceptance flag is NA is refused by logLik")
+expect_error(gt_reliability(unflagged, scale = "latent"), "numerically converged",
+             "reliability applies the same affirmative rule")
+legacy <- reml
+legacy$numerically_accepted <- NULL
+expect(inherits(logLik(legacy), "logLik"), "a Gaussian fit without the flag is still usable")
 
 # Dispatch keeps these methods away from foreign objects, so the guards are
 # checked by invoking the registered methods directly.

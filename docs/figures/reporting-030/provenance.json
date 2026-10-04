@@ -1,0 +1,11 @@
+{
+  "example": "examples/analysis_report_workflow.R",
+  "data_kind": "synthetic",
+  "package": "Gtheory4LLM",
+  "version": "0.3.0.9000",
+  "checked_archive_sha256": "f2f7e04005283e4254e8e52c9a030c719691ed41f9e44516f20375f7abbfe7ab",
+  "R": "4.5.3",
+  "r_cmd_check": "0 errors, 0 warnings, 0 notes",
+  "visual_check": "Embedded SVG plots rendered and inspected; final SVG bytes match inspected figures. Full HTML browser layout not verified because local-file browser navigation was blocked.",
+  "privacy": "Reports contain aggregates, source/outcome names and category aliases. RDS snapshots remain outside the repository."
+}

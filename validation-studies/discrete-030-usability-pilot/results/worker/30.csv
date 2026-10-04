@@ -1,0 +1,2 @@
+"attempt","status","accepted","optimizer_completed","variance_estimate","reliability_estimate","boundary","observations","category_counts","engine","approximation_adequacy","acceptance_failures","invalid_evaluations","fit_seconds","warnings","error"
+30,"accepted",TRUE,TRUE,0,0,TRUE,72,"0:70;1:2","dense_joint_discrete_laplace","exact_no_random_variation","",0,0.031,"",""

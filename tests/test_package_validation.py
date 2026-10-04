@@ -11,11 +11,77 @@ SPEC.loader.exec_module(CHECK)
 
 
 class PackageValidationTests(unittest.TestCase):
+    @staticmethod
+    def development_update_log(days="0"):
+        return ("* checking CRAN incoming feasibility ... [5s/20s] NOTE\n"
+                "Maintainer: 'Example <a@example.invalid>'\n\n"
+                "Version contains large components (0.3.0.9000)\n\n"
+                f"Days since last update: {days}\n"
+                "* checking tests ... OK\n* DONE\nStatus: 1 NOTE\n")
+
+    def test_known_development_package_reports_actual_incoming_messages(self):
+        for days in ("0", "1", "27"):
+            with self.subTest(days=days):
+                report = CHECK.check_status(self.development_update_log(days),
+                                            as_cran=True, version="0.3.0.9000")
+                self.assertEqual(report["notes"], 1)
+                self.assertEqual(len(report["allowed_notes"]), 1)
+                self.assertIn("Version contains large components (0.3.0.9000)",
+                              report["allowed_notes"][0])
+                self.assertIn(f"Days since last update: {days}", report["allowed_notes"][0])
+                self.assertNotIn("New submission", report["allowed_notes"][0])
+
+    def test_update_cadence_requires_exact_development_version_context(self):
+        log = self.development_update_log()
+        for version in (None, "0.3.0", "0.3.0.9001"):
+            with self.subTest(version=version), self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+                CHECK.check_status(log, as_cran=True, version=version)
+        invalid_logs = (
+            log.replace("CRAN incoming feasibility", "package metadata"),
+            log.replace("Maintainer: 'Example <a@example.invalid>'\n", ""),
+            log.replace("Maintainer: 'Example <a@example.invalid>'", "Maintainer:"),
+            log.replace("Version contains large components (0.3.0.9000)\n", ""),
+            log.replace("Version contains large components (0.3.0.9000)", "New submission"),
+            log.replace("Days since last update: 0", "Days since last update: 0\nInvalid URL"),
+        )
+        for invalid in invalid_logs:
+            with self.subTest(log=invalid), self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+                CHECK.check_status(invalid, as_cran=True, version="0.3.0.9000")
+        with self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+            CHECK.check_status(log, as_cran=False, version="0.3.0.9000")
+
+    def test_development_metadata_rejects_malformed_or_duplicate_lines(self):
+        for days in ("-1", "+1", "0.5", "0 trailing", "", "０"):
+            with self.subTest(days=days), self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+                CHECK.check_status(self.development_update_log(days),
+                                   as_cran=True, version="0.3.0.9000")
+        log = self.development_update_log()
+        for line in ("Version contains large components (0.3.0.9000)",
+                     "Days since last update: 0", "Days since last update: 1",
+                     "New submission\nNew submission"):
+            duplicate = log.replace("* checking tests", line + "\n* checking tests")
+            with self.subTest(line=line), self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+                CHECK.check_status(duplicate, as_cran=True, version="0.3.0.9000")
+
+    def test_development_metadata_preserves_vignette_and_completion_gates(self):
+        log = self.development_update_log()
+        skipped = log.replace("* checking tests", CHECK.NO_VIGNETTE_INDEX_NOTE + "\n* checking tests")
+        CHECK.check_status(skipped, as_cran=True, version="0.3.0.9000", vignettes_built=False)
+        with self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+            CHECK.check_status(skipped, as_cran=True, version="0.3.0.9000", vignettes_built=True)
+        for invalid in (log.replace("* DONE", ""),
+                        log.replace("* checking tests ... OK", "* checking tests ... WARNING"),
+                        log.replace("* checking tests ... OK", "* checking tests ... ERROR")):
+            with self.subTest(log=invalid), self.assertRaises(RuntimeError):
+                CHECK.check_status(invalid, as_cran=True, version="0.3.0.9000")
+
     def test_only_explicit_new_submission_note_is_expected_in_as_cran_mode(self):
         log = "* checking CRAN incoming feasibility ... NOTE\nMaintainer: 'Example <a@example.invalid>'\n\nNew submission\n* checking package namespace information ... OK\n* DONE\nStatus: 1 NOTE\n"
         report = CHECK.check_status(log, as_cran=True)
         self.assertEqual(report["notes"], 1)
         self.assertEqual(report["allowed_notes"], ["CRAN incoming feasibility: New submission"])
+        self.assertEqual(CHECK.check_status(log, as_cran=True, version="0.3.0.9000")["allowed_notes"],
+                         ["CRAN incoming feasibility: New submission"])
         with self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
             CHECK.check_status(log, as_cran=False)
         with self.assertRaisesRegex(RuntimeError, "substantive NOTE"):

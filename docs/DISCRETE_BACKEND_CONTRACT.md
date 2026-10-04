@@ -71,7 +71,22 @@ A successful scalar evaluation returns the Laplace negative log likelihood.
 With `details = TRUE`, it returns `valid`, `nll`, `mode`, `eta`,
 `conditional_nll`, `inner_iterations`, `inner_converged`, `inner_gradient`, and
 `random_dimension`. Numerical failures retain the `1e100` scalar penalty or the
-existing diagnostic failure list. A malformed internal input raises an error.
+existing diagnostic failure list; a non-converged solve's list records
+`inner_iterations`, `inner_line_search_failed` and `inner_factor_unavailable`.
+A malformed internal input raises an error.
+
+Both mode solvers enforce the same two validity invariants (issues #14 and
+#46). The Newton step is checked against its own system by the shared
+backward-error rule `.gt_d_solve_check()`, at the bound
+`32 * random_dimension * eps`, immediately after the solve; the sparse solver
+applies it to its sparse Hessian without densifying it. The final factor is
+probed with the same two fixed vectors before its log determinant enters the
+objective; the sparse probe goes through the factor object's permutation-aware
+solve in `.gt_d_sparse_final_factor_check()`. A violated invariant returns the
+failure list with reason `dense_newton_solve_invalid`,
+`dense_final_factor_invalid`, `sparse_newton_solve_invalid` or
+`sparse_final_factor_invalid` and, in detailed form, the failed operation as a
+`specimen` element. There is no fallback, regularization or looser tolerance.
 
 `.gt_d_laplace()` remains the orchestration adapter: it decodes covariance
 factors, constructs the backend, calls the mode solver, and inserts `factors`

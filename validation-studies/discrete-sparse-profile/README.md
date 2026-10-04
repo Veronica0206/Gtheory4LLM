@@ -15,8 +15,9 @@ here:
 | --- | --- |
 | `profile-medium.R` | one backend per process; `timing` and `work` modes |
 | `results.md` | recorded measurements and the scale-risk specimen |
-
 | `profile-medium.sh` | wrapper that adds external peak RSS |
+| `replay-scale-risk.R` | replays the scale-risk specimen's failed evaluations through both backends with their own records |
+| `budget-experiment.R` | measures, on the scale-risk specimen, what a larger inner budget and a warm start each recover; the measurement #5 is conditional on |
 
 Reproduce everything, including the headline memory figures, with:
 

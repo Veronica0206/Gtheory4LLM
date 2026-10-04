@@ -1,0 +1,2 @@
+"attempt","status","accepted","optimizer_completed","variance_estimate","reliability_estimate","boundary","observations","category_counts","engine","approximation_adequacy","acceptance_failures","invalid_evaluations","fit_seconds","warnings","error"
+16,"accepted",TRUE,TRUE,0.32800476923993,0.663076024672392,FALSE,72,"low:11;middle:59;high:2","dense_joint_discrete_laplace","not_assessed_first_order_laplace","",0,0.115,"",""

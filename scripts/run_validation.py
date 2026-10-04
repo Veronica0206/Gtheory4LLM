@@ -32,6 +32,13 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # failure by nature, so it has to run on every platform rather
                  # than only on Linux.
                  "test_discrete_solve_validity.R",
+                 # The sparse twin of that invariant, for the same reason: a
+                 # CHOLMOD factor that reports success and does not solve its
+                 # own system is a platform-dependent failure by nature.
+                 "test_discrete_sparse_validity.R",
+                 # A specimen written on one platform is read on another, and
+                 # the CHOLMOD factor it carries must survive that trip.
+                 "test_specimen_replay.R",
                  # The equivalence freeze is a contract about the study's
                  # inputs, so it must hold on every platform the study will
                  # later be executed on.

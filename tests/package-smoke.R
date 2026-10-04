@@ -2,12 +2,18 @@
 library(Gtheory4LLM)
 expected_exports <- c("gt_design", "gt_family", "gt_control", "gt_score", "gt_fit",
                       "gt_components", "gt_component_vcov", "gt_reliability", "gt_dstudy",
-                      "gt_diagnostics", "gt_example", "gt_preflight")
+                      "gt_dstudy_target", "gt_diagnostics", "gt_example", "gt_preflight",
+                      "gt_report", "gt_export_report")
 stopifnot(setequal(getNamespaceExports("Gtheory4LLM"), expected_exports))
 stopifnot(is.function(getS3method("print", "gt_fit")),
+          is.function(getS3method("print", "gt_report")),
           is.function(getS3method("summary", "gt_fit")),
           is.function(getS3method("print", "summary.gt_fit")),
-          is.function(getS3method("plot", "gt_dstudy")))
+          is.function(getS3method("plot", "gt_dstudy")),
+          is.function(getS3method("plot", "gt_preflight")),
+          is.function(getS3method("plot", "gt_reliability")),
+          is.function(getS3method("as.data.frame", "gt_reliability")),
+          is.function(getS3method("as.data.frame", "gt_dstudy")))
 catalog <- gt_example()
 stopifnot(nrow(catalog) == 8L)
 for (name in catalog$name) {
