@@ -41,13 +41,25 @@ below add refusals, evidence and reporting.
   that a call with no row left is not counted, and that positions are ranks
   among the items present, not necessarily the positions at which they were
   sent.
-- This is a first step. Estimates still treat items in one call as
-  independent, and every result made from a declaring design says so: fits,
-  diagnostics, coefficients and decision studies print it, the data-frame
-  exports and `gt_dstudy_target()` carry `batch_status`, the plots state it
-  where a caller's own subtitle cannot replace it, and `gt_report()` records
-  it. The exports gain that one column for every
-  design; it reads `not_declared` when no batch was declared.
+- A Gaussian fit models a declaration when the batches form a complete
+  factorial with the facets: the same batches in every condition, each at the
+  declared size. It estimates one shared call effect, reported as the source
+  `Call` with its standard error, by the exact balanced likelihood, in which
+  an item is a batch-by-slot cell. REML and ML fits match lme4's in criterion
+  and variances, including a call variance of zero. `gt_preflight()` says
+  beforehand whether a fit will model the batches, and why not when it will
+  not.
+- A fit with a call effect has no reliability coefficients or decision study
+  yet: the coefficient weights do not account for which items share a call,
+  so `gt_reliability()` and `gt_dstudy()` refuse it. `sequential`, `neighbor`
+  and `by` are recorded and not yet estimated.
+- Every other declaration changes no estimate, and every result says what
+  happened to a declaration: fits and diagnostics print the status,
+  `not_declared`, `declared_not_modelled` with the reason, or `modelled`;
+  coefficients and decision studies print it, their data-frame exports and
+  `gt_dstudy_target()` carry `batch_status`, the plots state it where a
+  caller's own subtitle cannot replace it, and `gt_report()` records it. The
+  exports gain that one column for every design.
 
 ## Data checks, reporting and figures
 

@@ -18,8 +18,9 @@ gt_diagnostics(fit)
 }
 \value{A \code{gt_diagnostics} list with estimator, engine, optimizer and numerical acceptance status,
 approximation status, engine-specific diagnostics, a staged summary, resolved aliases,
-data-validation notes, and \code{batch}: whether the design declared batches, their size, and
-whether membership was inferred or recorded.
+data-validation notes, and \code{batch}: whether the design declared batches and whether the fit
+modelled them, their size, whether membership was inferred or recorded, the reason a declared batch
+was not modelled, and the declared options not yet estimated.
 
 The \code{stages} element summarises the numerical checks a fit passed through, so that a rejection names the stage responsible without the caller reading private optimizer records. Each stage reports \code{status}, a \code{reason} and supporting \code{measurements}. The status is one of \code{"passed"}, \code{"failed"}, \code{"not_assessed"} for a check that did not run or does not apply to this engine, or \code{"inconclusive"} for one that ran and neither clearly passed nor clearly failed. Absent evidence is reported as \code{"not_assessed"} and never as a pass. The summary is derived from evidence the fit already retained: it never refits, and it never changes an acceptance decision. In particular, optimizer completion reports what the optimizer reported; a retained attempt that never moved from its starting values is exposed through \code{max_abs_parameter_change} rather than by redefining completion. Shared diagnostic fields include:
 \itemize{

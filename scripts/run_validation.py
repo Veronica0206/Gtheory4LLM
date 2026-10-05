@@ -22,6 +22,9 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = ("OpenMx", "lme4", "ordinal")
 COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
+                 # The call effect is the newest path through the exact engine,
+                 # and its agreement with lme4 should hold on every platform.
+                 "test_gaussian_call_effect.R",
                  "test_discrete.R",
                  # The frozen fixed-parameter targets are the contract a sparse
                  # backend will be judged against, so whether they reproduce off

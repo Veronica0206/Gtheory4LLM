@@ -23,7 +23,18 @@ By default items in one call are assumed to affect each other equally, whatever 
 
 Recorded calls are still read from the rows supplied, and three things follow. A call is counted by the items of it that are present, so a call that was sent \code{size} items and lost one afterwards looks the same as a call sent one item short. A call with no row left is not counted at all. And a position is a rank among the items present in a call: an \code{order} column holding 1, 3 and 4 gives positions 1, 2 and 3. Positions are the positions at which items were sent only when nothing was removed after collection, so a distance between two positions is not yet a distance in the call as it was sent. Keep the unfiltered rows, or the number of items sent in each call, if that distinction will matter.
 
-\strong{Current scope.} A declaration is recorded and audited by \code{\link{gt_preflight}}, which reports the calls it implies or reads and whether the declaration describes the data. Estimates in this version still treat items in one call as independent. Every result made from a declaring design says so: fits, diagnostics, coefficients and decision studies print it, their data-frame exports carry \code{batch_status = "declared_not_modelled"}, and \code{\link{gt_report}} records it.}
+\strong{What a fit does with a declaration.} A Gaussian fit models the declaration when the batches form a complete factorial with the facets: the same batches in every condition, every batch at the declared size, at least two batches, and one row in each cell. It then estimates one shared call effect, a random effect for each batch under each condition that its items share equally. The effect is reported as the source \code{Call} beside the declared sources, with its standard error; with several outcomes it has a covariance between them, structured through \code{covariance} like any other source. The likelihood is the exact balanced one, in which an item is a batch-by-slot cell; which slot an item occupies has no effect of its own.
+
+Any other declaration is recorded and audited but not modelled: batches of unequal size, batches that differ between conditions, more than one row in a cell, a single batch, and every binary, ordinal or unordered outcome. The fit then treats items in one call as independent and says so, with the reason. \code{sequential}, \code{neighbor} and \code{by} are recorded and not yet estimated in either case. \code{\link{gt_preflight}} reports beforehand which of the two a fit will do.
+
+\strong{Coefficients.} A call effect is shared by the items of one call and by no others, so its part in relative error depends on which items share calls. The coefficient weights do not account for that yet, and \code{\link{gt_reliability}} and \code{\link{gt_dstudy}} therefore refuse a fit that models a call effect. Fit the design without its declaration for coefficients that treat items as independent.
+
+Every result says what happened to a declaration. Fits and diagnostics print the status, the data-frame exports of coefficients carry it as \code{batch_status}, and \code{\link{gt_report}} records it. It takes one of three values:
+\itemize{
+\item \code{"not_declared"}: the design declares no batch.
+\item \code{"declared_not_modelled"}: items in one call are treated as independent, for the reason given.
+\item \code{"modelled"}: the fit estimates the shared call effect.
+}}
 \seealso{\code{\link{gt_design}}, \code{\link{gt_preflight}}}
 \examples{
 calls <- gt_batch(20)

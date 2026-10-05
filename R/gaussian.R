@@ -117,11 +117,13 @@
 # covariance: One of unstructured/diagonal or named source overrides.
 #   With named overrides, unspecified sources use diagonal covariance.
 # residual: One of unstructured, diagonal, or pooled (equal trait variance).
+# call: NULL, or what .gt_batch_model() found for a declared batch: whether it
+#   can be modelled, and if so the batch and slot of every row.
 # Returns: A list containing source covariance matrices, outcome means, exact
 #   likelihood, stationarity and boundary diagnostics, and the fitted OpenMx model.
 .gt_fit_gaussian <- function(data, outcomes, design, estimator = "REML",
                              covariance = "unstructured", residual = "unstructured",
-                             control = list()) {
+                             control = list(), call = NULL) {
   if (!inherits(design, "gt_design")) stop("design must be created by gt_design().", call. = FALSE)
   design <- .gt_resolve_design(data, design, "gaussian")
   variables <- c(design$object, design$facets)
@@ -131,28 +133,51 @@
     stop("The Gaussian contrast backend currently requires one observation per full cell; within-cell replication is not yet supported.", call. = FALSE)
   # Exact factorial contrasts have 2^(Nfacets+1) strata. This explicit resource
   # guard avoids integer overflow and an accidental exponential allocation.
-  if (length(variables) > 12L)
-    stop("This exact balanced Gaussian backend is limited to 4096 factorial strata (object plus at most 11 facets). Reduce the design or use a future sparse backend.", call. = FALSE)
+  # A declared batch that forms a complete factorial with the facets is
+  # modelled: the object becomes a batch-by-slot cell, which is one more axis,
+  # and the call, a batch under one condition, becomes a source. gt_fit()
+  # resolves the batches from the data as supplied, where the columns a
+  # declaration names are still present, and passes the result as call.
+  modelled <- isTRUE(call$modelled)
+  axes <- variables
+  spec <- design$terms
+  if (modelled) {
+    if (.GT_CALL_TERM %in% design$terms)
+      stop("A source named ", .GT_CALL_TERM, " cannot be combined with a modelled batch; rename that variable.", call. = FALSE)
+    columns <- utils::tail(make.unique(c(names(data), ".gt_batch", ".gt_slot")), 2L)
+    data[[columns[[1L]]]] <- call$batch
+    data[[columns[[2L]]]] <- call$slot
+    axes <- c(columns, design$facets)
+    spec <- c(design$terms, .GT_CALL_TERM)
+  }
+  if (length(axes) > 12L)
+    stop("This exact balanced Gaussian backend is limited to 4096 factorial strata (object plus at most 11 facets", if (modelled) ", or 10 with a modelled batch" else "", "). Reduce the design or use a future sparse backend.", call. = FALSE)
   if (!is.character(estimator) || length(estimator) != 1L || is.na(estimator) ||
       !estimator %in% c("ML", "REML")) stop("Gaussian estimator must be ML or REML.", call. = FALSE)
   control <- .gt_gaussian_validate_control(control)
   if (!exists(".gt_gaussian_engine", mode = "function", inherits = TRUE))
     stop("Source R/gaussian_engine.R before fitting Gaussian models.", call. = FALSE)
-  engine <- .gt_gaussian_engine(variables)
-  facets <- stats::setNames(variables, variables)
+  engine <- if (modelled) .gt_gaussian_engine(variables,
+    call = list(batch = columns[[1L]], slot = columns[[2L]], term = .GT_CALL_TERM)) else
+    .gt_gaussian_engine(variables)
+  facets <- stats::setNames(axes, axes)
   # Prepare once before model construction so unsupported sampling structures
   # produce a specific data error before OpenMx is invoked.
   preparation_limit <- if (is.null(control$max_preparation_bytes)) 512 * 1024^2 else control$max_preparation_bytes
   prepared <- engine$prepare(data, outcomes, facets, max_preparation_bytes = preparation_limit)
   if (!is.null(control$start))
     control$start <- .gt_gaussian_validate_start(control$start, outcomes,
-                                               c(design$terms, "Residual"))
+                                               c(spec, "Residual"))
   result <- do.call(engine$fit, c(list(data = data, outcomes = outcomes,
-    facets = facets, spec = design$terms, reml = estimator == "REML",
+    facets = facets, spec = spec, reml = estimator == "REML",
     covariance = covariance, residual = residual, prepared = prepared), control))
   checked_design <- .gt_design_validated(design,
     "Complete Cartesian coded panel, one observation per full cell; declared parent-scoped grouping terms. Physical nesting not inferred.")
-  checked_design$observed_counts <- prepared$counts
+  # Counts are reported for the design variables. With a modelled batch the
+  # engine's axes split the object in two, so its count is their product.
+  checked_design$observed_counts <- if (modelled)
+    c(stats::setNames(call$batches * call$size, design$object), prepared$counts[design$facets]) else prepared$counts
+  if (!is.null(call)) checked_design$batch_model <- call[setdiff(names(call), c("batch", "slot"))]
   result$design <- checked_design
   result$family <- stats::setNames(lapply(outcomes, function(x)
     list(name = "gaussian", link = "identity")), outcomes)

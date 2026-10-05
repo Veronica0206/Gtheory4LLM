@@ -313,7 +313,16 @@
   record
 }
 
-.gt_gaussian_engine <- function(facet_names) {
+.gt_gaussian_engine <- function(facet_names, call = NULL) {
+  # The factorial axes are the design variables, object first. When items were
+  # annotated in equal fixed batches, the object is not one axis but two: an
+  # item is a batch-by-slot cell. Every source containing the object then spans
+  # both axes, and one further source, the call, spans the batch and every
+  # instrumentation facet: the items of one batch under one condition. Only the
+  # mapping from a source to its axes differs; the likelihood is unchanged.
+  .gt_variable_names <- facet_names
+  .gt_call <- call
+  if (!is.null(call)) facet_names <- c(call$batch, call$slot, facet_names[-1L])
   .gt_facet_names <- facet_names
   .gt_full_mask <- as.integer(2^length(facet_names) - 1)
   .gt_validate_facets <- function(facets) {
@@ -324,24 +333,34 @@
       stop("facets must map every design variable to one unique data column.", call. = FALSE)
     facets[.gt_facet_names]
   }
+  .gt_is_call <- function(term) !is.null(.gt_call) && identical(term, .gt_call$term)
   .gt_resolve_spec <- function(spec) {
     if (!is.character(spec) || !length(spec) || anyNA(spec))
       stop("spec must contain the design's canonical grouping terms.", call. = FALSE)
     groups <- vapply(spec, function(term) {
+      if (.gt_is_call(term)) return(term)
       parts <- strsplit(term, ":", fixed = TRUE)[[1L]]
-      if (!length(parts) || any(!parts %in% .gt_facet_names) || anyDuplicated(parts))
+      if (!length(parts) || any(!parts %in% .gt_variable_names) || anyDuplicated(parts))
         stop("Invalid Gaussian random-source term: ", term, call. = FALSE)
-      paste(.gt_facet_names[.gt_facet_names %in% parts], collapse = ":")
+      paste(.gt_variable_names[.gt_variable_names %in% parts], collapse = ":")
     }, character(1), USE.NAMES = FALSE)
-    if (anyDuplicated(groups) || !.gt_facet_names[[1L]] %in% groups)
+    if (anyDuplicated(groups) || !.gt_variable_names[[1L]] %in% groups)
       stop("Random sources must be unique and include the object main effect.", call. = FALSE)
-    if (paste(.gt_facet_names, collapse = ":") %in% groups)
+    if (paste(.gt_variable_names, collapse = ":") %in% groups)
       stop("The full-cell random source is aliased with Residual without replication.", call. = FALSE)
     groups
   }
 .gt_default_facets <- setNames(.gt_facet_names, .gt_facet_names)
+# The axes a source spans.
+.gt_term_axes <- function(group) {
+  if (.gt_is_call(group)) return(c(.gt_call$batch, .gt_variable_names[-1L]))
+  parts <- strsplit(group, ":", fixed = TRUE)[[1L]]
+  if (!is.null(.gt_call) && .gt_variable_names[[1L]] %in% parts)
+    parts <- c(.gt_call$batch, .gt_call$slot, setdiff(parts, .gt_variable_names[[1L]]))
+  parts
+}
 .gt_mask <- function(group) {
-  sum(2L ^ (match(strsplit(group, ":", fixed = TRUE)[[1L]], .gt_facet_names) - 1L))
+  sum(2L ^ (match(.gt_term_axes(group), .gt_facet_names) - 1L))
 }
 .gt_bits <- function(mask) as.logical(bitwAnd(as.integer(mask), 2L ^ (seq_along(.gt_facet_names) - 1L)))
 .gt_error <- function(...) stop(..., call. = FALSE)

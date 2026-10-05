@@ -35,8 +35,9 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   if (all(kinds == "gaussian")) {
     if (is.null(estimator)) estimator <- "REML"
     if (is.null(residual)) residual <- "unstructured"
+    call <- if (is.null(design$batch)) NULL else .gt_batch_model(data, design)
     result <- .gt_fit_gaussian(resolved$data, outcomes, design, estimator,
-                               covariance, residual, control$gaussian)
+                               covariance, residual, control$gaussian, call = call)
   } else {
     if (is.null(estimator)) estimator <- "ML_Laplace"
     if (!identical(estimator, "ML_Laplace"))
@@ -64,6 +65,9 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   result$family <- families
   result$outcomes <- outcomes
   if (is.null(result$design)) result$design <- design
+  if (!is.null(design$batch) && is.null(result$design$batch_model))
+    result$design$batch_model <- list(modelled = FALSE,
+      reason = "the call effect is estimated for Gaussian outcomes only")
   result$estimator <- estimator
   result$data <- resolved$data
   result$call <- match.call()

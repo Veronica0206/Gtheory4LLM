@@ -14,21 +14,33 @@
   do.call(paste, c(unname(codes), list(sep = ":")))
 }
 
-# Carried by every design that declares a batch, and so by every fit and
-# report made from it, until the estimates themselves use the declaration.
-.GT_BATCH_NOTE <- paste("A batch declaration is recorded and audited by gt_preflight().",
-  "Estimates in this version still treat items in one call as independent.")
+# Carried by every design that declares a batch. Whether a fit can use the
+# declaration depends on the data and the outcome family, so the note states
+# the rule and each fit states what it did.
+.GT_BATCH_NOTE <- paste("A batch declaration is audited by gt_preflight().",
+  "A Gaussian fit of equal fixed batches estimates one shared call effect;",
+  "any other fit treats items in one call as independent and says so.")
 
-# What a result made from this design can say about its batches. Estimates do
-# not use a declaration yet, so a declared batch is always "not modelled"; the
-# status travels with every coefficient so that none is read as batch-adjusted.
-# It lives beside the design because every engine loads this file.
+# The source a modelled batch adds to a fit: the items of one batch annotated
+# under one condition share it.
+.GT_CALL_TERM <- "Call"
+
+# What a result made from this design can say about its batches. A declared
+# batch is either modelled, with one shared call effect in the fit, or not
+# modelled, with the reason when a fit recorded one. The status travels with
+# every result so that none is read as something it is not. It lives beside
+# the design because every engine loads this file.
 .gt_batch_status <- function(design) {
   batch <- design$batch
   if (is.null(batch))
     return(list(status = "not_declared", size = NA_integer_, membership = NA_character_))
-  list(status = "declared_not_modelled", size = batch$size,
-       membership = if (is.null(batch$id)) "inferred" else "recorded")
+  model <- design$batch_model
+  modelled <- isTRUE(model$modelled)
+  list(status = if (modelled) "modelled" else "declared_not_modelled", size = batch$size,
+       membership = if (is.null(batch$id)) "inferred" else "recorded",
+       reason = if (modelled || is.null(model$reason)) NA_character_ else model$reason,
+       not_modelled = c(if (batch$sequential) "sequential", if (batch$neighbor) "neighbor",
+                        if (!is.null(batch$by)) "by"))
 }
 
 # A result made before the status existed could not have declared a batch.
@@ -39,9 +51,17 @@
 }
 
 .gt_batch_status_text <- function(status) {
+  if (identical(status$status, "modelled")) {
+    rest <- status$not_modelled
+    return(paste0("Batches of ", status$size, " items modelled (membership ", status$membership,
+      "): one shared call effect, reported as source ", .GT_CALL_TERM, ".",
+      if (length(rest)) paste0(" Declared but not yet used: ", paste(rest, collapse = ", "), ".") else ""))
+  }
   if (!identical(status$status, "declared_not_modelled")) return(NULL)
+  reason <- status$reason
   paste0("Batches of ", status$size, " items declared (membership ", status$membership,
-         ") but not modelled: items in one call are treated as independent.")
+         ") but not modelled: items in one call are treated as independent.",
+         if (length(reason) == 1L && !is.na(reason)) paste0(" Reason: ", reason, ".") else "")
 }
 
 # Drawn in the margin rather than offered as a default subtitle, so that a
