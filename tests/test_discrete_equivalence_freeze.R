@@ -344,6 +344,41 @@ for (i in seq_len(nrow(tail_rows))) {
      paste0(label, " varies the per-object composition"))
 }
 
+# ---- ordinal category composition, every fixture --------------------------------
+# The block above checks the two tail-mass cases. The defect behind it was a
+# disagreement between the level selector and the panel builder, and nothing
+# confines such a disagreement to a tail geometry. Every ordinal fixture,
+# scored and calibration, is therefore asserted to carry the number of levels
+# its geometry calls for, the same levels in its panel and in its family
+# specification, and an observation in every declared category.
+for (set in list(list(table = EQ_CORE, geometries = EQ_GEOMETRY),
+                 list(table = EQ_CALIBRATION, geometries = EQ_CALIBRATION_GEOMETRY))) {
+  rows <- set$table[set$table$family == "ordinal", ]
+  for (i in seq_len(nrow(rows))) {
+    row <- rows[i, ]
+    declared <- .eq_ordinal_levels(row$geometry)
+    panel <- .eq_panel_for("ordinal", row$geometry, set$geometries[[row$geometry]])
+    ok(identical(length(declared), if (.eq_tail_geometry(row$geometry)) 5L else 3L),
+       paste0(row$case, ": a tail geometry receives five levels and any other receives three"))
+    ok(identical(levels(panel$y), declared) &&
+         identical(.eq_families("ordinal", row$link, row$geometry)[[1L]]$levels, declared),
+       paste0(row$case, ": the panel and the family specification declare the same levels"))
+    ok(all(table(panel$y) > 0L), paste0(row$case, ": every declared category is observed"))
+  }
+}
+
+# The tail-mass rules are shown to reject the panel they were written against.
+# K05 before the correction is rebuilt exactly: the tail construction applied
+# to the three-level scale.
+cal_tail <- EQ_CALIBRATION_GEOMETRY$cal_tail
+k05_before <- .eq_ordinal_panel(cal_tail$objects, cal_tail$raters, cal_tail$reps,
+                                c("low", "mid", "high"), tail_mass = TRUE)
+k05_before_counts <- as.integer(table(k05_before$y))
+ok(identical(k05_before_counts, c(15L, 60L, 165L)),
+   "the pre-correction K05 composition is reproduced exactly: 15, 60 and 165 of 240")
+ok(!identical(nlevels(k05_before$y), 5L) && !(max(k05_before_counts) / nrow(k05_before) < 0.5),
+   "the tail-mass rules reject the pre-correction K05: three levels and 68.75% in one category")
+
 # ---- degeneracy guard -----------------------------------------------------------
 # Three separate builders in this study were degenerate before this guard: a
 # binary spread that was a multiple of its modulus, a categorical pattern whose
