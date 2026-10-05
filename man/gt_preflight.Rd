@@ -36,7 +36,9 @@ gt_preflight(data, outcomes, design, family = gt_family("gaussian"),
 source and parameter totals, resource estimates, and interpretation notes.
 It also contains:
 \itemize{
-\item \code{sources}: a data frame describing the random sources.
+\item \code{sources}: a data frame describing the random sources a fit
+would estimate: the retained declared sources and, for a batch the fit would
+model, the call source. The parameter and dimension totals describe these.
 \item \code{panel_audit}: bounded panel diagnostics, described below.
 \item \code{outcome_profile}: a named list of descriptive outcome summaries,
 category counts, grouping coverage, and bounded no-variation examples.

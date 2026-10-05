@@ -65,7 +65,10 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   result$family <- families
   result$outcomes <- outcomes
   if (is.null(result$design)) result$design <- design
-  if (!is.null(design$batch) && is.null(result$design$batch_model))
+  # The Gaussian engine records what it did with a declared batch. No other
+  # engine models one, and that is recorded for this fit whatever state the
+  # design arrived with.
+  if (!is.null(design$batch) && !all(kinds == "gaussian"))
     result$design$batch_model <- list(modelled = FALSE,
       reason = "the call effect is estimated for Gaussian outcomes only")
   result$estimator <- estimator
@@ -299,7 +302,8 @@ print.gt_fit <- function(x, ...) {
   cat("G-theory fit:", length(x$outcomes), "outcome(s),", x$N, "measurement rows\n")
   cat("Families:", paste(vapply(x$families, `[[`, character(1), "family"), collapse = ", "),
       "| Estimator:", x$estimator, "\n")
-  cat("Random sources:", length(x$design$terms), "| Instrumentation facets:", length(x$design$facets), "\n")
+  cat("Random sources:", length(.gt_fitted_sources(x$design)),
+      "| Instrumentation facets:", length(x$design$facets), "\n")
   .gt_print_fit_status(gt_diagnostics(x))
   cat("Inspect gt_diagnostics(fit) for convergence and approximation details.\n")
   invisible(x)
@@ -323,7 +327,7 @@ summary.gt_fit <- function(object, ...) {
     variances$at_boundary <- errors$at_boundary[matched]
   }
   structure(list(outcomes = object$outcomes, families = object$families,
-       N = object$N, random_sources = length(object$design$terms),
+       N = object$N, random_sources = length(.gt_fitted_sources(object$design)),
        instrumentation_facets = length(object$design$facets),
        estimator = object$estimator, minus2loglik = object$minus2loglik,
        covariance_components = components, variances = variances,

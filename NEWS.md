@@ -48,7 +48,10 @@ below add refusals, evidence and reporting.
   an item is a batch-by-slot cell. REML and ML fits match lme4's in criterion
   and variances, including a call variance of zero. `gt_preflight()` says
   beforehand whether a fit will model the batches, and why not when it will
-  not.
+  not; its source table, parameter counts and strata describe the sources the
+  fit will estimate, the call among them. Whether the batches were modelled is
+  recorded for each fit, so a fitted design reused for another outcome family
+  does not carry the earlier fit's answer.
 - A fit with a call effect has no reliability coefficients or decision study
   yet: the coefficient weights do not account for which items share a call,
   so `gt_reliability()` and `gt_dstudy()` refuse it. `sequential`, `neighbor`

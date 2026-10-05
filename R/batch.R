@@ -191,12 +191,12 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
   no <- function(reason) list(modelled = FALSE, reason = reason)
   if (!identical(as.integer(design$replicates), 1L))
     return(no("the design declares more than one row in a cell"))
+  conditions <- if (length(design$facets)) .gt_tuple_key(data, design$facets) else rep("1", nrow(data))
   if (is.null(batch$id)) {
     found <- .gt_batch_resolve(data, design)
     if (!found$resolved) return(no(paste(found$problems, collapse = "; ")))
     batch_code <- found$batch
   } else {
-    conditions <- if (length(design$facets)) .gt_tuple_key(data, design$facets) else rep("1", nrow(data))
     found <- .gt_batch_recorded(data, design, match(conditions, unique(conditions)))
     if (length(found$problems)) return(no(paste(found$problems, collapse = "; ")))
     if (!found$fixed_composition) return(no("the recorded batches differ between conditions"))
@@ -213,6 +213,7 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
     FUN = function(i) rank(i, ties.method = "first"))
   list(modelled = TRUE, reason = NA_character_, term = .GT_CALL_TERM,
        batches = length(sizes), size = batch$size,
+       calls = as.double(length(sizes)) * length(unique(conditions)),
        batch = batch_code, slot = as.integer(slot_of_item[found$item_code]))
 }
 

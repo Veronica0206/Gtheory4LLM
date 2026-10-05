@@ -77,17 +77,18 @@
   residual_parameters <- 0
   free_count <- function(type, q) switch(type, unstructured = q * (q + 1) / 2,
     diagonal = q, pooled = 1, NA_real_)
+  fitted <- .gt_fitted_sources(fit$design)
   if (all(vapply(fit$families, function(f) f$family == "gaussian", logical(1)))) {
     types <- fit$covariance_types
-    if (all(c(fit$design$terms, "Residual") %in% names(types))) {
-      covariance_parameters <- vapply(types[fit$design$terms], free_count, numeric(1), q = length(fit$outcomes))
+    if (all(c(fitted, "Residual") %in% names(types))) {
+      covariance_parameters <- vapply(types[fitted], free_count, numeric(1), q = length(fit$outcomes))
       residual_parameters <- free_count(types[["Residual"]], length(fit$outcomes))
     }
   } else if (identical(fit$diagnostics$covariance_parameterization, "fixed")) {
-    covariance_parameters <- rep(0, length(fit$design$terms))
+    covariance_parameters <- rep(0, length(fitted))
   } else if (is.character(fit$covariance) && length(fit$covariance) == 1L) {
     q <- nrow(fit$covariance_components[[1L]])
-    covariance_parameters <- rep(free_count(fit$covariance, q), length(fit$design$terms))
+    covariance_parameters <- rep(free_count(fit$covariance, q), length(fitted))
   }
   covariance_checked <- !is.null(covariance_parameters) &&
     all(is.finite(c(covariance_parameters, residual_parameters)))
@@ -95,7 +96,7 @@
     identical(families(preflight$families), families(fit$families)) &&
     isTRUE(all.equal(preflight$observed_counts, fit$panel$counts)) &&
     identical(as.numeric(preflight$observations), as.numeric(fit$N)) &&
-    identical(preflight$sources$source, fit$design$terms) &&
+    identical(preflight$sources$source, fitted) &&
     identical(as.integer(preflight$source_counts),
       c(length(fit$design$terms_requested), length(fit$design$terms))) &&
     identical(as.numeric(preflight$observed_replication), as.numeric(fit$panel$cell_replication)) &&
@@ -220,7 +221,7 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
       minus2loglik = .gt_report_scalar(fit$minus2loglik, "numeric"),
       batch_status = batch$status),
     design = design, families = families,
-    random_sources = c(as.character(fit$design$terms), if (identical(batch$status, "modelled")) .GT_CALL_TERM),
+    random_sources = .gt_fitted_sources(fit$design),
     nesting = lapply(fit$design$nested, as.character),
     settings = if (length(controls)) do.call(rbind, controls) else NULL,
     covariance_settings = covariance_settings,

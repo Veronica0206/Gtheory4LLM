@@ -223,15 +223,16 @@ expect_error(recorded_problems(unknown, id = "call"), "one nonmissing call ident
              "a missing call identifier is an error")
 
 # --- a batch that cannot be modelled changes no estimate ------------------------
+# Forty items in batches of 16 leave a short last batch, so no fit models them.
 without <- gt_preflight(d, "score", gt_design("item", c("evaluator", "prompt")))
-with <- gt_preflight(d, "score", gt_design("item", c("evaluator", "prompt"), batch = gt_batch(20)))
+with <- gt_preflight(d, "score", gt_design("item", c("evaluator", "prompt"), batch = gt_batch(16)))
 expect(is.null(without$batch_audit) && !any(grepl("batch", without$notes, fixed = TRUE)),
        "a design without a declaration has no batch audit and no batch note")
 expect(identical(with$checks, without$checks) && identical(with$fitting_feasible, without$fitting_feasible) &&
          identical(with$sources, without$sources) && identical(with$panel_audit, without$panel_audit),
        "the audit enters no check and changes no other part of the preflight report")
 output <- capture.output(print(with))
-expect(any(grepl("Implied calls: 2 batches of 20 items x 6 conditions = 12 calls", output, fixed = TRUE)) &&
+expect(any(grepl("Implied calls: 3 batches of 16 items (the last holds 8) x 6 conditions = 18 calls", output, fixed = TRUE)) &&
          any(grepl("inferred from item order, not read from recorded calls", output, fixed = TRUE)),
        "the printed report states the implied calls and that their membership is inferred")
 set.seed(4040)
@@ -402,6 +403,9 @@ none_plain <- gt_fit(quiet_calls, "score", call_design(), control = control)
 expect(estimate(none)[["Call"]] < 1e-6 && abs(none$minus2loglik - none_plain$minus2loglik) < 1e-5 &&
          max(abs(estimate(none)[names(estimate(none_plain))] - estimate(none_plain))) < 1e-4,
        "data without a call effect give a call variance of zero and the independent estimates")
+boundary_row <- summary(none)$variances[summary(none)$variances$source == "Call", ]
+expect(isTRUE(boundary_row$at_boundary) && any(grepl("Call", gt_diagnostics(none)$boundary_sources, fixed = TRUE)),
+       "a call variance at zero is reported as a boundary source, like any other")
 # What preflight says before the fit.
 planned <- gt_preflight(cm, "score", call_design(batch = gt_batch(6)))
 unplanned <- gt_preflight(cm, "score", call_design(batch = gt_batch(5)))
@@ -416,6 +420,81 @@ expect(!unplanned$batch_audit$model$modelled &&
          any(grepl("A fit will not model the batches: not every batch holds the declared 5 items.",
                    capture.output(print(unplanned)), fixed = TRUE)),
        "preflight says when and why a fit will not model the batches")
+# One description of what is fitted, the same in preflight, fit and report.
+described_alike <- function(fit, preflight) {
+  fitted <- setdiff(names(fit$covariance_components), "Residual")
+  parts <- preflight$parameters[setdiff(names(preflight$parameters), "total")]
+  identical(preflight$sources$source, fitted) && identical(gt_report(fit)$random_sources, fitted) &&
+    identical(summary(fit)$random_sources, length(fitted)) &&
+    sum(parts) == preflight$parameters[["total"]] &&
+    sum(preflight$sources$covariance_parameters) == preflight$parameters[["source_covariance"]] &&
+    sum(preflight$sources$random_dimension) == preflight$random_dimension &&
+    identical(as.integer(preflight$resources$factorial_strata), length(fit$prepared$strata)) &&
+    inherits(gt_report(fit, preflight = preflight), "gt_report")
+}
+unplanned_fit <- gt_fit(cm, "score", call_design(batch = gt_batch(5)), control = control)
+expect(described_alike(with_calls, planned) && described_alike(unplanned_fit, unplanned) &&
+         described_alike(independent, gt_preflight(cm, "score", call_design())),
+       "preflight, fit and report list the same fitted sources, parameters and strata, modelled or not")
+expect(identical(planned$sources$source, c("item", "rater", "item:rater", "Call")) &&
+         identical(planned$sources$observed_groups[[4L]], 48L) && planned$resources$factorial_strata == 16 &&
+         identical(unname(planned$source_counts), c(3L, 3L)) &&
+         any(grepl("Retained random sources: 3 (fitted with Call: 4)", capture.output(print(planned)), fixed = TRUE)),
+       "a modelled batch adds the call to the fitted sources, with its 48 calls, and one factorial axis")
+# A declared source named Call collides with the one a modelled batch adds:
+# preflight reports it and fitting refuses it.
+named_call <- transform(cm, Call = rater)
+call_named_design <- gt_design("item", c("Call", "run"), random = ~ item + Call, batch = gt_batch(6))
+collision <- gt_preflight(named_call, "score", call_named_design)
+expect(identical(sort(collision$sources$source), c("Call", "item")) && !collision$batch_audit$model$modelled &&
+         identical(collision$batch_audit$model$reason, "a declared source is named Call") &&
+         !collision$fitting_feasible && !collision$checks$passed[collision$checks$check == "call_source_name"] &&
+         !"call_source_name" %in% planned$checks$check[!planned$checks$passed] &&
+         !"call_source_name" %in% unplanned$checks$check,
+       "preflight blocks a declared source named Call beside a modelled batch, and only then")
+expect_error(gt_fit(named_call, "score", call_named_design, control = control),
+             "cannot be combined with a modelled batch", "a declared source named Call is refused beside a modelled batch")
+# Whether the batches were modelled belongs to a fit, not to the design it
+# returns. A fitted design reused for another outcome family starts afresh.
+set.seed(99)
+reuse <- cm
+reuse$flag <- as.integer(reuse$score > stats::median(reuse$score))
+reuse$grade <- ordered(cut(reuse$score, stats::quantile(reuse$score, c(0, .35, .7, 1)), include.lowest = TRUE,
+                           labels = c("low", "mid", "high")))
+small <- reuse[reuse$run == 1L & item_index <= 12L, ]
+small_design <- gt_design("item", "rater", random = ~ item + rater, batch = gt_batch(6))
+gaussian_first <- gt_fit(small, "score", small_design, control = control)
+expect(identical(gt_diagnostics(gaussian_first)$batch$status, "modelled"), "the Gaussian fit models the batches")
+for (case in list(list("flag", gt_family("binary")), list("grade", gt_family("ordinal")))) {
+  reused <- suppressWarnings(gt_fit(small, case[[1L]], gaussian_first$design, family = case[[2L]]))
+  fresh <- suppressWarnings(gt_fit(small, case[[1L]], small_design, family = case[[2L]]))
+  expect(identical(gt_diagnostics(reused)$batch, gt_diagnostics(fresh)$batch) &&
+           identical(gt_diagnostics(reused)$batch$status, "declared_not_modelled") &&
+           identical(names(reused$covariance_components), names(fresh$covariance_components)) &&
+           !"Call" %in% names(reused$covariance_components) &&
+           identical(gt_report(reused)$random_sources, c("item", "rater")) &&
+           identical(reused$covariance_components, fresh$covariance_components),
+         paste("a", case[[1L]], "fit that reuses a Gaussian fit's design is not labelled as modelling the batches"))
+  back <- gt_fit(small, "score", reused$design, control = control)
+  expect(identical(gt_diagnostics(back)$batch$status, "modelled") &&
+           identical(back$covariance_components, gaussian_first$covariance_components),
+         paste("a Gaussian fit that reuses a", case[[1L]], "fit's design models the batches again"))
+}
+unequal_again <- gt_fit(cm[item_index <= 20, ], "score", with_calls$design, control = control)
+expect(identical(gt_diagnostics(unequal_again)$batch$status, "declared_not_modelled") &&
+         identical(gt_diagnostics(unequal_again)$batch$reason, "not every batch holds the declared 6 items") &&
+         !"Call" %in% names(unequal_again$covariance_components),
+       "a modelled design reused on data its batches do not fit is not modelled, with the reason")
+# Starting values, retention and a boundary are handled for the call source as for any other.
+started <- gt_fit(cm, "score", call_design(batch = gt_batch(6)),
+  control = gt_control(gaussian = list(retry_seed = 42, threads = 1L,
+    start = lapply(with_calls$covariance_components, function(M) M * 1.2))))
+expect(max(abs(estimate(started) - fitted)) < 1e-4, "starting values may name the call source")
+lean <- gt_fit(cm, "score", call_design(batch = gt_batch(6)),
+  control = gt_control(gaussian = list(retry_seed = 42, threads = 1L), retain = list(data = FALSE, model = FALSE)))
+expect(identical(gt_diagnostics(lean)$batch$status, "modelled") && "Call" %in% summary(lean)$variances$source &&
+         identical(gt_report(lean)$random_sources, c("item", "rater", "item:rater", "Call")),
+       "a fit that retains neither data nor model still describes its call source")
 # Declarations the exact engine cannot model are kept, with the reason.
 regrouped_calls <- cm
 regrouped_calls$call <- ifelse(cm$rater == 1L, paste("a", cm$run, (item_index - 1L) %/% 6L),
@@ -437,9 +516,6 @@ expect(identical(dim(joint_calls$covariance_components$Call), c(2L, 2L)) &&
          abs(joint_calls$covariance_components$Call[1, 2]) > 0 &&
          joint_calls$covariance_components[["item:rater"]][1, 2] == 0,
        "with several outcomes the call source has its own covariance structure, chosen like any other source")
-expect_error(gt_fit(transform(cm, Call = rater), "score",
-                    gt_design("item", c("Call", "run"), random = ~ item + Call, batch = gt_batch(6)), control = control),
-             "cannot be combined with a modelled batch", "a declared source named Call is refused beside a modelled batch")
 
 # --- every outcome type, one outcome or several ---------------------------------
 # The declaration and its audit belong to the design, not to an outcome family:

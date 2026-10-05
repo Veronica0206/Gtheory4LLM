@@ -25,6 +25,14 @@
 # under one condition share it.
 .GT_CALL_TERM <- "Call"
 
+# The random sources a fit estimates, as opposed to the sources a design
+# requests: the retained declared sources, and the call source when the fit
+# models its batches. Everything that describes a fitted model reads this one
+# list; the design's own terms stay what the user declared, because alias
+# resolution and the reuse of a design with another family depend on them.
+.gt_fitted_sources <- function(design)
+  c(as.character(design$terms), if (isTRUE(design$batch_model$modelled)) .GT_CALL_TERM)
+
 # What a result made from this design can say about its batches. A declared
 # batch is either modelled, with one shared call effect in the fit, or not
 # modelled, with the reason when a fit recorded one. The status travels with
@@ -359,6 +367,10 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
       "Add full_cell = FALSE to the same gt_design() call to drop exactly this source and keep every other requested source, ",
       "or declare the reduced model explicitly, for example ",
       "gt_design('item', 'rater', random = ~ item + rater); adapt names and retain the interactions required by your study.", call. = FALSE)
+  # Whether a fit modelled the declared batches is a fact about that fit. A
+  # design taken from one fit and resolved for another must not carry it over:
+  # each fit records its own.
+  design$batch_model <- NULL
   design$aliased_terms <- if (family == "gaussian") observation_source else character()
   design$terms <- setdiff(requested, design$aliased_terms)
   design$term_members <- members[design$terms]
