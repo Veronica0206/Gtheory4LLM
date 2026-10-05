@@ -70,7 +70,7 @@ those objects. Use the package's retention controls separately when saving fits.
   merged automatically.
 
 See [figures](VISUALIZATION.md), [validation scope](VALIDATION_SCOPE.md) and
-[the remaining 0.3.0 gates](ROADMAP.md).
+[the remaining 0.4.0 gates](ROADMAP.md).
 
 
 ## Rendered synthetic examples

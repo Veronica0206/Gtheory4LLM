@@ -2,7 +2,8 @@
 
 Release milestones and planned work, with the reason for their order. Versions
 0.1.0 and 0.2.0 are published; the later milestones remain planned, and work
-on the 0.3.0 line since 0.2.0 is recorded at the top of [NEWS.md](../NEWS.md).
+on the 0.4.0 line since 0.2.0 is recorded at the top of [NEWS.md](../NEWS.md).
+That line was versioned 0.3.0.9000 until it was renamed; no 0.3.0 was released.
 Completed work is recorded in [NEWS.md](../NEWS.md), and current evidence is in
 [development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
 
@@ -16,14 +17,14 @@ moves, it must be obvious which of those caused it.
 | 0.1.0 (published) | Research beta with retry controller, standard methods, retention controls, memory guard, characterization tests and release automation |
 | 0.1.x | Maintenance: release/documentation consistency, repository protection, Action-runtime updates and fixes that preserve statistical scope |
 | 0.2.0 (published) | Maintenance release from the 0.2.0 development line: CRAN resubmission fix, staged numerical diagnostics, solve-validity refusal, and the sparse discrete prototype kept private behind the evaluator seam |
-| 0.3.0 | First qualified, publicly selectable sparse backend for single binary and ordinal outcomes: dense-sparse equivalence, explicit backend selection with a resource contract, one full native-panel benchmark; no new statistical estimands |
-| 0.4.x | Broader statistical operating range: unbalanced designs, larger validation campaigns, cost-aware D studies, discrete uncertainty |
+| 0.4.0 | First qualified, publicly selectable sparse backend for single binary and ordinal outcomes: dense-sparse equivalence, explicit backend selection with a resource contract, one full native-panel benchmark; no new statistical estimands |
+| 0.5.x | Broader statistical operating range: unbalanced designs, larger validation campaigns, cost-aware D studies, discrete uncertainty |
 | 1.0 | Stable general research package: defined API stability, broad validation envelope, mature Gaussian and discrete implementations |
 
 The sparse backend, unbalanced designs, and complete engine modularization are
 deliberately **not** requirements for 0.1.x.
 
-The 0.3.0 work is tracked as separate reviewable changes:
+The 0.4.0 work is tracked as separate reviewable changes:
 [engine extraction](https://github.com/Veronica0206/Gtheory4LLM/issues/2),
 [sparse prototype](https://github.com/Veronica0206/Gtheory4LLM/issues/3),
 [dense-sparse equivalence](https://github.com/Veronica0206/Gtheory4LLM/issues/4),
@@ -44,14 +45,14 @@ Diagnostics can follow the interface independently. The full-panel benchmark
 requires qualification and diagnostics, plus warm-start or AD qualification only
 if those features are used.
 
-Warm starts and automatic differentiation are **conditional** for 0.3.0, not
+Warm starts and automatic differentiation are **conditional** for 0.4.0, not
 required. They enter the release only if the benchmark shows the cold sparse
 implementation cannot meet its declared resource envelope, and the measurement
 decides which — conditional-mode iteration and outer finite differences are
 different bottlenecks with different answers. Adopting either unmeasured would
 be optimizing a cost nobody has observed.
 
-Complete Gaussian engine modularization is likewise not a 0.3.0 requirement.
+Complete Gaussian engine modularization is likewise not a 0.4.0 requirement.
 The required scope is the sparse prototype, dense-sparse qualification, staged
 diagnostics, the full-panel benchmark, and the resolution of the numerical
 portability issue those results depend on.
@@ -67,7 +68,7 @@ with tolerances; acceptance decisions are compared exactly.
 Every refactor below is judged against it. Its purpose is to make one question
 answerable: *did we change the statistical result on purpose, or by accident?*
 
-## 0.3.0
+## 0.4.0
 
 ### Release gates
 
@@ -137,7 +138,7 @@ Users must always be able to tell which backend produced a result.
 
 ### Warm starts and gradients
 
-Conditional work, adopted only on measured evidence; see the 0.3.0 scope above.
+Conditional work, adopted only on measured evidence; see the 0.4.0 scope above.
 
 The dense engine starts the conditional mode from zero at every likelihood
 evaluation. A sparse backend should cache the previous mode and start from it
@@ -194,7 +195,7 @@ The default rule is unchanged: `gt_reliability()` requires
 explicit and uncomfortable — an `allow_unaccepted = FALSE` argument with a
 prominent warning — and it is not added in 0.1.x.
 
-## 0.3.x and beyond
+## 0.4.x and beyond
 
 ### Scientific validation program
 
@@ -248,7 +249,7 @@ convincingly validated. Candidates: observed-information/Hessian uncertainty,
 profile likelihood, parametric bootstrap, and simulation-based propagation to
 reliability. For reliability coefficients specifically, a bootstrap is likely
 more defensible than applying a Hessian-based delta method to every discrete
-model. This is a 0.3+ feature.
+model. This is a 0.4+ feature.
 
 ## Test infrastructure
 
