@@ -1,7 +1,7 @@
-# Gtheory4LLM 0.3.0.9000 (development)
+# Gtheory4LLM 0.4.0.9000 (development)
 
 <!-- release-identity:start -->
-Source version: **0.3.0.9000**.
+Source version: **0.4.0.9000**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -9,7 +9,8 @@ These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
 
-Changes on the 0.3.0 line since the 0.2.0 sources. Every estimate,
+Changes on the 0.4.0 line since the 0.2.0 sources. The line was versioned
+`0.3.0.9000` until it was renamed, and no 0.3.0 was released. Every estimate,
 coefficient and acceptance decision in `tests/package-characterization.R`
 reproduces its values; the fitting arithmetic is untouched, and the changes
 below add refusals, evidence and reporting.
@@ -146,7 +147,7 @@ below add refusals, evidence and reporting.
 - Fit summaries match variance-component standard errors and boundary flags
   by source and outcome separately. Names containing spaces can no longer
   make distinct source/outcome pairs select the same uncertainty row.
-- The checkout is explicitly versioned `0.3.0.9000` for development; the
+- The checkout is explicitly versioned `0.4.0.9000` for development; the
   published `0.2.0` archive, manual, manifest and tag are retained unchanged.
 - `plot()` on a decision study accepts `col`, `pch`, `ylim`, `xlab` and `ylab`
   through `...`. They were supplied explicitly before the dots were forwarded,
@@ -190,7 +191,7 @@ below add refusals, evidence and reporting.
   start from the previous evaluation's mode recovers 38 of 48 at the ordinary
   budget in a median of 9 iterations; 16 evaluations do not converge cold
   within 300 iterations and are not a budget question. The roadmap and
-  development status now state the 0.3.0 release gates and this line's
+  development status now state the 0.4.0 release gates and this line's
   position against them.
 
 # Gtheory4LLM 0.2.0

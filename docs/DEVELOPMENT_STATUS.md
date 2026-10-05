@@ -8,7 +8,7 @@ in [limitations](LIMITATIONS.md).
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.3.0.9000`, development towards 0.3.0 |
+| Checkout version | `0.4.0.9000`, development towards 0.4.0. The line was versioned `0.3.0.9000` until it was renamed; no 0.3.0 was released |
 | Bundle in `artifacts/` | `0.2.0`, **published**; the archive is the exact candidate built from the recorded release source commit and checked with R-devel, adopted unchanged. It is retained independently of the newer development sources; earlier release files and tags are unchanged |
 | Bundle source commit | `a4dd59c50f54dd951bba89d86d4c32a3699a5597`, recorded in the manifest |
 | `v0.1.0` tag | Publication commit `2332d40` |
@@ -82,7 +82,7 @@ commit also do not establish that a later development checkout has passed.
 
 ## Current development priorities
 
-The 0.3.0 development interface now adds bounded panel-audit examples,
+The development interface now adds bounded panel-audit examples,
 outcome-information profiles, tabular coefficient exports, supplied-grid target
 screening and base-R figures. Portable offline HTML reports collect model
 context, diagnostics and results while excluding observations and group labels. The installed synthetic workflow demonstrates them; the
@@ -96,7 +96,7 @@ complete the full native-panel qualification benchmark.
   published release and development checkout.
 - Maintain release-tag protection and update pinned Actions to supported
   runtimes through a separate maintenance change.
-- Finish qualifying the private sparse discrete backend for 0.3.0 against
+- Finish qualifying the private sparse discrete backend for 0.4.0 against
   the release gates in [the roadmap](ROADMAP.md); 0.2.0 ships it only as a
   private prototype. On the development line since 0.2.0 (see the top of
   [NEWS.md](../NEWS.md)): the sparse solver enforces the dense validity

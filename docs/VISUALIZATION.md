@@ -110,7 +110,7 @@ Rscript --vanilla examples/visualization_workflow.R /tmp/gtheory-figures-new
 
 The [real-data workflow](REAL_DATA_WORKFLOW.md) separately audits native
 annotation panels; full native sparse fitting remains subject to the
-[0.3.0 qualification gates](ROADMAP.md).
+[0.4.0 qualification gates](ROADMAP.md).
 
 
 The [portable report](ANALYSIS_REPORT.md) collects available figures with their
