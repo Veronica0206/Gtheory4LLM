@@ -586,10 +586,9 @@ plot.gt_dstudy <- function(x, coefficient = "Erho2", interval = TRUE, ...,
                    type = "p", ylim = limits,
                    xlab = "Measurements per object",
                    ylab = paste(coefficient, "-", x$scale, "scale"))
-  if (identical(.gt_batch_status_of(x)$status, "declared_not_modelled"))
-    defaults$sub <- "Declared batches not modelled"
   resolved <- utils::modifyList(defaults, dots[named])
   do.call(graphics::plot, c(list(xx, tab[[coefficient]]), resolved, dots[!named]))
+  .gt_batch_status_margin(x)
   if (drawn) graphics::segments(xx[interval_rows], lower[interval_rows],
     xx[interval_rows], upper[interval_rows],
     col = rep(resolved$col, length.out = nrow(tab))[interval_rows])

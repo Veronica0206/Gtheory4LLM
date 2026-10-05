@@ -96,7 +96,9 @@ Colours identify outcome/composite series, and open symbols distinguish
 allocations exceeding fitted facet counts from filled symbols within them.
 An optional target appears as a dashed horizontal line and is included in
 automatic vertical limits. Explicit graphical settings remain authoritative,
-including \code{pch} and \code{ylim}. Series filters do not change the
+including \code{pch} and \code{ylim}. For a design that declared batches with
+\code{\link{gt_batch}}, the plot states above the plotting region that they
+are not modelled, whatever subtitle is supplied. Series filters do not change the
 returned object: plotting returns the full original study invisibly.
 
 \strong{Balanced coded panel.} This is the complete Cartesian product of the observed coded levels of the object and of every instrumentation facet, carrying exactly the declared number of rows in each of those cells, with no missing outcome. For a nested facet, \emph{coded} means the child's within-parent code rather than a globally unique label, so the child's identity is the child-by-parent source; \code{\link{gt_design}} works both codings through. A panel that is not balanced in this sense has no analytic coefficient here, and none is approximated.

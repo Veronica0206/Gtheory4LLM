@@ -44,6 +44,14 @@
          ") but not modelled: items in one call are treated as independent.")
 }
 
+# Drawn in the margin rather than offered as a default subtitle, so that a
+# caller's own subtitle cannot remove it.
+.gt_batch_status_margin <- function(x) {
+  if (identical(.gt_batch_status_of(x)$status, "declared_not_modelled"))
+    graphics::mtext("Declared batches not modelled", side = 3, line = 0.25, adj = 0, cex = 0.8)
+  invisible(NULL)
+}
+
 .gt_design_names <- function(x, label, allow_empty = FALSE) {
   if (!is.character(x) || (!allow_empty && !length(x)) || anyNA(x) ||
       any(!nzchar(x)) || any(trimws(x) != x) || anyDuplicated(x)) {

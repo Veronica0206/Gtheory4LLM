@@ -73,7 +73,7 @@ expect(identical(a$items, 40L) && identical(a$batches, 2L) && identical(a$condit
          identical(a$by_levels, 3L),
        "the audit counts items, batches, conditions and calls")
 expect(identical(a$membership, "inferred") && grepl("cannot be detected", a$membership_scope, fixed = TRUE) &&
-         isTRUE(a$fixed_composition) && a$short_calls == 0 && identical(a$smallest_call, 20L),
+         isTRUE(a$fixed_composition) && a$calls_below_size == 0 && identical(a$smallest_observed_call, 20L),
        "batches cut from the item order are labelled as inferred, with what that cannot see")
 expect(isTRUE(a$stored_rows$checked) && identical(a$stored_rows$batches_agree, 6L) &&
          identical(a$stored_rows$order_agrees, 6L),
@@ -95,7 +95,7 @@ expect(isTRUE(s$consistent) && s$stored_rows$batches_agree < 6L,
 five <- d[d$item %in% unique(d$item)[1:35], ]
 u <- audit(five, gt_batch(20))
 expect(!u$equal_sized && u$consistent && !length(u$problems) && identical(u$batches, 2L) &&
-         identical(u$smallest_call, 15L) && u$short_calls == 6 && u$calls == 12,
+         identical(u$smallest_observed_call, 15L) && u$calls_below_size == 6 && u$calls == 12,
        "items that do not divide into equal calls leave a short last call, which is reported")
 expect(any(grepl("2 batches of 20 items (the last holds 15) x 6 conditions = 12 calls",
                  capture.output(print(gt_preflight(five, "score",
@@ -122,10 +122,12 @@ expect(identical(nrow(quiet$batch_audit$examples), 0L) && !holds(quiet$batch_aud
 # Twelve items went out in three calls of four; four items were removed after
 # collection. Cutting the eight that remain into fours finds two batches and
 # nothing wrong, because nothing in the rows shows what was removed. The
-# recorded calls show three batches, every one of them short.
+# recorded calls show three batches, each with fewer items present than it
+# was sent, and the audit does not claim to know how many it was sent.
 history <- expand.grid(item = 1:12, rater = 1:3)
 history$score <- sin(history$item * history$rater)
 history$call <- paste0("CALL_SENTINEL_r", history$rater, "_c", (history$item - 1) %/% 4 + 1)
+history$sent <- (history$item - 1) %% 4 + 1
 kept <- history[!history$item %in% c(2, 6, 10, 12), ]
 by_order <- gt_preflight(kept, "score", gt_design("item", "rater", batch = gt_batch(4)))$batch_audit
 by_call <- gt_preflight(kept, "score", gt_design("item", "rater", batch = gt_batch(4, id = "call")))
@@ -134,10 +136,26 @@ expect(identical(by_order$membership, "inferred") && identical(by_order$batches,
        "inferred batches cannot see items removed after collection, and are labelled as inferred")
 r <- by_call$batch_audit
 expect(identical(r$membership, "recorded") && identical(r$id, "call") && identical(r$batches, 3L) &&
-         r$calls == 9 && !r$equal_sized && r$short_calls == 9 && identical(r$smallest_call, 2L) &&
+         r$calls == 9 && !r$equal_sized && r$calls_below_size == 9 && identical(r$smallest_observed_call, 2L) &&
          isTRUE(r$fixed_composition) && isTRUE(r$fixed_order) && isTRUE(r$consistent) &&
          !isTRUE(r$stored_rows$checked),
-       "recorded calls are counted as they were made, short ones included")
+       "recorded calls are counted from the rows supplied, with the items present in each")
+expect(grepl("may be fewer than it was sent", r$membership_scope, fixed = TRUE) &&
+         grepl("A call with no row left is not counted", r$membership_scope, fixed = TRUE) &&
+         !any(c("short_calls", "smallest_call") %in% names(r)),
+       "the audit does not present the items present as the number a call was sent")
+# One whole call lost: nothing in the remaining rows shows it was ever made.
+lost <- gt_preflight(kept[kept$call != "CALL_SENTINEL_r3_c3", ], "score",
+  gt_design("item", "rater", batch = gt_batch(4, id = "call")))$batch_audit
+expect(lost$calls == 8 && grepl("A call with no row left is not counted", lost$membership_scope, fixed = TRUE),
+       "a call with no row left is not counted, and the audit says it cannot be")
+# Positions are ranks among the items present: sent at 1, 3 and 4, read as 1, 2 and 3.
+ranked <- gt_preflight(kept, "score",
+  gt_design("item", "rater", batch = gt_batch(4, order = "sent", id = "call")))$batch_audit
+expect(identical(kept$sent[1:3], c(1, 3, 4)) && identical(ranked$examples$position[1:3], 1:3) &&
+         grepl("ranks among the items present", ranked$position_scope, fixed = TRUE) &&
+         grepl("ranks among the items present", by_order$position_scope, fixed = TRUE),
+       "a position is a rank among the items present, and the audit says so for both kinds of membership")
 expect(identical(names(r$examples), c("item", "call", "position")) &&
          identical(r$examples$item[1:4], c(1L, 3L, 4L, 5L)) && identical(r$examples$position[1:4], c(1L, 2L, 3L, 1L)) &&
          identical(r$examples$call[[1L]], "CALL_SENTINEL_r1_c1"),
@@ -145,9 +163,11 @@ expect(identical(names(r$examples), c("item", "call", "position")) &&
 recorded_output <- capture.output(print(by_call))
 expect(any(grepl("Recorded calls: 9 in column", recorded_output, fixed = TRUE)) &&
          any(grepl("3 distinct batches of up to 4 items", recorded_output, fixed = TRUE)) &&
-         any(grepl("9 call(s) hold fewer than 4 items; the smallest holds 2", recorded_output, fixed = TRUE)) &&
+         any(grepl("9 call(s) have fewer than 4 items present (fewest 2): sent short, or rows removed since",
+                   recorded_output, fixed = TRUE)) &&
+         any(grepl("a call with no row left is not counted, and positions are ranks", recorded_output, fixed = TRUE)) &&
          !any(grepl("inferred", recorded_output, fixed = TRUE)),
-       "the printed report states the recorded calls and the short ones")
+       "the printed report states the recorded calls and what the rows supplied cannot show")
 expect(!holds(gt_preflight(kept, "score", gt_design("item", "rater", batch = gt_batch(4, id = "call")),
                            max_examples = 0L)$batch_audit, "CALL_SENTINEL"),
        "max_examples = 0 keeps call identifiers out of the batch audit")
@@ -292,10 +312,24 @@ legacy <- o_plain$reliability; legacy$batch <- NULL
 expect(status_is(as.data.frame(legacy), "not_declared") &&
          inherits(gt_report(fit_plain, reliability = legacy), "gt_report"),
        "an object without the field reads as not declared and still enters a report")
-grDevices::pdf(NULL)
-drawn <- tryCatch({ plot(o_batch$reliability); plot(o_batch$study); plot(o_batch$study, sub = "mine")
-  plot(o_plain$study); TRUE }, error = function(e) conditionMessage(e), finally = grDevices::dev.off())
-expect(isTRUE(drawn), "the plots draw with the status note, and a caller's own subtitle replaces it")
+# A caller's own subtitle must not remove the statement from a figure. The text
+# a plot draws is read back from an uncompressed PDF.
+drawn_text <- function(object, ...) {
+  file <- tempfile(fileext = ".pdf")
+  on.exit(unlink(file), add = TRUE)
+  grDevices::pdf(file, compress = FALSE, useKerning = FALSE)
+  tryCatch(plot(object, ...), finally = grDevices::dev.off())
+  bytes <- readBin(file, "raw", file.size(file))
+  function(text) length(grepRaw(text, bytes, fixed = TRUE)) > 0L
+}
+for (object in list(o_batch$reliability, o_batch$study)) {
+  default <- drawn_text(object); custom <- drawn_text(object, sub = "CALLER_SUBTITLE")
+  expect(default("Declared batches not modelled") && custom("Declared batches not modelled") &&
+           custom("CALLER_SUBTITLE") && !default("CALLER_SUBTITLE"),
+         "a plot states that declared batches are not modelled, beside a caller's own subtitle")
+}
+for (object in list(o_plain$reliability, o_plain$study))
+  expect(!drawn_text(object)("not modelled"), "a plot of a design without a declaration says nothing of batches")
 # --- every outcome type, one outcome or several ---------------------------------
 # The declaration and its audit belong to the design, not to an outcome family:
 # binary, ordinal and unordered outcomes, alone or jointly, get the same audit

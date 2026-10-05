@@ -127,6 +127,9 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
 # The calls are read, not reconstructed, so they may hold different items in
 # different conditions and fewer items than declared. What a recorded call
 # cannot do is span conditions, hold an item twice, or exceed the declared size.
+# Reading is still limited to the rows supplied: a call is known by the items
+# of it that are present, a call with no row left is unknown, and a position is
+# a rank among the items present, not the position at which an item was sent.
 .gt_batch_recorded <- function(data, design, condition_code) {
   batch <- design$batch
   if (!batch$id %in% names(data))
@@ -200,7 +203,7 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
     n_batches <- found$batches
     calls <- as.double(found$calls)
     smallest <- min(found$sizes)
-    short <- as.double(sum(found$sizes < batch$size))
+    below <- as.double(sum(found$sizes < batch$size))
     equal <- all(found$sizes == batch$size)
     fixed_composition <- found$fixed_composition
     fixed_order <- found$fixed_order
@@ -208,8 +211,11 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
     examples <- data.frame(item = data[[design$object]][shown], call = found$call[shown],
       position = found$position[shown], stringsAsFactors = FALSE)
     if (is.factor(examples$call)) examples$call <- droplevels(examples$call)
-    membership_scope <- paste("Calls are read from column", sQuote(batch$id),
-      "and are as reliable as that column.")
+    membership_scope <- paste("Calls are the distinct identifiers in column", sQuote(batch$id),
+      "among the rows supplied, and are as reliable as that column.",
+      "A call is counted by the items of it that are present, which may be fewer than it was sent:",
+      "a call sent short and a call that lost rows after collection look the same.",
+      "A call with no row left is not counted.")
   } else {
     found <- .gt_batch_resolve(data, design)
     problems <- found$problems
@@ -221,7 +227,7 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
     # once, so each repeat of a cell needs a call of its own.
     per_batch <- as.double(n_conditions) * design$replicates
     calls <- n_batches * per_batch
-    short <- if (equal) 0 else per_batch
+    below <- if (equal) 0 else per_batch
     fixed_composition <- fixed_order <- found$resolved
     if (found$resolved) {
       per_condition <- tabulate(condition_code)
@@ -259,7 +265,10 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
     sequential = batch$sequential, neighbor = batch$neighbor,
     assumption = batch$assumption, items = n_items, batches = n_batches,
     conditions = n_conditions, replicates = design$replicates, calls = calls,
-    equal_sized = equal, short_calls = short, smallest_call = smallest,
+    equal_sized = equal, calls_below_size = below, smallest_observed_call = smallest,
+    position_scope = paste("Positions are ranks among the items present in a call.",
+      "They are the positions at which items were sent only if no item was removed after collection;",
+      "gaps in an order column are not kept."),
     by_levels = if (is.null(batch$by)) NA_integer_ else length(unique(data[[batch$by]])),
     fixed_composition = fixed_composition, fixed_order = fixed_order,
     consistent = !length(problems), problems = problems, stored_rows = stored, examples = examples,

@@ -160,9 +160,13 @@ order, \code{"recorded"} when the calls are read from the column named in the
 declaration's \code{id}. It counts the items, the distinct \code{batches},
 the conditions and the \code{calls}. Recorded calls are counted. Inferred
 calls are implied: one for each batch, condition and declared replicate.
-\code{equal_sized}, \code{short_calls} and \code{smallest_call} describe
-calls holding fewer items than declared; a short call is a property of the
-data, not a problem. \code{fixed_composition} and \code{fixed_order} say
+\code{equal_sized}, \code{calls_below_size} and
+\code{smallest_observed_call} describe calls with fewer items present than
+declared. That is a property of the rows supplied, not a problem, and not
+evidence of how many items a call was sent: a call sent short and a call that
+lost rows after collection look the same, and a call with no row left is not
+counted. \code{position_scope} records that positions are ranks among the
+items present. \code{fixed_composition} and \code{fixed_order} say
 whether every condition holds the same batches, and each batch in one order.
 \code{consistent} is \code{TRUE} when the declaration can be laid over the
 data, with the reasons in \code{problems} when it cannot. At most
@@ -173,7 +177,8 @@ Inferred membership is a reconstruction from the rows supplied, and
 \code{consistent} is then no evidence about how the data were collected:
 items removed after collection, calls of other sizes and regrouping between
 conditions leave no trace. \code{membership_scope} says so in the object and
-the printed report repeats it. For inferred batches \code{stored_rows}
+the printed report repeats it; for recorded calls it states the limits just
+described. For inferred batches \code{stored_rows}
 reports, when every condition holds each item once, in how many conditions
 consecutive blocks of rows hold one declared batch, and in how many they also
 follow the declared order. That agreement means something only when rows are

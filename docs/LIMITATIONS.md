@@ -42,7 +42,10 @@ scientifically sufficient. Those are separate questions with separate evidence.
   output carries the status `declared_not_modelled`. Without a recorded call
   column the batches are inferred from the item order of the rows supplied;
   that reconstruction cannot detect items removed after collection, calls of
-  other sizes, or regrouping between conditions.
+  other sizes, or regrouping between conditions. Recorded calls are counted
+  from the rows supplied: the number of items a call was sent, calls with no
+  row left, and the positions at which items were sent are not recovered from
+  filtered data.
 
 ## Gaussian models
 

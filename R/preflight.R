@@ -454,11 +454,14 @@ print.gt_preflight <- function(x, ...) {
             if (b$fixed_composition) "the same batches in every condition, in more than one order" else
               "batches differ between conditions",
           " | ", dependence, "\n", sep = "")
-      if (!b$equal_sized) cat(count(b$short_calls), " call(s) hold fewer than ", b$size,
-          " items; the smallest holds ", b$smallest_call, "\n", sep = "")
+      if (!b$equal_sized) cat(count(b$calls_below_size), " call(s) have fewer than ", b$size,
+          " items present (fewest ", b$smallest_observed_call,
+          "): sent short, or rows removed since; these rows cannot say which.\n", sep = "")
+      cat("Calls are counted from the rows supplied: a call with no row left is not counted,",
+          "and positions are ranks among the items present.\n")
     } else {
       cat("Implied calls: ", b$batches, " batches of ", b$size, " items",
-          if (!b$equal_sized) paste0(" (the last holds ", b$smallest_call, ")") else "",
+          if (!b$equal_sized) paste0(" (the last holds ", b$smallest_observed_call, ")") else "",
           " x ", b$conditions, " conditions",
           if (b$replicates > 1) paste0(" x ", b$replicates, " repeats") else "",
           " = ", count(b$calls), " calls | ", dependence, "\n", sep = "")
