@@ -28,6 +28,13 @@ source(file.path("R", "discrete_mode.R"))
 source(file.path("R", "discrete.R"))
 source(file.path("R", "diagnostics_stages.R"))
 
+# This file injects failures on purpose and asserts that capture is off unless
+# a directory is configured. A capture directory set by the caller, as the
+# validation jobs set one, must neither receive those deliberate specimens nor
+# decide that assertion, so it is cleared here. The capture checks below set
+# their own directory.
+Sys.unsetenv("GTHEORY_DISCRETE_SPECIMEN_DIR")
+
 fails <- 0L
 ok <- function(condition, label) {
   if (!isTRUE(condition)) { fails <<- fails + 1L; cat("FAIL: ", label, "\n", sep = "") }
