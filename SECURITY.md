@@ -51,8 +51,9 @@ the reporter is credited unless they ask otherwise.
 Preflight's bounded audit and no-variation examples retain sampled design
 labels and counts (panel examples also retain input row numbers), excluding
 individual outcome values and unrelated columns. Outcome profiles retain
-aggregate category counts and the declared category labels. These identifiers may
-still identify participants or evaluators. `max_examples = 0` omits the audit
+aggregate category counts and the declared category labels. A batch audit's
+examples list item identifiers and, when calls are recorded, call identifiers.
+These identifiers may still identify participants or evaluators. `max_examples = 0` omits the audit
 examples; it does not remove category labels, aggregate summaries or values
 supplied literally in the recorded call's other arguments. The call's `data`
 argument is kept only when it is a plain object name: a data frame passed

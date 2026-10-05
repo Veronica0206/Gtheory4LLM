@@ -20,17 +20,26 @@
 # takes a reach: how many positions the influence extends, which is at most
 # one less than the number of items in a call.
 #
-# size: Items per call.
-# order: Optional column giving the order in which items were submitted. One
-#   distinct value per item, the same in every condition. NULL uses the order
-#   in which items first appear in the data.
+# Which items shared a call is either inferred or recorded. Without id the
+# batches are cut from the item order, the same in every condition, which is
+# all that data without a call column allow. With id the calls are read from
+# the data, so they may differ between conditions and in size.
+#
+# size: Items per call. With id, the most a call may hold.
+# order: Optional column giving the order in which items were submitted.
+#   Without id: one distinct value per item, the same in every condition, and
+#   NULL uses the order in which items first appear in the data. With id: the
+#   position of each row's item in its call, and NULL uses the stored order of
+#   the rows of each call.
 # by: Optional instrumentation facet across whose levels the dependence may
 #   differ, for example the evaluator.
 # sequential: FALSE, or how many preceding items may affect an item. TRUE
 #   means every preceding item in the call.
 # neighbor: FALSE, or how many positions apart two items may be and still
 #   affect each other. TRUE means any distance within the call.
-gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor = FALSE) {
+# id: Optional column identifying the call that produced each row.
+gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor = FALSE,
+                     id = NULL) {
   if (!is.numeric(size) || length(size) != 1L || is.na(size) || !is.finite(size) ||
       size != floor(size) || size < 2 || size > .Machine$integer.max)
     stop("size must be one integer of at least 2, the number of items in a call. ",
@@ -53,6 +62,9 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
   }
   order <- one_name(order, "order")
   by <- one_name(by, "by")
+  id <- one_name(id, "id")
+  if (!is.null(id) && identical(id, order))
+    stop("id and order must name different columns.", call. = FALSE)
   sequential <- reach(sequential, "sequential")
   neighbor <- reach(neighbor, "neighbor")
   positions <- function(k) if (k == 1L) "1 position" else paste(k, "positions")
@@ -64,15 +76,24 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
       " of each other may also affect each other, in either direction."),
     "Items in different calls are independent given the declared sources.")
   structure(list(size = size, order = order, by = by, sequential = sequential, neighbor = neighbor,
-                 assumption = paste(assumption, collapse = " ")), class = "gt_batch")
+                 id = id, assumption = paste(assumption, collapse = " ")), class = "gt_batch")
 }
 
-# Which batch and position each item occupies, from the declared order.
+.gt_batch_order_values <- function(data, batch) {
+  if (!batch$order %in% names(data))
+    stop("The batch order column ", sQuote(batch$order), " is not in the data.", call. = FALSE)
+  value <- data[[batch$order]]
+  if (!is.numeric(value) || anyNA(value) || any(!is.finite(value)))
+    stop("The batch order column must be numeric, finite and nonmissing.", call. = FALSE)
+  value
+}
+
+# Which batch and position each item occupies when calls are not recorded.
 #
 # Returns the two per-row vectors when the declaration can be resolved, and the
 # reasons when it cannot. A batch is fixed: the same items, in the same order,
-# in every condition. An order that changes between conditions describes a
-# different design, which this version does not audit.
+# in every condition. The batches are cut from the items that are present, so
+# an item removed after collection moves every later item up, unseen.
 .gt_batch_resolve <- function(data, design) {
   batch <- design$batch
   items <- data[[design$object]]
@@ -83,17 +104,13 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
     rank <- seq_len(n_items)
     source <- "the order in which items first appear in the data"
   } else {
-    if (!batch$order %in% names(data))
-      stop("The batch order column ", sQuote(batch$order), " is not in the data.", call. = FALSE)
-    value <- data[[batch$order]]
-    if (!is.numeric(value) || anyNA(value) || any(!is.finite(value)))
-      stop("The batch order column must be numeric, finite and nonmissing.", call. = FALSE)
+    value <- .gt_batch_order_values(data, batch)
     source <- paste("column", sQuote(batch$order))
     lowest <- tapply(value, code, min)
     highest <- tapply(value, code, max)
     varying <- sum(lowest != highest)
     if (varying) problems <- c(problems, paste0(varying, " item(s) have more than one order value, ",
-      "so the order is not the same in every condition"))
+      "so the order is not the same in every condition; record the calls in a column and name it in id"))
     if (anyDuplicated(as.numeric(lowest))) problems <- c(problems,
       "two or more items share an order value")
     rank <- rank(as.numeric(lowest), ties.method = "first")
@@ -105,61 +122,149 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
        position = ((rank - 1L) %% batch$size + 1L)[code], item_code = code)
 }
 
+# Which call and position each row occupies when calls are recorded.
+#
+# The calls are read, not reconstructed, so they may hold different items in
+# different conditions and fewer items than declared. What a recorded call
+# cannot do is span conditions, hold an item twice, or exceed the declared size.
+.gt_batch_recorded <- function(data, design, condition_code) {
+  batch <- design$batch
+  if (!batch$id %in% names(data))
+    stop("The batch id column ", sQuote(batch$id), " is not in the data.", call. = FALSE)
+  call <- data[[batch$id]]
+  if (!is.atomic(call) || !is.null(dim(call)) || anyNA(call))
+    stop("The batch id column must hold one nonmissing call identifier per row.", call. = FALSE)
+  items <- data[[design$object]]
+  item_code <- match(items, unique(items))
+  call_code <- match(call, unique(call))
+  n_calls <- max(call_code)
+  size <- tabulate(call_code, n_calls)
+  problems <- character()
+  if (is.null(batch$order)) {
+    position <- stats::ave(seq_along(call_code), call_code, FUN = seq_along)
+    source <- paste("the stored order of the rows of each call in column", sQuote(batch$id))
+  } else {
+    value <- .gt_batch_order_values(data, batch)
+    position <- as.integer(stats::ave(value, call_code,
+      FUN = function(v) rank(v, ties.method = "first")))
+    source <- paste("column", sQuote(batch$order), "within each call in column", sQuote(batch$id))
+    tied <- sum(tapply(value, call_code, function(v) anyDuplicated(v) > 0L))
+    if (tied) problems <- c(problems, paste0(tied, " call(s) hold two or more rows with one order value"))
+  }
+  spanning <- sum(tabulate(unique(cbind(call_code, condition_code))[, 1L], n_calls) > 1L)
+  if (spanning) problems <- c(problems, paste0(spanning, " call(s) span more than one condition"))
+  repeated <- length(unique(call_code[duplicated(cbind(call_code, item_code))]))
+  if (repeated) problems <- c(problems, paste0(repeated, " call(s) hold an item more than once"))
+  oversized <- sum(size > batch$size)
+  if (oversized) problems <- c(problems, paste0(oversized, " call(s) hold more than the declared ",
+    batch$size, " items; the largest holds ", max(size)))
+  # A batch is a set of items submitted together; the same batch in the same
+  # order may be submitted in many calls.
+  by_position <- order(call_code, position)
+  ordered <- vapply(split(item_code[by_position], call_code[by_position]),
+    paste, character(1), collapse = ",")
+  members <- vapply(split(item_code, call_code),
+    function(i) paste(sort(i), collapse = ","), character(1))
+  first <- !duplicated(call_code)
+  call_condition <- condition_code[first][order(call_code[first])]
+  layouts <- tapply(members, call_condition, function(m) paste(sort(unique(m)), collapse = "|"))
+  list(problems = problems, source = source, items = max(item_code), item_code = item_code,
+       call = call, call_code = call_code, position = position, sizes = size, calls = n_calls,
+       batches = length(unique(members)),
+       fixed_composition = length(unique(layouts)) == 1L,
+       fixed_order = length(unique(ordered)) == length(unique(members)))
+}
+
 # Describe a declared batch structure against the observed data.
 #
 # Counts and bounded examples only. Nothing here estimates dependence or
-# changes a fit: it says whether the declaration describes these data, and,
-# where the rows are stored call by call, whether that storage agrees with it.
+# changes a fit: it says whether the declaration can be laid over these data,
+# and, for inferred batches whose rows are stored call by call, whether that
+# storage agrees with it. Inferred membership is not evidence about how the
+# data were collected.
 .gt_batch_audit <- function(data, design, max_examples) {
   batch <- design$batch
-  resolved <- .gt_batch_resolve(data, design)
   conditions <- if (length(design$facets)) .gt_tuple_key(data, design$facets) else rep("1", nrow(data))
-  n_conditions <- length(unique(conditions))
-  n_batches <- as.integer(ceiling(resolved$items / batch$size))
-  last <- as.integer(resolved$items - (n_batches - 1L) * batch$size)
-  equal <- resolved$items %% batch$size == 0L
-  problems <- c(resolved$problems, if (!equal) paste0("the ", resolved$items,
-    " items do not divide into calls of ", batch$size, "; the last call holds ", last))
+  condition_code <- match(conditions, unique(conditions))
+  n_conditions <- max(condition_code)
+  recorded <- !is.null(batch$id)
   stored <- list(checked = FALSE, conditions = n_conditions, batches_agree = NA_integer_,
     order_agrees = NA_integer_,
-    scope = "Checked only when every condition holds each item once; rows must be stored call by call for agreement to mean anything.")
+    scope = if (recorded) "Not checked: the calls are recorded, so stored rows decide nothing." else
+      "Checked only when every condition holds each item once; rows must be stored call by call for agreement to mean anything.")
   examples <- NULL
-  if (resolved$resolved) {
-    per_condition <- tabulate(match(conditions, unique(conditions)))
-    if (all(per_condition == resolved$items) && !anyDuplicated(paste(conditions, resolved$item_code))) {
-      # Rows in stored order within each condition, cut into consecutive blocks
-      # of the declared size. A block agrees when it holds one declared batch,
-      # and its order agrees when positions run 1, 2, ... within it.
-      condition_code <- match(conditions, unique(conditions))
-      within <- stats::ave(seq_along(condition_code), condition_code, FUN = seq_along)
-      block <- (within - 1L) %/% batch$size
-      key <- paste(condition_code, block)
-      one_batch <- tapply(resolved$batch, key, function(b) length(unique(b)) == 1L)
-      in_order <- tapply(resolved$position, key, function(p) all(diff(p) == 1L) && p[[1L]] == 1L)
-      block_condition <- tapply(condition_code, key, function(k) k[[1L]])
-      stored$checked <- TRUE
-      stored$batches_agree <- sum(tapply(one_batch, block_condition, all))
-      stored$order_agrees <- sum(tapply(one_batch & in_order, block_condition, all))
+  if (recorded) {
+    found <- .gt_batch_recorded(data, design, condition_code)
+    problems <- found$problems
+    n_items <- found$items
+    n_batches <- found$batches
+    calls <- as.double(found$calls)
+    smallest <- min(found$sizes)
+    short <- as.double(sum(found$sizes < batch$size))
+    equal <- all(found$sizes == batch$size)
+    fixed_composition <- found$fixed_composition
+    fixed_order <- found$fixed_order
+    shown <- utils::head(order(found$call_code, found$position), max_examples)
+    examples <- data.frame(item = data[[design$object]][shown], call = found$call[shown],
+      position = found$position[shown], stringsAsFactors = FALSE)
+    if (is.factor(examples$call)) examples$call <- droplevels(examples$call)
+    membership_scope <- paste("Calls are read from column", sQuote(batch$id),
+      "and are as reliable as that column.")
+  } else {
+    found <- .gt_batch_resolve(data, design)
+    problems <- found$problems
+    n_items <- found$items
+    n_batches <- as.integer(ceiling(n_items / batch$size))
+    smallest <- as.integer(n_items - (n_batches - 1L) * batch$size)
+    equal <- n_items %% batch$size == 0L
+    # One call per batch, condition and declared repeat: a call holds an item
+    # once, so each repeat of a cell needs a call of its own.
+    per_batch <- as.double(n_conditions) * design$replicates
+    calls <- n_batches * per_batch
+    short <- if (equal) 0 else per_batch
+    fixed_composition <- fixed_order <- found$resolved
+    if (found$resolved) {
+      per_condition <- tabulate(condition_code)
+      if (all(per_condition == n_items) && !anyDuplicated(cbind(condition_code, found$item_code))) {
+        # Rows in stored order within each condition, cut into consecutive blocks
+        # of the declared size. A block agrees when it holds one declared batch,
+        # and its order agrees when positions run 1, 2, ... within it.
+        within <- stats::ave(seq_along(condition_code), condition_code, FUN = seq_along)
+        block <- (within - 1L) %/% batch$size
+        key <- paste(condition_code, block)
+        one_batch <- tapply(found$batch, key, function(b) length(unique(b)) == 1L)
+        in_order <- tapply(found$position, key, function(p) all(diff(p) == 1L) && p[[1L]] == 1L)
+        block_condition <- tapply(condition_code, key, function(k) k[[1L]])
+        stored$checked <- TRUE
+        stored$batches_agree <- sum(tapply(one_batch, block_condition, all))
+        stored$order_agrees <- sum(tapply(one_batch & in_order, block_condition, all))
+      }
+      first <- !duplicated(found$item_code)
+      shown <- utils::head(order(found$batch[first], found$position[first]), max_examples)
+      examples <- data.frame(item = data[[design$object]][first][shown],
+        batch = found$batch[first][shown], position = found$position[first][shown],
+        stringsAsFactors = FALSE)
     }
-    first <- !duplicated(resolved$item_code)
-    shown <- utils::head(order(resolved$batch[first], resolved$position[first]), max_examples)
-    examples <- data.frame(item = data[[design$object]][first][shown],
-      batch = resolved$batch[first][shown], position = resolved$position[first][shown],
-      stringsAsFactors = FALSE)
+    membership_scope <- paste("Batches are cut from the item order of the rows supplied; no recorded call was read.",
+      "Items removed after collection, calls of other sizes and regrouping between conditions cannot be detected.",
+      "Record the call in a column and name it in id to audit them.")
+  }
+  if (!is.null(examples)) {
     if (is.factor(examples$item)) examples$item <- droplevels(examples$item)
     names(examples)[[1L]] <- design$object
     rownames(examples) <- NULL
   }
-  list(size = batch$size, order = resolved$source, by = batch$by,
+  list(size = batch$size, membership = if (recorded) "recorded" else "inferred",
+    membership_scope = membership_scope, id = batch$id, order = found$source, by = batch$by,
     sequential = batch$sequential, neighbor = batch$neighbor,
-    assumption = batch$assumption, items = resolved$items, batches = n_batches,
-    equal_sized = equal, last_batch_size = last, conditions = n_conditions,
-    calls = as.double(n_batches) * n_conditions,
+    assumption = batch$assumption, items = n_items, batches = n_batches,
+    conditions = n_conditions, replicates = design$replicates, calls = calls,
+    equal_sized = equal, short_calls = short, smallest_call = smallest,
     by_levels = if (is.null(batch$by)) NA_integer_ else length(unique(data[[batch$by]])),
-    fixed_order = resolved$resolved, consistent = resolved$resolved && equal,
-    problems = problems, stored_rows = stored, examples = examples,
+    fixed_composition = fixed_composition, fixed_order = fixed_order,
+    consistent = !length(problems), problems = problems, stored_rows = stored, examples = examples,
     examples_shown = if (is.null(examples)) 0L else nrow(examples), examples_limit = max_examples,
     scope = paste("A declared structure compared with the observed items and conditions.",
       "It does not estimate dependence, and estimates in this version treat items as independent.",
-      "Examples list item identifiers and are bounded by max_examples."))
+      "Examples list item identifiers, and call identifiers when calls are recorded; they are bounded by max_examples."))
 }

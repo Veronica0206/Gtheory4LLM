@@ -29,6 +29,8 @@ plot.gt_reliability <- function(x, coefficient = c("Erho2", "Phi"),
     "Point estimates; intervals unavailable"
   if (identical(x$scale, "latent")) note <- paste(note, "latent responses", sep = "; ")
   if (isTRUE(x$extrapolated)) note <- paste(note, "extrapolated allocation", sep = "; ")
+  if (identical(.gt_batch_status_of(x)$status, "declared_not_modelled"))
+    note <- paste(note, "declared batches not modelled", sep = "; ")
   dots <- list(...)
   if (length(dots) && (is.null(names(dots)) || any(!nzchar(names(dots)))))
     stop("Graphical arguments in ... must be named.", call. = FALSE)

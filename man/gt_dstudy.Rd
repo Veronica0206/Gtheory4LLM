@@ -71,8 +71,10 @@ gives \code{NA}, not \code{FALSE}. Among candidates known to meet the target,
 including duplicated supplied allocations. Unknown coefficients retain
 \code{NA} in this flag. If no known candidate meets the target, no row is
 marked \code{TRUE}. The \code{target_context} attribute records the chosen
-coefficient, target, outcome, kind, scale, point-estimate comparison, and
-restriction to supplied candidates. Other export context is retained.
+coefficient, target, outcome, kind, scale, point-estimate comparison,
+restriction to supplied candidates, and batch status. Other export context is
+retained, including the \code{batch_status} column: a screen of a design that
+declared batches is a screen of coefficients that do not model them.
 
 Counts at or above \code{2^53}, or overflowing to infinity, cannot be ranked
 as exact integer totals. Their \code{measurement_count_exact} flag is

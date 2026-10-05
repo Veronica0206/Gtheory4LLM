@@ -54,6 +54,7 @@ fields from similarly named facets. The table also includes:
 \item \code{measurements_per_object}: the allocation total.
 \item \code{measurement_count_exact}: integer precision status.
 \item \code{extrapolated}: extension beyond fitted facet counts.
+\item \code{batch_status}: whether the design declared batches.
 }
 \code{uncertainty_available} describes availability of the fitted covariance
 used for propagation; individual intervals can still be missing, for example
@@ -69,11 +70,16 @@ Composite rows carry similarly quoted outcome labels and numerical weights;
 below \code{2^53}, the range in which consecutive integers have exact double
 representations. Larger totals are retained for reporting but not treated as
 exact counts when comparing candidate minima.
+\code{batch_status} is \code{"not_declared"}, or
+\code{"declared_not_modelled"} for a design made with
+\code{\link{gt_batch}}: the coefficients in that row treat items annotated in
+one call as independent. Printing and plotting say the same.
 
 Columns are atomic vectors suitable for CSV output.
 Additional attributes retain the fixed-facet declaration, a compact uncertainty
-record, the structured score and the interpretation. Their names are
-\code{fixed_facets}, \code{uncertainty}, \code{score} and \code{interpretation}.
+record, the structured score, the batch status and the interpretation. Their
+names are \code{fixed_facets}, \code{uncertainty}, \code{score}, \code{batch}
+and \code{interpretation}.
 CSV does not preserve R attributes; keep these
 alongside a CSV when reporting the full analysis context. Conversion does
 not refit the model or create new uncertainty estimates.

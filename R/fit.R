@@ -193,6 +193,7 @@ gt_diagnostics <- function(fit) {
        diagnostics = fit$diagnostics, declared_aliases = fit$design$aliased_terms,
        data_validation = fit$design$validation_scope,
        stages = .gt_staged_diagnostics(fit),
+       batch = .gt_batch_status(fit$design),
        notes = fit$design$notes), class = "gt_diagnostics")
 }
 
@@ -286,6 +287,8 @@ gt_diagnostics <- function(fit) {
   }
   if (isFALSE(d$numerically_accepted))
     cat("Returned estimates are diagnostic only; reliability and D studies are unavailable.\n")
+  batch <- .gt_batch_status_text(.gt_batch_status_of(d))
+  if (length(batch)) cat(batch, "\n")
 }
 
 print.gt_fit <- function(x, ...) {

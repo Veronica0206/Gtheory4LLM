@@ -442,12 +442,29 @@ print.gt_preflight <- function(x, ...) {
   if (any(x$panel_audit$examples$truncated)) cat("Some audit example tables are truncated; see panel_audit$examples.\n")
   if (!is.null(x$batch_audit)) {
     b <- x$batch_audit
-    cat("Declared calls:", b$batches, "batches of", b$size, "items x", b$conditions, "conditions =",
-        format(b$calls, scientific = FALSE, trim = TRUE), "calls |",
-        "equal dependence within a call",
-        if (b$sequential) paste0("| sequential reach ", b$sequential) else "",
-        if (b$neighbor) paste0("| neighbour reach ", b$neighbor) else "",
-        if (!is.null(b$by)) paste0("| may differ by ", b$by) else "", "\n")
+    count <- function(n) format(n, scientific = FALSE, trim = TRUE)
+    dependence <- paste0("equal dependence within a call",
+      if (b$sequential) paste0(" | sequential reach ", b$sequential) else "",
+      if (b$neighbor) paste0(" | neighbour reach ", b$neighbor) else "",
+      if (!is.null(b$by)) paste0(" | may differ by ", b$by) else "")
+    if (identical(b$membership, "recorded")) {
+      cat("Recorded calls: ", count(b$calls), " in column ", sQuote(b$id), " | ", b$batches,
+          " distinct batches of up to ", b$size, " items | ",
+          if (b$fixed_composition && b$fixed_order) "the same batches and order in every condition" else
+            if (b$fixed_composition) "the same batches in every condition, in more than one order" else
+              "batches differ between conditions",
+          " | ", dependence, "\n", sep = "")
+      if (!b$equal_sized) cat(count(b$short_calls), " call(s) hold fewer than ", b$size,
+          " items; the smallest holds ", b$smallest_call, "\n", sep = "")
+    } else {
+      cat("Implied calls: ", b$batches, " batches of ", b$size, " items",
+          if (!b$equal_sized) paste0(" (the last holds ", b$smallest_call, ")") else "",
+          " x ", b$conditions, " conditions",
+          if (b$replicates > 1) paste0(" x ", b$replicates, " repeats") else "",
+          " = ", count(b$calls), " calls | ", dependence, "\n", sep = "")
+      cat("Batch membership is inferred from item order, not read from recorded calls;",
+          "items removed after collection cannot be detected.\n")
+    }
     if (!b$consistent) cat("Batch declaration does not describe these data:", paste(b$problems, collapse = "; "), "\n")
     else if (isTRUE(b$stored_rows$checked))
       cat("Stored rows agree with the declared batches in", b$stored_rows$batches_agree, "of",

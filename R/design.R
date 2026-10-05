@@ -19,6 +19,31 @@
 .GT_BATCH_NOTE <- paste("A batch declaration is recorded and audited by gt_preflight().",
   "Estimates in this version still treat items in one call as independent.")
 
+# What a result made from this design can say about its batches. Estimates do
+# not use a declaration yet, so a declared batch is always "not modelled"; the
+# status travels with every coefficient so that none is read as batch-adjusted.
+# It lives beside the design because every engine loads this file.
+.gt_batch_status <- function(design) {
+  batch <- design$batch
+  if (is.null(batch))
+    return(list(status = "not_declared", size = NA_integer_, membership = NA_character_))
+  list(status = "declared_not_modelled", size = batch$size,
+       membership = if (is.null(batch$id)) "inferred" else "recorded")
+}
+
+# A result made before the status existed could not have declared a batch.
+.gt_batch_status_of <- function(x) {
+  status <- x$batch
+  if (is.list(status) && is.character(status$status) && length(status$status) == 1L) status else
+    list(status = "not_declared", size = NA_integer_, membership = NA_character_)
+}
+
+.gt_batch_status_text <- function(status) {
+  if (!identical(status$status, "declared_not_modelled")) return(NULL)
+  paste0("Batches of ", status$size, " items declared (membership ", status$membership,
+         ") but not modelled: items in one call are treated as independent.")
+}
+
 .gt_design_names <- function(x, label, allow_empty = FALSE) {
   if (!is.character(x) || (!allow_empty && !length(x)) || anyNA(x) ||
       any(!nzchar(x)) || any(trimws(x) != x) || anyDuplicated(x)) {
@@ -190,6 +215,8 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
       .gt_design_abort("The batch declaration's by must name a declared instrumentation facet.")
     if (!is.null(batch$order) && batch$order %in% variables)
       .gt_design_abort("The batch declaration's order must be a column other than the object and the facets.")
+    if (!is.null(batch$id) && batch$id %in% variables)
+      .gt_design_abort("The batch declaration's id must be a column other than the object and the facets.")
     notes <- c(notes, .GT_BATCH_NOTE)
   }
   expanded <- list(parents = list(), members = list())

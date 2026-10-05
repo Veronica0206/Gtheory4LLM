@@ -26,11 +26,23 @@ below add refusals, evidence and reporting.
   stated number of preceding items or of items on either side, at most one
   less than the batch size. `by` names a facet, such as the evaluator, across
   whose levels the dependence may differ.
+- Which items shared a call is inferred or recorded. Without `id`, batches are
+  cut from the item order and are the same in every condition; that is a
+  reconstruction, and it cannot detect items removed after collection. With
+  `id` naming a column that identifies each row's call, the calls are read
+  from the data and may differ between conditions and in size.
 - `gt_preflight()` audits a declaration: the batches, conditions and calls it
-  implies, whether it describes the data, and, where rows are stored call by
-  call, whether that storage agrees with it. This is a first step. Estimates
-  still treat items in one call as independent, and a fit made from a
-  declaring design says so in its notes.
+  implies or records, whether it describes the data, and, for inferred batches
+  whose rows are stored call by call, whether that storage agrees with it.
+  Implied calls count one for each batch, condition and declared replicate. A
+  call holding fewer items than declared is reported, not treated as a
+  mismatch.
+- This is a first step. Estimates still treat items in one call as
+  independent, and every result made from a declaring design says so: fits,
+  diagnostics, coefficients and decision studies print it, the data-frame
+  exports and `gt_dstudy_target()` carry `batch_status`, the plots note it,
+  and `gt_report()` records it. The exports gain that one column for every
+  design; it reads `not_declared` when no batch was declared.
 
 ## Data checks, reporting and figures
 
