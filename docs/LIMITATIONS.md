@@ -36,6 +36,16 @@ scientifically sufficient. Those are separate questions with separate evidence.
   backend currently fits one observation per full cell only.
 - **Design size.** The exact Gaussian backend allows at most 12 factorial axes
   (the object plus 11 facets), which is 4096 strata.
+- **Batches.** A batch declared with `gt_batch()` is recorded and audited, not
+  yet modelled: coefficients and their intervals treat items annotated in one
+  call as independent, whatever the declaration says about them, and every
+  output carries the status `declared_not_modelled`. Without a recorded call
+  column the batches are inferred from the item order of the rows supplied;
+  that reconstruction cannot detect items removed after collection, calls of
+  other sizes, or regrouping between conditions. Recorded calls are counted
+  from the rows supplied: the number of items a call was sent, calls with no
+  row left, and the positions at which items were sent are not recovered from
+  filtered data.
 
 ## Gaussian models
 

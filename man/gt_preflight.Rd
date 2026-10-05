@@ -40,6 +40,8 @@ It also contains:
 \item \code{panel_audit}: bounded panel diagnostics, described below.
 \item \code{outcome_profile}: a named list of descriptive outcome summaries,
 category counts, grouping coverage, and bounded no-variation examples.
+\item \code{batch_audit}: for a design that declares batches, the calls
+that declaration implies or records; absent otherwise. Described below.
 \item \code{checks}: a data frame of the structural and resource checks.
 \item \code{fitting_feasible}: whether those checks passed.
 \item \code{supported_reliability_scales}: conditional coefficient scales.
@@ -150,6 +152,38 @@ category/outcome labels. The preflight object is not anonymized.
 The recorded call keeps its data argument only when that argument is a plain
 object name. A data frame supplied through \code{do.call()}, or an inline
 expression, is recorded as a marker rather than stored in the call.
+
+For a design made with a \code{\link{gt_batch}} declaration, \code{batch_audit}
+contains the declared size, order source, facet and reaches, and
+\code{membership}: \code{"inferred"} when the batches are cut from the item
+order, \code{"recorded"} when the calls are read from the column named in the
+declaration's \code{id}. It counts the items, the distinct \code{batches},
+the conditions and the \code{calls}. Recorded calls are counted. Inferred
+calls are implied: one for each batch, condition and declared replicate.
+\code{equal_sized}, \code{calls_below_size} and
+\code{smallest_observed_call} describe calls with fewer items present than
+declared. That is a property of the rows supplied, not a problem, and not
+evidence of how many items a call was sent: a call sent short and a call that
+lost rows after collection look the same, and a call with no row left is not
+counted. \code{position_scope} records that positions are ranks among the
+items present. \code{fixed_composition} and \code{fixed_order} say
+whether every condition holds the same batches, and each batch in one order.
+\code{consistent} is \code{TRUE} when the declaration can be laid over the
+data, with the reasons in \code{problems} when it cannot. At most
+\code{max_examples} rows list items with their batch, or their recorded call,
+and position.
+
+Inferred membership is a reconstruction from the rows supplied, and
+\code{consistent} is then no evidence about how the data were collected:
+items removed after collection, calls of other sizes and regrouping between
+conditions leave no trace. \code{membership_scope} says so in the object and
+the printed report repeats it; for recorded calls it states the limits just
+described. For inferred batches \code{stored_rows}
+reports, when every condition holds each item once, in how many conditions
+consecutive blocks of rows hold one declared batch, and in how many they also
+follow the declared order. That agreement means something only when rows are
+stored call by call. The audit estimates no dependence, does not enter
+\code{checks}, and changes no fit.
 
 For absent declared categories, the profile and structural/resource estimates
 remain available; free-covariance and source-kernel checks are skipped after

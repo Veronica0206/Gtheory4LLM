@@ -290,6 +290,7 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
          "fully random facets",
        interpretation = if (context$gaussian) "Gaussian observed-score coefficient" else
          "Identified latent-response coefficient; not reliability of binary proportions or ordinal observed scores",
+       batch = .gt_batch_status(fit$design),
        fit_diagnostics = gt_diagnostics(fit)), class = "gt_reliability")
 }
 
@@ -328,6 +329,7 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
                  fixed_facets = fixed, uncertainty = context$uncertainty,
                  measurements_per_object = apply(allocation, 1L, prod) * context$replicates,
                  extrapolated = apply(allocation, 1L, function(x) any(x > context$counts)),
+                 batch = .gt_batch_status(fit$design),
                  fit_diagnostics = gt_diagnostics(fit)), class = "gt_dstudy")
 }
 
@@ -374,10 +376,14 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
   results$measurement_count_exact <- is.finite(results$measurements_per_object) &
     results$measurements_per_object < 2^53
   results$extrapolated <- extrapolated[position]
+  # A column, not only an attribute: a CSV keeps the one and drops the other.
+  batch <- .gt_batch_status_of(x)
+  results$batch_status <- rep(batch$status, nrow(results))
   rownames(results) <- row.names
   attr(results, "allocation_columns") <- stats::setNames(names(allocations), allocation_columns)
   attr(results, "fixed_facets") <- x$fixed_facets
   attr(results, "score") <- x$score
+  attr(results, "batch") <- batch
   attr(results, "uncertainty") <- record[intersect(names(record),
     c("available", "reason", "method", "boundary_components", "restricted_to_interior",
       "fixed_components", "fixed_component_kinds"))]
@@ -458,6 +464,7 @@ gt_dstudy_target <- function(x, target, coefficient = "Erho2", outcome = NULL,
   attr(table, "target_context") <- list(coefficient = coefficient, target = target,
     outcome = unique(table$outcome), kind = kind, scale = x$scale,
     comparison = "point_estimate", scope = "supplied_candidates_only",
+    batch_status = .gt_batch_status_of(x)$status,
     note = paste("Fewest measurements among supplied candidates with a known point projection",
       "meeting the target; ties retained. This is not a global optimum, a cost optimum,",
       "or a guarantee that a future panel reaches the target."))
@@ -516,6 +523,8 @@ print.gt_reliability <- function(x, ..., digits = 4L, max_rows = 12L) {
   .gt_print_uncertainty_note(x)
   if (identical(x$scale, "latent")) cat("Latent-response coefficients; not observed-score reliability.\n")
   if (isTRUE(x$extrapolated)) cat("Allocation exceeds fitted counts; source covariances are held fixed.\n")
+  batch <- .gt_batch_status_text(.gt_batch_status_of(x))
+  if (length(batch)) cat(batch, "\n")
   cat("Full covariance matrices and fit diagnostics remain in the returned object.\n")
   invisible(x)
 }
@@ -541,6 +550,8 @@ print.gt_dstudy <- function(x, ..., digits = 4L, max_rows = 12L) {
   .gt_print_uncertainty_note(x)
   if (identical(x$scale, "latent")) cat("Latent-response coefficients; not observed-score reliability.\n")
   if (any(x$extrapolated)) cat(sum(x$extrapolated), "allocations exceed fitted counts; source covariances are held fixed.\n")
+  batch <- .gt_batch_status_text(.gt_batch_status_of(x))
+  if (length(batch)) cat(batch, "\n")
   invisible(x)
 }
 
@@ -577,6 +588,7 @@ plot.gt_dstudy <- function(x, coefficient = "Erho2", interval = TRUE, ...,
                    ylab = paste(coefficient, "-", x$scale, "scale"))
   resolved <- utils::modifyList(defaults, dots[named])
   do.call(graphics::plot, c(list(xx, tab[[coefficient]]), resolved, dots[!named]))
+  .gt_batch_status_margin(x)
   if (drawn) graphics::segments(xx[interval_rows], lower[interval_rows],
     xx[interval_rows], upper[interval_rows],
     col = rep(resolved$col, length.out = nrow(tab))[interval_rows])

@@ -23,7 +23,10 @@ The coefficient coordinates are supplied by the method.}
 The horizontal axis names the observed or latent coefficient scale. The default
 subtitle identifies unavailable or hidden intervals, conditional uncertainty,
 and extrapolation. A caller overriding the subtitle should preserve the
-interpretation relevant to their analysis. Unavailable estimates keep their
+interpretation relevant to their analysis. For a design that declared batches
+with \code{\link{gt_batch}}, the plot also states above the plotting region
+that they are not modelled; that statement is not a subtitle and a caller's
+\code{sub} does not replace it. Unavailable estimates keep their
 label but have no plotted point. Changing the graphic does not refit the model
 or alter any acceptance or inference decision.
 

@@ -6,7 +6,7 @@
 gt_design(object, facets, crossed = facets, nested = NULL,
   item_interactions = "complete", instrument_interactions = "complete",
   item_nested = character(), random = NULL, full_cell = TRUE,
-  replicates = 1L, max_terms = 4096L)
+  replicates = 1L, max_terms = 4096L, batch = NULL)
 }
 \arguments{
 \item{object}{One column name for the object of measurement.}
@@ -20,6 +20,7 @@ gt_design(object, facets, crossed = facets, nested = NULL,
 \item{full_cell}{Retain the object-by-all-facets source when the requested expansion contains it. \code{FALSE} removes exactly that one term and leaves every other requested source unchanged. Unlike the other selectors this may be combined with \code{random}.}
 \item{replicates}{Positive integer observations per complete object-by-facets cell. Observed replication is checked during fitting.}
 \item{max_terms}{Positive integer bound on source expansion, checked before expansion.}
+\item{batch}{Optional \code{\link{gt_batch}} declaration that items were annotated several to a call. \code{NULL}, the default, leaves items independent given the declared sources. Its \code{by} must name a declared facet, and its \code{order} and \code{id} columns other than the object and the facets.}
 }
 \value{A \code{gt_design} list containing the object, facets, requested terms and their members, nesting metadata, and pending data-validation information.}
 \details{The object main effect is always present. With all facets crossed, complete object and instrumentation interactions retain the full hierarchy. At one observation per cell, a Gaussian full-cell source is indistinguishable from a free residual and is combined with it during fitting. A requested observation-level source is rejected for discrete families, because it cannot be separated from the identified discrete observation model. It is never dropped silently: declare the reduced model with \code{full_cell = FALSE}, which removes only that source, or write the intended terms with \code{random}.
@@ -29,7 +30,7 @@ Nesting defines parent-scoped groups shared across objects. It does not establis
 \strong{Balanced coded panel.} Gaussian fitting, \code{gt_reliability()} and \code{gt_dstudy()} all require one. It is the complete Cartesian product of the observed coded levels of the object and of every instrumentation facet, carrying exactly \code{replicates} rows in each of those cells, with no missing outcome. Nothing is imputed, aggregated or dropped to reach it.
 
 \emph{Coded} is what makes a nested facet fit this description. A nested child is identified by its code within its parent, so child codes repeat across parents and the Cartesian product stays complete; the child's real identity is then the child-by-parent source, not the child column on its own. Globally unique child labels describe the same study but leave most child-by-parent cells structurally empty, and this backend rejects that panel instead of guessing which cells were never possible. The example below shows both codings of one six-item design.}
-\seealso{\code{\link{gt_fit}}, \code{\link{gt_family}}}
+\seealso{\code{\link{gt_fit}}, \code{\link{gt_family}}, \code{\link{gt_batch}}}
 \examples{
 complete <- gt_design("item", c("evaluator", "prompt", "temp", "seed"))
 length(complete$terms_requested)

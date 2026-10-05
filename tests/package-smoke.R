@@ -1,6 +1,6 @@
 # Installed-package checks; no source(), repository paths, or raw CSV dependency.
 library(Gtheory4LLM)
-expected_exports <- c("gt_design", "gt_family", "gt_control", "gt_score", "gt_fit",
+expected_exports <- c("gt_design", "gt_batch", "gt_family", "gt_control", "gt_score", "gt_fit",
                       "gt_components", "gt_component_vcov", "gt_reliability", "gt_dstudy",
                       "gt_dstudy_target", "gt_diagnostics", "gt_example", "gt_preflight",
                       "gt_report", "gt_export_report")

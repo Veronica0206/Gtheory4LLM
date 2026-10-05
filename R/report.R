@@ -207,6 +207,7 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
     scope = if (!gaussian) "Discrete coefficients are point estimates only; no intervals are implemented."
       else if (!isTRUE(fit$uncertainty$available)) "No usable fitted parameter covariance is recorded; intervals are unavailable."
       else "Asymptotic estimation intervals under the declared model; not future-panel prediction intervals.")
+  batch <- .gt_batch_status(fit$design)
   report <- list(schema_version = "1.0",
     generated_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
     analysis = list(estimator = .gt_report_scalar(fit$estimator),
@@ -216,7 +217,8 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
       numerically_accepted = .gt_report_scalar(fit$numerically_accepted, "logical"),
       optimizer_completed = .gt_report_scalar(fit$optimizer_completed, "logical"),
       covariance_scale = if (gaussian) "Gaussian observed-score covariance" else "Identified latent predictor covariance",
-      minus2loglik = .gt_report_scalar(fit$minus2loglik, "numeric")),
+      minus2loglik = .gt_report_scalar(fit$minus2loglik, "numeric"),
+      batch_status = batch$status),
     design = design, families = families, random_sources = as.character(fit$design$terms),
     nesting = lapply(fit$design$nested, as.character),
     settings = if (length(controls)) do.call(rbind, controls) else NULL,
@@ -233,7 +235,8 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
     privacy = paste("Observations, facet-level identifiers, calls, grouping examples, models,",
       "free-form diagnostic messages, file paths and arbitrary controls are excluded.",
       "Variable, outcome and source names and aggregate estimates remain; this is not anonymization."),
-    limitations = c("Numerical acceptance is not a claim of statistical identification, accuracy, or approximation adequacy.",
+    limitations = c(.gt_batch_status_text(batch),
+      "Numerical acceptance is not a claim of statistical identification, accuracy, or approximation adequacy.",
       "Binary and ordinal coefficients describe latent responses, not observed labels, proportions or majority votes.",
       "Decision studies are conditional projections over supplied allocations; they do not establish an optimal design or future performance.",
       "A backend label records what ran; this report does not qualify the private sparse prototype.",

@@ -15,6 +15,40 @@ coefficient and acceptance decision in `tests/package-characterization.R`
 reproduces its values; the fitting arithmetic is untouched, and the changes
 below add refusals, evidence and reporting.
 
+## Declared batches
+
+- `gt_batch()` declares that items were annotated several to a call, and
+  `gt_design()` carries the declaration to every function that receives the
+  design or a fit. With none declared, items are independent given the
+  declared sources and every result is what it was. By default a declaration
+  assumes items in one call affect each other equally; `sequential` and
+  `neighbor`, both off by default, declare that an item may be affected by a
+  stated number of preceding items or of items on either side, at most one
+  less than the batch size. `by` names a facet, such as the evaluator, across
+  whose levels the dependence may differ.
+- Which items shared a call is inferred or recorded. Without `id`, batches are
+  cut from the item order and are the same in every condition; that is a
+  reconstruction, and it cannot detect items removed after collection. With
+  `id` naming a column that identifies each row's call, the calls are read
+  from the data and may differ between conditions and in size.
+- `gt_preflight()` audits a declaration: the batches, conditions and calls it
+  implies or records, whether it describes the data, and, for inferred batches
+  whose rows are stored call by call, whether that storage agrees with it.
+  Implied calls count one for each batch, condition and declared replicate. A
+  call with fewer items present than declared is reported, not treated as a
+  mismatch. Recorded calls are counted from the rows supplied: the audit says
+  that a call sent short and a call that lost rows afterwards look the same,
+  that a call with no row left is not counted, and that positions are ranks
+  among the items present, not necessarily the positions at which they were
+  sent.
+- This is a first step. Estimates still treat items in one call as
+  independent, and every result made from a declaring design says so: fits,
+  diagnostics, coefficients and decision studies print it, the data-frame
+  exports and `gt_dstudy_target()` carry `batch_status`, the plots state it
+  where a caller's own subtitle cannot replace it, and `gt_report()` records
+  it. The exports gain that one column for every
+  design; it reads `not_declared` when no batch was declared.
+
 ## Data checks, reporting and figures
 
 - Outcome profiles describe category frequencies and representation across

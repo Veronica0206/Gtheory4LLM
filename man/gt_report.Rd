@@ -34,7 +34,7 @@ must already exist. The report embeds its styles, tables and SVG figures.}
 The main fields are:
 \itemize{
 \item \code{generated_at}: report creation time.
-\item \code{analysis}: estimator, backend and numerical status.
+\item \code{analysis}: estimator, backend, numerical status and batch status.
 \item \code{design} and \code{families}: model declarations.
 \item \code{random_sources} and \code{nesting}: grouping declarations.
 \item \code{settings}: selected scalar controls.

@@ -71,8 +71,10 @@ gives \code{NA}, not \code{FALSE}. Among candidates known to meet the target,
 including duplicated supplied allocations. Unknown coefficients retain
 \code{NA} in this flag. If no known candidate meets the target, no row is
 marked \code{TRUE}. The \code{target_context} attribute records the chosen
-coefficient, target, outcome, kind, scale, point-estimate comparison, and
-restriction to supplied candidates. Other export context is retained.
+coefficient, target, outcome, kind, scale, point-estimate comparison,
+restriction to supplied candidates, and batch status. Other export context is
+retained, including the \code{batch_status} column: a screen of a design that
+declared batches is a screen of coefficients that do not model them.
 
 Counts at or above \code{2^53}, or overflowing to infinity, cannot be ranked
 as exact integer totals. Their \code{measurement_count_exact} flag is
@@ -94,7 +96,9 @@ Colours identify outcome/composite series, and open symbols distinguish
 allocations exceeding fitted facet counts from filled symbols within them.
 An optional target appears as a dashed horizontal line and is included in
 automatic vertical limits. Explicit graphical settings remain authoritative,
-including \code{pch} and \code{ylim}. Series filters do not change the
+including \code{pch} and \code{ylim}. For a design that declared batches with
+\code{\link{gt_batch}}, the plot states above the plotting region that they
+are not modelled, whatever subtitle is supplied. Series filters do not change the
 returned object: plotting returns the full original study invisibly.
 
 \strong{Balanced coded panel.} This is the complete Cartesian product of the observed coded levels of the object and of every instrumentation facet, carrying exactly the declared number of rows in each of those cells, with no missing outcome. For a nested facet, \emph{coded} means the child's within-parent code rather than a globally unique label, so the child's identity is the child-by-parent source; \code{\link{gt_design}} works both codings through. A panel that is not balanced in this sense has no analytic coefficient here, and none is approximated.

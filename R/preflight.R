@@ -261,6 +261,7 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
   n <- nrow(data)
   counts <- vapply(data[variables], function(x) length(unique(x)), integer(1))
   panel <- .gt_preflight_panel_audit(data, variables, design$replicates, max_examples)
+  batch_audit <- if (is.null(design$batch)) NULL else .gt_batch_audit(data, design, max_examples)
   cell_counts <- panel$cell_counts
   expected_cells <- prod(as.double(counts))
   complete <- length(cell_counts) == expected_cells
@@ -400,7 +401,7 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
   recorded_call <- match.call()
   if ("data" %in% names(recorded_call) && !is.name(recorded_call$data))
     recorded_call$data <- as.name("<dropped>")
-  structure(list(call = recorded_call, outcomes = outcomes, families = families,
+  report <- structure(list(call = recorded_call, outcomes = outcomes, families = families,
     engine = if (gaussian) "exact_balanced_gaussian" else "dense_joint_discrete_laplace",
     observations = n, observed_counts = counts, observed_cells = length(cell_counts),
     expected_cells = expected_cells, observed_replication = sort(unique(as.integer(cell_counts))),
@@ -417,6 +418,13 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
       if (gaussian) "Reliability of observed Gaussian-score averages." else
         "Reliability of latent-response averages; not label proportions, majority votes, or ordinal-score averages.",
     notes = notes), class = "gt_preflight")
+  # Present only for a design that declares batches, so every other preflight
+  # object is unchanged.
+  if (!is.null(batch_audit)) {
+    report$batch_audit <- batch_audit
+    report$notes <- c(report$notes, .GT_BATCH_NOTE)
+  }
+  report
 }
 
 print.gt_preflight <- function(x, ...) {
@@ -432,6 +440,39 @@ print.gt_preflight <- function(x, ...) {
     x$panel_audit$examples$shown, sep = "="), collapse = ", "),
     "| Per-table limit:", x$panel_audit$examples$limit[[1L]], "\n")
   if (any(x$panel_audit$examples$truncated)) cat("Some audit example tables are truncated; see panel_audit$examples.\n")
+  if (!is.null(x$batch_audit)) {
+    b <- x$batch_audit
+    count <- function(n) format(n, scientific = FALSE, trim = TRUE)
+    dependence <- paste0("equal dependence within a call",
+      if (b$sequential) paste0(" | sequential reach ", b$sequential) else "",
+      if (b$neighbor) paste0(" | neighbour reach ", b$neighbor) else "",
+      if (!is.null(b$by)) paste0(" | may differ by ", b$by) else "")
+    if (identical(b$membership, "recorded")) {
+      cat("Recorded calls: ", count(b$calls), " in column ", sQuote(b$id), " | ", b$batches,
+          " distinct batches of up to ", b$size, " items | ",
+          if (b$fixed_composition && b$fixed_order) "the same batches and order in every condition" else
+            if (b$fixed_composition) "the same batches in every condition, in more than one order" else
+              "batches differ between conditions",
+          " | ", dependence, "\n", sep = "")
+      if (!b$equal_sized) cat(count(b$calls_below_size), " call(s) have fewer than ", b$size,
+          " items present (fewest ", b$smallest_observed_call,
+          "): sent short, or rows removed since; these rows cannot say which.\n", sep = "")
+      cat("Calls are counted from the rows supplied: a call with no row left is not counted,",
+          "and positions are ranks among the items present.\n")
+    } else {
+      cat("Implied calls: ", b$batches, " batches of ", b$size, " items",
+          if (!b$equal_sized) paste0(" (the last holds ", b$smallest_observed_call, ")") else "",
+          " x ", b$conditions, " conditions",
+          if (b$replicates > 1) paste0(" x ", b$replicates, " repeats") else "",
+          " = ", count(b$calls), " calls | ", dependence, "\n", sep = "")
+      cat("Batch membership is inferred from item order, not read from recorded calls;",
+          "items removed after collection cannot be detected.\n")
+    }
+    if (!b$consistent) cat("Batch declaration does not describe these data:", paste(b$problems, collapse = "; "), "\n")
+    else if (isTRUE(b$stored_rows$checked))
+      cat("Stored rows agree with the declared batches in", b$stored_rows$batches_agree, "of",
+          b$stored_rows$conditions, "conditions; with their order in", b$stored_rows$order_agrees, "\n")
+  }
   cat("Outcome profiles:", length(x$outcome_profile),
     "| See outcome_profile for category coverage, numeric summaries, and descriptive group variation.\n")
   if (!x$fitting_feasible) print(x$checks[!x$checks$passed, , drop = FALSE], row.names = FALSE)
