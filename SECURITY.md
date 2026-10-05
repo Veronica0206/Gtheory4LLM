@@ -61,12 +61,14 @@ through `do.call()`, or an inline expression, is recorded as a marker.
 Data you pass to `gt_fit()` stays in the R session and in the returned object.
 Nothing is uploaded or cached outside the session, and nothing is written to
 disk unless you set the environment variable `GTHEORY_DISCRETE_SPECIMEN_DIR`.
-With that set, a discrete fit writes a specimen file for each refused start and
-for at most eight evaluations its optimizer could not use, holding the failed
-operation's matrix, right-hand side, step and factor, the model parameters, the
-evaluation's measurements and the numerical environment. A specimen holds no
-observations, but its matrix is a function of them, so treat that directory as
-you would a saved fit; `scripts/replay_specimen.R` reads one back. A fitted
+With that set, a discrete fit writes a specimen file for each refused start, for
+the first eight evaluations its optimizer could not use, for later solve- or
+factor-validity events until eight such events are written, and for each failed
+final check. A specimen holds the failed operation's matrix, right-hand side,
+step and factor, the model parameters, the evaluation's measurements and the
+numerical environment. It holds no observations, but its matrix is a function
+of them, so treat that directory as you would a saved fit;
+`scripts/replay_specimen.R` reads one back. A fitted
 object retains the modelled data by default, in `$data`, in the recorded call
 when the data were passed by value, and, for Gaussian fits, as summary
 metadata inside the retained OpenMx model, so treat a saved `.rds` of a fit
