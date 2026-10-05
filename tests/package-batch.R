@@ -129,4 +129,45 @@ expect(any(grepl("still treat items in one call as independent", gt_diagnostics(
        "a fit from a declaring design carries the note; one without does not")
 expect(identical(fit_batch$design$batch$sequential, 2L) && identical(fit_batch$design$batch$neighbor, 3L),
        "the declaration survives fitting")
+# --- every outcome type, one outcome or several ---------------------------------
+# The declaration and its audit belong to the design, not to an outcome family:
+# binary, ordinal and unordered outcomes, alone or jointly, get the same audit
+# as a continuous one, and a declaration changes no discrete estimate either.
+set.seed(808)
+k <- expand.grid(item = 1:20, rater = 1:4)
+signal <- rnorm(20)[k$item]
+k$score <- signal + rnorm(nrow(k))
+k$flag <- as.integer(signal + rnorm(nrow(k)) > 0)
+k$grade <- ordered(cut(signal + rnorm(nrow(k)), c(-Inf, -.5, .5, Inf), labels = c("low", "mid", "high")))
+k$kind <- factor(c("a", "b", "c")[1L + (k$item + k$rater) %% 3L])
+calls <- gt_batch(10, by = "rater", sequential = 2, neighbor = 3)
+with_batch <- gt_design("item", "rater", full_cell = FALSE, batch = calls)
+without_batch <- gt_design("item", "rater", full_cell = FALSE)
+reference <- gt_preflight(k, "score", gt_design("item", "rater", batch = calls))$batch_audit
+cases <- list(
+  binary = list("flag", gt_family("binary")),
+  ordinal = list("grade", gt_family("ordinal")),
+  categorical = list("kind", gt_family("categorical")),
+  joint = list(c("flag", "grade"), list(flag = gt_family("binary"), grade = gt_family("ordinal"))))
+for (label in names(cases)) {
+  outcomes <- cases[[label]][[1L]]; family <- cases[[label]][[2L]]
+  audited <- gt_preflight(k, outcomes, with_batch, family)$batch_audit
+  expect(identical(audited, reference) && identical(audited$batches, 2L) && audited$calls == 8,
+         paste("the audit is the same for", label, "outcomes as for a continuous one"))
+}
+two_scores <- k; two_scores$second <- signal + rnorm(nrow(k))
+expect(identical(gt_preflight(two_scores, c("score", "second"), gt_design("item", "rater", batch = calls),
+                              covariance = "diagonal", residual = "diagonal")$batch_audit, reference),
+       "the audit is the same for several continuous outcomes fitted jointly")
+for (label in c("binary", "ordinal", "joint")) {
+  outcomes <- cases[[label]][[1L]]; family <- cases[[label]][[2L]]
+  plain_fit <- suppressWarnings(gt_fit(k, outcomes, without_batch, family))
+  batch_fit <- suppressWarnings(gt_fit(k, outcomes, with_batch, family))
+  expect(identical(batch_fit$covariance_components, plain_fit$covariance_components) &&
+           identical(batch_fit$minus2loglik, plain_fit$minus2loglik) &&
+           identical(batch_fit$numerically_accepted, plain_fit$numerically_accepted),
+         paste("declaring a batch changes no", label, "estimate or acceptance decision"))
+  expect(any(grepl("still treat items in one call as independent", gt_diagnostics(batch_fit)$notes, fixed = TRUE)),
+         paste("a", label, "fit from a declaring design carries the note"))
+}
 cat("PASS: batch declarations are validated, carried, audited against the data, and change no estimate.\n")
