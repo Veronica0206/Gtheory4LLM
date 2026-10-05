@@ -119,9 +119,12 @@ below add refusals, evidence and reporting.
 - A solve- or factor-validity event is no longer lost behind routine
   non-converged evaluations. Retained records and specimens shared one
   allowance of eight, which an ordinary fit can use up on routine failures
-  alone; a later validity event then left only a count. Such events now have
-  a bounded allowance of their own, eight further records, and
-  `fit$diagnostics$evaluations$validity_events` counts every one.
+  alone; a later validity event then left only a count. The evaluation log
+  still retains the first eight invalid evaluations and now also retains later
+  validity events until eight such events are held, so it holds at most
+  sixteen records; `fit$diagnostics$evaluations$validity_events` counts every
+  one. These limits and counts cover the optimizer's logged evaluations, not
+  final checks.
 - A final check that fails with a structured refusal keeps that refusal's
   reason, measurements and parameters in `fit$diagnostics$final_checks`, and
   writes its failed operation as a specimen when a directory is configured.

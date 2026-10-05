@@ -382,6 +382,17 @@ captured <- read_specimens(directory)
 ok(length(captured) == 16L && sum(vapply(captured, has_matrix, logical(1))) == 8L,
    "each retained validity event wrote its failed operation; routine records carry none")
 unlink(directory, recursive = TRUE)
+# The validity allowance counts every retained validity event, wherever it
+# falls. After three routine failures, five validity events take ordinary
+# places and three more are retained beyond them: eight in all, not eight extra.
+log <- .gt_d_evaluation_log(.gt_d_control(list()), list(n = 90L, q = 1L))
+for (i in seq_len(3L)) log$observe(c(a = 0), unconverged, "coarse")
+for (i in seq_len(10L)) log$observe(c(a = 0), refusal, "coarse")
+mixed <- log$summary()
+mixed_reasons <- vapply(mixed$retained_invalid, function(record) as.character(record$reason), character(1))
+ok(identical(length(mixed_reasons), 11L) && identical(sum(is.na(mixed_reasons)), 3L) &&
+     identical(mixed$validity_events, 10L),
+   "eight validity events are retained in all, including those among the first eight records")
 # The same, through a fit: the ninth invalid evaluation is the validity event.
 calls <- 0L
 ninth <- function(parameters, prep, groups, setup, control, details = FALSE, ...) {
