@@ -64,7 +64,7 @@ disk unless you set the environment variable `GTHEORY_DISCRETE_SPECIMEN_DIR`.
 With that set, a discrete fit writes a specimen file for each refused start, for
 the first eight evaluations its optimizer could not use, for later solve- or
 factor-validity events until eight such events are written, and for each failed
-final check. A specimen holds the failed operation's matrix, right-hand side,
+final check and a refused stationarity probe. A specimen holds the failed operation's matrix, right-hand side,
 step and factor, the model parameters, the evaluation's measurements and the
 numerical environment. It holds no observations, but its matrix is a function
 of them, so treat that directory as you would a saved fit;

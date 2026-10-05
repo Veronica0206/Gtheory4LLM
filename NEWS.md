@@ -130,6 +130,14 @@ below add refusals, evidence and reporting.
   writes its failed operation as a specimen when a directory is configured.
   Only a raised error's text was kept before, so a refusal returned without
   an error blocked acceptance and left no account of why.
+- A refused stationarity probe keeps the refusing evaluation's record in the
+  same way, in `fit$diagnostics$outer_stationarity$failure`, and writes its
+  failed operation as a specimen when a directory is configured. Its retained
+  error named only "invalid conditional mode"; for a solve- or
+  factor-validity refusal it now also names the reason and its measurements.
+  A probe that merely did not converge keeps the established message.
+- The conditional-mode diagnostic stage reports the count of validity events
+  beside its other evaluation counts.
 - A preflight report no longer keeps the data in its recorded call. Called
   through `do.call()`, or with the data written inline, `gt_preflight()` stored
   the whole data frame in `$call`, unused columns included, whatever

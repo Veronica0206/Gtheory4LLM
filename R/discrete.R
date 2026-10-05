@@ -158,7 +158,7 @@
   tryCatch({
     dir.create(directory, showWarnings = FALSE, recursive = TRUE)
     label <- if (!is.null(record$evaluation)) paste0("evaluation-", record$evaluation) else
-      if (identical(record$phase, "final")) "final" else "start"
+      if (isTRUE(record$phase %in% c("final", "stationarity"))) record$phase else "start"
     path <- tempfile(paste0("gtheory-discrete-specimen-", label, "-"), tmpdir = directory,
                      fileext = ".rds")
     threads <- Sys.getenv(c("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
@@ -640,8 +640,28 @@
         !is.numeric(value$nll) || length(value$nll) != 1L ||
         !is.finite(value$nll) || value$nll >= 1e99)
       "unusable marginal objective" else NULL
-    if (!is.null(reason))
-      .gt_d_stop("Stationarity validation failed at ", location, ": ", reason, ".")
+    if (!is.null(reason)) {
+      # The probe stops here either way. When the evaluation returned a record,
+      # that record travels with the error, so the fit can say why the probe
+      # was refused in the evaluation's own terms, and the failed operation is
+      # written as a specimen when a directory is configured. A structured
+      # refusal's reason and measurements are named in the message; a probe
+      # that merely did not converge keeps the established message unchanged.
+      # The first failure is the only one, so this needs no allowance.
+      failure <- NULL
+      detail <- ""
+      if (is.list(value)) {
+        failure <- .gt_d_failure_record(value,
+          list(phase = "stationarity", location = location, parameters = par))
+        failure$specimen <- .gt_d_write_specimen(value, failure, prep, control)
+        if (!isTRUE(value$valid) && !is.null(value$reason))
+          detail <- .gt_d_start_failure_detail(value)
+      }
+      stop(structure(class = c("gt_discrete_stationarity_failure", "error", "condition"),
+        list(message = paste0("Stationarity validation failed at ", location, ": ", reason,
+                              detail, "."),
+             call = NULL, failure = failure)))
+    }
     value$nll
   }
   base <- objective(parameters, location = "center")
@@ -1008,12 +1028,16 @@
     message = "No fitted candidate supplied a usable final conditional mode; inspect the condition's attempts and final_checks.",
     call = NULL, attempts = attempts, final_checks = final_checks),
     class = c("gt_discrete_numerical_failure", "error", "condition")))
-  captured_stationarity <- .gt_d_capture(.gt_d_stationarity(fit$par, prep,
-    groups, setup, validation_control, final, laplace = .laplace))
+  stationarity_failure <- NULL
+  captured_stationarity <- .gt_d_capture(withCallingHandlers(
+    .gt_d_stationarity(fit$par, prep, groups, setup, validation_control, final,
+                       laplace = .laplace),
+    gt_discrete_stationarity_failure = function(e) stationarity_failure <<- e$failure))
   stationarity <- captured_stationarity$value
   if (is.null(stationarity)) stationarity <- list(
     stationary_within_tolerance = FALSE,
-    error = captured_stationarity$error, tolerance = control$stationarity_tol)
+    error = captured_stationarity$error, tolerance = control$stationarity_tol,
+    failure = stationarity_failure)
   stationarity$warnings <- captured_stationarity$warnings
   primary_tight <- .gt_d_capture(tight_objective(primary_fit$par))
   computation_failed <- any(vapply(attempts, function(x) !is.null(x$error), logical(1))) ||

@@ -46,6 +46,22 @@ for (stage in c("optimizer", "conditional_mode", "stationarity", "restart_stabil
 expect(identical(healthy$approximation_assessment$status, "not_assessed"),
        "approximation adequacy is not asserted by numerical success")
 
+# --- Validity refusals are counted beside the other evaluation counts ---------
+# A fit that records them reports the count; an object from before that field
+# existed reports none, rather than a zero nothing measured.
+counted <- base_fit()
+counted$diagnostics$evaluations <- list(count = 40L, invalid = 5L, valid_at_inner_budget = 1L,
+                                        validity_events = 2L)
+expect(identical(measure(counted, "conditional_mode", "validity_events"), 2) &&
+         identical(measure(counted, "conditional_mode", "invalid_evaluations"), 5),
+       "the conditional-mode stage reports validity events beside invalid evaluations")
+expect(identical(status(counted, "conditional_mode"), "passed"),
+       "counting validity events does not change the stage's verdict")
+uncounted <- base_fit()
+uncounted$diagnostics$evaluations <- list(count = 40L, invalid = 5L, valid_at_inner_budget = 1L)
+expect(is.null(measure(uncounted, "conditional_mode", "validity_events")),
+       "an object without the count reports none")
+
 # --- The issue #14 pattern ----------------------------------------------------
 # Reported completion, zero movement, rejected. The summary must convey all
 # three without contradiction and without redefining optimizer completion.
