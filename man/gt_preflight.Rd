@@ -36,7 +36,9 @@ gt_preflight(data, outcomes, design, family = gt_family("gaussian"),
 source and parameter totals, resource estimates, and interpretation notes.
 It also contains:
 \itemize{
-\item \code{sources}: a data frame describing the random sources.
+\item \code{sources}: a data frame describing the random sources a fit
+would estimate: the retained declared sources and, for a batch the fit would
+model, the call source. The parameter and dimension totals describe these.
 \item \code{panel_audit}: bounded panel diagnostics, described below.
 \item \code{outcome_profile}: a named list of descriptive outcome summaries,
 category counts, grouping coverage, and bounded no-variation examples.
@@ -171,7 +173,11 @@ whether every condition holds the same batches, and each batch in one order.
 \code{consistent} is \code{TRUE} when the declaration can be laid over the
 data, with the reasons in \code{problems} when it cannot. At most
 \code{max_examples} rows list items with their batch, or their recorded call,
-and position.
+and position. \code{model} says whether a fit of these data would estimate
+a shared call effect, with the reason when it would not, the name of the
+source it adds and that source's covariance parameters, which the total
+parameter count includes. No coefficient scale is offered for a design whose
+fit models a call effect; see \code{\link{gt_batch}}.
 
 Inferred membership is a reconstruction from the rows supplied, and
 \code{consistent} is then no evidence about how the data were collected:
@@ -182,8 +188,8 @@ described. For inferred batches \code{stored_rows}
 reports, when every condition holds each item once, in how many conditions
 consecutive blocks of rows hold one declared batch, and in how many they also
 follow the declared order. That agreement means something only when rows are
-stored call by call. The audit estimates no dependence, does not enter
-\code{checks}, and changes no fit.
+stored call by call. The audit estimates no dependence and does not enter
+\code{checks}.
 
 For absent declared categories, the profile and structural/resource estimates
 remain available; free-covariance and source-kernel checks are skipped after

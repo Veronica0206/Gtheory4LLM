@@ -36,16 +36,24 @@ scientifically sufficient. Those are separate questions with separate evidence.
   backend currently fits one observation per full cell only.
 - **Design size.** The exact Gaussian backend allows at most 12 factorial axes
   (the object plus 11 facets), which is 4096 strata.
-- **Batches.** A batch declared with `gt_batch()` is recorded and audited, not
-  yet modelled: coefficients and their intervals treat items annotated in one
-  call as independent, whatever the declaration says about them, and every
-  output carries the status `declared_not_modelled`. Without a recorded call
-  column the batches are inferred from the item order of the rows supplied;
-  that reconstruction cannot detect items removed after collection, calls of
-  other sizes, or regrouping between conditions. Recorded calls are counted
-  from the rows supplied: the number of items a call was sent, calls with no
-  row left, and the positions at which items were sent are not recovered from
-  filtered data.
+- **Batches.** A batch declared with `gt_batch()` is modelled only by a
+  Gaussian fit of equal fixed batches: the same batches in every condition,
+  each at the declared size, one row in a cell. That fit estimates one shared
+  call effect, the source `Call`. It has no reliability coefficients or
+  decision study yet, because the coefficient weights do not account for
+  which items share a call. `sequential`, `neighbor` and `by` are recorded and
+  not estimated. Every other declaration, including every binary, ordinal and
+  unordered outcome, is recorded and audited, not modelled: coefficients and
+  their intervals then treat items annotated in one call as independent, and
+  every output carries the status `declared_not_modelled`. A modelled call
+  effect describes the batches as they were composed; it says nothing about
+  the same items regrouped. Without a recorded call column the batches are
+  inferred from the item order of the rows supplied; that reconstruction
+  cannot detect items removed after collection, calls of other sizes, or
+  regrouping between conditions. Recorded calls are counted from the rows
+  supplied: the number of items a call was sent, calls with no row left, and
+  the positions at which items were sent are not recovered from filtered
+  data.
 
 ## Gaussian models
 

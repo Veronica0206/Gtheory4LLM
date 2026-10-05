@@ -173,9 +173,48 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
   layouts <- tapply(members, call_condition, function(m) paste(sort(unique(m)), collapse = "|"))
   list(problems = problems, source = source, items = max(item_code), item_code = item_code,
        call = call, call_code = call_code, position = position, sizes = size, calls = n_calls,
-       batches = length(unique(members)),
+       batches = length(unique(members)), composition = match(members, unique(members)),
        fixed_composition = length(unique(layouts)) == 1L,
        fixed_order = length(unique(ordered)) == length(unique(members)))
+}
+
+# Can the declared batches enter the exact balanced Gaussian likelihood, and
+# if so which batch and slot does each row occupy?
+#
+# The engine needs the calls to form a complete factorial with the facets: the
+# same batches in every condition, every batch at the declared size, at least
+# two batches, and one row in each cell. A declaration that does not meet this
+# stays declared and unmodelled, with the reason. The slot is only a label
+# for an item within its batch; the model gives it no effect of its own.
+.gt_batch_model <- function(data, design) {
+  batch <- design$batch
+  no <- function(reason) list(modelled = FALSE, reason = reason)
+  if (!identical(as.integer(design$replicates), 1L))
+    return(no("the design declares more than one row in a cell"))
+  conditions <- if (length(design$facets)) .gt_tuple_key(data, design$facets) else rep("1", nrow(data))
+  if (is.null(batch$id)) {
+    found <- .gt_batch_resolve(data, design)
+    if (!found$resolved) return(no(paste(found$problems, collapse = "; ")))
+    batch_code <- found$batch
+  } else {
+    found <- .gt_batch_recorded(data, design, match(conditions, unique(conditions)))
+    if (length(found$problems)) return(no(paste(found$problems, collapse = "; ")))
+    if (!found$fixed_composition) return(no("the recorded batches differ between conditions"))
+    batch_code <- found$composition[found$call_code]
+  }
+  first <- !duplicated(found$item_code)
+  sizes <- tabulate(batch_code[first])
+  if (any(sizes != batch$size))
+    return(no(paste0("not every batch holds the declared ", batch$size, " items")))
+  if (length(sizes) < 2L) return(no("there are fewer than two batches"))
+  # One slot per item, the same in every condition: its rank in its batch.
+  slot_of_item <- integer(found$items)
+  slot_of_item[found$item_code[first]] <- stats::ave(found$item_code[first], batch_code[first],
+    FUN = function(i) rank(i, ties.method = "first"))
+  list(modelled = TRUE, reason = NA_character_, term = .GT_CALL_TERM,
+       batches = length(sizes), size = batch$size,
+       calls = as.double(length(sizes)) * length(unique(conditions)),
+       batch = batch_code, slot = as.integer(slot_of_item[found$item_code]))
 }
 
 # Describe a declared batch structure against the observed data.
@@ -274,6 +313,6 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
     consistent = !length(problems), problems = problems, stored_rows = stored, examples = examples,
     examples_shown = if (is.null(examples)) 0L else nrow(examples), examples_limit = max_examples,
     scope = paste("A declared structure compared with the observed items and conditions.",
-      "It does not estimate dependence, and estimates in this version treat items as independent.",
+      "It estimates no dependence itself; model says whether a fit of these data would.",
       "Examples list item identifiers, and call identifiers when calls are recorded; they are bounded by max_examples."))
 }

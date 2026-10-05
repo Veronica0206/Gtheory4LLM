@@ -285,11 +285,30 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
     if (f$family == "categorical") length(f$levels) - 1L else 1L, integer(1)))
   location_parameters <- if (gaussian) length(outcomes) else sum(vapply(families, function(f)
     if (f$family == "binary") 1L else length(f$levels) - 1L, integer(1)))
-  random_dimension <- sum(as.double(levels)) * q
   add_check("repeated_source_groups", all(levels >= 2L),
             "Every retained source needs at least two observed groups.")
-  covariance_parameters <- numeric(length(terms))
-  names(covariance_parameters) <- names(terms)
+  # Whether a fit of these data would model the declared batches. Only the
+  # exact Gaussian engine does, for equal fixed batches, and it then fits one
+  # source more than the design declares. A declared source of that name
+  # would collide with it, which fitting refuses and this reports.
+  call_model <- if (is.null(design$batch)) NULL else if (gaussian) .gt_batch_model(data, design) else
+    list(modelled = FALSE, reason = "the call effect is estimated for Gaussian outcomes only")
+  call_modelled <- isTRUE(call_model$modelled)
+  if (call_modelled) {
+    add_check("call_source_name", !.GT_CALL_TERM %in% names(terms),
+              paste("A declared source named", .GT_CALL_TERM, "cannot be combined with a modelled batch."))
+    if (.GT_CALL_TERM %in% names(terms)) {
+      call_model <- list(modelled = FALSE, reason = paste("a declared source is named", .GT_CALL_TERM))
+      call_modelled <- FALSE
+    }
+  }
+  # The sources a fit estimates: the retained declared sources and, when the
+  # batches are modelled, the call. Counts and dimensions below describe these.
+  fitted <- c(names(terms), if (call_modelled) .GT_CALL_TERM)
+  fitted_levels <- c(unname(levels), if (call_modelled) as.integer(call_model$calls))
+  random_dimension <- sum(as.double(fitted_levels)) * q
+  covariance_parameters <- numeric(length(fitted))
+  names(covariance_parameters) <- fitted
   residual_parameters <- 0
   resources <- list()
   kernel_check <- "not_applicable"
@@ -297,8 +316,8 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
     .gt_gaussian_validate_control(control$gaussian)
     if (is.null(residual)) residual <- "unstructured"
     .gt_validate_residual_request(residual)
-    component_names <- c(names(terms), "Residual")
-    .gt_validate_covariance_request(covariance, names(terms))
+    component_names <- c(fitted, "Residual")
+    .gt_validate_covariance_request(covariance, fitted)
     types <- if (is.null(names(covariance)))
       stats::setNames(rep(covariance, length(component_names)), component_names) else {
         overridden <- stats::setNames(rep("diagonal", length(component_names)), component_names)
@@ -308,23 +327,25 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
     types[["Residual"]] <- residual
     parameter_count <- function(type) switch(type, diagonal = q,
       unstructured = q * (q + 1) / 2, pooled = 1)
-    covariance_parameters[] <- vapply(types[names(terms)], parameter_count, numeric(1))
+    covariance_parameters[] <- vapply(types[fitted], parameter_count, numeric(1))
     residual_parameters <- parameter_count(residual)
     add_check("complete_coded_panel", complete,
               "Gaussian fitting requires the complete Cartesian product of observed coded levels.")
     add_check("one_row_per_cell", design$replicates == 1L,
               "The Gaussian backend currently supports one measurement per full cell.")
-    add_check("factorial_strata_limit", length(variables) <= 12L,
-              "The exact Gaussian backend supports at most 4096 strata (12 axes including the object).")
+    # A modelled batch splits the object into a batch axis and a slot axis.
+    axes <- length(variables) + call_modelled
+    add_check("factorial_strata_limit", axes <= 12L,
+              "The exact Gaussian backend supports at most 4096 strata (12 axes including the object, which a modelled batch counts twice).")
     limit <- control$gaussian$max_preparation_bytes
     if (is.null(limit)) limit <- 512 * 1024^2
     if (!is.numeric(limit) || length(limit) != 1L || !is.finite(limit) || limit <= 0)
       stop("max_preparation_bytes must be a positive finite number of bytes.", call. = FALSE)
-    bytes <- .gt_gaussian_preparation_bytes(expected_cells, q, length(variables))
+    bytes <- .gt_gaussian_preparation_bytes(expected_cells, q, axes)
     add_check("preparation_resource_limit", bytes <= limit,
               "The Gaussian preparation estimate must fit the configured allocation limit.")
     resources <- list(preparation_estimated_bytes = bytes, preparation_limit_bytes = limit,
-      factorial_strata = 2^length(variables),
+      factorial_strata = 2^axes,
       scope = "Preparation working arrays only; excludes caller data and downstream OpenMx objects.")
   } else {
     if (!is.null(residual)) stop("Do not specify a Gaussian residual covariance for discrete outcomes.", call. = FALSE)
@@ -379,11 +400,12 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
       scope = paste("Planning estimates for one dense likelihood evaluation, checked",
         "before allocation. Not peak resident memory and not a runtime prediction."))
   }
-  sources <- data.frame(source = names(terms), observed_groups = unname(levels),
-    predictor_dimensions = q, random_dimension = unname(as.double(levels) * q),
+  sources <- data.frame(source = fitted, observed_groups = fitted_levels,
+    predictor_dimensions = q, random_dimension = as.double(fitted_levels) * q,
     covariance_parameters = unname(covariance_parameters), stringsAsFactors = FALSE)
   balanced <- complete && replicated
-  scales <- if (!balanced || !all(category_complete) || any(kinds == "categorical")) character() else
+  # A fit that models a call effect has no coefficients yet; see gt_reliability().
+  scales <- if (!balanced || !all(category_complete) || any(kinds == "categorical") || call_modelled) character() else
     if (gaussian) "observed" else "latent"
   notes <- c("Preflight checks structure and configured size limits. It does not establish identification, approximation adequacy, fit acceptance, or scientific validity.",
     "A supported reliability scale is conditional on a numerically accepted fit and the stated averaging design.",
@@ -414,13 +436,21 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
       total = location_parameters + sum(covariance_parameters) + residual_parameters),
     checks = checks, fitting_feasible = all(checks$passed), resources = resources,
     kernel_check = kernel_check, supported_reliability_scales = scales,
-    scale_interpretation = if (length(scales) == 0L) "No implemented analytic scalar coefficient for this family/panel combination." else
+    scale_interpretation = if (call_modelled) "A fit of this design models a call effect; coefficients that account for which items share a call are not implemented yet." else
+      if (length(scales) == 0L) "No implemented analytic scalar coefficient for this family/panel combination." else
       if (gaussian) "Reliability of observed Gaussian-score averages." else
         "Reliability of latent-response averages; not label proportions, majority votes, or ordinal-score averages.",
     notes = notes), class = "gt_preflight")
   # Present only for a design that declares batches, so every other preflight
   # object is unchanged.
   if (!is.null(batch_audit)) {
+    batch_audit$model <- list(modelled = call_modelled,
+      reason = if (call_modelled) NA_character_ else call_model$reason,
+      source = if (call_modelled) .GT_CALL_TERM else NA_character_,
+      covariance_parameters = if (call_modelled) covariance_parameters[[.GT_CALL_TERM]] else 0,
+      scope = paste("Whether a fit of these data would estimate one shared call effect.",
+        "Only the exact Gaussian engine does, for the same batches in every condition, each at the declared size.",
+        "Positional patterns and differences between the levels of a facet are declared but not yet estimated."))
     report$batch_audit <- batch_audit
     report$notes <- c(report$notes, .GT_BATCH_NOTE)
   }
@@ -430,7 +460,9 @@ gt_preflight <- function(data, outcomes, design, family = gt_family("gaussian"),
 print.gt_preflight <- function(x, ...) {
   cat("G-theory preflight:", x$observations, "rows |", x$engine, "\n")
   cat("Observed levels:", paste(paste(names(x$observed_counts), x$observed_counts, sep = "="), collapse = ", "), "\n")
-  cat("Retained random sources:", x$source_counts[["retained"]],
+  call_source <- if (isTRUE(x$batch_audit$model$modelled))
+    paste0("(fitted with ", x$batch_audit$model$source, ": ", nrow(x$sources), ")") else ""
+  cat("Retained random sources:", x$source_counts[["retained"]], call_source,
       "| Random dimensions:", x$random_dimension,
       "| Model parameters:", x$parameters[["total"]], "\n")
   cat("Structural/resource checks:", if (x$fitting_feasible) "PASS" else "BLOCKED", "\n")
@@ -468,6 +500,10 @@ print.gt_preflight <- function(x, ...) {
       cat("Batch membership is inferred from item order, not read from recorded calls;",
           "items removed after collection cannot be detected.\n")
     }
+    if (isTRUE(b$model$modelled))
+      cat("A fit will estimate one shared call effect, reported as source ", b$model$source, ".\n", sep = "")
+    else if (length(b$model$reason) == 1L && !is.na(b$model$reason))
+      cat("A fit will not model the batches: ", b$model$reason, ".\n", sep = "")
     if (!b$consistent) cat("Batch declaration does not describe these data:", paste(b$problems, collapse = "; "), "\n")
     else if (isTRUE(b$stored_rows$checked))
       cat("Stored rows agree with the declared batches in", b$stored_rows$batches_agree, "of",

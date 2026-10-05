@@ -14,21 +14,41 @@
   do.call(paste, c(unname(codes), list(sep = ":")))
 }
 
-# Carried by every design that declares a batch, and so by every fit and
-# report made from it, until the estimates themselves use the declaration.
-.GT_BATCH_NOTE <- paste("A batch declaration is recorded and audited by gt_preflight().",
-  "Estimates in this version still treat items in one call as independent.")
+# Carried by every design that declares a batch. Whether a fit can use the
+# declaration depends on the data and the outcome family, so the note states
+# the rule and each fit states what it did.
+.GT_BATCH_NOTE <- paste("A batch declaration is audited by gt_preflight().",
+  "A Gaussian fit of equal fixed batches estimates one shared call effect;",
+  "any other fit treats items in one call as independent and says so.")
 
-# What a result made from this design can say about its batches. Estimates do
-# not use a declaration yet, so a declared batch is always "not modelled"; the
-# status travels with every coefficient so that none is read as batch-adjusted.
-# It lives beside the design because every engine loads this file.
+# The source a modelled batch adds to a fit: the items of one batch annotated
+# under one condition share it.
+.GT_CALL_TERM <- "Call"
+
+# The random sources a fit estimates, as opposed to the sources a design
+# requests: the retained declared sources, and the call source when the fit
+# models its batches. Everything that describes a fitted model reads this one
+# list; the design's own terms stay what the user declared, because alias
+# resolution and the reuse of a design with another family depend on them.
+.gt_fitted_sources <- function(design)
+  c(as.character(design$terms), if (isTRUE(design$batch_model$modelled)) .GT_CALL_TERM)
+
+# What a result made from this design can say about its batches. A declared
+# batch is either modelled, with one shared call effect in the fit, or not
+# modelled, with the reason when a fit recorded one. The status travels with
+# every result so that none is read as something it is not. It lives beside
+# the design because every engine loads this file.
 .gt_batch_status <- function(design) {
   batch <- design$batch
   if (is.null(batch))
     return(list(status = "not_declared", size = NA_integer_, membership = NA_character_))
-  list(status = "declared_not_modelled", size = batch$size,
-       membership = if (is.null(batch$id)) "inferred" else "recorded")
+  model <- design$batch_model
+  modelled <- isTRUE(model$modelled)
+  list(status = if (modelled) "modelled" else "declared_not_modelled", size = batch$size,
+       membership = if (is.null(batch$id)) "inferred" else "recorded",
+       reason = if (modelled || is.null(model$reason)) NA_character_ else model$reason,
+       not_modelled = c(if (batch$sequential) "sequential", if (batch$neighbor) "neighbor",
+                        if (!is.null(batch$by)) "by"))
 }
 
 # A result made before the status existed could not have declared a batch.
@@ -39,9 +59,17 @@
 }
 
 .gt_batch_status_text <- function(status) {
+  if (identical(status$status, "modelled")) {
+    rest <- status$not_modelled
+    return(paste0("Batches of ", status$size, " items modelled (membership ", status$membership,
+      "): one shared call effect, reported as source ", .GT_CALL_TERM, ".",
+      if (length(rest)) paste0(" Declared but not yet used: ", paste(rest, collapse = ", "), ".") else ""))
+  }
   if (!identical(status$status, "declared_not_modelled")) return(NULL)
+  reason <- status$reason
   paste0("Batches of ", status$size, " items declared (membership ", status$membership,
-         ") but not modelled: items in one call are treated as independent.")
+         ") but not modelled: items in one call are treated as independent.",
+         if (length(reason) == 1L && !is.na(reason)) paste0(" Reason: ", reason, ".") else "")
 }
 
 # Drawn in the margin rather than offered as a default subtitle, so that a
@@ -339,6 +367,10 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
       "Add full_cell = FALSE to the same gt_design() call to drop exactly this source and keep every other requested source, ",
       "or declare the reduced model explicitly, for example ",
       "gt_design('item', 'rater', random = ~ item + rater); adapt names and retain the interactions required by your study.", call. = FALSE)
+  # Whether a fit modelled the declared batches is a fact about that fit. A
+  # design taken from one fit and resolved for another must not carry it over:
+  # each fit records its own.
+  design$batch_model <- NULL
   design$aliased_terms <- if (family == "gaussian") observation_source else character()
   design$terms <- setdiff(requested, design$aliased_terms)
   design$term_members <- members[design$terms]

@@ -60,6 +60,14 @@ gt_score <- function(weights) {
     components$Residual <- diag(latent_variance, nrow = length(latent_variance))
     dimnames(components$Residual) <- list(fit$outcomes, fit$outcomes)
   }
+  # A call effect is shared by the items of one call and by no others, so its
+  # part in relative error depends on which items share calls. The weights
+  # below know nothing of that and would count it as error common to every
+  # item. Until they do, a fit with a call effect has no coefficients.
+  if (identical(.gt_batch_status(fit$design)$status, "modelled"))
+    stop("This fit models a call effect, and coefficients that account for which items share a call ",
+         "are not implemented yet. Fit the design without its batch declaration for coefficients ",
+         "that treat items as independent.", call. = FALSE)
   expected <- c(fit$design$terms, "Residual")
   if (!all(expected %in% names(components))) stop("Missing fitted covariance components.", call. = FALSE)
   if (any(vapply(components[expected], function(x)

@@ -33,7 +33,7 @@ into subdirectories without silently removing them from the release gate.
 | `package-stationarity-validity.R` | Rejection of invalid stationarity probes |
 | `package-preflight.R` | Preflight reporting, including the installed tutorial |
 | `package-outcome-profile.R` | Outcome category counts, group coverage and descriptive profile plots |
-| `package-batch.R` | Batch declarations, inferred and recorded calls, their audit against the data, the status carried by every output, and that declaring one changes no estimate |
+| `package-batch.R` | Batch declarations, inferred and recorded calls, their audit against the data, the shared call effect a Gaussian fit of equal fixed batches estimates, checked against a dense restricted likelihood, and the status carried by every output |
 | `package-analysis-report.R` | Portable reports, provenance, privacy and HTML export |
 | `package-reporting.R` | Flat coefficient tables, allocation joins, target screening and D-study plots |
 | `package-visualizations.R` | Reliability forest plots, unavailable uncertainty and graphical state preservation |
@@ -48,6 +48,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_design.R` | Design construction and the formula grammar |
 | `test_gaussian.R` | Independent dense Gaussian likelihood references |
 | `test_gaussian_review.R` | lme4 comparisons and transformations |
+| `test_gaussian_call_effect.R` | Call-effect fits against lme4 under REML and ML, with recorded calls, shuffled rows and relabelled slots |
 | `test_gaussian_retry.R` | The retry controller, with the optimizer injected |
 | `test_discrete.R` | Probability and derivative identities, glmer/clmm comparisons |
 | `test_discrete_acceptance.R` | Boundary, restart and stationarity acceptance |

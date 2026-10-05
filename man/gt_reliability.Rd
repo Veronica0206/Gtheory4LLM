@@ -72,8 +72,11 @@ representations. Larger totals are retained for reporting but not treated as
 exact counts when comparing candidate minima.
 \code{batch_status} is \code{"not_declared"}, or
 \code{"declared_not_modelled"} for a design made with
-\code{\link{gt_batch}}: the coefficients in that row treat items annotated in
-one call as independent. Printing and plotting say the same.
+\code{\link{gt_batch}} whose batches the fit did not model: the coefficients in
+that row treat items annotated in one call as independent. Printing and
+plotting say the same. A fit that does model a call effect is refused: its
+coefficients would need weights that account for which items share a call,
+and those are not implemented yet.
 
 Columns are atomic vectors suitable for CSV output.
 Additional attributes retain the fixed-facet declaration, a compact uncertainty
