@@ -466,6 +466,66 @@ quiet_check <- Filter(function(check) !isTRUE(check$valid), quiet$diagnostics$fi
 ok(length(quiet_check) == 1L && is.null(quiet_check[[1L]]$failure$specimen),
    "without a directory the final check keeps its record and writes nothing")
 
+# A stationarity probe can be refused the same way. The refusing evaluation's
+# own record stays with the stationarity result, its reason is named in the
+# retained error, and its failed operation is written when a directory is
+# configured. Only the stationarity pass supplies fixed covariance factors.
+probe_only <- function(answer) {
+  armed <- FALSE
+  function(parameters, prep, groups, setup, control, details = FALSE, ...) {
+    if (!armed && !is.null(list(...)$factors_override)) {
+      armed <<- TRUE
+      probed_at <<- control$inner_tol
+      return(if (details) answer else 1e100)
+    }
+    .gt_d_laplace(parameters, prep, groups, setup, control, details = details, ...)
+  }
+}
+probed_at <- NULL
+directory <- capture_into()
+refused_probe <- .gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L),
+                                  .laplace = probe_only(refusal))
+Sys.unsetenv("GTHEORY_DISCRETE_SPECIMEN_DIR")
+probe <- refused_probe$diagnostics$outer_stationarity
+ok(is.numeric(probed_at), "the injected refusal reached a stationarity probe")
+ok(!isTRUE(refused_probe$numerically_accepted) &&
+     all(c("outer_stationarity_failed", "validation_computation_failed") %in%
+           refused_probe$diagnostics$acceptance_failures),
+   "a refused stationarity probe still blocks numerical acceptance")
+ok(is.character(probe$error) &&
+     grepl("Stationarity validation failed at center: invalid conditional mode", probe$error, fixed = TRUE) &&
+     grepl("reason=dense_newton_solve_invalid", probe$error, fixed = TRUE) &&
+     grepl("backward_error=", probe$error, fixed = TRUE) &&
+     !grepl(directory, probe$error, fixed = TRUE),
+   "the retained error keeps its established prefix, names the refusal's reason, and holds no path")
+ok(identical(probe$failure$reason, "dense_newton_solve_invalid") &&
+     identical(probe$failure$solve_backward_error, 1e-3) &&
+     identical(probe$failure$phase, "stationarity") &&
+     identical(probe$failure$location, "center") && is.numeric(probe$failure$parameters),
+   "the stationarity result keeps the refusal's reason, measurement, location and parameters")
+written <- list.files(directory, pattern = "^gtheory-discrete-specimen-stationarity-.*\\.rds$",
+                      full.names = TRUE)
+ok(length(written) == 1L && length(list.files(directory)) == 1L,
+   "the refused probe writes exactly one specimen, labelled as a stationarity probe")
+if (length(written) == 1L) {
+  specimen <- readRDS(written[[1L]])
+  ok(has_matrix(specimen) && identical(specimen$dimensions$inner_tol, probed_at),
+     "the stationarity specimen holds the failed operation and the tolerance the probe ran with")
+}
+unlink(directory, recursive = TRUE)
+quiet_probe <- .gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L),
+                                .laplace = probe_only(refusal))$diagnostics$outer_stationarity
+ok(identical(quiet_probe$failure$reason, "dense_newton_solve_invalid") &&
+     is.null(quiet_probe$failure$specimen),
+   "without a directory the stationarity result keeps its record and writes nothing")
+# A probe that merely did not converge keeps the established message exactly,
+# and its record carries no invented reason.
+plain_probe <- .gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L),
+                                .laplace = probe_only(unconverged))$diagnostics$outer_stationarity
+ok(identical(plain_probe$error, "Stationarity validation failed at center: invalid conditional mode.") &&
+     is.na(plain_probe$failure$reason) && identical(plain_probe$failure$inner_iterations, 60L),
+   "a non-converged probe keeps the established message and records how it stopped")
+
 # Capture is observational: with a directory configured, an uncorrupted fit
 # returns the same estimates, objective and acceptance, and writes no
 # validity specimen.
@@ -486,4 +546,4 @@ cat("Dense solve-validity checks passed: backward error, bound, degenerate arith
     "step and factor corruption, probe properties, end-to-end refusal, reason codes, ",
     "diagnosable start-value refusal on the original evaluation, retained invalid ",
     "evaluations, opt-in specimen capture, phase-accurate specimen settings, the ",
-    "validity allowance, and final-check records.\n", sep = "")
+    "validity allowance, and final-check and stationarity-probe records.\n", sep = "")

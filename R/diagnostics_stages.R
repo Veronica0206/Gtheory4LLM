@@ -141,6 +141,10 @@
     measurements$invalid_evaluations <- .gt_stage_number(evaluations$invalid)
     measurements$valid_evaluations_at_inner_budget <-
       .gt_stage_number(evaluations$valid_at_inner_budget)
+    # Solve- and factor-validity refusals among those invalid evaluations,
+    # counted separately by fits that record them and omitted otherwise.
+    if (!is.null(evaluations$validity_events))
+      measurements$validity_events <- .gt_stage_number(evaluations$validity_events)
   }
   if (is.null(converged))
     return(.gt_stage("not_assessed", "No conditional mode was recorded for this fit.",
