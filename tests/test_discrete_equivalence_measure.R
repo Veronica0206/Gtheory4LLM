@@ -209,8 +209,19 @@ for (backend in EQ_BACKENDS) {
   expect(isFALSE(t$valid), paste(backend, "reports a truncated solve as invalid"))
   expect(is.null(t$conditional_mode) && is.null(t$witnesses) && is.null(t$log_determinant),
          paste(backend, "fabricates no solved quantity or witness for an invalid solve"))
-  expect(is.null(t$inner_iterations),
-         paste(backend, "does not report an invalid solve as one that ended at its budget"))
+  # The solvers record how a solve that did not converge stopped, and the
+  # measurement keeps that record. This solve used its whole budget of one
+  # iteration with no line-search or factor failure; the same solve under the
+  # frozen budget converges well inside it. Attempting iterations and
+  # exhausting the budget are therefore told apart from the record itself.
+  expect(isTRUE(t$inner_iterations == truncated$control$inner_maxit) && isFALSE(t$inner_converged) &&
+           isFALSE(t$inner_line_search_failed) && isFALSE(t$inner_factor_unavailable) &&
+           is.finite(t$inner_gradient) && t$inner_gradient > truncated$control$inner_tol * 10,
+         paste(backend, "keeps the solver's record of a solve that stopped at its budget"))
+  full <- eq_measure_solved(map, parameters, backend)
+  expect(isTRUE(full$valid) && isTRUE(full$inner_converged) && full$inner_iterations > 1L &&
+           full$inner_iterations < map$control$inner_maxit && is.null(full$inner_line_search_failed),
+         paste(backend, "does not report a converged solve as one that ended at its budget"))
 }
 expect(refused(eq_measure_solved(map, parameters, "cholmod")), "an unknown backend is refused")
 

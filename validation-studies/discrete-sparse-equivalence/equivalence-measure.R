@@ -182,12 +182,17 @@ eq_measure_solved <- function(map, parameters, backend, evaluator = eq_evaluator
   answer <- evaluator(parameters, map$prep, map$groups, map$setup, map$control,
                       details = TRUE)
   if (!is.list(answer)) answer <- list(valid = FALSE)
+  # The solver's own record of how the inner solve ended travels with every
+  # result, valid or not: the iterations it attempted, whether it converged,
+  # and, for a solve that did not, whether the line search or the factor
+  # failed. Stopping at the iteration budget is read from that record; it is
+  # never inferred from a result being invalid.
   diagnostic <- list(inner_iterations = answer$inner_iterations,
                      inner_converged = answer$inner_converged,
-                     inner_gradient = answer$inner_gradient)
+                     inner_gradient = answer$inner_gradient,
+                     inner_line_search_failed = answer$inner_line_search_failed,
+                     inner_factor_unavailable = answer$inner_factor_unavailable)
   if (!isTRUE(answer$valid))
-    # An invalid evaluation carries no inner_iterations, so it is reported as
-    # invalid rather than as a solve that ended at its budget.
     return(c(list(valid = FALSE, backend = backend,
                   reason = if (is.null(answer$reason)) NA_character_ else answer$reason),
              diagnostic))
