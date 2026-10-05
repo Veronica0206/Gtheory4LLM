@@ -14,6 +14,11 @@
   do.call(paste, c(unname(codes), list(sep = ":")))
 }
 
+# Carried by every design that declares a batch, and so by every fit and
+# report made from it, until the estimates themselves use the declaration.
+.GT_BATCH_NOTE <- paste("A batch declaration is recorded and audited by gt_preflight().",
+  "Estimates in this version still treat items in one call as independent.")
+
 .gt_design_names <- function(x, label, allow_empty = FALSE) {
   if (!is.character(x) || (!allow_empty && !length(x)) || anyNA(x) ||
       any(!nzchar(x)) || any(trimws(x) != x) || anyDuplicated(x)) {
@@ -152,13 +157,16 @@
 #   Requested sources are retained here. Fitting validates observed cell counts
 #   and resolves any residual alias according to the response family.
 # max_terms: Upper bound on source expansion, checked before allocation.
+# batch: Optional gt_batch() declaration that items were annotated several to
+#   a call. NULL, the default, leaves items independent given the sources.
 # Returns: A gt_design object retaining all requested terms, expanded nested
 #   groups, and pending family-specific alias and data validation metadata.
 gt_design <- function(object, facets, crossed = facets, nested = NULL,
                       item_interactions = "complete",
                       instrument_interactions = "complete",
                       item_nested = character(), random = NULL,
-                      full_cell = TRUE, replicates = 1L, max_terms = 4096L) {
+                      full_cell = TRUE, replicates = 1L, max_terms = 4096L,
+                      batch = NULL) {
   custom <- !is.null(random)
   explicit_selectors <- !missing(crossed) || !missing(nested) ||
     !missing(item_interactions) || !missing(instrument_interactions) || !missing(item_nested)
@@ -176,6 +184,14 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
   if (!integer_scalar(max_terms)) .gt_design_abort("max_terms must be a positive integer.")
   variables <- c(object, facets)
   notes <- c("Specification only: actual data balance, level counts, nesting, kernel rank, and replication have not been validated.")
+  if (!is.null(batch)) {
+    if (!inherits(batch, "gt_batch")) .gt_design_abort("batch must be NULL or created by gt_batch().")
+    if (!is.null(batch$by) && !batch$by %in% facets)
+      .gt_design_abort("The batch declaration's by must name a declared instrumentation facet.")
+    if (!is.null(batch$order) && batch$order %in% variables)
+      .gt_design_abort("The batch declaration's order must be a column other than the object and the facets.")
+    notes <- c(notes, .GT_BATCH_NOTE)
+  }
   expanded <- list(parents = list(), members = list())
   orders <- c(instrument = NA_integer_, item = NA_integer_)
   if (custom) {
@@ -251,7 +267,7 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
            " requires family-specific resolution after observed replication is checked."))
   direct <- if (custom) facets[vapply(facets, function(f)
     paste(object, f, sep = ":") %in% keys, logical(1))] else crossed
-  structure(list(
+  design <- structure(list(
     object = object, facets = facets, n_facets = length(facets),
     crossed = crossed, direct_facets = direct, nested = expanded$parents,
     nested_groups = vapply(expanded$members, paste, collapse = ":", FUN.VALUE = character(1)),
@@ -262,6 +278,9 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
     aliased_terms = character(), residual = "Residual", replicates = as.integer(replicates),
     construction = construction, validated_data = FALSE, notes = notes
   ), class = "gt_design")
+  # Added only when declared, so a design without one is the object it always was.
+  if (!is.null(batch)) design$batch <- batch
+  design
 }
 
 # Resolve statistical aliases only after the observation family and actual

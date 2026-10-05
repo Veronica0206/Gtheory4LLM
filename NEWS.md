@@ -15,6 +15,23 @@ coefficient and acceptance decision in `tests/package-characterization.R`
 reproduces its values; the fitting arithmetic is untouched, and the changes
 below add refusals, evidence and reporting.
 
+## Declared batches
+
+- `gt_batch()` declares that items were annotated several to a call, and
+  `gt_design()` carries the declaration to every function that receives the
+  design or a fit. With none declared, items are independent given the
+  declared sources and every result is what it was. By default a declaration
+  assumes items in one call affect each other equally; `sequential` and
+  `neighbor`, both off by default, declare that an item may be affected by a
+  stated number of preceding items or of items on either side, at most one
+  less than the batch size. `by` names a facet, such as the evaluator, across
+  whose levels the dependence may differ.
+- `gt_preflight()` audits a declaration: the batches, conditions and calls it
+  implies, whether it describes the data, and, where rows are stored call by
+  call, whether that storage agrees with it. This is a first step. Estimates
+  still treat items in one call as independent, and a fit made from a
+  declaring design says so in its notes.
+
 ## Data checks, reporting and figures
 
 - Outcome profiles describe category frequencies and representation across

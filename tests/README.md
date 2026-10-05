@@ -33,6 +33,7 @@ into subdirectories without silently removing them from the release gate.
 | `package-stationarity-validity.R` | Rejection of invalid stationarity probes |
 | `package-preflight.R` | Preflight reporting, including the installed tutorial |
 | `package-outcome-profile.R` | Outcome category counts, group coverage and descriptive profile plots |
+| `package-batch.R` | Batch declarations, their audit against the data, and that declaring one changes no estimate |
 | `package-analysis-report.R` | Portable reports, provenance, privacy and HTML export |
 | `package-reporting.R` | Flat coefficient tables, allocation joins, target screening and D-study plots |
 | `package-visualizations.R` | Reliability forest plots, unavailable uncertainty and graphical state preservation |

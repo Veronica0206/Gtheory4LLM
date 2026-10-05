@@ -36,6 +36,9 @@ scientifically sufficient. Those are separate questions with separate evidence.
   backend currently fits one observation per full cell only.
 - **Design size.** The exact Gaussian backend allows at most 12 factorial axes
   (the object plus 11 facets), which is 4096 strata.
+- **Batches.** A batch declared with `gt_batch()` is recorded and audited, not
+  yet modelled: coefficients and their intervals treat items annotated in one
+  call as independent, whatever the declaration says about them.
 
 ## Gaussian models
 

@@ -40,6 +40,8 @@ It also contains:
 \item \code{panel_audit}: bounded panel diagnostics, described below.
 \item \code{outcome_profile}: a named list of descriptive outcome summaries,
 category counts, grouping coverage, and bounded no-variation examples.
+\item \code{batch_audit}: for a design that declares batches, the calls
+that declaration implies; absent otherwise. Described below.
 \item \code{checks}: a data frame of the structural and resource checks.
 \item \code{fitting_feasible}: whether those checks passed.
 \item \code{supported_reliability_scales}: conditional coefficient scales.
@@ -150,6 +152,18 @@ category/outcome labels. The preflight object is not anonymized.
 The recorded call keeps its data argument only when that argument is a plain
 object name. A data frame supplied through \code{do.call()}, or an inline
 expression, is recorded as a marker rather than stored in the call.
+
+For a design made with a \code{\link{gt_batch}} declaration, \code{batch_audit}
+contains the declared size, order source, facet and reaches; the number of
+items, batches, conditions and calls; \code{equal_sized} and
+\code{fixed_order}; \code{consistent}, which is \code{TRUE} when the
+declaration describes the data, with the reasons in \code{problems} when it
+does not; and at most \code{max_examples} items with their batch and position.
+\code{stored_rows} reports, when every condition holds each item once, in how
+many conditions consecutive blocks of rows hold one declared batch, and in how
+many they also follow the declared order. That agreement means something only
+when rows are stored call by call. The audit estimates no dependence, does not
+enter \code{checks}, and changes no fit.
 
 For absent declared categories, the profile and structural/resource estimates
 remain available; free-covariance and source-kernel checks are skipped after

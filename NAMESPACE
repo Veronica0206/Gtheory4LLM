@@ -1,4 +1,5 @@
 export(gt_design)
+export(gt_batch)
 export(gt_family)
 export(gt_control)
 export(gt_score)
