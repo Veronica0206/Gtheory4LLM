@@ -44,6 +44,22 @@ jobs:
         with:
           # Release correspondence reads the artifact's recorded source commit.
           fetch-depth: 0
+      # The solve-validity refusals this matrix has met were tied to the CPU a
+      # runner happened to have, and a job that fails early prints nothing
+      # about it. Recorded first, in the log and beside the uploaded evidence.
+      - name: Record the runner CPU
+        shell: bash
+        run: |
+          {
+            case "$RUNNER_OS" in
+              Linux)
+                grep -m1 'model name' /proc/cpuinfo
+                grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' | grep -E '^(sse4_2|avx|avx2|fma|avx512f|avx512dq|avx512bw|avx512vl)$' | tr '\n' ' '
+                echo ;;
+              macOS) sysctl -n machdep.cpu.brand_string ;;
+              Windows) powershell -NoProfile -Command "(Get-CimInstance Win32_Processor).Name" ;;
+            esac
+          } 2>&1 | tee "$RUNNER_TEMP/runner-cpu.txt" || true
       - uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           r-version: ${{ matrix.r }}
@@ -87,6 +103,13 @@ jobs:
           # the only place the discrete tests run off Linux, so it is where a
           # specimen from a different CPU and BLAS would come from.
           GTHEORY_ISSUE14_ARTIFACT_DIR: ${{ runner.temp }}/gtheory-issue14
+          # A refused discrete start or an evaluation the optimizer could not
+          # use writes its own failed operation here, and a refusal's message
+          # names its file. Routine non-converged evaluations write small
+          # measurement-only files too. The tests that inject failures clear
+          # this setting, so a specimen carrying a matrix here is a real
+          # refusal, and scripts/replay_specimen.R reads it back.
+          GTHEORY_DISCRETE_SPECIMEN_DIR: ${{ runner.temp }}/gtheory-specimens
         run: |
           set -o pipefail
           args=(--scope source --compatibility --compact --output "$RUNNER_TEMP/compatibility.json")
@@ -105,6 +128,8 @@ jobs:
             ${{ runner.temp }}/gtheory-package-check/*.log
             ${{ runner.temp }}/gtheory-package-check/*.Rcheck
             ${{ runner.temp }}/gtheory-issue14/*.rds
+            ${{ runner.temp }}/gtheory-specimens/*.rds
+            ${{ runner.temp }}/runner-cpu.txt
           if-no-files-found: ignore
       - name: Ensure tests did not modify tracked files
         run: git diff --exit-code

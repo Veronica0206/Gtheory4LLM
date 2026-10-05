@@ -16,6 +16,11 @@ source(file.path("R", "discrete_sparse.R"))
 source(file.path("R", "discrete_sparse_mode.R"))
 suppressMessages(library(Matrix))
 
+# This file injects failures on purpose. A capture directory set by the
+# caller, as the validation jobs set one, must not receive those deliberate
+# specimens, so it is cleared here.
+Sys.unsetenv("GTHEORY_DISCRETE_SPECIMEN_DIR")
+
 fails <- 0L
 ok <- function(condition, label) {
   if (!isTRUE(condition)) { fails <<- fails + 1L; cat("FAIL: ", label, "\n", sep = "") }
