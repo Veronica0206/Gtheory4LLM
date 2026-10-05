@@ -8,7 +8,7 @@ in [limitations](LIMITATIONS.md).
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.4.0.9000`, development towards 0.4.0. The line was versioned `0.3.0.9000` until it was renamed; no 0.3.0 was released |
+| Checkout version | `0.4.0`, a release version whose bundle has not been prepared. The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released |
 | Bundle in `artifacts/` | `0.2.0`, **published**; the archive is the exact candidate built from the recorded release source commit and checked with R-devel, adopted unchanged. It is retained independently of the newer development sources; earlier release files and tags are unchanged |
 | Bundle source commit | `a4dd59c50f54dd951bba89d86d4c32a3699a5597`, recorded in the manifest |
 | `v0.1.0` tag | Publication commit `2332d40` |
@@ -17,7 +17,7 @@ in [limitations](LIMITATIONS.md).
 | Branch protection | Configured on `main`; the authenticated policy verifier passed |
 | Release-tag protection | Active for `v*`; updates and deletions blocked with no bypass actors |
 | Future GitHub releases | Immutable releases enabled; existing 0.1.0 remains `immutable: false` |
-| CRAN | `0.2.0`, published by CRAN on 2026-10-04. CRAN's record carries the `Packaged` stamp of the archive in `artifacts/`; the file CRAN distributes has its own checksum, so the manifest's SHA-256 identifies the GitHub release asset rather than CRAN's copy. The earlier `0.0.6` submission had been returned for two README links (`scripts/VALIDATION.md`, `LICENSE`) to files the archive does not ship |
+| CRAN | `0.2.0`, published by CRAN on 2026-10-04. CRAN's record carries the `Packaged` stamp of the archive in `artifacts/`; the file CRAN distributes has its own checksum, so the manifest's SHA-256 identifies the GitHub release asset rather than CRAN's copy. The earlier `0.0.6` submission had been returned for two README links (`scripts/VALIDATION.md`, `LICENSE`) to files the archive does not ship. CRAN's additional check on R built without long double (`noLD`) reports an ERROR for `0.2.0` in `tests/package-discrete-safety.R`, and CRAN asked for a correction before 2026-10-26. `0.4.0` carries that correction; it has not been submitted |
 
 The checkout, published bundle, GitHub release and CRAN submission are separate
 states. Development changes do not rebuild the published archive or move its
@@ -96,7 +96,7 @@ complete the full native-panel qualification benchmark.
   published release and development checkout.
 - Maintain release-tag protection and update pinned Actions to supported
   runtimes through a separate maintenance change.
-- Finish qualifying the private sparse discrete backend for 0.4.0 against
+- Finish qualifying the private sparse discrete backend for 0.5.0 against
   the release gates in [the roadmap](ROADMAP.md); 0.2.0 ships it only as a
   private prototype. On the development line since 0.2.0 (see the top of
   [NEWS.md](../NEWS.md)): the sparse solver enforces the dense validity

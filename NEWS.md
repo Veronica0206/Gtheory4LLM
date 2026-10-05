@@ -1,7 +1,7 @@
-# Gtheory4LLM 0.4.0.9000 (development)
+# Gtheory4LLM 0.4.0
 
 <!-- release-identity:start -->
-Source version: **0.4.0.9000**.
+Source version: **0.4.0**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -9,11 +9,29 @@ These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
 
-Changes on the 0.4.0 line since the 0.2.0 sources. The line was versioned
-`0.3.0.9000` until it was renamed, and no 0.3.0 was released. Every estimate,
-coefficient and acceptance decision in `tests/package-characterization.R`
-reproduces its values; the fitting arithmetic is untouched, and the changes
-below add refusals, evidence and reporting.
+Changes since 0.2.0. The development line was versioned `0.3.0.9000` and then
+`0.4.0.9000`; no 0.3.0 was released. For a design without a batch declaration,
+every estimate, coefficient and acceptance decision in
+`tests/package-characterization.R` reproduces its values: the fitting
+arithmetic is untouched, and the changes add refusals, evidence and reporting.
+The one new model is the shared call effect a Gaussian fit estimates for a
+design that declares equal fixed batches, described first below.
+
+## Check on R built without long double
+
+- CRAN's check of 0.2.0 on R built without long double stopped in
+  `tests/package-discrete-safety.R`, where one ordinal fit on a boundary panel
+  was required to be numerically accepted. On that build the optimizer reports
+  completion without leaving its starting values, and the fit is refused by
+  the stationarity check. Refusing it is the correct outcome; requiring
+  acceptance was the test's error.
+- The test still asserts on every platform what it exists to guard: no
+  evaluation at the variance boundary becomes an attempt error. It asserts
+  acceptance at the reference estimates where the search moves, and refusal
+  by the stationarity check where no attempt leaves its starting values.
+- The optimizer is unchanged. That its search can stall in this way, when an
+  unusable evaluation's penalty value enters a finite-difference gradient, is
+  a limitation of the discrete engine and is not addressed by this release.
 
 ## Declared batches
 
@@ -196,8 +214,8 @@ below add refusals, evidence and reporting.
 - Fit summaries match variance-component standard errors and boundary flags
   by source and outcome separately. Names containing spaces can no longer
   make distinct source/outcome pairs select the same uncertainty row.
-- The checkout is explicitly versioned `0.4.0.9000` for development; the
-  published `0.2.0` archive, manual, manifest and tag are retained unchanged.
+- The published `0.2.0` archive, manual, manifest and tag are retained
+  unchanged.
 - `plot()` on a decision study accepts `col`, `pch`, `ylim`, `xlab` and `ylab`
   through `...`. They were supplied explicitly before the dots were forwarded,
   so passing any of them failed with a duplicate-argument error; they are now

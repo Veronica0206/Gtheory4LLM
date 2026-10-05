@@ -46,8 +46,9 @@ scientifically sufficient. Those are separate questions with separate evidence.
   unordered outcome, is recorded and audited, not modelled: coefficients and
   their intervals then treat items annotated in one call as independent, and
   every output carries the status `declared_not_modelled`. A modelled call
-  effect describes the batches as they were composed; it says nothing about
-  the same items regrouped. Without a recorded call column the batches are
+  effect describes the batches as they were composed, at the batch size used;
+  it says nothing about the same items regrouped, and nothing about which
+  batch size to use. Without a recorded call column the batches are
   inferred from the item order of the rows supplied; that reconstruction
   cannot detect items removed after collection, calls of other sizes, or
   regrouping between conditions. Recorded calls are counted from the rows
