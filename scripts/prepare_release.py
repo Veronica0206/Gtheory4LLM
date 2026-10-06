@@ -38,6 +38,10 @@ CHECK_SPEC = importlib.util.spec_from_file_location(
     "release_checks", Path(__file__).with_name("check_committed_artifact.py"))
 CHECKS = importlib.util.module_from_spec(CHECK_SPEC)
 CHECK_SPEC.loader.exec_module(CHECKS)
+PACKAGE_CHECK_SPEC = importlib.util.spec_from_file_location(
+    "package_checks", Path(__file__).with_name("check_package.py"))
+PACKAGE_CHECKS = importlib.util.module_from_spec(PACKAGE_CHECK_SPEC)
+PACKAGE_CHECK_SPEC.loader.exec_module(PACKAGE_CHECKS)
 
 
 def description_field(field: str) -> str:
@@ -149,7 +153,11 @@ def adopt_checked_candidate(directory: Path, package: str, version: str, commit:
     provenance = {"origin": "checked_candidate",
                   "build_r_version": candidate.get("build_r_version"),
                   "checked_r_version": report.get("r_version"),
-                  "expected_data_kind": candidate.get("expected_data_kind")}
+                  "expected_data_kind": candidate.get("expected_data_kind"),
+                  "check_report_sha256": digest(report_path),
+                  "r_cmd_check": check}
+    if "cran_requested_maintenance" in report:
+        provenance["cran_requested_maintenance"] = report["cran_requested_maintenance"]
     print(f"\n=== Adopt the checked candidate archive unchanged ===\n  {archive}\n"
           f"  sha256 {candidate.get('sha256')} ({candidate.get('bytes')} bytes)", flush=True)
     return adopted, provenance
@@ -222,6 +230,9 @@ def main(argv: list[str] | None = None) -> int:
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--skip-validation", action="store_true",
                         help="Rebuild the bundle without rerunning the source validation scope.")
+    parser.add_argument("--cran-requested-maintenance", metavar="REASON",
+                        type=PACKAGE_CHECKS.maintenance_reason,
+                        help="Record a CRAN maintenance request for source validation's timing-only NOTE; cannot be combined with --skip-validation.")
     parser.add_argument("--allow-dirty", action="store_true",
                         help="Rehearse on an uncommitted tree. The result must not be published.")
     parser.add_argument("--state", choices=RELEASE_STATES, default="prepared",
@@ -234,6 +245,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Build the bundle into DIR and change no tracked file. "
                              "The staged manifest and archive are verified before copying.")
     options = parser.parse_args(argv)
+    if options.cran_requested_maintenance is not None and options.skip_validation:
+        parser.error("--cran-requested-maintenance requires source validation; remove --skip-validation.")
 
     package = description_field("Package")
     version = description_field("Version")
@@ -266,6 +279,11 @@ def main(argv: list[str] | None = None) -> int:
         manifest = manifest_for(package, version, commit, options.state,
                                 staging / archive.name, staging / manual.name)
         manifest["archive_provenance"] = provenance
+        if options.cran_requested_maintenance is not None:
+            # This records the preparation request separately from any adopted
+            # candidate's original check disposition, which remains unchanged.
+            manifest["preparation_validation"] = {"scope": "source", "as_cran": True,
+                "cran_requested_maintenance": options.cran_requested_maintenance}
         manifest_path = staging / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         write_artifact_readme(package, version, options.state, staging)
@@ -273,9 +291,11 @@ def main(argv: list[str] | None = None) -> int:
             [sys.executable, str(ROOT / "scripts/check_committed_artifact.py"),
              "--manifest", str(manifest_path), "--verify-only", "--check-release-identity"])
         if not options.skip_validation:
-            run("Validate public sources",
-                [sys.executable, str(ROOT / "scripts/run_validation.py"), "--scope", "source",
-                 "--as-cran", "--release-manifest", str(manifest_path)])
+            validation_command = [sys.executable, str(ROOT / "scripts/run_validation.py"), "--scope", "source",
+                                  "--as-cran", "--release-manifest", str(manifest_path)]
+            if options.cran_requested_maintenance is not None:
+                validation_command.extend(["--cran-requested-maintenance", options.cran_requested_maintenance])
+            run("Validate public sources", validation_command)
         run("Audit public content",
             [sys.executable, str(ROOT / "scripts/check_public_contents.py"),
              "--working-tree", "--expected-data-kind", "public_llm_annotations"])
@@ -303,6 +323,8 @@ def main(argv: list[str] | None = None) -> int:
         "bundle_directory": str(destination),
         "published": False,
     }
+    if options.cran_requested_maintenance is not None:
+        report["cran_requested_maintenance"] = options.cran_requested_maintenance
     print("\n" + json.dumps(report, indent=2))
     print(f"""
 Prepared, not published. Nothing has been tagged, pushed, or uploaded.

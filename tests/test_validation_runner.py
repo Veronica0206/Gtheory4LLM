@@ -16,6 +16,23 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class ValidationRunnerTests(unittest.TestCase):
+    def test_maintenance_request_is_explicitly_propagated_only_to_source_package_check(self):
+        reason = "CRAN requested noLD correction before 2026-10-26"
+        lock = {"R": {"Version": "4.5.3"}, "Packages": {}}
+        plan = RUNNER.commands(ROOT, "Rscript", lock, False, as_cran=True,
+                               cran_requested_maintenance=reason)
+        matching = [(name, command) for name, command in plan if "--cran-requested-maintenance" in command]
+        self.assertEqual(len(matching), 1)
+        name, command = matching[0]
+        self.assertEqual(name, "package_build_install_check")
+        self.assertIn("--as-cran", command)
+        self.assertEqual(command[command.index("--cran-requested-maintenance") + 1], reason)
+        for kwargs in ({"as_cran": False}, {"as_cran": True, "scope": "artifact"},
+                       {"as_cran": True, "cran_requested_maintenance": " "}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                RUNNER.commands(ROOT, "Rscript", lock, False,
+                                **{"cran_requested_maintenance": reason, **kwargs})
+
     def test_staged_manifest_reaches_both_identity_and_artifact_checks(self):
         lock = json.loads((ROOT / "renv.lock").read_text())
         manifest = ROOT / "scratch-manifest.json"

@@ -15,11 +15,12 @@ optimizer reports completion without leaving its starting values. The package
 then refuses the fit through its stationarity check, which is the intended
 behaviour, and the test stopped because it demanded acceptance.
 
-The correction is to that test. It still asserts on every platform what it
-exists to guard, that no evaluation at the variance boundary becomes an
-attempt error. It asserts acceptance at the reference estimates where the
-search moves, and refusal by the stationarity check where no attempt leaves
-its starting values.
+The test now requires accepted fits to reproduce the reference likelihood and
+variance components. A refused fit must have an explicit FALSE acceptance flag
+and nonempty reasons drawn only from the stationarity or restart/tolerance
+stability safeguards. Missing flags, arbitrary errors and incorrect accepted
+estimates are covered by deterministic negative tests. Variance-coordinate and
+boundary-projection checks remain unconditional. The optimizer is unchanged.
 
 That the optimizer can stall in this way is a limitation of the discrete
 engine. It is not addressed by this update and is tracked as
@@ -36,14 +37,26 @@ engine. It is not addressed by this update and is tracked as
 
 ### How it was checked
 
-REPLACE BEFORE SUBMISSION with the environments in which the submitted archive
-was checked, and their results.
+The exact candidate workflow checks a single archive on ordinary Linux R-devel
+with `--as-cran`, and on Linux x86-64 R-devel configured without long double.
+Both jobs verify the archive SHA-256 and its source commit. The noLD check
+includes vignettes, the PDF manual and all installed-package tests; every test
+output and the platform description are retained.
+
+The submission copy of these comments must accompany the completed evidence
+for that exact archive; see docs/RELEASE_CHECKLIST.md. Source validation uses
+a matching staged 0.4.0 bundle, preserving the published 0.2.0 assets.
 
 ## R CMD check results
 
-REPLACE BEFORE SUBMISSION with the result of `R CMD check --as-cran` on the
-submitted archive.
+The sole permitted incoming NOTE for this maintenance update is
+"Days since last update", explicitly explained by CRAN's request to correct the
+0.2.0 noLD ERROR before 2026-10-26. The actual NOTE count and request reason
+remain in the check report. Errors, warnings, other NOTEs and incomplete checks
+still fail qualification. The submission copy records the actual results and
+archive identity from the completed checks.
 
 ## Reverse dependencies
 
-There are none on CRAN.
+No CRAN reverse dependencies were found in the CRAN package index checked on
+2026-10-05 (Depends, Imports, LinkingTo, Suggests and Enhances).

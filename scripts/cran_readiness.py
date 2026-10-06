@@ -18,7 +18,7 @@ import tarfile
 import time
 
 sys.dont_write_bytecode = True
-from check_package import check_status, sanitize
+from check_package import check_status, maintenance_reason, sanitize
 from check_public_contents import PublicAudit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,8 +67,12 @@ def main() -> int:
     parser.add_argument("--candidate-dir", type=Path, help="Downloaded build artifact containing candidate.json and its tarball.")
     parser.add_argument("--rscript", default="Rscript")
     parser.add_argument("--require-devel", action="store_true", help="Fail if the checker is not R-devel or a prerelease.")
+    parser.add_argument("--cran-requested-maintenance", metavar="REASON", type=maintenance_reason,
+                        help="Record a CRAN maintenance request and allow only its release timing NOTE in check mode.")
     parser.add_argument("--expected-data-kind", choices=("synthetic", "public_llm_annotations"), default="public_llm_annotations")
     args = parser.parse_args()
+    if args.cran_requested_maintenance is not None and args.mode != "check":
+        parser.error("--cran-requested-maintenance applies only to check mode.")
     work = args.output_dir.resolve()
     if work == ROOT or ROOT in work.parents:
         parser.error("Output must be outside the source checkout.")
@@ -76,6 +80,8 @@ def main() -> int:
         parser.error("Output directory must be empty to avoid retaining stale results.")
     work.mkdir(parents=True, exist_ok=True)
     report = {"mode": args.mode, "success": False, "steps": [], "submission_performed": False}
+    if args.cran_requested_maintenance is not None:
+        report["cran_requested_maintenance"] = args.cran_requested_maintenance
     environment = os.environ.copy()
     environment.update({"R_PROFILE_USER": os.devnull, "R_ENVIRON_USER": os.devnull,
                         "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1",
@@ -167,7 +173,8 @@ def main() -> int:
             # legitimately flagged for its fourth component, and that one line
             # is excused only for a version that really is a development one.
             report["r_cmd_check"] = check_status(log, as_cran=True,
-                                                 version=manifest.get("version"))
+                                                 version=manifest.get("version"),
+                                                 cran_requested_maintenance=args.cran_requested_maintenance)
             if not manual_checked(log):
                 raise ValueError("R CMD check did not confirm successful PDF manual generation.")
             if digest(archive) != manifest["sha256"] or digest(incoming) != manifest["sha256"]:

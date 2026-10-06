@@ -55,17 +55,32 @@ def large_version_note(version):
     return f"Version contains large components ({version})"
 
 
-def check_status(log, as_cran=False, vignettes_built=True, version=None):
+def maintenance_reason(value):
+    """An exception must name the CRAN request; an empty flag is not authority."""
+    if not isinstance(value, str) or not value.strip() or any(c in value for c in "\r\n\x00"):
+        raise argparse.ArgumentTypeError("Provide a nonempty, single-line description of the CRAN maintenance request.")
+    return value.strip()
+
+
+def check_status(log, as_cran=False, vignettes_built=True, version=None,
+                 cran_requested_maintenance=None):
+    reason = None
+    if cran_requested_maintenance is not None:
+        reason = maintenance_reason(cran_requested_maintenance)
+        if not as_cran or not isinstance(version, str) or not re.fullmatch(r"[0-9]+(?:[.-][0-9]+)+", version) or DEVELOPMENT_VERSION.fullmatch(version):
+            raise RuntimeError("CRAN-requested maintenance requires --as-cran and a non-development release version.")
     errors = len(re.findall(r"^\* checking .*\.\.\. (?:\[[^]]+\] )?ERROR\s*$", log, re.M))
     warnings = len(re.findall(r"^\* checking .*\.\.\. (?:\[[^]]+\] )?WARNING\s*$", log, re.M))
     note_blocks = re.findall(r"^\* checking ([^\n]+)\.\.\. (?:\[[^]]+\] )?NOTE\s*\n(.*?)(?=^\* checking |^\* DONE|\Z)", log, re.M | re.S)
     allowed = []
+    exceptions = []
     for title, body in note_blocks:
         lines = [line.strip() for line in body.splitlines() if line.strip()]
         # An archive built without vignettes carries no vignette index, and
         # --as-cran says so. Accept that one extra line only when vignettes were
         # actually skipped, so it can never excuse a real missing index.
-        if not vignettes_built and lines and lines[-1] == NO_VIGNETTE_INDEX_NOTE:
+        missing_index = not vignettes_built and lines and lines[-1] == NO_VIGNETTE_INDEX_NOTE
+        if missing_index:
             lines = lines[:-1]
         development = bool(version and DEVELOPMENT_VERSION.fullmatch(version))
         maintainer = bool(lines and re.fullmatch(r"Maintainer:\s+\S.*", lines[0]))
@@ -75,26 +90,38 @@ def check_status(log, as_cran=False, vignettes_built=True, version=None):
                    if re.fullmatch(r"Days since last update: [0-9]+", line)]
         # A development checkout may already be known to CRAN. Its timing
         # metadata is expected only alongside this exact development-version
-        # warning; it must never excuse a release's submission-frequency NOTE.
+        # warning. A release needs the separate explicit maintenance policy.
         development_metadata = (development and version_message in messages and
                                 len(messages) == len(set(messages)) and len(cadence) <= 1 and
                                 all(line in ("New submission", version_message) or line in cadence
                                     for line in messages))
-        if (as_cran and title.strip() == "CRAN incoming feasibility" and maintainer and
+        maintenance_timing = (reason is not None and len(note_blocks) == 1 and not missing_index
+                              and title.strip() == "CRAN incoming feasibility" and maintainer
+                              and len(messages) == 1 and len(cadence) == 1)
+        if maintenance_timing:
+            allowed.append("CRAN incoming feasibility: " + cadence[0] +
+                           "; explicitly requested CRAN maintenance")
+            exceptions.append({"policy": "cran_requested_maintenance", "reason": reason,
+                               "check": title.strip(), "message": cadence[0],
+                               "days_since_last_update": int(cadence[0].rsplit(" ", 1)[1])})
+        elif (reason is None and as_cran and title.strip() == "CRAN incoming feasibility" and maintainer and
                 (messages == ["New submission"] or development_metadata)):
             allowed.append("CRAN incoming feasibility: " + "; ".join(messages) +
                            (f"; development version {version} flagged for its fourth component"
                             if development_metadata else ""))
         else:
             raise RuntimeError("R CMD check reported a substantive NOTE: " + title.strip())
-    if errors or warnings or "* DONE" not in log:
+    if errors or warnings or len(re.findall(r"^\* DONE\s*$", log, re.M)) != 1:
         raise RuntimeError("R CMD check reported errors/warnings or did not complete")
     # Fail closed on a summary that disagrees with the parsed check blocks.
     if re.search(r"[1-9][0-9]* (?:ERROR|WARNING)", log):
         raise RuntimeError("R CMD check failure summary")
-    if re.search(r"[1-9][0-9]* NOTE", log) and not note_blocks:
-        raise RuntimeError("Unrecognized R CMD check NOTE summary")
-    return {"errors": errors, "warnings": warnings, "notes": len(note_blocks), "allowed_notes": allowed}
+    summaries = re.findall(r"^Status: ([^\n]+)\s*$", log, re.M)
+    expected = "OK" if not note_blocks else f"{len(note_blocks)} NOTE" + ("s" if len(note_blocks) != 1 else "")
+    if len(summaries) != 1 or summaries[0].strip() != expected:
+        raise RuntimeError("Unrecognized or inconsistent R CMD check status summary")
+    return {"errors": errors, "warnings": warnings, "notes": len(note_blocks),
+            "allowed_notes": allowed, "note_exceptions": exceptions}
 
 
 def main():
@@ -102,10 +129,14 @@ def main():
     parser.add_argument('--rscript', default='Rscript')
     parser.add_argument('--as-cran', action='store_true',
                         help='Run CRAN incoming checks; accept only explicit submission/development metadata.')
+    parser.add_argument('--cran-requested-maintenance', metavar='REASON', type=maintenance_reason,
+                        help='Record a CRAN maintenance request and allow only its release timing NOTE; requires --as-cran.')
     parser.add_argument('--output-dir', type=Path,
                         default=os.environ.get('GTHEORY_PACKAGE_CHECK_DIR'),
                         help='Keep build/check artifacts here (also settable with GTHEORY_PACKAGE_CHECK_DIR).')
     args = parser.parse_args()
+    if args.cran_requested_maintenance is not None and not args.as_cran:
+        parser.error('--cran-requested-maintenance requires --as-cran.')
     work = args.output_dir.resolve() if args.output_dir else Path(tempfile.mkdtemp(prefix='gtheory-package-check-'))
     work.mkdir(parents=True, exist_ok=True)
     installed = work / 'library'; installed.mkdir(exist_ok=True)
@@ -119,6 +150,8 @@ def main():
         args.rscript, '--vanilla', str(runtime_script), str(ROOT / 'DESCRIPTION')],
         env=environment, text=True).strip().splitlines()
     report = {'package': package, 'version': version, 'workspace': str(work), 'steps': [], 'success': False}
+    if args.cran_requested_maintenance is not None:
+        report['cran_requested_maintenance'] = args.cran_requested_maintenance
     def run(name, command, directory=work, extra_env=None):
         step_environment = {**environment, **(extra_env or {})}
         result = subprocess.run(command, cwd=directory, env=step_environment, capture_output=True, text=True)
@@ -175,7 +208,8 @@ def main():
         if args.as_cran: check_command.append('--as-cran')
         run('check', check_command + [str(archive)], extra_env=check_environment)
         log = (work/(package+'.Rcheck')/'00check.log').read_text()
-        report['r_cmd_check'] = check_status(log, args.as_cran, toolchain['available'], version)
+        report['r_cmd_check'] = check_status(log, args.as_cran, toolchain['available'], version,
+                                             args.cran_requested_maintenance)
         report['r_cmd_check'].update({'as_cran':args.as_cran,'manual_built':False,'installed_tests_run':True,'vignettes_built':toolchain['available'],
                                      'suggests_forced':toolchain['available']})
         report['archive'] = str(archive)

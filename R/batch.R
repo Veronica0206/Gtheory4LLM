@@ -230,6 +230,16 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
   condition_code <- match(conditions, unique(conditions))
   n_conditions <- max(condition_code)
   recorded <- !is.null(batch$id)
+  fields <- c(if (recorded) "call" else "batch", "position")
+  metadata <- stats::setNames(fields, fields)
+  # Keep the established names unless an object column would duplicate one.
+  # The mapping lets callers retrieve the audit fields without guessing which
+  # prefix was needed, while the object's own column keeps its original name.
+  if (design$object %in% metadata) {
+    prefix <- ".gt_"
+    while (design$object %in% paste0(prefix, fields)) prefix <- paste0(".", prefix)
+    metadata[] <- paste0(prefix, fields)
+  }
   stored <- list(checked = FALSE, conditions = n_conditions, batches_agree = NA_integer_,
     order_agrees = NA_integer_,
     scope = if (recorded) "Not checked: the calls are recorded, so stored rows decide nothing." else
@@ -296,7 +306,7 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
   }
   if (!is.null(examples)) {
     if (is.factor(examples$item)) examples$item <- droplevels(examples$item)
-    names(examples)[[1L]] <- design$object
+    names(examples) <- c(design$object, unname(metadata))
     rownames(examples) <- NULL
   }
   list(size = batch$size, membership = if (recorded) "recorded" else "inferred",
@@ -311,6 +321,7 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
     by_levels = if (is.null(batch$by)) NA_integer_ else length(unique(data[[batch$by]])),
     fixed_composition = fixed_composition, fixed_order = fixed_order,
     consistent = !length(problems), problems = problems, stored_rows = stored, examples = examples,
+    metadata_columns = metadata,
     examples_shown = if (is.null(examples)) 0L else nrow(examples), examples_limit = max_examples,
     scope = paste("A declared structure compared with the observed items and conditions.",
       "It estimates no dependence itself; model says whether a fit of these data would.",

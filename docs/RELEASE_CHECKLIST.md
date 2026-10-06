@@ -84,6 +84,45 @@ was not retroactively made immutable.
 
 ## CI and review policy
 
+For a release version whose published `artifacts/` bundle is older, full and
+compatibility CI call `scripts/stage_validation_bundle.py`. It prepares a
+matching archive and manual outside the checkout, verifies their source
+correspondence, and passes that manifest to `run_validation.py`. Both identity
+and artifact checks remain enabled. These per-platform rehearsal bundles are
+validation evidence; the submission archive is the single candidate built by
+`cran-readiness.yml` and checked unchanged by both its R-devel jobs.
+
+The noLD job uses a pinned R-hub container and requires Linux x86-64, R-devel
+and `capabilities("long.double") == FALSE`. It checks the candidate's source
+commit, size and SHA-256, runs the complete package check with the manual and
+vignettes, then runs every installed-package test. Bash pipeline failures are
+propagated. Check logs, successful and failed test outputs, platform metadata,
+and any captured numerical specimens are uploaded from one workspace-relative
+evidence directory, avoiding host/container temporary-directory mismatches.
+
+For 0.4.0 only, the ordinary incoming checks explicitly record CRAN's request
+to correct the 0.2.0 noLD ERROR before 2026-10-26. The command-line option
+`--cran-requested-maintenance REASON` permits one timing-only incoming NOTE for
+a release version. It preserves the NOTE count and reason in the check report
+and release provenance; all other substantive findings still fail. The flag is
+not passed for future or development versions. A NOTE disposition does not
+establish CRAN acceptance.
+
+Before submission, download the checked candidate and the noLD evidence from
+the same completed workflow run. Compare their candidate hashes and source
+commits, inspect all outputs, and preserve the evidence outside expiring CI
+storage. Adopt the checked archive with `--from-checked-candidate` and use
+`--dry-run` to stage it outside the repository while preserving published
+assets. Run `run_validation.py --scope all --release-manifest` against this
+final staged manifest. Complete the submission copy of `cran-comments.md`
+with the exact hash, environments, results and any timing NOTE from these
+reports. The source comments describe the qualification process; they must
+not be substituted for the final archive's completed evidence.
+
+The declared branch policy adds the noLD job as a seventh required context.
+Applying that tighter live setting is a separate administrator operation;
+the committed policy alone does not change GitHub protection.
+
 All main-branch changes, ordinary pull requests, and manual dispatches trigger
 candidate readiness, including vignette-, README-, and NEWS-only changes.
 External Actions are pinned to reviewed full commit SHAs with their major refs

@@ -26,12 +26,19 @@ design that declares equal fixed batches, described first below.
   the stationarity check. Refusing it is the correct outcome; requiring
   acceptance was the test's error.
 - The test still asserts on every platform what it exists to guard: no
-  evaluation at the variance boundary becomes an attempt error. It asserts
-  acceptance at the reference estimates where the search moves, and refusal
-  by the stationarity check where no attempt leaves its starting values.
+  evaluation at the variance boundary becomes an attempt error, and the fit
+  uses variance coordinates. Accepted fits must reproduce the reference
+  likelihood and variance components and yield a finite latent coefficient.
+  Other fits must be explicitly rejected, with a nonempty set of reasons
+  consisting only of the stationarity or restart/tolerance-stability
+  safeguards. Movement away from the starting values does not establish
+  numerical acceptance. Constructed records exercise both outcomes and reject
+  missing acceptance flags, empty or unexpected reasons, boundary errors and
+  accepted records with incorrect reference estimates.
 - The optimizer is unchanged. That its search can stall in this way, when an
   unusable evaluation's penalty value enters a finite-difference gradient, is
-  a limitation of the discrete engine and is not addressed by this release.
+  a limitation of the discrete engine and is not addressed by this release;
+  it is tracked in [issue #59](https://github.com/Veronica0206/Gtheory4LLM/issues/59).
 
 ## Declared batches
 

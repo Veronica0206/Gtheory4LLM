@@ -305,10 +305,32 @@ class PrepareReleaseTests(unittest.TestCase):
         self.assertEqual(manifest["archive_provenance"]["origin"], "checked_candidate")
         self.assertEqual(manifest["archive_provenance"]["build_r_version"], "4.6.1")
         self.assertEqual(manifest["archive_provenance"]["checked_r_version"], "4.7.0")
+        self.assertEqual(manifest["archive_provenance"]["check_report_sha256"],
+                         RELEASE.digest(directory / "check_validation.json"))
+        self.assertEqual(manifest["archive_provenance"]["r_cmd_check"]["notes"], 1)
         self.assertEqual(manifest["files"]["Example_1.2.3.tar.gz"]["sha256"],
                          json.loads((directory / "candidate.json").read_text())["sha256"])
         self.assertIn("Adopt the checked candidate archive unchanged", buffer.getvalue())
         del archive
+
+    def test_adoption_preserves_maintenance_exception_and_actual_note_count(self):
+        directory = self.candidate_directory()
+        report_path = directory / "check_validation.json"
+        report = json.loads(report_path.read_text())
+        reason = "CRAN requested noLD correction before 2026-10-26"
+        report["cran_requested_maintenance"] = reason
+        report["r_cmd_check"].update({"allowed_notes": ["CRAN incoming feasibility: Days since last update: 1; explicitly requested CRAN maintenance"],
+            "note_exceptions": [{"policy": "cran_requested_maintenance", "reason": reason,
+                                 "check": "CRAN incoming feasibility", "message": "Days since last update: 1",
+                                 "days_since_last_update": 1}]})
+        report_path.write_text(json.dumps(report))
+        work = directory / "adopted"
+        work.mkdir()
+        adopted, provenance = RELEASE.adopt_checked_candidate(directory, "Example", "1.2.3", self.commit, work)
+        self.assertEqual(adopted.read_bytes(), (directory / "Example_1.2.3.tar.gz").read_bytes())
+        self.assertEqual(provenance["r_cmd_check"], report["r_cmd_check"])
+        self.assertEqual(provenance["cran_requested_maintenance"], reason)
+        self.assertEqual(provenance["check_report_sha256"], RELEASE.digest(report_path))
 
     def test_a_candidate_from_another_commit_or_with_other_bytes_is_refused(self):
         cases = {"different source commit": {"source_commit": "0" * 40},
@@ -368,6 +390,33 @@ class PrepareReleaseTests(unittest.TestCase):
         with patch.object(RELEASE, "run") as runner:
             self.run_main(["--skip-validation"])
         self.assertNotIn("Validate public sources", [call.args[0] for call in runner.call_args_list])
+
+    def test_maintenance_request_reaches_source_validation_without_rewriting_candidate_evidence(self):
+        reason = "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26"
+        directory = self.candidate_directory()
+        check_bytes = (directory / "check_validation.json").read_bytes()
+        with patch.object(RELEASE, "run") as runner:
+            status, output = self.run_main(["--from-checked-candidate", str(directory),
+                                           "--cran-requested-maintenance", reason])
+        self.assertEqual(status, 0)
+        commands = [call.args[1] for call in runner.call_args_list if call.args[0] == "Validate public sources"]
+        self.assertEqual(len(commands), 1)
+        self.assertIn("--as-cran", commands[0])
+        self.assertEqual(commands[0][commands[0].index("--cran-requested-maintenance") + 1], reason)
+        manifest = json.loads((self.artifacts / "manifest.json").read_text())
+        self.assertEqual(manifest["preparation_validation"], {"scope": "source", "as_cran": True,
+                                                              "cran_requested_maintenance": reason})
+        self.assertEqual(manifest["archive_provenance"]["r_cmd_check"], json.loads(check_bytes)["r_cmd_check"])
+        self.assertNotIn("cran_requested_maintenance", manifest["archive_provenance"])
+        self.assertEqual((directory / "check_validation.json").read_bytes(), check_bytes)
+        self.assertIn(json.dumps(reason), output)
+
+    def test_maintenance_preparation_refuses_empty_reason_or_skipped_validation(self):
+        for argv in (["--cran-requested-maintenance", " "],
+                     ["--skip-validation", "--cran-requested-maintenance", "CRAN correction request"]):
+            with self.subTest(argv=argv), patch.object(RELEASE, "run") as runner, self.assertRaises(SystemExit):
+                RELEASE.main(argv)
+            runner.assert_not_called()
 
     def test_the_bundle_is_verified_after_it_is_written(self):
         with patch.object(RELEASE, "run") as runner:

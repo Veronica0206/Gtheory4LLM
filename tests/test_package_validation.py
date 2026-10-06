@@ -11,6 +11,75 @@ SPEC.loader.exec_module(CHECK)
 
 
 class PackageValidationTests(unittest.TestCase):
+    MAINTENANCE_REASON = "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26"
+
+    @staticmethod
+    def maintenance_log(days="1"):
+        return ("* checking CRAN incoming feasibility ... NOTE\n"
+                "Maintainer: 'Example <a@example.invalid>'\n\n"
+                f"Days since last update: {days}\n"
+                "* checking tests ... OK\n* DONE\nStatus: 1 NOTE\n")
+
+    def test_maintenance_timing_note_requires_explicit_request_and_retains_disposition(self):
+        log = self.maintenance_log()
+        with self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+            CHECK.check_status(log, as_cran=True, version="0.4.0")
+        for days in ("0", "1", "27"):
+            with self.subTest(days=days):
+                report = CHECK.check_status(self.maintenance_log(days), as_cran=True, version="0.4.0",
+                    cran_requested_maintenance=self.MAINTENANCE_REASON)
+                self.assertEqual((report["errors"], report["warnings"], report["notes"]), (0, 0, 1))
+                self.assertEqual(report["note_exceptions"], [{"policy": "cran_requested_maintenance",
+                    "reason": self.MAINTENANCE_REASON, "check": "CRAN incoming feasibility",
+                    "message": f"Days since last update: {days}", "days_since_last_update": int(days)}])
+                self.assertIn(f"Days since last update: {days}", report["allowed_notes"][0])
+
+    def test_maintenance_policy_requires_release_cran_context_and_nonempty_reason(self):
+        for version, as_cran in ((None, True), ("0.4.0.9000", True), ("0.4.0", False), ("NA", True)):
+            with self.subTest(version=version, as_cran=as_cran), self.assertRaisesRegex(RuntimeError, "non-development release"):
+                CHECK.check_status(self.maintenance_log(), as_cran=as_cran, version=version,
+                    cran_requested_maintenance=self.MAINTENANCE_REASON)
+        for reason in ("", "  ", "request\nsecond line", 1, True):
+            with self.subTest(reason=reason), self.assertRaises(CHECK.argparse.ArgumentTypeError):
+                CHECK.check_status(self.maintenance_log(), as_cran=True, version="0.4.0",
+                    cran_requested_maintenance=reason)
+
+    def test_maintenance_allowance_rejects_other_or_duplicate_incoming_content(self):
+        log = self.maintenance_log()
+        invalid = [self.maintenance_log(days) for days in ("NA", "", "-1", "+1", "0.5", "１", "1 trailing")]
+        invalid += [log.replace("CRAN incoming feasibility", "package metadata"),
+                    log.replace("Maintainer: 'Example <a@example.invalid>'\n", ""),
+                    log.replace("Days since last update: 1", "New submission")]
+        for line in ("Days since last update: 1", "Days since last update: 2", "New submission",
+                     "Version contains large components (0.4.0.9000)", "Invalid URL", CHECK.NO_VIGNETTE_INDEX_NOTE):
+            invalid.append(log.replace("* checking tests", line + "\n* checking tests"))
+        block = log.split("* checking tests")[0]
+        invalid.append((block + log).replace("Status: 1 NOTE", "Status: 2 NOTEs"))
+        for broken in invalid:
+            with self.subTest(log=broken), self.assertRaisesRegex(RuntimeError, "substantive NOTE"):
+                CHECK.check_status(broken, as_cran=True, version="0.4.0", vignettes_built=False,
+                    cran_requested_maintenance=self.MAINTENANCE_REASON)
+
+    def test_maintenance_allowance_preserves_completion_and_summary_gates(self):
+        log = self.maintenance_log()
+        for broken in (log.replace("* DONE", ""), log.replace("* DONE", "* DONE\n* DONE"),
+                       log.replace("Status: 1 NOTE", "Status: OK"),
+                       log.replace("Status: 1 NOTE", "Status: 2 NOTEs"),
+                       log.replace("Status: 1 NOTE", "Status: NA"),
+                       log.replace("Status: 1 NOTE", ""),
+                       log + "Status: 1 NOTE\n",
+                       log.replace("* checking tests ... OK", "* checking tests ... ERROR"),
+                       log.replace("* checking tests ... OK", "* checking tests ... WARNING")):
+            with self.subTest(log=broken), self.assertRaises(RuntimeError):
+                CHECK.check_status(broken, as_cran=True, version="0.4.0",
+                    cran_requested_maintenance=self.MAINTENANCE_REASON)
+
+    def test_maintenance_request_does_not_invent_a_note_when_check_is_clean(self):
+        report = CHECK.check_status("* checking tests ... OK\n* DONE\nStatus: OK\n",
+            as_cran=True, version="0.4.0", cran_requested_maintenance=self.MAINTENANCE_REASON)
+        self.assertEqual(report["notes"], 0)
+        self.assertEqual(report["note_exceptions"], [])
+
     @staticmethod
     def development_update_log(days="0"):
         return ("* checking CRAN incoming feasibility ... [5s/20s] NOTE\n"

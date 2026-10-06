@@ -173,7 +173,14 @@ whether every condition holds the same batches, and each batch in one order.
 \code{consistent} is \code{TRUE} when the declaration can be laid over the
 data, with the reasons in \code{problems} when it cannot. At most
 \code{max_examples} rows list items with their batch, or their recorded call,
-and position. \code{model} says whether a fit of these data would estimate
+and position. The object column retains its original name.
+\code{batch_audit$metadata_columns} maps the roles \code{batch} (inferred
+membership) or \code{call} (recorded membership), and \code{position}, to
+their actual columns in \code{batch_audit$examples}. These normally use the
+role names. If an object name collides, metadata names receive a \code{.gt_}
+prefix, extended with leading dots if needed; the object name is unchanged.
+Use this mapping when selecting example metadata by name.
+\code{model} says whether a fit of these data would estimate
 a shared call effect, with the reason when it would not, the name of the
 source it adds and that source's covariance parameters, which the total
 parameter count includes. No coefficient scale is offered for a design whose

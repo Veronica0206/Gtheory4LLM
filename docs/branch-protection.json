@@ -7,7 +7,8 @@
       "check-devel",
       "windows-latest / R release",
       "macos-latest / R release",
-      "ubuntu-22.04 / R 4.5.0"
+      "ubuntu-22.04 / R 4.5.0",
+      "R-devel without long double"
     ]
   },
   "enforce_admins": true,

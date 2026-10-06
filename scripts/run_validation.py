@@ -131,7 +131,12 @@ print(sessionInfo())
 
 def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
              scope: str = "all", compact: bool = False, as_cran: bool = False,
-             release_manifest: Path | None = None) -> list[tuple[str, list[str]]]:
+             release_manifest: Path | None = None,
+             cran_requested_maintenance: str | None = None) -> list[tuple[str, list[str]]]:
+    if cran_requested_maintenance is not None and (not as_cran or scope == "artifact" or
+            not isinstance(cran_requested_maintenance, str) or not cran_requested_maintenance.strip() or
+            any(c in cran_requested_maintenance for c in "\r\n\x00")):
+        raise ValueError("CRAN-requested maintenance needs a nonempty single-line reason, --as-cran, and source scope.")
     result = [("dependency_preflight", [rscript, "--vanilla", "-e", preflight_code(lock, allow_version_drift)])]
     if scope in {"source", "all"}:
         result.append(("release_identity", [sys.executable, str(root / "scripts/check_committed_artifact.py"),
@@ -153,6 +158,8 @@ def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
             result.append(manual_stage(root, rscript))
         package_command = [sys.executable, str(root / "scripts/check_package.py"), "--rscript", rscript]
         if as_cran: package_command.append("--as-cran")
+        if cran_requested_maintenance is not None:
+            package_command.extend(["--cran-requested-maintenance", cran_requested_maintenance.strip()])
         result.append(("package_build_install_check", package_command))
     if scope in {"artifact", "all"}:
         command = [sys.executable, str(root / "scripts/check_committed_artifact.py"), "--rscript", rscript,
@@ -184,6 +191,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rscript", default="Rscript")
     parser.add_argument("--as-cran", action="store_true", help="Include CRAN incoming checks in the source package stage.")
+    parser.add_argument("--cran-requested-maintenance", metavar="REASON",
+                        help="Record a CRAN maintenance request and allow only its release timing NOTE; requires --as-cran and source scope.")
     parser.add_argument("--library", type=Path, help="Restored library exposed to each clean R process.")
     parser.add_argument("--scope", choices=("source", "artifact", "all"), default="all")
     parser.add_argument("--compatibility", action="store_true", help="Validate supported current/older R and installed dependencies without asserting lock parity.")
@@ -202,8 +211,11 @@ def main(argv: list[str] | None = None) -> int:
     if options.compact and not compatibility:
         parser.error("--compact requires --compatibility")
     lock = json.loads((ROOT / "renv.lock").read_text())
-    plan = commands(ROOT, options.rscript, lock, compatibility, options.scope, options.compact, options.as_cran,
-                    options.release_manifest)
+    try:
+        plan = commands(ROOT, options.rscript, lock, compatibility, options.scope, options.compact, options.as_cran,
+                        options.release_manifest, options.cran_requested_maintenance)
+    except ValueError as error:
+        parser.error(str(error))
     if options.preflight_only:
         plan = plan[:1]
     if options.list:
@@ -223,6 +235,8 @@ def main(argv: list[str] | None = None) -> int:
     report = {"started_utc": datetime.now(timezone.utc).isoformat(), "mode": mode,
               "scope": options.scope, "compact": options.compact, "as_cran": options.as_cran,
               "required_independent_comparisons": list(REQUIRED), "stages": []}
+    if options.cran_requested_maintenance is not None:
+        report["cran_requested_maintenance"] = options.cran_requested_maintenance.strip()
     passed = True
     print("Selected Rscript: " + resolved_rscript, flush=True)
     for name, command in plan:

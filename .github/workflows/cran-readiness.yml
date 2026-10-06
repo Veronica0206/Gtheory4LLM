@@ -100,7 +100,13 @@ jobs:
           name: cran-candidate-built-${{ github.sha }}
           path: ${{ runner.temp }}/downloaded-cran-candidate
       - name: Check the downloaded archive with R-devel, CRAN incoming checks, and its PDF manual
-        run: python scripts/cran_readiness.py check --require-devel --expected-data-kind public_llm_annotations --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked"
+        shell: bash
+        run: |
+          args=(check --require-devel --expected-data-kind public_llm_annotations --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked")
+          if grep -qx 'Version: 0.4.0' DESCRIPTION; then
+            args+=(--cran-requested-maintenance "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26")
+          fi
+          python scripts/cran_readiness.py "${args[@]}"
       - name: Preserve the exact successfully checked candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -123,3 +129,109 @@ jobs:
             ${{ runner.temp }}/cran-checked/*.Rcheck
           if-no-files-found: ignore
           retention-days: 30
+
+  nold:
+    name: R-devel without long double
+    needs: build-release
+    defaults:
+      run:
+        shell: bash
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    container:
+      # Pinned by digest: "latest" is not an environment.
+      image: ghcr.io/r-hub/containers/nold@sha256:4d8aeacfd5130c824ff593cde19e5ffaed96c170ca397837f56163a201e09389
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MAKEFLAGS: -j4
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - name: Fetch the candidate archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: cran-candidate-built-${{ github.sha }}
+          path: ${{ runner.temp }}/candidate
+      - name: Verify archive size, SHA-256, version and source commit
+        run: python .github/nold/verify_candidate.py "$RUNNER_TEMP/candidate"
+      - name: Require the environment CRAN calls noLD
+        run: |
+          Rscript -e 'stopifnot(Sys.info()[["sysname"]] == "Linux", Sys.info()[["machine"]] %in% c("x86_64", "amd64"), isFALSE(unname(capabilities("long.double"))), grepl("Under development", R.version.string, fixed = TRUE)); cat("Linux x86-64, R-devel, no long double: confirmed\n")'
+      - name: Describe the platform
+        run: |
+          {
+            Rscript -e 'cat(R.version.string, "\n"); cat("long double:", capabilities("long.double"), "| sizeof", .Machine$sizeof.longdouble, "\n"); cat("BLAS:", extSoftVersion()[["BLAS"]], "\nLAPACK:", La_library(), La_version(), "\n")'
+            head -3 /etc/os-release
+            grep -m1 'model name' /proc/cpuinfo || true
+            gcc --version | sed -n '1p'
+            for v in CC CFLAGS CXX CXXFLAGS FC FFLAGS; do printf '%s = %s\n' "$v" "$(R CMD config $v)"; done
+          } | tee "$GITHUB_WORKSPACE/nold-evidence/platform.txt"
+      - name: Install system tools
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev pandoc tidy qpdf
+          cmake --version | sed -n '1p'
+          pandoc --version | sed -n '1p'
+      - name: Install TeX for the PDF manual
+        run: |
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages("tinytex"); tinytex::install_tinytex(force = TRUE); tinytex::tlmgr_install(c("inconsolata", "helvetic", "times", "courier", "collection-latexrecommended"))'
+          # Later steps run in fresh shells: put TeX on their PATH and prove it.
+          texbin=$(Rscript -e 'cat(tinytex::tinytex_root())')/bin/x86_64-linux
+          test -x "$texbin/pdflatex" || { echo "pdflatex is not at $texbin"; ls "$(Rscript -e 'cat(tinytex::tinytex_root())')/bin"; exit 1; }
+          echo "$texbin" >> "$GITHUB_PATH"
+          "$texbin/pdflatex" --version | sed -n '1p'
+      - name: Install the dependencies
+        # From CRAN sources, compiled by this build of R: the container's
+        # default binary repository did not download through install.packages().
+        run: |
+          Rscript -e 'options(Ncpus = 4L, repos = c(CRAN = "https://cloud.r-project.org")); wanted <- c("OpenMx", "Matrix", "lme4", "ordinal", "knitr", "rmarkdown"); need <- setdiff(wanted, rownames(installed.packages())); if (length(need)) install.packages(need, type = "source"); stopifnot(all(vapply(wanted, requireNamespace, logical(1), quietly = TRUE))); ip <- installed.packages()[, c("Package", "Version")]; ip <- ip[order(ip[, "Package"]), ]; print(ip, quote = FALSE, row.names = FALSE); write.csv(ip, file.path(Sys.getenv("GITHUB_WORKSPACE"), "nold-evidence", "installed-packages.csv"), row.names = FALSE)'
+      - name: Install the exact archive
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/lib" "$RUNNER_TEMP/unpacked"
+          R CMD INSTALL --no-docs --library="$RUNNER_TEMP/lib" "$ARCHIVE"
+          tar -xzf "$ARCHIVE" -C "$RUNNER_TEMP/unpacked"
+      - name: Show how the fit CRAN reported ends on this build
+        # Evidence, recorded before the gate so that a refused check still
+        # leaves it; the script's own failure would fail the job.
+        run: |
+          set -euo pipefail
+          Rscript --vanilla .github/nold/diagnose.R "$RUNNER_TEMP/lib" 2>&1 | tee "$GITHUB_WORKSPACE/nold-evidence/boundary-fit-diagnosis.txt"
+      - name: Check the exact archive
+        # As CRAN's noLD check does: the whole check, vignettes and PDF manual
+        # included, continuing past a failed test file so every one is reported.
+        run: |
+          set -e
+          command -v pdflatex || { echo "pdflatex is not on the PATH"; exit 1; }
+          mkdir -p "$GITHUB_WORKSPACE/nold-evidence/check"
+          cd "$GITHUB_WORKSPACE/nold-evidence/check"
+          status=0
+          R CMD check --no-stop-on-test-error "$ARCHIVE" || status=$?
+          log=$(find . -name 00check.log)
+          grep -E '^Status:|\.\.\. (ERROR|WARNING|NOTE)' "$log" || true
+          if [ "$status" -ne 0 ]; then echo "R CMD check exited with status $status"; tail -80 "$log"; exit 1; fi
+          if ! grep -q '^Status: OK' "$log"; then echo "The check did not end with Status: OK"; tail -80 "$log"; exit 1; fi
+      - name: Run every installed test of the exact archive
+        run: Rscript --vanilla .github/nold/run_tests.R "$RUNNER_TEMP/lib" "$RUNNER_TEMP/unpacked/Gtheory4LLM/tests" "$GITHUB_WORKSPACE/nold-evidence/installed-tests" 2>&1 | tee "$GITHUB_WORKSPACE/nold-evidence/installed-tests-summary.txt"
+      - name: Keep the evidence
+        # The candidate manifest and the archive's verified identity, the
+        # platform and installed packages, the check log and every test output.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nold-evidence-${{ github.sha }}
+          path: |
+            nold-evidence/*.json
+            nold-evidence/*.txt
+            nold-evidence/*.csv
+            nold-evidence/check/**/00check.log
+            nold-evidence/check/**/00install.out
+            nold-evidence/check/**/tests/*.Rout
+            nold-evidence/check/**/tests/*.Rout.fail
+            nold-evidence/installed-tests/
+            nold-evidence/specimens/
+          if-no-files-found: error
+          retention-days: 90

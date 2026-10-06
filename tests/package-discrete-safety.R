@@ -315,9 +315,6 @@ boundary_design <- gt_design("item", "rater", random = ~ item + rater, replicate
 ordinal_boundary <- gt_fit(boundary_panel, "rating", boundary_design,
   family = gt_family("ordinal", link = "probit", levels = c("low", "mid", "high")),
   control = gt_control(discrete = list(maxit = 200L)))
-attempt_errors <- unlist(lapply(ordinal_boundary$diagnostics$attempts, `[[`, "error"))
-stopifnot(!any(grepl("nonnegative", attempt_errors)),
-          identical(ordinal_boundary$diagnostics$covariance_parameterization, "variance"))
 # What the projection guarantees is asserted above, on every platform: no
 # evaluation at the boundary becomes an attempt error. Whether the search then
 # reaches the optimum is a property of the optimizer, not of the projection,
@@ -329,21 +326,80 @@ stopifnot(!any(grepl("nonnegative", attempt_errors)),
 # required acceptance whenever an attempt had moved, and so stopped on the
 # second machine. Where the fit is accepted it has to be at the reference
 # estimates; where it is refused, the refusal has to come from the named
-# safeguards and from nothing else.
-if (isTRUE(ordinal_boundary$numerically_accepted)) {
-  stopifnot(!length(ordinal_boundary$diagnostics$acceptance_failures))
-  near(ordinal_boundary$minus2loglik, 510.0058, 1e-4)
-  near(ordinal_boundary$covariance_components$item[[1L]], 1.020897, 1e-4)
-  near(ordinal_boundary$covariance_components$rater[[1L]], 0.2607966, 1e-4)
+# safeguards and from nothing else. Keep this assertion in a helper so its
+# refusal branch is exercised even on a platform where the live fit succeeds.
+assert_boundary_outcome <- function(fit) {
+  attempt_errors <- unlist(lapply(fit$diagnostics$attempts, `[[`, "error"))
+  stopifnot(!any(grepl("nonnegative", attempt_errors)),
+            identical(fit$diagnostics$covariance_parameterization, "variance"))
+  if (isTRUE(fit$numerically_accepted)) {
+    stopifnot(!length(fit$diagnostics$acceptance_failures))
+    near(fit$minus2loglik, 510.0058, 1e-4)
+    near(fit$covariance_components$item[[1L]], 1.020897, 1e-4)
+    near(fit$covariance_components$rater[[1L]], 0.2607966, 1e-4)
+    return("accepted")
+  }
+  stopifnot(isFALSE(fit$numerically_accepted))
+  refusals <- fit$diagnostics$acceptance_failures
+  stopifnot(is.character(refusals), length(refusals) > 0L,
+            all(refusals %in% c("outer_stationarity_failed", "restart_or_tolerance_stability_failed")))
+  "refused"
+}
+boundary_outcome <- assert_boundary_outcome(ordinal_boundary)
+if (identical(boundary_outcome, "accepted")) {
   stopifnot(is.finite(gt_reliability(ordinal_boundary, scale = "latent")$per_trait$Erho2))
   cat("PASS: variance coordinates project rounding noise onto the zero boundary instead of rejecting the fit.\n")
 } else {
-  refusals <- ordinal_boundary$diagnostics$acceptance_failures
-  stopifnot(length(refusals) > 0L,
-            all(refusals %in% c("outer_stationarity_failed", "restart_or_tolerance_stability_failed")))
-  cat("PASS: no boundary evaluation became an attempt error. The optimizer did not reach a stationary point",
-      "on this platform, and the fit was refused by", paste(refusals, collapse = " and "), "as it must be.\n")
+  cat("PASS: no boundary evaluation became an attempt error. The fit failed numerical acceptance",
+      "on this platform and was refused by",
+      paste(ordinal_boundary$diagnostics$acceptance_failures, collapse = " and "), "as it must be.\n")
 }
+
+# Constructed records test the assertion contract, without depending on which
+# optimizer outcome this machine produces or changing any package threshold.
+reference_boundary <- list(numerically_accepted = TRUE, minus2loglik = 510.0058,
+  covariance_components = list(item = matrix(1.020897), rater = matrix(0.2607966)),
+  diagnostics = list(covariance_parameterization = "variance", attempts = list(),
+                     acceptance_failures = character()))
+stopifnot(identical(assert_boundary_outcome(reference_boundary), "accepted"))
+refused_boundary <- reference_boundary
+refused_boundary$numerically_accepted <- FALSE
+allowed_refusals <- c("outer_stationarity_failed", "restart_or_tolerance_stability_failed")
+for (reasons in c(as.list(allowed_refusals), list(allowed_refusals))) {
+  refused_boundary$diagnostics$acceptance_failures <- reasons
+  stopifnot(identical(assert_boundary_outcome(refused_boundary), "refused"))
+}
+for (flag in list(NULL, NA, logical(), c(TRUE, FALSE))) {
+  incomplete <- refused_boundary
+  incomplete$numerically_accepted <- flag
+  expect_error(assert_boundary_outcome(incomplete), "isFALSE")
+}
+for (reasons in list(NULL, character(), NA_character_, "validation_computation_failed",
+                     c(allowed_refusals, "validation_computation_failed"))) {
+  unexpected <- refused_boundary
+  unexpected$diagnostics$acceptance_failures <- reasons
+  expect_error(assert_boundary_outcome(unexpected), "refusals")
+}
+contradictory <- reference_boundary
+contradictory$diagnostics$acceptance_failures <- allowed_refusals
+expect_error(assert_boundary_outcome(contradictory), "acceptance_failures")
+wrong_reference <- reference_boundary
+wrong_reference$minus2loglik <- 511
+expect_error(assert_boundary_outcome(wrong_reference), "all.equal")
+for (source in c("item", "rater")) {
+  wrong_reference <- reference_boundary
+  wrong_reference$covariance_components[[source]][[1L]] <- 2
+  expect_error(assert_boundary_outcome(wrong_reference), "all.equal")
+}
+for (record in list(reference_boundary, refused_boundary)) {
+  wrong_coordinates <- record
+  wrong_coordinates$diagnostics$covariance_parameterization <- "log_cholesky"
+  expect_error(assert_boundary_outcome(wrong_coordinates), "covariance_parameterization")
+  boundary_error <- record
+  boundary_error$diagnostics$attempts <- list(list(error = "Direct variance parameters must be nonnegative"))
+  expect_error(assert_boundary_outcome(boundary_error), "nonnegative")
+}
+cat("PASS: boundary assertions require an explicit outcome, named safeguards and unchanged reference estimates.\n")
 
 # The same rounding noise can appear in the parameter vector a bounded optimizer
 # returns, not only in the points it evaluates. A converged result reported a few

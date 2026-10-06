@@ -82,6 +82,8 @@ expect(isTRUE(a$stored_rows$checked) && identical(a$stored_rows$batches_agree, 6
 expect(identical(a$examples$batch, rep(1L, 10)) && identical(a$examples$position, 1:10) &&
          identical(a$examples$item, sprintf("BATCH_ITEM_%02d", 1:10)),
        "examples list items in batch and position order, bounded by max_examples")
+expect(identical(a$metadata_columns, c(batch = "batch", position = "position")),
+       "ordinary object names retain the existing inferred example column names")
 # An explicit order column decides the batches, whatever order the rows are in.
 d$sent <- 41 - match(d$item, unique(d$item))
 b <- audit(d, gt_batch(20, order = "sent"))
@@ -118,6 +120,37 @@ quiet <- gt_preflight(d, "score", gt_design("item", c("evaluator", "prompt"), ba
                       max_examples = 0L)
 expect(identical(nrow(quiet$batch_audit$examples), 0L) && !holds(quiet$batch_audit, "BATCH_ITEM_"),
        "max_examples = 0 keeps item identifiers out of the batch audit")
+
+# Object names may equal an audit field. All three roles must still be
+# addressable by name, with the object's name and values preserved.
+for (recorded in c(FALSE, TRUE)) {
+  field <- if (recorded) "call" else "batch"
+  for (object in c(field, "position")) {
+    collision <- expand.grid(object_id = paste0("COLLISION_ITEM_", 1:8), rater = 1:2,
+                             stringsAsFactors = FALSE)
+    names(collision)[1L] <- object
+    item_index <- match(collision[[object]], unique(collision[[object]]))
+    collision$score <- sin(item_index * collision$rater)
+    collision$call_id <- paste0("COLLISION_CALL_", collision$rater, "_", (item_index - 1L) %/% 4L + 1L)
+    collision$sent <- (item_index - 1L) %% 4L + 1L
+    declaration <- if (recorded) gt_batch(4, id = "call_id", order = "sent") else gt_batch(4)
+    collision_design <- gt_design(object, "rater", batch = declaration)
+    collision_audit <- gt_preflight(collision, "score", collision_design, max_examples = 8L)$batch_audit
+    columns <- collision_audit$metadata_columns
+    examples <- collision_audit$examples
+    expected_group <- if (recorded) collision$call_id[1:8] else rep(1:2, each = 4L)
+    expect(identical(names(columns), c(field, "position")) && !anyDuplicated(names(examples)) &&
+             identical(examples[[object]], collision[[object]][1:8]) &&
+             identical(examples[[columns[[field]]]], expected_group) &&
+             identical(examples[[columns[["position"]]]], rep(1:4, 2L)),
+           paste("object", object, "and", field, "metadata remain independently addressable"))
+    collision[[object]] <- factor(collision[[object]], levels = c(unique(collision[[object]]),
+                                                                 "COLLISION_UNUSED_LEVEL"))
+    private_audit <- gt_preflight(collision, "score", collision_design, max_examples = 0L)$batch_audit
+    expect(identical(nrow(private_audit$examples), 0L) && !holds(private_audit, "COLLISION_"),
+           paste("zero examples suppress identifiers and factor levels for object", object, "and", field))
+  }
+}
 
 # --- inferred batches against recorded calls ----------------------------------
 # Twelve items went out in three calls of four; four items were removed after
@@ -161,6 +194,8 @@ expect(identical(names(r$examples), c("item", "call", "position")) &&
          identical(r$examples$item[1:4], c(1L, 3L, 4L, 5L)) && identical(r$examples$position[1:4], c(1L, 2L, 3L, 1L)) &&
          identical(r$examples$call[[1L]], "CALL_SENTINEL_r1_c1"),
        "recorded examples list items with their call and position")
+expect(identical(r$metadata_columns, c(call = "call", position = "position")),
+       "ordinary object names retain the existing recorded example column names")
 recorded_output <- capture.output(print(by_call))
 expect(any(grepl("Recorded calls: 9 in column", recorded_output, fixed = TRUE)) &&
          any(grepl("3 distinct batches of up to 4 items", recorded_output, fixed = TRUE)) &&

@@ -22,7 +22,7 @@ authentication, or without admin rights on the repository it reports
 
 | Setting | Required value | Why |
 |---|---|---|
-| Required status checks | The six contexts below, strict (branch up to date) | A merge must be validated against what it will actually become |
+| Required status checks | The seven contexts below, strict (branch up to date) | A merge must be validated against what it will actually become |
 | Required pull request reviews | A pull request is required; 0 approving reviews, stale reviews dismissed | GitHub cannot enforce review for a solo maintainer; see below |
 | Conversation resolution | Required | A raised numerical concern cannot be merged past silently |
 | Force pushes | Blocked | Published release history is the artifact manifest's anchor |
@@ -57,7 +57,7 @@ commits, so after either one the named commit is no longer an ancestor of
 a scratch clone. A release branch is therefore integrated with its commits
 intact, in this order:
 
-1. Open the release pull request and wait for its own six checks on the final
+1. Open the release pull request and wait for its own seven checks on the final
    head. Checks from `workflow_dispatch` runs do not count towards the
    requirement.
 2. Fast-forward first. With the branch up to date and its checks green, push
@@ -103,13 +103,15 @@ These are the job names GitHub reports, not the workflow names:
 validate
 build-release
 check-devel
+R-devel without long double
 windows-latest / R release
 macos-latest / R release
 ubuntu-22.04 / R 4.5.0
 ```
 
 `validate` is the locked numerical gate, `build-release` and `check-devel` are
-the exact CRAN candidate jobs, and the three matrix entries are the platform
+the ordinary exact CRAN candidate jobs, `R-devel without long double` checks
+the same archive on the additional noLD platform, and the three matrix entries are the platform
 compatibility checks. If a workflow's job name or matrix changes, update this
 list and the workflow in the same change: a required context that no job
 produces blocks every merge, and a job whose context is not required stops

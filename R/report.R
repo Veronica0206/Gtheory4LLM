@@ -273,8 +273,10 @@ print.gt_report <- function(x, ...) {
     text[is.na(value)] <- "Not available"
     .gt_report_escape(text)
   })
+  cell_open <- ifelse(vapply(x, is.numeric, logical(1)), "<td class='numeric'>", "<td>")
   rows <- vapply(seq_len(nrow(x)), function(i)
-    paste0("<tr>", paste0("<td>", vapply(cells, `[[`, character(1), i), "</td>", collapse = ""), "</tr>"), character(1))
+    paste0("<tr>", paste0(cell_open, vapply(cells, `[[`, character(1), i), "</td>", collapse = ""), "</tr>"),
+    character(1))
   paste0("<div class='table-wrap'><table><thead><tr>",
     paste0("<th scope='col'>", .gt_report_escape(names(x)), "</th>", collapse = ""),
     "</tr></thead><tbody>", paste(rows, collapse = ""), "</tbody></table></div>")
@@ -412,10 +414,10 @@ gt_export_report <- function(report, path, overwrite = FALSE) {
     "body{font:16px/1.55 system-ui,sans-serif;color:#172033;background:#f4f6fa;margin:0}",
     "main{max-width:1100px;margin:30px auto;padding:30px;background:white;border-radius:12px}",
     "h1{margin:0;color:#123b59}h2{margin-top:32px;border-bottom:1px solid #ccd5df;padding-bottom:8px}",
-    "p,td,th{overflow-wrap:anywhere}.notice{background:#eef5fa;padding:16px;border-left:4px solid #27658c}",
+    "p,td{overflow-wrap:anywhere}.notice{background:#eef5fa;padding:16px;border-left:4px solid #27658c}",
     ".muted,figcaption{color:#526176;font-size:14px}.table-wrap{overflow-x:auto;margin:16px 0}",
     "table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:8px;border:1px solid #dce3eb}",
-    "th{background:#edf2f7}tr:nth-child(even){background:#fafbfd}figure{margin:20px 0}svg{width:100%;height:auto}",
+    "th,td.numeric{white-space:nowrap}th{background:#edf2f7}tr:nth-child(even){background:#fafbfd}figure{margin:20px 0}svg{width:100%;height:auto}",
     "@media print{body{background:white}main{margin:0;padding:0}.table-wrap{overflow:visible}table{font-size:9px}}",
     "</style></head><body><main><h1>G-theory analysis report</h1>",
     paragraph(paste("Snapshot schema", report$schema_version, "| Generated", report$generated_at)),

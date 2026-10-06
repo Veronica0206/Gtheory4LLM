@@ -1,16 +1,27 @@
 # Validation scope
 
-This document separates implemented checks from the scientific validation still needed. It is about *evidence*: what has been checked, how, and what that does not establish. The catalogue of what the software does not do is [limitations](LIMITATIONS.md), and is not repeated here. It describes the v0.1.0 implementation (numerical engines unchanged from v0.0.7); it is not a new test-run report or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
+This document separates implemented checks from the scientific validation still needed. It is about *evidence*: what has been checked, how, and what that does not establish. The catalogue of what the software does not do is [limitations](LIMITATIONS.md), and is not repeated here. It describes the 0.4.0 source, including the Gaussian shared call effect for equal fixed batches. Historical pilot results retain their recorded source versions and do not validate every subsequent addition. This is not a new test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
 
 ## What the existing checks establish
 
 | Area | Implemented checks | What remains unestablished |
 |---|---|---|
 | Gaussian likelihood | [Full-covariance references](../tests/test_gaussian.R), [lme4 comparisons and transformations](../tests/test_gaussian_review.R), balanced ML/REML, row/outcome invariance, resource guards | Accuracy under an incorrect covariance model; general unbalanced designs |
+| Gaussian call effect | [Independent lme4 ML/REML comparisons](../tests/test_gaussian_call_effect.R), including zero call variance, recorded calls and item relabelling; [batch audit, source accounting and coefficient guards](../tests/package-batch.R) | Call-effect recovery and interval coverage across batch designs; effects of regrouping items; batch-aware reliability, D studies or choice of batch size |
 | Gaussian uncertainty | [OpenMx SE comparison, classical mean-square SE formulas, covariance Jacobian, and independent coefficient derivatives](../tests/package-uncertainty.R) | Broad repeated-sampling coverage, especially near boundaries and with few facet levels |
 | Fixed facets | [Explicit random/mixed-model formulas and fixed-count guards](../tests/package-mixed-model.R) | Broad inferential coverage for combinations of fixed facets, nesting, multivariate outcomes, or extrapolation |
 | Discrete likelihood | [Probability/derivative identities and matched glmer/clmm checks](../tests/test_discrete.R); [one nonzero-variance adaptive-integration reference](../tests/test_discrete_acceptance.R) | General Laplace accuracy or parameter recovery; matching another Laplace fit is not a higher-accuracy reference |
 | Discrete acceptance | [Boundary, restart, and stationarity checks](../tests/test_discrete_acceptance.R), [invalid-probe rejection](../tests/package-stationarity-validity.R), [failure handling](../tests/package-discrete-safety.R) | A global optimum, adequate approximation, or structural identification in every design |
+
+The ordinal boundary regression requires accepted fits to reproduce its reference
+likelihood and variances. Otherwise it requires an explicit rejection by only
+the named stationarity or restart/tolerance-stability safeguards. Its variance
+projection checks apply to both outcomes, and constructed records exercise the
+assertion contract independently of the host's optimizer behavior. This does
+not fix the platform-sensitive optimizer limitation tracked in
+[issue #59](https://github.com/Veronica0206/Gtheory4LLM/issues/59), change a
+numerical acceptance threshold, or establish that a final archive passed a
+particular CRAN platform. Such qualification needs that archive's check evidence.
 
 The discrete acceptance test includes six sparse-group replicates to exercise numerical behavior, not assess recovery or coverage. Separate [versioned pilot studies](../validation-studies/README.md) now retain 320 Gaussian fits, 180 discrete fixed-parameter likelihood comparisons and 40 binary recovery fits. Their protocols and individual records are public. These bounded initial studies do not establish a general operating range; no observed pilot coverage range is adopted as a guarantee.
 
@@ -34,6 +45,7 @@ Likelihood uncertainty reflects estimation under the fitted random-effects sampl
 - Run `gt_preflight()` before fitting. A blocked full-cell discrete term requires an explicit scientific model decision; `full_cell = FALSE` is not an automatic repair. A blocked dense model calls for a defensible smaller design or another implementation, not simply higher limits.
 - Inspect `gt_diagnostics()`. Rejected fits do not support coefficients. Accepted discrete fits with random variation still report unassessed first-order Laplace adequacy. Binary/ordinal coefficients are latent; scalar categorical and observed discrete reliability remain unsupported.
 - Gaussian fitting and analytic coefficients require the documented balanced panel. Do not fill missing judgments or relabel physical nesting merely to pass a guard. Extrapolated allocations hold source covariances fixed and need exchangeability assumptions.
+- A Gaussian fit with a modelled `Call` source does not provide reliability coefficients or D studies. Estimating its shared call variance does not establish how reliability changes when items are regrouped or a different batch size is used. Batch declarations that are not modelled carry that status; their coefficients treat items sharing a call as independent.
 
 ## Planned scientific validation matrix — not results
 

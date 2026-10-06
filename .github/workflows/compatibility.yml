@@ -44,9 +44,8 @@ jobs:
         with:
           # Release correspondence reads the artifact's recorded source commit.
           fetch-depth: 0
-      # The solve-validity refusals this matrix has met were tied to the CPU a
-      # runner happened to have, and a job that fails early prints nothing
-      # about it. Recorded first, in the log and beside the uploaded evidence.
+      # Record the execution environment for numerical refusals. A differing CPU
+      # is contextual evidence, not a demonstrated cause of a failed solve.
       - name: Record the runner CPU
         shell: bash
         run: |
@@ -70,6 +69,9 @@ jobs:
       # The package check builds the vignette, which needs pandoc on every
       # platform in this matrix rather than whatever the runner image ships.
       - uses: r-lib/actions/setup-pandoc@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
+      - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
+      - name: Install reference-manual fonts
+        run: tlmgr install inconsolata helvetic times courier collection-latexrecommended
       - name: Install minimum-R compilation dependencies
         if: matrix.minimum
         run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev
@@ -95,6 +97,13 @@ jobs:
           packages: any::OpenMx, any::lme4, any::ordinal, any::knitr, any::rmarkdown
           dependencies: 'c("Depends", "Imports", "LinkingTo")'
           upgrade: 'TRUE'
+      - name: Stage and verify the validation bundle without replacing the published release
+        shell: bash
+        run: |
+          if [[ '${{ matrix.minimum }}' == 'true' ]]; then
+            export R_LIBS_USER="$RUNNER_TEMP/gtheory-minimum-library"
+          fi
+          python scripts/stage_validation_bundle.py --output-dir "$RUNNER_TEMP/validation-bundle" --github-env "$GITHUB_ENV"
       - name: Check supported source and installed-package behavior
         shell: bash
         env:
@@ -112,7 +121,7 @@ jobs:
           GTHEORY_DISCRETE_SPECIMEN_DIR: ${{ runner.temp }}/gtheory-specimens
         run: |
           set -o pipefail
-          args=(--scope source --compatibility --compact --output "$RUNNER_TEMP/compatibility.json")
+          args=(--scope source --release-manifest "$GTHEORY_VALIDATION_MANIFEST" --compatibility --compact --output "$RUNNER_TEMP/compatibility.json")
           if [[ '${{ matrix.minimum }}' == 'true' ]]; then
             args+=(--library "$RUNNER_TEMP/gtheory-minimum-library")
           fi
@@ -122,6 +131,7 @@ jobs:
         with:
           name: compatibility-${{ matrix.os }}-R-${{ matrix.r }}
           path: |
+            ${{ runner.temp }}/validation-bundle/
             ${{ runner.temp }}/compatibility.json
             ${{ runner.temp }}/compatibility.log
             ${{ runner.temp }}/gtheory-package-check/*.json

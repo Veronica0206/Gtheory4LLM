@@ -75,10 +75,10 @@ class CRANReadinessTests(unittest.TestCase):
                     "* checking Rd files ... OK\n* DONE\nStatus: OK\n"):
             self.assertFalse(CHECK.manual_checked(log))
 
-    def test_check_uses_downloaded_archive_and_never_rebuilds(self):
+    def run_candidate_check(self, log, reason=None):
         self.manifest["expected_data_kind"] = "public_llm_annotations"
         self.save_manifest()
-        output = self.root / "checked"
+        output = self.root / f"checked-{len(list(self.root.glob('checked-*')))}"
         commands = []
 
         def fake_run(command, **kwargs):
@@ -91,7 +91,7 @@ class CRANReadinessTests(unittest.TestCase):
                 self.assertEqual(Path(command[-1]).read_bytes(), self.archive.read_bytes())
                 check = output / "Example.Rcheck"
                 check.mkdir()
-                (check / "00check.log").write_text("* checking PDF version of manual ... OK\n* checking tests ... OK\n* DONE\nStatus: OK\n")
+                (check / "00check.log").write_text(log)
                 stdout = "Check completed\n"
             elif Path(command[-1]).name == "runtime.R":
                 self.assertIn("cat(R.home", Path(command[-1]).read_text(encoding="utf-8"))
@@ -102,19 +102,42 @@ class CRANReadinessTests(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
 
         argv = ["cran_readiness.py", "check", "--require-devel", "--candidate-dir", str(self.root), "--output-dir", str(output)]
+        if reason is not None:
+            argv += ["--cran-requested-maintenance", reason]
         with patch.object(CHECK, "ROOT", self.root / "source"), patch.object(CHECK, "clean_commit", return_value=self.commit), \
                 patch.object(CHECK, "PublicAudit") as audit, patch.object(CHECK.subprocess, "run", side_effect=fake_run), \
                 patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
             audit.return_value.findings = []
             audit.return_value.report.return_value = {"passed": True}
-            self.assertEqual(CHECK.main(), 0)
+            status = CHECK.main()
         self.assertEqual(sum("CMD" in command for command in commands), 1)
         report = json.loads((output / "check_validation.json").read_text())
+        self.assertFalse(report["submission_performed"])
+        self.assertEqual(CHECK.digest(output / self.archive.name), self.manifest["sha256"])
+        return status, report
+
+    def test_check_uses_downloaded_archive_and_never_rebuilds(self):
+        status, report = self.run_candidate_check("* checking PDF version of manual ... OK\n* checking tests ... OK\n* DONE\nStatus: OK\n")
+        self.assertEqual(status, 0)
         self.assertTrue(report["exact_archive_checked"])
         self.assertTrue(report["r_devel_checked"])
         self.assertTrue(report["pdf_manual_checked"])
-        self.assertFalse(report["submission_performed"])
-        self.assertEqual(CHECK.digest(output / self.archive.name), self.manifest["sha256"])
+
+    def test_candidate_timing_note_passes_only_with_recorded_maintenance_request(self):
+        reason = "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26"
+        log = ("* checking CRAN incoming feasibility ... NOTE\n"
+               "Maintainer: 'Example <a@example.invalid>'\nDays since last update: 1\n"
+               "* checking PDF version of manual ... OK\n* DONE\nStatus: 1 NOTE\n")
+        status, report = self.run_candidate_check(log)
+        self.assertEqual(status, 1)
+        self.assertFalse(report["success"])
+        status, report = self.run_candidate_check(log, reason)
+        self.assertEqual(status, 0)
+        self.assertTrue(report["success"])
+        self.assertTrue(report["exact_archive_checked"])
+        self.assertEqual(report["cran_requested_maintenance"], reason)
+        self.assertEqual(report["r_cmd_check"]["notes"], 1)
+        self.assertEqual(report["r_cmd_check"]["note_exceptions"][0]["reason"], reason)
 
 
 class IncomingNoteTests(unittest.TestCase):
