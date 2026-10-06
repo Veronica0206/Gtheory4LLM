@@ -23,6 +23,17 @@ not fix the platform-sensitive optimizer limitation tracked in
 numerical acceptance threshold, or establish that a final archive passed a
 particular CRAN platform. Such qualification needs that archive's check evidence.
 
+The minimum-R compatibility job qualifies R 4.5.0 on Ubuntu 22.04 with explicitly
+selected reference BLAS and LAPACK runtime and linker libraries. Its preflight requires R's loaded
+library paths to match those selections and retains the environment evidence.
+A successful run does not establish compatibility with every BLAS implementation.
+The captured Ubuntu 22.04/OpenBLAS 0.3.20 native solve failure remains unresolved:
+the stored factor represents its Hessian accurately, but the stored Newton step
+does not solve the system. The package continues to reject that step under the
+unchanged backward-error bound, without a rescue solve or retry. Current-R full
+validation on Ubuntu 24.04 and noLD checks retain their separate backend coverage;
+their actual run results, rather than this configuration, establish qualification.
+
 The discrete acceptance test includes six sparse-group replicates to exercise numerical behavior, not assess recovery or coverage. Separate [versioned pilot studies](../validation-studies/README.md) now retain 320 Gaussian fits, 180 discrete fixed-parameter likelihood comparisons and 40 binary recovery fits. Their protocols and individual records are public. These bounded initial studies do not establish a general operating range; no observed pilot coverage range is adopted as a guarantee.
 
 The additional [0.3.0 development pilot](../validation-studies/discrete-030-usability-pilot/README.md)

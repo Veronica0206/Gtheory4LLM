@@ -101,12 +101,46 @@ jobs:
           Get-Command makeindex -ErrorAction Stop
       - name: Install minimum-R compilation dependencies
         if: matrix.minimum
-        run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev libblas3 liblapack3 libblas-dev liblapack-dev
+      # Qualify the minimum R version with an explicit reference implementation.
+      # The preserved Ubuntu 22.04/OpenBLAS 0.3.20 solve failure remains unresolved;
+      # selecting another backend does not repair or bypass the package's guard.
+      - name: Select and verify reference BLAS for minimum R
+        if: matrix.minimum
+        shell: bash
+        run: |
+          set -euo pipefail
+          reference_blas=/usr/lib/x86_64-linux-gnu/blas/libblas.so.3
+          reference_lapack=/usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3
+          sudo update-alternatives --set libblas.so.3-x86_64-linux-gnu "$reference_blas"
+          sudo update-alternatives --set liblapack.so.3-x86_64-linux-gnu "$reference_lapack"
+          sudo update-alternatives --set libblas.so-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/blas/libblas.so
+          sudo update-alternatives --set liblapack.so-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/lapack/liblapack.so
+          {
+            dpkg-query -W libblas3 liblapack3 libblas-dev liblapack-dev
+            update-alternatives --query libblas.so.3-x86_64-linux-gnu
+            update-alternatives --query liblapack.so.3-x86_64-linux-gnu
+            update-alternatives --query libblas.so-x86_64-linux-gnu
+            update-alternatives --query liblapack.so-x86_64-linux-gnu
+            Rscript --vanilla - "$reference_blas" "$reference_lapack" <<'RSCRIPT'
+          expected <- commandArgs(trailingOnly = TRUE)
+          stopifnot(length(expected) == 2L)
+          loaded <- c(BLAS = extSoftVersion()[["BLAS"]], LAPACK = La_library())
+          print(sessionInfo())
+          print(loaded)
+          print(c(LAPACK_version = La_version()))
+          actual <- normalizePath(unname(loaded), mustWork = TRUE)
+          expected <- normalizePath(expected, mustWork = TRUE)
+          if (!identical(actual, expected))
+            stop("Minimum-R qualification requires loaded reference BLAS and LAPACK.", call. = FALSE)
+          cat("Verified loaded reference BLAS and LAPACK.\n")
+          RSCRIPT
+          } 2>&1 | tee "$RUNNER_TEMP/minimum-r-reference-blas.txt"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         if: matrix.minimum
         with:
           path: ${{ runner.temp }}/gtheory-minimum-library
-          key: ubuntu-22.04-source-R-4.5.0-docs-${{ hashFiles('scripts/dependency-locks/R-4.5.0.lock', 'scripts/dependency-locks/minimum-documentation.lock') }}
+          key: ubuntu-22.04-reference-blas-source-R-4.5.0-docs-${{ hashFiles('scripts/dependency-locks/R-4.5.0.lock', 'scripts/dependency-locks/minimum-documentation.lock') }}
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         if: matrix.minimum
         with:
@@ -170,6 +204,7 @@ jobs:
             ${{ runner.temp }}/gtheory-issue14/*.rds
             ${{ runner.temp }}/gtheory-specimens/*.rds
             ${{ runner.temp }}/runner-cpu.txt
+            ${{ runner.temp }}/minimum-r-reference-blas.txt
           if-no-files-found: ignore
       - name: Ensure tests did not modify tracked files
         run: git diff --exit-code

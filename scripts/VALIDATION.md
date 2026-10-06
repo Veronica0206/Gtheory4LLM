@@ -147,6 +147,18 @@ needed to build the staged source archive. Both locks enter the cache key;
 `check_documentation_lock.py` checks numerical parity before restoration.
 R 4.5.0 is selected explicitly. Windows checkout preserves committed LF bytes
 so staged archive correspondence does not depend on Git's CRLF conversion.
+The minimum-R job explicitly selects Ubuntu's reference `libblas3` and
+`liblapack3` runtime alternatives and the matching `libblas-dev`/`liblapack-dev`
+linker alternatives for compiled dependencies. Before restoring dependencies or staging the archive,
+R must report loaded BLAS and LAPACK paths that resolve to those reference
+libraries; a mismatch stops the job. The artifact includes the package versions,
+alternatives, loaded paths and R session in `minimum-r-reference-blas.txt`, and
+the compiled-dependency cache is separate from the previous OpenBLAS cache.
+A successful job qualifies R 4.5.0 with this reference backend. The preserved
+Ubuntu 22.04/OpenBLAS 0.3.20 native solve failure is unresolved; this environment
+selection does not fix that failure. Production still rejects an invalid solve
+under the same backward-error bound, without rescue or retry. The full
+Ubuntu 24.04/current-R and noLD jobs retain their separate backend coverage.
 OpenMx 2.22.11 uses the
 `Rf_isDataFrame` C API introduced in R 4.5.0 while declaring only
 `R (>= 3.5.0)` itself; the package therefore declares R 4.5.0 or later on its

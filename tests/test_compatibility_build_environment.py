@@ -1,4 +1,5 @@
 """Build prerequisites must preserve both numerical pins and source bytes."""
+import json
 import os
 from pathlib import Path
 import re
@@ -102,6 +103,55 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
         self.assertIn("libuv1-dev", text)
         self.assertLess(text.index(check), text.index(restore))
         self.assertLess(text.index(restore), text.index("python scripts/stage_validation_bundle.py"))
+
+    def test_minimum_r_selects_reference_libraries_before_restoration(self):
+        text = WORKFLOW.read_text()
+        step = next(step for step in re.findall(r"(?ms)^      - name: .*?(?=^      - |\Z)", text)
+                    if "name: Select and verify reference BLAS for minimum R" in step)
+        self.assertIn("if: matrix.minimum", step)
+        self.assertIn("shell: bash", step)
+        self.assertIn("set -euo pipefail", step)
+        self.assertNotIn("|| true", step)
+        for library in ("blas", "lapack"):
+            self.assertIn(f"reference_{library}=/usr/lib/x86_64-linux-gnu/{library}/lib{library}.so.3", step)
+            self.assertIn(f'update-alternatives --set lib{library}.so.3-x86_64-linux-gnu "$reference_{library}"', step)
+            self.assertIn(f"update-alternatives --query lib{library}.so.3-x86_64-linux-gnu", step)
+            self.assertIn(f"update-alternatives --set lib{library}.so-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/{library}/lib{library}.so", step)
+            self.assertIn(f"update-alternatives --query lib{library}.so-x86_64-linux-gnu", step)
+        self.assertIn("libblas3 liblapack3 libblas-dev liblapack-dev", text)
+        self.assertIn("dpkg-query -W libblas3 liblapack3 libblas-dev liblapack-dev", step)
+        self.assertIn("print(sessionInfo())", step)
+        self.assertIn("minimum-r-reference-blas.txt", step)
+        self.assertIn("${{ runner.temp }}/minimum-r-reference-blas.txt", text)
+        self.assertIn("ubuntu-22.04-reference-blas-source-R-4.5.0-docs-", text)
+        self.assertLess(text.index(step), text.index("Rscript --vanilla scripts/restore_validation.R"))
+
+    @unittest.skipUnless(shutil.which("Rscript"), "R is needed to exercise the loaded-library preflight")
+    def test_reference_blas_preflight_rejects_wrong_or_missing_libraries(self):
+        step = next(step for step in re.findall(r"(?ms)^      - name: .*?(?=^      - |\Z)", WORKFLOW.read_text())
+                    if "name: Select and verify reference BLAS for minimum R" in step)
+        script = re.search(r"<<'RSCRIPT'\n(.*?)^          RSCRIPT$", step, re.MULTILINE | re.DOTALL).group(1)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            expected = [root / "reference-blas", root / "reference-lapack"]
+            wrong = root / "other-blas"
+            for path in [*expected, wrong]:
+                path.write_bytes(b"fixture")
+            cases = ((expected, True), ([wrong, expected[1]], False),
+                     ([expected[0], wrong], False), ([root / "missing", expected[1]], False))
+            for loaded, succeeds in cases:
+                with self.subTest(loaded=loaded):
+                    # Mock only the runtime identities; normalization and the
+                    # workflow's actual refusal logic execute inside R.
+                    prelude = (f'extSoftVersion <- function() c(BLAS = {json.dumps(str(loaded[0]))})\n'
+                               f'La_library <- function() {json.dumps(str(loaded[1]))}\n')
+                    result = subprocess.run(["Rscript", "--vanilla", "-", *map(str, expected)],
+                                            input=prelude + script, capture_output=True, text=True)
+                    self.assertEqual(result.returncode == 0, succeeds, result.stdout + result.stderr)
+                    if succeeds:
+                        self.assertIn("Verified loaded reference BLAS and LAPACK.", result.stdout)
+                    else:
+                        self.assertNotIn("Verified loaded reference BLAS and LAPACK.", result.stdout)
 
     @unittest.skipUnless(shutil.which("git"), "Git is needed to exercise checkout conversion")
     def test_windows_checkout_configuration_preserves_committed_lf_bytes(self):
