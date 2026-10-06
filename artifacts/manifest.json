@@ -1,22 +1,41 @@
 {
   "package": "Gtheory4LLM",
-  "version": "0.2.0",
-  "release_state": "published",
-  "source_commit": "a4dd59c50f54dd951bba89d86d4c32a3699a5597",
+  "version": "0.4.0",
+  "release_state": "prepared",
+  "source_commit": "e054422554499a7da54820a5072bb79b798da46c",
   "files": {
-    "Gtheory4LLM_0.2.0.tar.gz": {
-      "bytes": 295761,
-      "sha256": "910286884cbbac91ec9ea466ba1997e0a0c9a9b0d8779852d5c158ed6bc5eb78"
+    "Gtheory4LLM_0.4.0.tar.gz": {
+      "bytes": 479899,
+      "sha256": "a43a4cccbf2cd363625f36bad692e57aa0bde113be0492f642194c9c50362d65"
     },
     "Gtheory4LLM-manual.pdf": {
-      "bytes": 196344,
-      "sha256": "4aa081ad81e8a5d363b50d658ebeecd877f823a0b3d35c22cc002de75c1fbb9c"
+      "bytes": 234915,
+      "sha256": "22ed5c30ee15f3f5619a39c64c443cc161400018c7c001d0b73ecc8272afebd7"
     }
   },
   "archive_provenance": {
     "origin": "checked_candidate",
     "build_r_version": "4.6.1",
     "checked_r_version": "4.7.0",
-    "expected_data_kind": "public_llm_annotations"
+    "expected_data_kind": "public_llm_annotations",
+    "check_report_sha256": "c4143ef422bc47b6844aed2919b714b0841887de62c7ebc837a4487991d656e5",
+    "r_cmd_check": {
+      "errors": 0,
+      "warnings": 0,
+      "notes": 1,
+      "allowed_notes": [
+        "CRAN incoming feasibility: Days since last update: 2; explicitly requested CRAN maintenance"
+      ],
+      "note_exceptions": [
+        {
+          "policy": "cran_requested_maintenance",
+          "reason": "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26",
+          "check": "CRAN incoming feasibility",
+          "message": "Days since last update: 2",
+          "days_since_last_update": 2
+        }
+      ]
+    },
+    "cran_requested_maintenance": "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26"
   }
 }
