@@ -14,6 +14,48 @@ WORKFLOW = ROOT / ".github/workflows/compatibility.yml"
 
 
 class CompatibilityBuildEnvironmentTests(unittest.TestCase):
+    def test_every_manual_environment_updates_tlmgr_and_installs_makeindex(self):
+        checked = 0
+        for filename in ("full-validation.yml", "compatibility.yml", "cran-readiness.yml"):
+            text = (ROOT / ".github/workflows" / filename).read_text()
+            for step in re.findall(r"(?ms)^      - name: .*?(?=^      - |\Z)", text):
+                if "tlmgr" not in step:
+                    continue
+                with self.subTest(workflow=filename, step=step.splitlines()[0]):
+                    self.assertIn("shell: bash", step)
+                    self.assertIn("set -euo pipefail", step)
+                    self.assertLess(step.index("update --self"), step.index("install makeindex"))
+                    self.assertTrue("command -v makeindex" in step or "for executable in pdflatex makeindex" in step)
+                    self.assertNotIn("|| true", step)
+                    checked += 1
+        self.assertEqual(checked, 4, "locked, compatibility, ordinary R-devel, and noLD need TeX")
+
+    @unittest.skipUnless(shutil.which("bash"), "Bash is needed to verify native exit propagation")
+    def test_windows_manual_setup_stops_on_self_update_or_install_failure(self):
+        text = WORKFLOW.read_text()
+        step = next(step for step in re.findall(r"(?ms)^      - name: .*?(?=^      - |\Z)", text)
+                    if "tlmgr" in step)
+        script = "\n".join(line[10:] for line in step.split("        run: |\n", 1)[1].splitlines()
+                           if line.startswith("          "))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tlmgr = root / "tlmgr"
+            tlmgr.write_text('#!/usr/bin/env bash\n'
+                             'printf "%s\\n" "$*" >> "$TEX_TEST_LOG"\n'
+                             'if [[ "$1" == update ]]; then exit "$TEX_UPDATE_STATUS"; fi\n'
+                             'exit "$TEX_INSTALL_STATUS"\n', newline='\n')
+            tlmgr.chmod(0o755)
+            for update, install, calls in ((29, 0, 1), (0, 37, 2)):
+                log = root / "calls"
+                log.write_text("")
+                environment = {**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
+                               "TEX_TEST_LOG": str(log), "TEX_UPDATE_STATUS": str(update),
+                               "TEX_INSTALL_STATUS": str(install)}
+                result = subprocess.run(["bash", "-c", script], env=environment,
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, update or install)
+                self.assertEqual(len(log.read_text().splitlines()), calls)
+
     def test_minimum_documentation_is_verified_and_restored_before_build(self):
         text = WORKFLOW.read_text()
         numerical = "scripts/dependency-locks/R-4.5.0.lock"

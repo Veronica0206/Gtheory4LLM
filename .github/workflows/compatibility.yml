@@ -79,8 +79,15 @@ jobs:
       # platform in this matrix rather than whatever the runner image ships.
       - uses: r-lib/actions/setup-pandoc@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
       - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
-      - name: Install reference-manual fonts
-        run: tlmgr install inconsolata helvetic times courier collection-latexrecommended
+      - name: Install reference-manual tools and fonts
+        # Bash propagates a failed native command on Windows as on Unix.
+        shell: bash
+        run: |
+          set -euo pipefail
+          tlmgr update --self
+          tlmgr install makeindex inconsolata helvetic times courier collection-latexrecommended
+          command -v pdflatex
+          command -v makeindex
       - name: Install minimum-R compilation dependencies
         if: matrix.minimum
         run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev

@@ -57,8 +57,14 @@ jobs:
       # the reference manual; R CMD check runs --no-manual and would accept
       # them. Give this job a LaTeX engine so the gate actually runs here.
       - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
-      - name: Install reference-manual fonts
-        run: tlmgr install inconsolata helvetic times courier collection-latexrecommended
+      - name: Install reference-manual tools and fonts
+        shell: bash
+        run: |
+          set -euo pipefail
+          tlmgr update --self
+          tlmgr install makeindex inconsolata helvetic times courier collection-latexrecommended
+          command -v pdflatex
+          command -v makeindex
       - name: Install compilation dependencies
         # libuv1-dev is needed by fs, which rmarkdown reaches through sass and
         # bslib. Without it the vignette toolchain silently fails to install and

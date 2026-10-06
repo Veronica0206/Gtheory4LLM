@@ -85,9 +85,16 @@ jobs:
         with:
           python-version: '3.12'
       - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
-      - name: Install PDF manual fonts and compilation dependencies
+      - name: Install PDF manual tools and fonts
+        shell: bash
         run: |
-          tlmgr install inconsolata helvetic times courier collection-latexrecommended
+          set -euo pipefail
+          tlmgr update --self
+          tlmgr install makeindex inconsolata helvetic times courier collection-latexrecommended
+          command -v pdflatex
+          command -v makeindex
+      - name: Install compilation dependencies for the check
+        run: |
           sudo apt-get update
           sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev pandoc tidy
       - uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
@@ -179,11 +186,17 @@ jobs:
           cmake --version | sed -n '1p'
           pandoc --version | sed -n '1p'
       - name: Install TeX for the PDF manual
+        shell: bash
         run: |
-          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages("tinytex"); tinytex::install_tinytex(force = TRUE); tinytex::tlmgr_install(c("inconsolata", "helvetic", "times", "courier", "collection-latexrecommended"))'
+          set -euo pipefail
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages("tinytex"); tinytex::install_tinytex(force = TRUE)'
           # Later steps run in fresh shells: put TeX on their PATH and prove it.
           texbin=$(Rscript -e 'cat(tinytex::tinytex_root())')/bin/x86_64-linux
-          test -x "$texbin/pdflatex" || { echo "pdflatex is not at $texbin"; ls "$(Rscript -e 'cat(tinytex::tinytex_root())')/bin"; exit 1; }
+          "$texbin/tlmgr" update --self
+          "$texbin/tlmgr" install makeindex inconsolata helvetic times courier collection-latexrecommended
+          for executable in pdflatex makeindex; do
+            test -x "$texbin/$executable" || { echo "$executable is not at $texbin"; exit 1; }
+          done
           echo "$texbin" >> "$GITHUB_PATH"
           "$texbin/pdflatex" --version | sed -n '1p'
       - name: Install the dependencies
