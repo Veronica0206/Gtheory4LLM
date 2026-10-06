@@ -40,7 +40,8 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                     checked += 1
         self.assertEqual(checked, 5, "locked, Unix/Windows compatibility, ordinary R-devel, and noLD need TeX")
 
-    @unittest.skipUnless(shutil.which("bash"), "Bash is needed to verify native exit propagation")
+    @unittest.skipUnless(os.name != "nt" and shutil.which("bash"),
+                         "Unix Bash is needed to exercise the Unix-only setup step")
     def test_unix_manual_setup_stops_on_self_update_or_install_failure(self):
         text = WORKFLOW.read_text()
         step = next(step for step in re.findall(r"(?ms)^      - name: .*?(?=^      - |\Z)", text)
