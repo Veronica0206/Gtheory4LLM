@@ -1,0 +1,45 @@
+name: Frozen 0.4.0 noLD diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/nold-frozen-diagnostics]
+
+permissions:
+  contents: read
+
+# This diagnostic never builds an archive or changes a release gate.
+jobs:
+  paired-characterization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    container:
+      image: ghcr.io/r-hub/containers/nold@sha256:4d8aeacfd5130c824ff593cde19e5ffaed96c170ca397837f56163a201e09389
+    defaults:
+      run:
+        shell: bash
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MAKEFLAGS: '-j4'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Run predetermined paired diagnostic on the unchanged archive
+        run: |
+          set -euo pipefail
+          mkdir -p frozen-nold-evidence
+          bash .github/nold/run_frozen_diagnostics.sh 2>&1 | tee frozen-nold-evidence/driver.log
+      - name: Preserve all results, including refusals and failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: frozen-archive-characterization
+          path: frozen-nold-evidence/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Require the diagnostic to leave tracked files unchanged
+        if: always()
+        run: git -c safe.directory="$GITHUB_WORKSPACE" diff --exit-code
