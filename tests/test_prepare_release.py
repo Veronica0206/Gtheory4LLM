@@ -10,8 +10,11 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -44,6 +47,20 @@ NEWS = README.replace("# Example", "# Example 1.2.3")
 
 
 class PrepareReleaseTests(unittest.TestCase):
+    def test_preparation_does_not_create_bytecode_before_its_public_audit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            scripts = Path(temporary) / "scripts"
+            scripts.mkdir()
+            for name in ("prepare_release.py", "check_committed_artifact.py", "check_package.py"):
+                shutil.copyfile(ROOT / "scripts" / name, scripts / name)
+            environment = dict(os.environ)
+            environment.pop("PYTHONDONTWRITEBYTECODE", None)
+            environment.pop("PYTHONPYCACHEPREFIX", None)
+            result = subprocess.run([sys.executable, str(scripts / "prepare_release.py"), "--help"],
+                                    env=environment, capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(list(scripts.rglob("*.pyc")), [])
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)

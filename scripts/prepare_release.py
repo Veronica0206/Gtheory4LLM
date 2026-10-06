@@ -31,6 +31,10 @@ import subprocess
 import sys
 import tempfile
 
+# Preparation audits the entire working tree, including ignored files.
+# Loading the check helpers must not create bytecode carrying local paths.
+sys.dont_write_bytecode = True
+
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = ROOT / "artifacts"
 RELEASE_STATES = ("prepared", "published")

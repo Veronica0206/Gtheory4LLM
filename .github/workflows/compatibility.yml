@@ -32,6 +32,7 @@ jobs:
             r: '4.5.0'
             minimum: true
     env:
+      PYTHONDONTWRITEBYTECODE: '1'
       OMP_NUM_THREADS: 1
       OPENBLAS_NUM_THREADS: 1
       RENV_CONFIG_AUTOLOADER_ENABLED: 'FALSE'
