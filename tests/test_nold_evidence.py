@@ -92,10 +92,13 @@ class NoLDCandidateIdentityTests(unittest.TestCase):
         manifest = self.candidate_with()
         env_file = self.root / "github-env"
         with patch.object(VERIFY, "ROOT", self.root), \
-                patch.object(VERIFY.subprocess, "check_output", return_value=self.commit), \
+                patch.object(VERIFY.subprocess, "check_output", return_value=self.commit) as git_read, \
                 patch.dict(os.environ, GITHUB_RUN_ID="123", GITHUB_ENV=str(env_file)), \
                 contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(VERIFY.main([str(self.candidate)]), 0)
+        self.assertEqual(git_read.call_args.args[0],
+                         ["git", "-c", "safe.directory=" + str(self.root),
+                          "-C", str(self.root), "rev-parse", "HEAD"])
         evidence = self.root / "nold-evidence"
         identity = json.loads((evidence / "archive-identity.json").read_text())
         self.assertTrue(identity["verified"])
@@ -191,40 +194,58 @@ class NoLDEvidenceWorkflowTests(unittest.TestCase):
 @unittest.skipUnless(RSCRIPT, "Rscript is required to exercise installed-test evidence")
 class InstalledTestEvidenceTests(unittest.TestCase):
     def run_tests(self, root: Path) -> subprocess.CompletedProcess:
+        library = root / "library with spaces"
         return subprocess.run(
             [RSCRIPT, "--vanilla", str(ROOT / ".github/nold/run_tests.R"),
-             str(root / "library"), str(root / "tests"), str(root / "evidence")],
-            cwd=ROOT, capture_output=True, text=True, timeout=60)
+             str(library), str(root / "tests"), str(root / "evidence")],
+            cwd=ROOT, capture_output=True, text=True, timeout=60,
+            env=dict(os.environ, R_LIBS="must-be-replaced-by-the-runner",
+                     GTHEORY_TEST_EXPECTED_R_LIBS=str(library)))
+
+    def failure_details(self, root: Path, result: subprocess.CompletedProcess) -> str:
+        sections = ["Runner stdout:\n" + result.stdout, "Runner stderr:\n" + result.stderr]
+        for path in sorted((root / "evidence").glob("*.Rout")):
+            sections.append(path.name + ":\n" + path.read_text(errors="replace"))
+        return "\n".join(sections)
 
     def test_failed_test_preserves_both_streams_and_remaining_tests_run(self):
         with tempfile.TemporaryDirectory(prefix="gtheory-nold-tests-") as temporary:
             root = Path(temporary)
             (root / "tests").mkdir()
-            (root / "library").mkdir()
+            (root / "library with spaces").mkdir()
             for name, code in (("package-a.R", 0), ("package-b.R", 7), ("package-c.R", 0)):
                 (root / "tests" / name).write_text(
                     f'cat("stdout {name}\\n"); message("stderr {name}"); '
+                    'stopifnot(identical(Sys.getenv("R_LIBS"), '
+                    'Sys.getenv("GTHEORY_TEST_EXPECTED_R_LIBS"))); '
                     f'quit(save = "no", status = {code}, runLast = FALSE)\n')
             result = self.run_tests(root)
-            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-            with (root / "evidence/test-status.csv").open(newline="") as stream:
+            details = self.failure_details(root, result)
+            self.assertEqual(result.returncode, 1, details)
+            status_file = root / "evidence/test-status.csv"
+            self.assertTrue(status_file.is_file(), details)
+            with status_file.open(newline="") as stream:
                 rows = list(csv.DictReader(stream))
             self.assertEqual([(row["test"], row["exit_code"]) for row in rows],
-                             [("package-a.R", "0"), ("package-b.R", "7"), ("package-c.R", "0")])
+                             [("package-a.R", "0"), ("package-b.R", "7"), ("package-c.R", "0")],
+                             details)
             for name in ("package-a.R", "package-b.R", "package-c.R"):
-                output = (root / "evidence" / (name + "out")).read_text()
-                self.assertIn("stdout " + name, output)
-                self.assertIn("stderr " + name, output)
-            self.assertIn("1 of 3 failed", result.stdout)
+                output_file = root / "evidence" / (name + "out")
+                self.assertTrue(output_file.is_file(), details)
+                output = output_file.read_text()
+                self.assertIn("stdout " + name, output, details)
+                self.assertIn("stderr " + name, output, details)
+            self.assertIn("1 of 3 failed", result.stdout, details)
 
     def test_no_installed_test_files_cannot_pass(self):
         with tempfile.TemporaryDirectory(prefix="gtheory-nold-empty-") as temporary:
             root = Path(temporary)
             (root / "tests").mkdir()
-            (root / "library").mkdir()
+            (root / "library with spaces").mkdir()
             result = self.run_tests(root)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("No package test files were found", result.stdout + result.stderr)
+            details = self.failure_details(root, result)
+            self.assertNotEqual(result.returncode, 0, details)
+            self.assertIn("No package test files were found", result.stdout + result.stderr, details)
 
 
 if __name__ == "__main__":

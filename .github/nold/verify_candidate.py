@@ -31,7 +31,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("candidate_directory", type=Path)
     arguments = parser.parse_args(argv)
-    commit = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
+    # The checkout is a runner-owned bind mount in a root-owned container.
+    # Trust only this action checkout for this read, without changing Git config.
+    commit = subprocess.check_output(["git", "-c", "safe.directory=" + str(ROOT),
+                                      "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
     # No evidence files or environment exports exist until every check passes.
     manifest, archive = verify_candidate(arguments.candidate_directory, commit)
     evidence = ROOT / "nold-evidence"
