@@ -6,14 +6,17 @@ in [limitations](LIMITATIONS.md).
 
 ## Release state
 
-The 0.4.0 publication uses the checked candidate without rebuilding the package.
-The following records identify the selected bundle and the completed
-pre-publication checkpoint on 2026-10-06; they do not assert later delivery or
-CRAN acceptance.
+This checkout is 0.4.1. The 0.4.0 bundle recorded below was adopted from a
+checked candidate and tagged `v0.4.0` on 2026-10-06, but it was not published
+or submitted: the no-long-double check of that tagged commit refused a
+discrete fit on one runner, and `tests/package-characterization.R` could not
+report that as a platform outcome. 0.4.1 corrects the test and nothing else in
+the package; its bundle replaces the 0.4.0 one when it is prepared. The records
+below describe the 0.4.0 checkpoint and do not assert delivery or CRAN acceptance.
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.4.0`. The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released |
+| Checkout version | `0.4.1`, a release version whose bundle has not been prepared. The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released, and `0.4.0` was tagged but not published |
 | Bundle in `artifacts/` | `0.4.0`, adopted unchanged from the checked candidate; the archive and manual identities are recorded below and in the manifest |
 | Bundle source commit | `e054422554499a7da54820a5072bb79b798da46c` |
 | Manifest publication state | Read `release_state` in [the manifest](../artifacts/manifest.json). `prepared` records staging; `published` records the publication commit/tag identity. Neither field alone proves a GitHub upload or CRAN submission |

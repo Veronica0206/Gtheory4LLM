@@ -1,13 +1,31 @@
-# Gtheory4LLM 0.4.0
+# Gtheory4LLM 0.4.1
 
 <!-- release-identity:start -->
-Source version: **0.4.0**.
+Source version: **0.4.1**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
 These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
+
+0.4.0 was tagged and its bundle staged, but it was not published or submitted:
+its release check on R built without long double refused a fit on one machine
+and the test could not say so. 0.4.1 is 0.4.0 with that test corrected and no
+other change to the package.
+
+- `tests/package-characterization.R` required every discrete case to be
+  numerically accepted. On some machines the discrete optimizer reports
+  completion without reaching a stationary point (#59), the engine refuses the
+  fit through its stationarity and restart-stability safeguards, and the test
+  then stopped at the coefficients it could not compute. A discrete case
+  refused by those two safeguards, and by nothing else, is now reported as
+  that platform's outcome and its numbers are not compared there. A refusal
+  for any other reason, a refused Gaussian case, or accepted numbers that
+  moved still fail, and the comparison is exercised with constructed records
+  before any fit is compared. The engine is unchanged.
+
+# Gtheory4LLM 0.4.0
 
 Changes since 0.2.0. The development line was versioned `0.3.0.9000` and then
 `0.4.0.9000`; no 0.3.0 was released. For a design without a batch declaration,
