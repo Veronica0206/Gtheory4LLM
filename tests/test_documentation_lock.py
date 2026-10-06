@@ -19,6 +19,20 @@ class DocumentationLockTests(unittest.TestCase):
     def test_current_lock_preserves_numerical_environment(self):
         module.validate_locks(self.numerical, self.documentation)
 
+    def test_minimum_documentation_lock_preserves_minimum_numerical_environment(self):
+        numerical = json.loads((ROOT / "scripts/dependency-locks/R-4.5.0.lock").read_text())
+        documentation = json.loads((ROOT / "scripts/dependency-locks/minimum-documentation.lock").read_text())
+        module.validate_locks(numerical, documentation)
+        extras = {name: record for name, record in self.documentation["Packages"].items()
+                  if name not in self.numerical["Packages"]}
+        self.assertEqual({name: record for name, record in documentation["Packages"].items()
+                          if name not in numerical["Packages"]}, extras)
+        for name in numerical["Packages"]:
+            candidate = copy.deepcopy(documentation)
+            candidate["Packages"][name]["Version"] = "0.0.0"
+            with self.subTest(package=name), self.assertRaisesRegex(ValueError, name):
+                module.validate_locks(numerical, candidate)
+
     def test_runtime_dependency_changes_and_omissions_fail(self):
         for name in self.numerical["Packages"]:
             for change in ("version", "omit"):

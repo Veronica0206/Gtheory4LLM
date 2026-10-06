@@ -141,15 +141,21 @@ pandoc so the vignette is exercised on every platform in that matrix. It retains
 the independent lme4/ordinal comparisons, and selected synthetic source regressions.
 It never claims a full locked-environment pass. Current Windows/macOS dependencies
 are resolved from CRAN and their actual versions are reported. The minimum-R job
-uses `scripts/dependency-locks/R-4.5.0.lock`, with the same dependency versions as
-the main lock and R 4.5.0 selected explicitly. OpenMx 2.22.11 uses the
+restores `scripts/dependency-locks/minimum-documentation.lock`, which preserves
+every record in `R-4.5.0.lock` and adds the pinned knitr/rmarkdown dependencies
+needed to build the staged source archive. Both locks enter the cache key;
+`check_documentation_lock.py` checks numerical parity before restoration.
+R 4.5.0 is selected explicitly. Windows checkout preserves committed LF bytes
+so staged archive correspondence does not depend on Git's CRLF conversion.
+OpenMx 2.22.11 uses the
 `Rf_isDataFrame` C API introduced in R 4.5.0 while declaring only
 `R (>= 3.5.0)` itself; the package therefore declares R 4.5.0 or later on its
 behalf. Nothing in this package's own R code requires R 4.5. The preflight
 rejects older R before loading dependencies.
 
 ```sh
-Rscript --vanilla scripts/restore_validation.R /tmp/gtheory-minimum-library scripts/dependency-locks/R-4.5.0.lock
+python3 scripts/check_documentation_lock.py --numerical scripts/dependency-locks/R-4.5.0.lock --documentation scripts/dependency-locks/minimum-documentation.lock
+Rscript --vanilla scripts/restore_validation.R /tmp/gtheory-minimum-library scripts/dependency-locks/minimum-documentation.lock
 python3 scripts/run_validation.py --scope source --compatibility --compact --library /tmp/gtheory-minimum-library
 ```
 

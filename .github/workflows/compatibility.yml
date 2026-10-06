@@ -41,6 +41,14 @@ jobs:
       RENV_CONFIG_CACHE_SYMLINKS: 'FALSE'
       MAKEFLAGS: '-j2'
     steps:
+      # Archives are compared with committed bytes. Configure the ephemeral
+      # Windows runner before checkout so Git does not materialize CRLF copies.
+      - name: Keep committed line endings on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Release correspondence reads the artifact's recorded source commit.
@@ -75,21 +83,24 @@ jobs:
         run: tlmgr install inconsolata helvetic times courier collection-latexrecommended
       - name: Install minimum-R compilation dependencies
         if: matrix.minimum
-        run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         if: matrix.minimum
         with:
           path: ${{ runner.temp }}/gtheory-minimum-library
-          key: ubuntu-22.04-source-R-4.5.0-${{ hashFiles('scripts/dependency-locks/R-4.5.0.lock') }}
+          key: ubuntu-22.04-source-R-4.5.0-docs-${{ hashFiles('scripts/dependency-locks/R-4.5.0.lock', 'scripts/dependency-locks/minimum-documentation.lock') }}
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         if: matrix.minimum
         with:
           path: ${{ runner.temp }}/renv-bootstrap
           key: renv-bootstrap-${{ hashFiles('scripts/dependency-locks/renv-bootstrap.json') }}
-      - name: Restore R 4.5.0-compatible exact dependencies
+      - name: Verify minimum-R documentation preserves exact numerical dependencies
+        if: matrix.minimum
+        run: python scripts/check_documentation_lock.py --numerical scripts/dependency-locks/R-4.5.0.lock --documentation scripts/dependency-locks/minimum-documentation.lock
+      - name: Restore R 4.5.0-compatible numerical and documentation dependencies
         if: matrix.minimum
         shell: bash
-        run: Rscript --vanilla scripts/restore_validation.R "$RUNNER_TEMP/gtheory-minimum-library" scripts/dependency-locks/R-4.5.0.lock
+        run: Rscript --vanilla scripts/restore_validation.R "$RUNNER_TEMP/gtheory-minimum-library" scripts/dependency-locks/minimum-documentation.lock
         env:
           GTHEORY_RENV_BOOTSTRAP_CACHE: ${{ runner.temp }}/renv-bootstrap
       - uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
