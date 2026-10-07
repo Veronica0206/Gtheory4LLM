@@ -1,6 +1,6 @@
 # Gtheory4LLM 0.4.1 release
 
-Release state: **prepared**.
+Release state: **published**.
 
 The [manifest](manifest.json) records the source commit, file sizes and SHA-256 hashes.
 Publish exactly those files; never rebuild an already published version.
