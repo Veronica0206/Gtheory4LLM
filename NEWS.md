@@ -18,12 +18,16 @@ other change to the package.
   numerically accepted. On some machines the discrete optimizer reports
   completion without reaching a stationary point (#59), the engine refuses the
   fit through its stationarity and restart-stability safeguards, and the test
-  then stopped at the coefficients it could not compute. A discrete case
-  refused by those two safeguards, and by nothing else, is now reported as
-  that platform's outcome and its numbers are not compared there. A refusal
-  for any other reason, a refused Gaussian case, or accepted numbers that
-  moved still fail, and the comparison is exercised with constructed records
-  before any fit is compared. The engine is unchanged.
+  then stopped at the coefficients it could not compute. The ordinal case, the
+  one case observed to be refused this way, is now reported as that platform's
+  outcome when it is refused by those two safeguards and by nothing else: its
+  estimates are not compared there, but it must still carry every other
+  recorded field, the same model terms and the same variance names. Any other
+  case refused this way, a refusal for any other reason, or accepted numbers
+  that moved still fail. The acceptance and completion flags are recorded as
+  the engine set them, and a fit without a single TRUE or FALSE flag stops the
+  test. The comparison and the recording are exercised with constructed
+  records and fits before any fit is compared. The engine is unchanged.
 
 # Gtheory4LLM 0.4.0
 

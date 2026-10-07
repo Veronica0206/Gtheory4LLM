@@ -23,10 +23,12 @@
 # decision, with one exception that is measured rather than assumed: the
 # discrete optimizer can report completion without reaching a stationary
 # point on some machines (#59), and the engine then refuses the fit through
-# its stationarity and restart-stability safeguards. On such a machine a
-# discrete case has no numbers to compare. That refusal is reported as this
-# platform's outcome, not as a baseline change; a refusal for any other
-# reason, a refused Gaussian case, or accepted numbers that moved still fail.
+# its stationarity and restart-stability safeguards. The ordinal case has
+# been refused that way on one such machine, and there it has no estimates
+# to compare. That refusal, by those two safeguards and by nothing else, is
+# reported as this platform's outcome, not as a baseline change, once the
+# refused fit is shown to be the same model; any other case refused this way,
+# a refusal for any other reason, or accepted numbers that moved still fail.
 #
 # The stored values were captured on R 4.5.3, aarch64-apple-darwin20, with
 # OpenMx 2.22.11.
@@ -172,9 +174,21 @@ cases <- list(
   }
 )
 
+# A fit's acceptance and completion flags are recorded as the engine set them.
+# A missing, NA or non-logical flag is a broken fit object, not a refusal, and
+# stops the record before anything is reduced from the fit.
+recorded_flag <- function(fit, field) {
+  value <- fit[[field]]
+  if (!is.logical(value) || length(value) != 1L || is.na(value))
+    stop("fit$", field, " must be a single TRUE or FALSE, not ", deparse(value), call. = FALSE)
+  value
+}
+
 # Reduce one case to the quantities a refactor must preserve.
 record_case <- function(case) {
   fit <- case$fit
+  accepted <- recorded_flag(fit, "numerically_accepted")
+  completed <- recorded_flag(fit, "optimizer_completed")
   diagnostics <- gt_diagnostics(fit)
   components <- fit$covariance_components
   # Radix sorting keeps the stored order independent of the runner's locale.
@@ -183,8 +197,8 @@ record_case <- function(case) {
     minus2loglik = unname(fit$minus2loglik),
     variances = unlist(lapply(components[ordered(names(components))],
                               function(M) stats::setNames(diag(M), rownames(M)))),
-    numerically_accepted = isTRUE(fit$numerically_accepted),
-    optimizer_completed = isTRUE(fit$optimizer_completed),
+    numerically_accepted = accepted,
+    optimizer_completed = completed,
     acceptance_failures = ordered(diagnostics$acceptance_failures),
     boundary_sources = ordered(diagnostics$boundary_sources),
     terms = ordered(fit$design$terms))
@@ -392,13 +406,19 @@ NUMERIC_FIELDS <- list(
   dstudy_Erho2 = list(tolerance = COEFFICIENT_TOLERANCE, relative = FALSE))
 
 # The two safeguards through which the discrete engine refuses a fit whose
-# search did not reach a stationary point (#59). A discrete case refused by
-# these, and by nothing else, on a machine where the baseline recorded an
-# accepted fit, is a platform outcome: its numbers cannot be compared there.
+# search did not reach a stationary point (#59). The ordinal case is the one
+# case observed to be refused this way, on one machine without long double.
+# Refused there by these two safeguards and by nothing else, it is a platform
+# outcome whose estimates cannot be compared; it must still be the same model,
+# so its fields, model terms and variance names are compared, and only the
+# coefficients a refused fit cannot supply may be absent. Any other case
+# refused this way is a change to report, not an outcome to excuse.
 STALL_REFUSALS <- c("outer_stationarity_failed", "restart_or_tolerance_stability_failed")
+PLATFORM_REFUSAL_CASES <- "discrete_ordinal"
+COEFFICIENT_FIELDS <- c("Erho2", "Phi", "composite", "dstudy_Erho2")
 
 refused_on_platform <- function(name, record, expected) {
-  grepl("^discrete_", name) && isTRUE(expected$numerically_accepted) &&
+  name %in% PLATFORM_REFUSAL_CASES && isTRUE(expected$numerically_accepted) &&
     isFALSE(record$numerically_accepted) && length(record$acceptance_failures) > 0L &&
     all(record$acceptance_failures %in% STALL_REFUSALS)
 }
@@ -408,11 +428,18 @@ compare_case <- function(name, record, expected) {
     note(name, ": no stored baseline; regenerate deliberately")
     return("missing")
   }
-  if (refused_on_platform(name, record, expected)) return("refused_on_platform")
-  if (!setequal(names(record), names(expected))) {
-    note(name, ": recorded fields changed from [", paste(sort(names(expected)), collapse = ", "),
+  refused <- refused_on_platform(name, record, expected)
+  required <- if (refused) setdiff(names(expected), COEFFICIENT_FIELDS) else names(expected)
+  if (!setequal(names(record), required)) {
+    note(name, ": recorded fields changed from [", paste(sort(required), collapse = ", "),
          "] to [", paste(sort(names(record)), collapse = ", "), "]")
     return("changed")
+  }
+  if (refused) {
+    before <- length(failures)
+    compare_exact(name, "terms", record$terms, expected$terms)
+    compare_exact(name, "variance names", names(record$variances), names(expected$variances))
+    return(if (length(failures) > before) "changed" else "refused_on_platform")
   }
   for (field in names(record)) {
     numeric_field <- NUMERIC_FIELDS[[field]]
@@ -425,8 +452,9 @@ compare_case <- function(name, record, expected) {
   "compared"
 }
 
-# The comparison itself is checked with constructed records before any fit is
-# compared, so the platform exception admits exactly what it is meant to.
+# The comparison and the recording are checked with constructed records and
+# fits before any fit is compared, so the platform exception admits exactly
+# what it is meant to and a broken flag cannot pass as a refusal.
 local({
   accepted <- list(minus2loglik = 1, variances = c(item = 1, rater = 1), numerically_accepted = TRUE,
     optimizer_completed = TRUE, acceptance_failures = character(), boundary_sources = character(),
@@ -447,7 +475,17 @@ local({
   stalled <- refused; stalled$acceptance_failures <- STALL_REFUSALS
   check("discrete_ordinal", stalled, accepted, "refused_on_platform", FALSE)
   stalled$acceptance_failures <- STALL_REFUSALS[[1L]]
-  check("discrete_binary", stalled, accepted, "refused_on_platform", FALSE)
+  check("discrete_ordinal", stalled, accepted, "refused_on_platform", FALSE)
+  check("discrete_binary", stalled, accepted, "changed", TRUE)
+  check("discrete_categorical", stalled, accepted, "changed", TRUE)
+  dropped <- stalled; dropped$terms <- "item"
+  check("discrete_ordinal", dropped, accepted, "changed", TRUE)
+  renamed <- stalled; names(renamed$variances) <- c("item", "occasion")
+  check("discrete_ordinal", renamed, accepted, "changed", TRUE)
+  incomplete <- stalled; incomplete$boundary_sources <- NULL
+  check("discrete_ordinal", incomplete, accepted, "changed", TRUE)
+  carrying <- stalled; carrying[c("Erho2", "Phi")] <- accepted[c("Erho2", "Phi")]
+  check("discrete_ordinal", carrying, accepted, "changed", TRUE)
   other <- refused; other$acceptance_failures <- c(STALL_REFUSALS, "validation_computation_failed")
   check("discrete_ordinal", other, accepted, "changed", TRUE)
   silent <- refused; silent$acceptance_failures <- character()
@@ -458,6 +496,18 @@ local({
   expected_refusal <- refused; expected_refusal$acceptance_failures <- "restart_or_tolerance_stability_failed"
   check("discrete_rejected", stalled, expected_refusal, "compared", TRUE)
   check("discrete_rejected", expected_refusal, expected_refusal, "compared", FALSE)
+  recorded <- function(fit) tryCatch({ record_case(list(fit = fit)); "recorded" }, error = conditionMessage)
+  for (flag in list(NULL, NA, "TRUE", c(TRUE, TRUE), 1L)) {
+    fit <- list(numerically_accepted = flag, optimizer_completed = TRUE)
+    if (!grepl("numerically_accepted must be a single TRUE or FALSE", recorded(fit), fixed = TRUE))
+      stop("record_case() accepted the malformed acceptance flag ", deparse(flag))
+  }
+  if (!grepl("numerically_accepted must be a single TRUE or FALSE",
+             recorded(list(optimizer_completed = TRUE)), fixed = TRUE))
+    stop("record_case() accepted a fit without an acceptance flag")
+  if (!grepl("optimizer_completed must be a single TRUE or FALSE",
+             recorded(list(numerically_accepted = FALSE, optimizer_completed = NA)), fixed = TRUE))
+    stop("record_case() accepted a malformed completion flag")
   failures <<- failures[seq_len(0L)]
 })
 
@@ -485,5 +535,5 @@ if (capture) {
   if (length(platform_refusals))
     cat("On this platform the discrete optimizer did not reach a stationary point for",
         paste(platform_refusals, collapse = "; "), "and the engine refused the fit (#59);",
-        "its baseline numbers were not compared here.\n")
+        "its model identity was compared here and its estimates were not.\n")
 }

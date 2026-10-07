@@ -100,8 +100,9 @@ propagated. Check logs, successful and failed test outputs, platform metadata,
 and any captured numerical specimens are uploaded from one workspace-relative
 evidence directory, avoiding host/container temporary-directory mismatches.
 
-For 0.4.0 only, the ordinary incoming checks explicitly record CRAN's request
-to correct the 0.2.0 noLD ERROR before 2026-10-26. The command-line option
+For 0.4.0 and its replacement 0.4.1 only, the ordinary incoming checks
+explicitly record CRAN's request to correct the 0.2.0 noLD ERROR before
+2026-10-26. The command-line option
 `--cran-requested-maintenance REASON` permits one timing-only incoming NOTE for
 a release version. It preserves the NOTE count and reason in the check report
 and release provenance; all other substantive findings still fail. The flag is
