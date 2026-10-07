@@ -6,30 +6,30 @@ in [limitations](LIMITATIONS.md).
 
 ## Release state
 
-This checkout is 0.4.1. The 0.4.0 bundle recorded below was adopted from a
-checked candidate and tagged `v0.4.0` on 2026-10-06, but it was not published
-or submitted: the no-long-double check of that tagged commit refused a
-discrete fit on one runner, and `tests/package-characterization.R` could not
-report that as a platform outcome. 0.4.1 corrects the test and nothing else in
-the package; its bundle replaces the 0.4.0 one when it is prepared. The records
-below describe the 0.4.0 checkpoint and do not assert delivery or CRAN acceptance.
+The 0.4.1 publication uses the checked candidate without rebuilding the
+package. The records below identify the selected bundle and the completed
+pre-publication checkpoint on 2026-10-07; they do not assert later delivery or
+CRAN acceptance. 0.4.0 was tagged `v0.4.0` on 2026-10-06 but never published or
+submitted: the no-long-double check of that tagged commit refused a discrete
+fit on one runner, and `tests/package-characterization.R` could not report that
+as a platform outcome. 0.4.1 corrects that test and nothing else in the package.
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.4.1`, a release version whose bundle has not been prepared. The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released, and `0.4.0` was tagged but not published |
-| Bundle in `artifacts/` | `0.4.0`, adopted unchanged from the checked candidate; the archive and manual identities are recorded below and in the manifest |
-| Bundle source commit | `e054422554499a7da54820a5072bb79b798da46c` |
+| Checkout version | `0.4.1`. The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released, and `0.4.0` was tagged but not published |
+| Bundle in `artifacts/` | `0.4.1`, adopted unchanged from the checked candidate; the archive and manual identities are recorded below and in the manifest |
+| Bundle source commit | `9b59788ad9bfc6068faea9115b62ea920d58e745` |
 | Manifest publication state | Read `release_state` in [the manifest](../artifacts/manifest.json). `prepared` records staging; `published` records the publication commit/tag identity. Neither field alone proves a GitHub upload or CRAN submission |
-| `v0.4.0` identity | The release-identity gate requires the tag to contain the published manifest and to preserve the candidate source in its ancestry. A tag alone does not establish asset delivery |
-| GitHub delivery | Completion requires a non-draft, immutable [v0.4.0 release](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.4.0) with exactly the archive, manual and manifest, verified against the committed bytes. This document does not substitute for that delivery record |
-| Historical releases | [v0.2.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.2.0) is immutable with three assets; its archive, manual, manifest and tag remain unchanged. `v0.1.0` identifies publication commit `2332d40`; that older release remains `immutable: false` |
-| Repository protection checkpoint | On 2026-10-06, `main` required seven check contexts including noLD, and the authenticated policy verifier passed. Release-tag protection blocked updates and deletions of `v*` with no bypass actors |
-| CRAN checkpoint | On 2026-10-06 before 0.4.0 publication/submission, CRAN distributed `0.2.0`, published on 2026-10-04. Its additional noLD check reported an ERROR in `tests/package-discrete-safety.R`; CRAN requested a correction before 2026-10-26. Submission receipt, maintainer confirmation and CRAN acceptance/publication are separate subsequent events |
+| `v0.4.1` identity | The release-identity gate requires the tag to contain the published manifest and to preserve the candidate source in its ancestry. A tag alone does not establish asset delivery |
+| GitHub delivery | Completion requires a non-draft, immutable [v0.4.1 release](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.4.1) with exactly the archive, manual and manifest, verified against the committed bytes. This document does not substitute for that delivery record |
+| Historical releases | [v0.2.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.2.0) is immutable with three assets; its archive, manual, manifest and tag remain unchanged. `v0.4.0` identifies the withdrawn 0.4.0 publication-metadata commit and carries no release assets. `v0.1.0` identifies publication commit `2332d40`; that older release remains `immutable: false` |
+| Repository protection checkpoint | On 2026-10-07, `main` required seven check contexts including noLD, and the authenticated policy verifier passed. Release-tag protection blocked updates and deletions of `v*` with no bypass actors |
+| CRAN checkpoint | On 2026-10-07 before 0.4.1 publication/submission, CRAN distributed `0.2.0`, published on 2026-10-04, as OK on all nine ordinary flavors reported. Its additional noLD check reported an ERROR in `tests/package-discrete-safety.R`; CRAN requested a correction before 2026-10-26. Submission receipt, maintainer confirmation and CRAN acceptance/publication are separate subsequent events |
 
-The selected archive is `Gtheory4LLM_0.4.0.tar.gz`, 479,899 bytes, SHA-256
-`a43a4cccbf2cd363625f36bad692e57aa0bde113be0492f642194c9c50362d65`.
-The selected `Gtheory4LLM-manual.pdf` is 234,915 bytes, SHA-256
-`22ed5c30ee15f3f5619a39c64c443cc161400018c7c001d0b73ecc8272afebd7`.
+The selected archive is `Gtheory4LLM_0.4.1.tar.gz`, 482,151 bytes, SHA-256
+`8261b2d8084a54fa69a4bb3b7ae0caac3eefcc75ba83969d09422d525460e554`.
+The selected `Gtheory4LLM-manual.pdf` is 234,911 bytes, SHA-256
+`9c866b0876c1ac0575af2e9c2c670922b782138d41bdc7c4e1ff1e7efb0bc8c1`.
 Publication metadata changes do not alter either file or the package source.
 
 The checkout, bundle manifest, tag, GitHub release and CRAN submission are
@@ -47,55 +47,76 @@ archive did not ship; that history is separate from the 0.2.0 noLD correction.
 
 ## Validation evidence
 
-### 0.4.0 selected archive and integrated sources
+### 0.4.1 selected archive
 
-The [ordinary R-devel and noLD qualification run](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37400601899)
-used the same selected archive identified above, built with R 4.6.1 from
-`e054422554499a7da54820a5072bb79b798da46c`.
+The [ordinary R-devel and noLD qualification run](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37701136749)
+built the selected archive identified above with R 4.6.1 from
+`9b59788ad9bfc6068faea9115b62ea920d58e745`, the head of `main` once
+[PR #63](https://github.com/Veronica0206/Gtheory4LLM/pull/63) and
+[PR #65](https://github.com/Veronica0206/Gtheory4LLM/pull/65) were integrated,
+and checked those exact bytes twice. An earlier 0.4.1 candidate from `63079ab`
+passed the same checks on 2026-10-07 and was superseded by this one, after the
+second independent review, before any publication or submission.
 
-- Ordinary Linux R-devel 4.7.0, r90638, completed `R CMD check --as-cran` with
-  **0 errors, 0 warnings and 1 NOTE**, “Days since last update: 2”. The recorded
-  CRAN-requested maintenance disposition permits this timing-only NOTE; it is
-  retained in the manifest provenance rather than reported as a zero-NOTE run.
-  All 27 package test files, examples, vignettes and the PDF manual passed.
-- noLD R-devel at the same R revision, with long-double support verified absent,
-  checked that exact archive with **0 errors, 0 warnings and 0 notes**. All 27
-  package test files passed, as did a separate installed-test loop of 27/27
-  files, vignette rebuilds and the PDF manual.
-- The boundary diagnostic explicitly refused the fit at both tested iteration
-  budgets, naming stationarity and restart/tolerance stability safeguards.
-  The corrected regression accepts either a verified reference fit or an
-  explicit refusal under the named safeguards. These results confirm the
-  acceptance/refusal contract; they do not demonstrate a repaired optimizer or
-  relaxed acceptance thresholds. [Issue #59](https://github.com/Veronica0206/Gtheory4LLM/issues/59)
-  remains a separate limitation.
+- Ordinary Linux R-devel 4.7.0, 2026-10-06 r90643, completed `R CMD check --as-cran`
+  with **0 errors, 0 warnings and 1 NOTE**, "Days since last update: 3". The
+  recorded CRAN-requested maintenance disposition permits this timing-only NOTE;
+  it is retained in the manifest provenance rather than reported as a zero-NOTE
+  run. All 27 package test files, examples, vignettes and the PDF manual passed.
+- noLD R-devel, 2026-10-03 r90638, with long-double support verified absent,
+  checked the same archive with **0 errors, 0 warnings and 0 notes**: all 27
+  package test files, vignette rebuilds and the PDF manual passed, and a
+  separate installed-test loop completed 27/27 files. On that runner the ordinal boundary diagnostic was refused at both iteration budgets by the stationarity and restart/tolerance stability safeguards, while the characterization baseline reproduced all ten canonical cases.
+  Which discrete fits stall varies between machines
+  ([issue #59](https://github.com/Veronica0206/Gtheory4LLM/issues/59)); the
+  tests report either outcome for the cases observed to stall, and neither
+  result demonstrates a repaired optimizer or relaxed acceptance thresholds.
 
-[PR #61](https://github.com/Veronica0206/Gtheory4LLM/pull/61) integrated the repair
-by fast-forward at `9e7627c10b4740ca3472a4e8930e019a9016dfe7`, preserving the
-candidate's ancestry. All 88 packaged source files at that head are
-byte-identical to the candidate source. Its completed post-merge checks were:
+The two push-triggered workflows on the same commit qualified the integrated
+source with bundles staged from it:
 
-- [Full numerical validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37413313276):
+- [Full numerical validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37701137130):
   **29/29 stages**, with a source package check under `--as-cran` reporting
   0 errors, 0 warnings and the documented timing-only NOTE. The reference manual
   was checked separately.
-- [R and platform compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37413313286):
-  **20/20 stages on each of Windows, macOS and minimum R 4.5.0**. These package
-  checks did not use `--as-cran`; each reported 0 errors, 0 warnings and 0 notes,
-  with the reference manual checked separately.
+- [R and platform compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37701136844):
+  **20/20 stages on each of Windows (R 4.6.1), macOS (R 4.6.1) and Ubuntu 22.04
+  with minimum R 4.5.0 and verified reference BLAS/LAPACK**. These package
+  checks did not use `--as-cran`; each reported 0 errors, 0 warnings and
+  0 notes, with the reference manual checked separately.
 
-Those post-merge workflows staged their own bundles from `9e7627c`; their
-results qualify the integrated source and those staged artifacts. The ordinary
-R-devel/noLD run above supplies the exact selected-archive qualification.
-Later publication-PR checks also require their own recorded results; this
-checkpoint does not predict their outcomes. The previously completed local
-29-stage validation did not use `--as-cran`. A later local `--as-cran` attempt
-on 2026-10-06 passed the numerical tests, installed-package tests and manual,
-but failed the strict gate because R could not reach its external clock
-services, adding an "unable to verify current time" NOTE. The failure is
-retained; neither clock verification nor NOTE handling was relaxed. Publication
-requires the hosted full `--as-cran` gate with the committed selected bundle to
-pass before the GitHub release is published.
+The bundle was prepared locally on macOS arm64 with R 4.5.3 by
+`scripts/prepare_release.py --dry-run --from-checked-candidate`: the archive
+was adopted unchanged, the manual was built with its overfull-box gate, and the
+source validation scope passed with the same single NOTE. A local
+`run_validation.py --scope all --as-cran` against the staged manifest then
+passed all 29 stages, including the fresh-library install and smoke test of the
+staged archive.
+
+R's external system-clock check (`_R_CHECK_SYSTEM_CLOCK_`) was disabled in
+every environment recorded here. The hosted runners receive it as FALSE from
+`r-lib/actions/setup-r`, the noLD check does not run that step, and the local
+runs disabled it because both of R's time services were unreachable from that
+machine, which had added an "unable to verify current time" NOTE on the first
+local attempt. No check recorded here verified the system clock against an
+external service; the file-timestamp check itself passed in every environment,
+and no NOTE handling was relaxed.
+
+Later publication-PR checks require their own recorded results; this
+checkpoint does not predict their outcomes.
+
+### 0.4.0 checkpoint, withdrawn
+
+0.4.0 was prepared from `e054422554499a7da54820a5072bb79b798da46c`, qualified
+by the same two R-devel checks in
+[run 37400601899](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37400601899),
+integrated through [PR #61](https://github.com/Veronica0206/Gtheory4LLM/pull/61)
+and tagged on 2026-10-06. The push-triggered
+[candidate run](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37472366041)
+on the tagged commit then failed: its noLD runner refused the ordinal
+characterization fit through the same two safeguards, and the 0.4.0 test
+treated that as an error. The bundle was withdrawn before any GitHub release
+or CRAN submission; the protected tag remains, without assets.
 
 Minimum-R compatibility explicitly selects and verifies reference BLAS and
 LAPACK. This does not establish a fix for the previously captured inaccurate

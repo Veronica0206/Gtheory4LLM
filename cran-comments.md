@@ -17,6 +17,20 @@ cases reject missing flags, empty or unexpected reasons and incorrect accepted
 estimates. Variance-coordinate and boundary-projection checks remain unconditional.
 The production optimizer and acceptance thresholds are unchanged.
 
+The characterization test, which reproduces ten canonical fits against a
+stored baseline, likewise required every discrete case to be numerically
+accepted; on one check of the tagged but unpublished 0.4.0, a noLD runner
+refused its ordinal case through the same safeguards. That ordinal case, the
+one case observed to be refused this way, is now reported as the machine's
+outcome when it is refused by those two safeguards and by nothing else: its
+estimates are not compared there, but it must still carry every other
+recorded field, the same model terms and the same variance names. Any other
+case refused this way, a refusal for any other reason, or accepted numbers
+that moved still fail, and the acceptance flags are recorded as the engine
+set them rather than coerced. The comparison and the recording are exercised
+with constructed records and fits before any fit is compared. That test
+change is the only difference from 0.4.0.
+
 On the checked noLD environment the boundary diagnostic remains explicitly
 refused by stationarity and stability safeguards at both iteration budgets.
 The completed checks therefore validate correct refusal, not a repaired optimizer.
@@ -25,18 +39,58 @@ That optimizer limitation remains tracked in issue #59:
 
 ### Exact archive checked
 
-REPLACE BEFORE SUBMISSION with the 0.4.1 candidate: archive name, size,
-SHA-256, source commit and the completed workflow run that checked it on
-R-devel and on R-devel without long double.
+- Archive: Gtheory4LLM_0.4.1.tar.gz
+- Size: 482,151 bytes
+- SHA-256: 8261b2d8084a54fa69a4bb3b7ae0caac3eefcc75ba83969d09422d525460e554
+- Source commit: 9b59788ad9bfc6068faea9115b62ea920d58e745
+- Completed ordinary R-devel and noLD workflow:
+  <https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37701136749>
 
-### Check environments and results
+The archive was built with R 4.6.1 from that commit, the head of `main` once
+the 0.4.1 test correction and its tightening were integrated, and adopted
+unchanged from the checked candidate. The downloaded candidate manifest and the
+noLD evidence record the same bytes, SHA-256 and source commit. An earlier
+0.4.1 candidate built from 63079ab, SHA-256 `c70c38b4…`, passed the same
+checks but was superseded by this one before any publication or submission.
 
-REPLACE BEFORE SUBMISSION with the environments in which the submitted 0.4.1
-archive was checked and their results.
+### Check environments and results (2026-10-07 UTC)
+
+- Linux x86-64 (Ubuntu 24.04), R-devel 4.7.0 (2026-10-06 r90643),
+  `R CMD check --as-cran`: 0 errors, 0 warnings, 1 NOTE. All 27 package test
+  files, examples, vignettes and the PDF manual passed for the exact archive
+  above.
+- Linux x86-64 (Ubuntu 22.04, OpenBLAS 0.3.20), R-devel (2026-10-03 r90638)
+  configured without long double (`capabilities("long.double") == FALSE`,
+  sizeof long double 0): full `R CMD check --no-stop-on-test-error` of the
+  same archive, 0 errors, 0 warnings, 0 notes. All 27 package test files,
+  vignettes and the PDF manual passed, and a separate installed-package test
+  run completed all 27 files with zero failures. On that runner the ordinal boundary diagnostic was refused at both iteration budgets by the stationarity and restart/tolerance stability safeguards, while the characterization baseline reproduced all ten canonical cases.
+- Ubuntu 22.04, R 4.5.0 with verified reference BLAS/LAPACK 3.10.0;
+  Windows Server 2022, R 4.6.1 (ucrt); macOS arm64, R 4.6.1: all three
+  compatibility suites passed 20 of 20 stages, with 0 errors, 0 warnings and
+  0 notes in their package checks, which did not use `--as-cran`. Reference
+  manuals were checked separately.
+- Full locked numerical validation passed all 29 stages at the source commit,
+  including the independent OpenMx, lme4 and ordinal comparisons; its source
+  package check under `--as-cran` reported the same single NOTE. The 173
+  Python regressions include one platform-specific skip per platform.
+- Local preparation on macOS arm64 with R 4.5.3 adopted the checked archive,
+  built the manual above and passed the source validation scope; a local full
+  validation of the staged bundle then passed all 29 stages, including the
+  fresh-library install and smoke test of the archive, with the same single
+  NOTE.
+
+R's external system-clock check (`_R_CHECK_SYSTEM_CLOCK_`) was disabled in
+every environment above: the hosted runners set it to FALSE through
+`r-lib/actions/setup-r`, the noLD check does not run it, and locally it was
+disabled because both of R's time services were unreachable from that machine.
+No check reported here verified the system clock against an external service;
+the file-timestamp check itself passed everywhere.
 
 The single ordinary R-devel NOTE is incoming feasibility:
-"Days since last update: 2". This is a CRAN-requested maintenance update to
-correct the 0.2.0 noLD ERROR before 2026-10-26. The NOTE count and this explicit
+"Days since last update: 3", counted on 2026-10-07 from CRAN's publication of
+0.2.0 on 2026-10-04. This is a CRAN-requested maintenance update to correct
+the 0.2.0 noLD ERROR before 2026-10-26. The NOTE count and this explicit
 reason are retained in the validation report and archive provenance; other
 NOTEs, warnings, errors and incomplete checks are not permitted by this policy.
 
@@ -60,10 +114,10 @@ the remaining development roadmap are not claimed by this maintenance work.
 
 ### CRAN status and reverse dependencies
 
-The CRAN check page refreshed on 2026-10-06 lists published 0.2.0 with eight
-ordinary platforms OK and noLD as its only Additional issue:
+CRAN's check results retrieved on 2026-10-07 list published 0.2.0 as OK on
+all nine ordinary flavors reported, with noLD as its only additional issue:
 <https://cran.r-project.org/web/checks/check_results_Gtheory4LLM.html>.
 
-The CRAN source package index retrieved on 2026-10-06 at 13:01 UTC contained 25,341 package
-records. No reverse dependencies on Gtheory4LLM were found in Depends, Imports,
-LinkingTo, Suggests or Enhances.
+The CRAN source package index retrieved on 2026-10-07 at 17:28 UTC contained
+25,370 package records. No reverse dependencies on Gtheory4LLM were found in
+Depends, Imports, LinkingTo, Suggests or Enhances.

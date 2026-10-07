@@ -1,16 +1,16 @@
 {
   "package": "Gtheory4LLM",
-  "version": "0.4.0",
-  "release_state": "published",
-  "source_commit": "e054422554499a7da54820a5072bb79b798da46c",
+  "version": "0.4.1",
+  "release_state": "prepared",
+  "source_commit": "9b59788ad9bfc6068faea9115b62ea920d58e745",
   "files": {
-    "Gtheory4LLM_0.4.0.tar.gz": {
-      "bytes": 479899,
-      "sha256": "a43a4cccbf2cd363625f36bad692e57aa0bde113be0492f642194c9c50362d65"
+    "Gtheory4LLM_0.4.1.tar.gz": {
+      "bytes": 482151,
+      "sha256": "8261b2d8084a54fa69a4bb3b7ae0caac3eefcc75ba83969d09422d525460e554"
     },
     "Gtheory4LLM-manual.pdf": {
-      "bytes": 234915,
-      "sha256": "22ed5c30ee15f3f5619a39c64c443cc161400018c7c001d0b73ecc8272afebd7"
+      "bytes": 234911,
+      "sha256": "9c866b0876c1ac0575af2e9c2c670922b782138d41bdc7c4e1ff1e7efb0bc8c1"
     }
   },
   "archive_provenance": {
@@ -18,24 +18,29 @@
     "build_r_version": "4.6.1",
     "checked_r_version": "4.7.0",
     "expected_data_kind": "public_llm_annotations",
-    "check_report_sha256": "c4143ef422bc47b6844aed2919b714b0841887de62c7ebc837a4487991d656e5",
+    "check_report_sha256": "f611917411f693e80882485b68712c86ece3a2f62def1807d377e1f578ed7877",
     "r_cmd_check": {
       "errors": 0,
       "warnings": 0,
       "notes": 1,
       "allowed_notes": [
-        "CRAN incoming feasibility: Days since last update: 2; explicitly requested CRAN maintenance"
+        "CRAN incoming feasibility: Days since last update: 3; explicitly requested CRAN maintenance"
       ],
       "note_exceptions": [
         {
           "policy": "cran_requested_maintenance",
           "reason": "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26",
           "check": "CRAN incoming feasibility",
-          "message": "Days since last update: 2",
-          "days_since_last_update": 2
+          "message": "Days since last update: 3",
+          "days_since_last_update": 3
         }
       ]
     },
+    "cran_requested_maintenance": "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26"
+  },
+  "preparation_validation": {
+    "scope": "source",
+    "as_cran": true,
     "cran_requested_maintenance": "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26"
   }
 }
