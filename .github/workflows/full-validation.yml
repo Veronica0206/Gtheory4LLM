@@ -120,7 +120,7 @@ jobs:
         run: |
           set -o pipefail
           args=(--scope all --as-cran --release-manifest "$GTHEORY_VALIDATION_MANIFEST" --library "$RUNNER_TEMP/gtheory-validation-library" --output "$RUNNER_TEMP/full-validation.json")
-          if grep -qx 'Version: 0.4.0' DESCRIPTION; then
+          if grep -qxE 'Version: 0\.4\.[01]' DESCRIPTION; then
             args+=(--cran-requested-maintenance "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26")
           fi
           python3 scripts/run_validation.py "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/full-validation.log"

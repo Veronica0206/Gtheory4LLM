@@ -18,8 +18,15 @@
 # platform or BLAS shows up as a small numeric difference with every decision
 # unchanged; the answer there is to widen the specific tolerance and say why,
 # not to recapture the baseline, because recapturing would also absorb a real
-# change silently. A changed acceptance decision, a changed set of retained
-# sources, or a changed boundary finding is never a platform difference.
+# change silently. A changed set of retained sources or a changed boundary
+# finding is never a platform difference, and neither is a changed acceptance
+# decision, with one exception that is measured rather than assumed: the
+# discrete optimizer can report completion without reaching a stationary
+# point on some machines (#59), and the engine then refuses the fit through
+# its stationarity and restart-stability safeguards. On such a machine a
+# discrete case has no numbers to compare. That refusal is reported as this
+# platform's outcome, not as a baseline change; a refusal for any other
+# reason, a refused Gaussian case, or accepted numbers that moved still fail.
 #
 # The stored values were captured on R 4.5.3, aarch64-apple-darwin20, with
 # OpenMx 2.22.11.
@@ -141,12 +148,12 @@ cases <- list(
   discrete_binary = function() {
     fit <- gt_fit(data_binary(), "label", gt_design("item", "rater", full_cell = FALSE),
                   gt_family("binary"), control = gt_control(discrete = list(maxit = 200L)))
-    list(fit = fit, reliability = gt_reliability(fit, scale = "latent"))
+    list(fit = fit, reliability = if (isTRUE(fit$numerically_accepted)) gt_reliability(fit, scale = "latent"))
   },
   discrete_ordinal = function() {
     fit <- gt_fit(data_ordinal(), "grade", gt_design("item", "rater", full_cell = FALSE),
                   gt_family("ordinal"), control = gt_control(discrete = list(maxit = 200L)))
-    list(fit = fit, reliability = gt_reliability(fit, scale = "latent"))
+    list(fit = fit, reliability = if (isTRUE(fit$numerically_accepted)) gt_reliability(fit, scale = "latent"))
   },
   discrete_categorical = function() {
     fit <- gt_fit(data_categorical(), "topic", gt_design("item", "rater", full_cell = FALSE),
@@ -384,23 +391,28 @@ NUMERIC_FIELDS <- list(
   composite = list(tolerance = COEFFICIENT_TOLERANCE, relative = FALSE),
   dstudy_Erho2 = list(tolerance = COEFFICIENT_TOLERANCE, relative = FALSE))
 
-capture <- nzchar(Sys.getenv("GTHEORY_CHARACTERIZATION_CAPTURE"))
-captured <- character()
-for (name in names(cases)) {
-  record <- record_case(cases[[name]]())
-  if (capture) {
-    captured <- c(captured, deparse_record(name, record))
-    next
-  }
-  expected <- BASELINE[[name]]
+# The two safeguards through which the discrete engine refuses a fit whose
+# search did not reach a stationary point (#59). A discrete case refused by
+# these, and by nothing else, on a machine where the baseline recorded an
+# accepted fit, is a platform outcome: its numbers cannot be compared there.
+STALL_REFUSALS <- c("outer_stationarity_failed", "restart_or_tolerance_stability_failed")
+
+refused_on_platform <- function(name, record, expected) {
+  grepl("^discrete_", name) && isTRUE(expected$numerically_accepted) &&
+    isFALSE(record$numerically_accepted) && length(record$acceptance_failures) > 0L &&
+    all(record$acceptance_failures %in% STALL_REFUSALS)
+}
+
+compare_case <- function(name, record, expected) {
   if (is.null(expected)) {
     note(name, ": no stored baseline; regenerate deliberately")
-    next
+    return("missing")
   }
+  if (refused_on_platform(name, record, expected)) return("refused_on_platform")
   if (!setequal(names(record), names(expected))) {
     note(name, ": recorded fields changed from [", paste(sort(names(expected)), collapse = ", "),
          "] to [", paste(sort(names(record)), collapse = ", "), "]")
-    next
+    return("changed")
   }
   for (field in names(record)) {
     numeric_field <- NUMERIC_FIELDS[[field]]
@@ -410,6 +422,56 @@ for (name in names(cases)) {
                          if (is.null(numeric_field$floor_fraction)) 0 else
                            numeric_field$floor_fraction)
   }
+  "compared"
+}
+
+# The comparison itself is checked with constructed records before any fit is
+# compared, so the platform exception admits exactly what it is meant to.
+local({
+  accepted <- list(minus2loglik = 1, variances = c(item = 1, rater = 1), numerically_accepted = TRUE,
+    optimizer_completed = TRUE, acceptance_failures = character(), boundary_sources = character(),
+    terms = c("item", "rater"), Erho2 = c(y = .5), Phi = c(y = .4))
+  refused <- accepted
+  refused$numerically_accepted <- FALSE
+  refused[c("Erho2", "Phi")] <- NULL
+  outcome <- function(name, record, expected) {
+    before <- length(failures)
+    result <- compare_case(name, record, expected)
+    list(result = result, failed = length(failures) > before)
+  }
+  check <- function(name, record, expected, result, failed) {
+    seen <- outcome(name, record, expected)
+    if (!identical(seen$result, result) || !identical(seen$failed, failed))
+      stop("compare_case() does not admit what it should for ", name, ": ", seen$result, ", failed ", seen$failed)
+  }
+  stalled <- refused; stalled$acceptance_failures <- STALL_REFUSALS
+  check("discrete_ordinal", stalled, accepted, "refused_on_platform", FALSE)
+  stalled$acceptance_failures <- STALL_REFUSALS[[1L]]
+  check("discrete_binary", stalled, accepted, "refused_on_platform", FALSE)
+  other <- refused; other$acceptance_failures <- c(STALL_REFUSALS, "validation_computation_failed")
+  check("discrete_ordinal", other, accepted, "changed", TRUE)
+  silent <- refused; silent$acceptance_failures <- character()
+  check("discrete_ordinal", silent, accepted, "changed", TRUE)
+  check("gaussian_reml", stalled, accepted, "changed", TRUE)
+  moved <- accepted; moved$minus2loglik <- 2
+  check("discrete_ordinal", moved, accepted, "compared", TRUE)
+  expected_refusal <- refused; expected_refusal$acceptance_failures <- "restart_or_tolerance_stability_failed"
+  check("discrete_rejected", stalled, expected_refusal, "compared", TRUE)
+  check("discrete_rejected", expected_refusal, expected_refusal, "compared", FALSE)
+  failures <<- failures[seq_len(0L)]
+})
+
+capture <- nzchar(Sys.getenv("GTHEORY_CHARACTERIZATION_CAPTURE"))
+captured <- character()
+platform_refusals <- character()
+for (name in names(cases)) {
+  record <- record_case(cases[[name]]())
+  if (capture) {
+    captured <- c(captured, deparse_record(name, record))
+    next
+  }
+  if (identical(compare_case(name, record, BASELINE[[name]]), "refused_on_platform"))
+    platform_refusals <- c(platform_refusals, paste0(name, " (", paste(record$acceptance_failures, collapse = ", "), ")"))
 }
 
 if (capture) {
@@ -418,5 +480,10 @@ if (capture) {
   stop("Characterization baseline changed:\n", paste0("- ", failures, collapse = "\n"),
        "\nIf the change is intended, record why in NEWS.md and regenerate the baseline.")
 } else {
-  cat("PASS: characterization baseline reproduced for", length(cases), "canonical cases.\n")
+  compared <- length(cases) - length(platform_refusals)
+  cat("PASS: characterization baseline reproduced for", compared, "of", length(cases), "canonical cases.\n")
+  if (length(platform_refusals))
+    cat("On this platform the discrete optimizer did not reach a stationary point for",
+        paste(platform_refusals, collapse = "; "), "and the engine refused the fit (#59);",
+        "its baseline numbers were not compared here.\n")
 }

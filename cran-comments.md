@@ -1,10 +1,12 @@
-## Update: Gtheory4LLM 0.4.0
+## Update: Gtheory4LLM 0.4.1
 
 This update corrects the test ERROR reported for 0.2.0 in CRAN's additional
 noLD check, as requested before 2026-10-26. It also includes the development
 since 0.2.0 described in NEWS.md.
 
 ### Correction of the reported noLD ERROR
+
+Two tests are corrected, both only in how they report a refused fit.
 
 The ordinal boundary test previously demanded numerical acceptance when the
 optimizer did not satisfy the acceptance safeguards. The corrected test requires
@@ -23,36 +25,14 @@ That optimizer limitation remains tracked in issue #59:
 
 ### Exact archive checked
 
-- Archive: Gtheory4LLM_0.4.0.tar.gz
-- Size: 479,899 bytes
-- SHA-256: a43a4cccbf2cd363625f36bad692e57aa0bde113be0492f642194c9c50362d65
-- Source commit: e054422554499a7da54820a5072bb79b798da46c
-- Completed ordinary R-devel and noLD workflow:
-  <https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37400601899>
+REPLACE BEFORE SUBMISSION with the 0.4.1 candidate: archive name, size,
+SHA-256, source commit and the completed workflow run that checked it on
+R-devel and on R-devel without long double.
 
-The archive was adopted unchanged from that checked candidate. All 88 packaged
-source files are also byte-identical at repair head
-9e7627c10b4740ca3472a4e8930e019a9016dfe7; its later changes concern excluded
-CI configuration, validation documentation and Python tests.
+### Check environments and results
 
-### Check environments and results (2026-10-06 UTC)
-
-- Linux x86-64, R-devel 4.7.0 (2026-10-03 r90638), `R CMD check --as-cran`:
-  0 errors, 0 warnings, 1 NOTE. All 27 installed-package test files, examples,
-  vignettes and PDF manual checks passed for the exact archive above.
-- Linux x86-64, the same R-devel revision configured without long double
-  (`capabilities("long.double") == FALSE`, sizeof long double 0):
-  full `R CMD check --no-stop-on-test-error`, 0 errors, 0 warnings, 0 notes.
-  All 27 installed-package test files, vignettes and PDF manual passed.
-  A separate installed-test run also completed all 27 files with zero failures.
-- Ubuntu 22.04, R 4.5.0, verified reference BLAS/LAPACK 3.10.0;
-  Windows/current R 4.6.1; macOS/current R 4.6.1:
-  all three compatibility suites passed, with 0 errors, 0 warnings and 0 notes
-  in their package checks. Reference manuals were checked separately.
-- Full locked numerical validation passed all 29 stages, including independent
-  OpenMx, lme4 and ordinal comparisons. Local final-bundle validation also passed
-  all 29 stages. The 173 Python regressions include one platform-specific skip
-  per platform; the corresponding native setup test runs on its target system.
+REPLACE BEFORE SUBMISSION with the environments in which the submitted 0.4.1
+archive was checked and their results.
 
 The single ordinary R-devel NOTE is incoming feasibility:
 "Days since last update: 2". This is a CRAN-requested maintenance update to

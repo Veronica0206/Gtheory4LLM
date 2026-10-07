@@ -110,7 +110,7 @@ jobs:
         shell: bash
         run: |
           args=(check --require-devel --expected-data-kind public_llm_annotations --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked")
-          if grep -qx 'Version: 0.4.0' DESCRIPTION; then
+          if grep -qxE 'Version: 0\.4\.[01]' DESCRIPTION; then
             args+=(--cran-requested-maintenance "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26")
           fi
           python scripts/cran_readiness.py "${args[@]}"
