@@ -139,6 +139,49 @@ class PublicContentsTests(unittest.TestCase):
         self.assertTrue(any("ZZ_OTHER.md" in x["path"] and
                             x["reason"] == "private research-relative path" for x in audit.findings))
 
+    def reviewed_windows_fixture(self):
+        # Read the immutable reviewed blob, not a mutable reconstruction from
+        # today's test source. CI's history audit already requires full history.
+        return subprocess.check_output(
+            ["git", "-C", str(MODULE.parents[1]), "cat-file", "blob",
+             "4007598bc5ff0177670a5d1bed231cc479d3a43d"], timeout=30)
+
+    def test_exact_windows_fixture_exception_is_historical_and_file_specific(self):
+        content = self.reviewed_windows_fixture()
+        filename = "tests/test_nold_evidence.py"
+        approved = module.PublicAudit(self.root, "synthetic")
+        approved.inspect_content(filename, content, "reviewed historical fixture", historical=True)
+        self.assertFalse(approved.findings)
+        cases = (
+            (filename, content, False, False),
+            (filename, content, True, True),
+            ("tests/other.py", content, True, False),
+            (filename, content + b"# even an unrelated edit changes the reviewed blob\n", True, False),
+            (filename, content.replace(b"RUNNER~1", b"actual-person"), True, False),
+            (filename, content.replace(b"directory with spaces", b"private-project"), True, False),
+        )
+        for path, changed, historical, archive in cases:
+            with self.subTest(path=path, historical=historical, archive=archive,
+                              unchanged=changed == content):
+                audit = module.PublicAudit(self.root, "synthetic")
+                audit.inspect_content(path, changed, path, historical=historical, archive=archive)
+                self.assertTrue(any(x["reason"] == "private Windows profile path" for x in audit.findings))
+
+    def test_windows_fixture_exception_does_not_share_cache_with_other_python_files(self):
+        content = self.reviewed_windows_fixture()
+        for filename in ("tests/test_nold_evidence.py", "tests/zz_other.py"):
+            path = self.root / filename
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        self.git("init", "--quiet")
+        self.git("add", ".")
+        self.git("commit", "--quiet", "-m", "The same fixture in distinct file contexts")
+        audit = module.PublicAudit(self.root, "synthetic")
+        audit.history()
+        self.assertFalse(any("test_nold_evidence.py" in x["path"] for x in audit.findings))
+        self.assertTrue(any("zz_other.py" in x["path"] and
+                            x["reason"] == "private Windows profile path" for x in audit.findings))
+
     def test_symlink_targets_are_never_read(self):
         outside = Path(self.temporary.name) / "not-part-of-package"
         outside.mkdir()

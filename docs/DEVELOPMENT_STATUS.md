@@ -68,11 +68,33 @@ and after the full check and installed-test loop. The three workflows and all
 seven required check contexts remain. No packaged source, numerical threshold,
 release archive, manifest or tag changes as part of this environment remedy.
 
-The full affected-CPU qualification of the unchanged published 0.4.1 archive is
-pending. The replay establishes a remedy for the captured operations, not a
-full package pass, a repaired upstream kernel, a CPU hardware defect, or noLD
-causation. [Issue #66](https://github.com/Veronica0206/Gtheory4LLM/issues/66)
-tracks the native issue; #43's completed scope was capture. The separate
+The [full affected-CPU qualification](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37795948041)
+completed on 2026-10-08 at qualification commit
+`2317cdda8a39da7207f4fae8d173036820d6bb65`. Its fixed 24-slot acquisition panel
+found one affected machine (slot 6); the other 23 records are acquisition-only,
+not package qualifications. On that same Xeon 6973P-C, the original Cooperlake
+backend failed all 80 planned native solves and reproduced the saved steps.
+Reference BLAS/LAPACK 3.10.0-2ubuntu1 passed all 80 solves at each of four
+checkpoints: initial setup, loaded dependencies, installed archive, and final
+verification. Independent evidence review checked all 24 artifact ZIP digests
+and 213 runtime, mapping and identity assertions for the affected machine.
+
+The exact published archive (`8261b2d8...`, source `9b59788`) passed the complete
+R-devel/noLD check with **0 errors, 0 warnings and 0 notes**, including all 27
+package test files, examples, vignette rebuilds and the PDF manual. A separate
+installed-test sweep passed **27/27**. The boundary diagnostic still refused
+both iteration budgets because restart/tolerance stability failed; this is
+correct refusal and does not resolve #59. Archive, manual, manifest and all 88
+packaged source files remained unchanged. The [qualification record](qualification/intel-nold-0.4.1.json),
+[full check log](qualification/intel-nold-0.4.1-check.log),
+[boundary diagnosis](qualification/intel-nold-0.4.1-boundary.txt) and
+[reference-library record](qualification/intel-nold-0.4.1-reference.txt)
+preserve the identities, outcomes and limits alongside the repository.
+
+This qualifies the frozen archive on the observed affected CPU with the recorded
+reference backend. It does not establish a repaired upstream kernel, a CPU
+hardware defect, noLD causation, or compatibility with every native backend.
+[Issue #66](https://github.com/Veronica0206/Gtheory4LLM/issues/66) tracks the native issue; #43's completed scope was capture. The separate
 optimizer/stationarity limitation remains in #59. The package rejects these
 invalid starting steps before returning a fit; its scalar/sparse/Gaussian
 coverage is not broadened by this result.

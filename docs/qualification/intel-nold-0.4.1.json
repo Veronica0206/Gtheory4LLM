@@ -1,0 +1,701 @@
+{
+  "schema_version": 1,
+  "qualification_date_utc": "2026-10-08",
+  "run_url": "https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37795948041",
+  "run_attempt": 1,
+  "qualification_checkout": "2317cdda8a39da7207f4fae8d173036820d6bb65",
+  "protocol_url": "https://github.com/Veronica0206/Gtheory4LLM/blob/2317cdda8a39da7207f4fae8d173036820d6bb65/.github/nold/qualify_frozen_nold.sh",
+  "container": "ghcr.io/r-hub/containers/nold@sha256:4d8aeacfd5130c824ff593cde19e5ffaed96c170ca397837f56163a201e09389",
+  "target_job_url": "https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37795948041/job/113375316128",
+  "hosted_run_conclusion": "success",
+  "all_24_hosted_jobs_success": true,
+  "aggregate": {
+    "schema_version": 1,
+    "state": "qualified",
+    "release_qualification": true,
+    "run_id": "37795948041",
+    "run_attempt": "1",
+    "checkout_commit": "2317cdda8a39da7207f4fae8d173036820d6bb65",
+    "archive_source_commit": "9b59788ad9bfc6068faea9115b62ea920d58e745",
+    "archive_sha256": "8261b2d8084a54fa69a4bb3b7ae0caac3eefcc75ba83969d09422d525460e554",
+    "expected_panel_size": 24,
+    "records_found": 24,
+    "all_24_acquisitions_valid": true,
+    "target_replicas": [
+      6
+    ],
+    "target_count": 1,
+    "invalid_replicas": [],
+    "missing_replicas": [],
+    "errors": [],
+    "replicas": [
+      {
+        "replica": 1,
+        "artifact": "frozen-nold-qualification-37795948041-1-1",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 2,
+        "artifact": "frozen-nold-qualification-37795948041-1-2",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 3,
+        "artifact": "frozen-nold-qualification-37795948041-1-3",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 4,
+        "artifact": "frozen-nold-qualification-37795948041-1-4",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 5,
+        "artifact": "frozen-nold-qualification-37795948041-1-5",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz"
+      },
+      {
+        "replica": 6,
+        "artifact": "frozen-nold-qualification-37795948041-1-6",
+        "valid": true,
+        "target": true,
+        "errors": [],
+        "reported_status": "qualified_reference",
+        "last_stage": "complete",
+        "cpu": "Intel(R) Xeon(R) 6973P-C",
+        "native_control": {
+          "operations": 80,
+          "invalid": 80,
+          "max_solve_error": 0.0164798460236736
+        },
+        "reference_probes": {
+          "reference-selection/probe": {
+            "operations": 80,
+            "invalid": 0,
+            "max_solve_error": 7.70454296744943e-17
+          },
+          "reference-dependencies": {
+            "operations": 80,
+            "invalid": 0,
+            "max_solve_error": 7.70454296744943e-17
+          },
+          "reference-installed": {
+            "operations": 80,
+            "invalid": 0,
+            "max_solve_error": 7.70454296744943e-17
+          },
+          "reference-final": {
+            "operations": 80,
+            "invalid": 0,
+            "max_solve_error": 7.70454296744943e-17
+          }
+        },
+        "independent_runtime_checks": 213,
+        "full_check": "0 errors, 0 warnings, 0 notes; Status: OK",
+        "checked_tests": 27,
+        "installed_tests": 27,
+        "manual": true,
+        "vignette": true
+      },
+      {
+        "replica": 7,
+        "artifact": "frozen-nold-qualification-37795948041-1-7",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 9V74 80-Core Processor"
+      },
+      {
+        "replica": 8,
+        "artifact": "frozen-nold-qualification-37795948041-1-8",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 9V45 96-Core Processor"
+      },
+      {
+        "replica": 9,
+        "artifact": "frozen-nold-qualification-37795948041-1-9",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 10,
+        "artifact": "frozen-nold-qualification-37795948041-1-10",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 11,
+        "artifact": "frozen-nold-qualification-37795948041-1-11",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 9V74 80-Core Processor"
+      },
+      {
+        "replica": 12,
+        "artifact": "frozen-nold-qualification-37795948041-1-12",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 13,
+        "artifact": "frozen-nold-qualification-37795948041-1-13",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz"
+      },
+      {
+        "replica": 14,
+        "artifact": "frozen-nold-qualification-37795948041-1-14",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C"
+      },
+      {
+        "replica": 15,
+        "artifact": "frozen-nold-qualification-37795948041-1-15",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 16,
+        "artifact": "frozen-nold-qualification-37795948041-1-16",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 17,
+        "artifact": "frozen-nold-qualification-37795948041-1-17",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 9V74 80-Core Processor"
+      },
+      {
+        "replica": 18,
+        "artifact": "frozen-nold-qualification-37795948041-1-18",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C"
+      },
+      {
+        "replica": 19,
+        "artifact": "frozen-nold-qualification-37795948041-1-19",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 20,
+        "artifact": "frozen-nold-qualification-37795948041-1-20",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 21,
+        "artifact": "frozen-nold-qualification-37795948041-1-21",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 22,
+        "artifact": "frozen-nold-qualification-37795948041-1-22",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      {
+        "replica": 23,
+        "artifact": "frozen-nold-qualification-37795948041-1-23",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 9V74 80-Core Processor"
+      },
+      {
+        "replica": 24,
+        "artifact": "frozen-nold-qualification-37795948041-1-24",
+        "valid": true,
+        "target": false,
+        "errors": [],
+        "reported_status": "acquisition_not_target",
+        "last_stage": "acquisition_not_target",
+        "cpu": "AMD EPYC 9V45 96-Core Processor"
+      }
+    ],
+    "scope": "Exact published 0.4.1 archive on observed Intel 6973P-C family6/model173 with verified reference BLAS/LAPACK; original Cooperlake failures remain preserved.",
+    "limitations": [
+      "This does not fix or qualify the native OpenBLAS Cooperlake path.",
+      "Runner artifacts contain recorded archive checksums; the published archive is not duplicated in each evidence directory.",
+      "Workflow/job completion and artifact download provenance require the separately retained GitHub metadata."
+    ]
+  },
+  "acquisition": {
+    "fixed_panel_size": 24,
+    "replica": 6,
+    "model_name": "Intel(R) Xeon(R) 6973P-C",
+    "cpu_family": "6",
+    "cpu_model": "173",
+    "target_cpu_observed": true,
+    "hostname": "beb50cfc2928",
+    "r_version": "R Under development (unstable) (2026-10-03 r90638)",
+    "long_double": false,
+    "sizeof_long_double": 0
+  },
+  "original_native_control": {
+    "success": true,
+    "blas_sha256": "babdd0d2612d7bd2f0099ac8c82714702fb5bb47b1e2e6fdba819c97c79fc0fd",
+    "provider_sha256": "1dedc9fee9ca46eb73e1abc9d989093acbb5bf1bb474fe673af7f0591fa4b2d9",
+    "checks": {
+      "original_snapshot_completed": true,
+      "actual_core_cooperlake": true,
+      "exact_blas_stub": true,
+      "exact_openblas_provider": true,
+      "both_providers_actually_mapped": true,
+      "all_80_native_solves_invalid": true,
+      "all_native_steps_equal_original": true,
+      "preserved_stored_negative_controls": true
+    }
+  },
+  "full_archive_check": {
+    "success": true,
+    "scope": "frozen_published_archive_reference_backend",
+    "exit_codes": {
+      "boundary_diagnosis": 0,
+      "full_check": 0,
+      "installed_tests": 0
+    },
+    "checks": {
+      "all_exit_codes_zero": true,
+      "exactly_27_source_tests": true,
+      "exactly_one_check_log": true,
+      "full_check_status_ok": true,
+      "pdf_manual_checked": true,
+      "package_vignettes_checked": true,
+      "vignette_outputs_rebuilt": true,
+      "examples_checked": true,
+      "exactly_27_check_outputs": true,
+      "no_failed_check_outputs": true,
+      "exactly_27_installed_test_rows": true,
+      "all_installed_test_exits_zero": true,
+      "exactly_27_installed_outputs": true
+    },
+    "check_log": "check/Gtheory4LLM.Rcheck/00check.log",
+    "failed_rout": [],
+    "installed_test_status": [
+      {
+        "test": "package-analysis-report.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-argument-parity.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-batch.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-binary-probabilities.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-characterization.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-dense-memory-guard.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-discrete-backend.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-discrete-controls.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-discrete-safety.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-fuzz-inputs.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-gaussian-starts.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-installed-examples.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-mixed-model.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-nested-designs.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-outcome-profile.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-preflight.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-properties.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-reporting.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-retry-behavior.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-smoke.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-staged-diagnostics.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-standard-methods.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-stationarity-validity.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-tuple-keys.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-uncertainty.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-user-interface.R",
+        "exit_code": "0"
+      },
+      {
+        "test": "package-visualizations.R",
+        "exit_code": "0"
+      }
+    ]
+  },
+  "reference_library_debian_version": "3.10.0-2ubuntu1",
+  "boundary_fit": {
+    "maxit": [
+      200,
+      1000
+    ],
+    "numerically_accepted": [
+      false,
+      false
+    ],
+    "acceptance_failures": [
+      "restart_or_tolerance_stability_failed"
+    ],
+    "interpretation": "Existing optimizer limitation remains; the reference backend does not make these fits accepted."
+  },
+  "preserved_logs": {
+    "intel-nold-0.4.1-check.log": {
+      "sha256": "6ac51b1b1497399129a49660e21c287248a2652bfd873bee2f9bc08ff5113a2c",
+      "bytes": 3964
+    },
+    "intel-nold-0.4.1-boundary.txt": {
+      "sha256": "19c4788d0b51088d5779a2f3ab2256ba8c5288818074e0189aad096e2c3de2f8",
+      "bytes": 9239
+    },
+    "intel-nold-0.4.1-reference.txt": {
+      "sha256": "fff45b495721ab8a3938d54f2f8246f7952ffd2337204e9647d16b98abe343a9",
+      "bytes": 4954
+    }
+  },
+  "all_artifact_zip_digests_verified": true,
+  "artifacts": [
+    {
+      "id": 11558163774,
+      "name": "frozen-nold-qualification-37795948041-1-1",
+      "digest": "sha256:06ddb171dec5d0762ce6b18ea1b6021c4624cd39d21186ccb3e762165c02cc24",
+      "size_in_bytes": 4671,
+      "created_at": "2026-10-08T14:52:21Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558462996,
+      "name": "frozen-nold-qualification-37795948041-1-2",
+      "digest": "sha256:9e4b205870ec9b20f69118a83ef327f6ebf438381bd4ace0a3388a8e9c5a7d91",
+      "size_in_bytes": 4671,
+      "created_at": "2026-10-08T14:52:13Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11557299907,
+      "name": "frozen-nold-qualification-37795948041-1-3",
+      "digest": "sha256:d0b719260369d79a62b604ab88881f531c5de9de4cbb62c924800e0504ad66b6",
+      "size_in_bytes": 4669,
+      "created_at": "2026-10-08T14:52:07Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558516864,
+      "name": "frozen-nold-qualification-37795948041-1-4",
+      "digest": "sha256:c880155890eea9a69d0a1fd682f03f55dece5f16298f9f30dd1dffb742e2453c",
+      "size_in_bytes": 4676,
+      "created_at": "2026-10-08T14:52:08Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558178612,
+      "name": "frozen-nold-qualification-37795948041-1-5",
+      "digest": "sha256:38ae9adb5dc3840708dac8521b3783afb32bbe1571fb87426c6b5e4d62627d34",
+      "size_in_bytes": 4764,
+      "created_at": "2026-10-08T14:52:15Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11559262706,
+      "name": "frozen-nold-qualification-37795948041-1-6",
+      "digest": "sha256:1ea1b7b0a368807d92431d08f6e2d38d343a87050ce9ac667c63210e74769994",
+      "size_in_bytes": 4691340,
+      "created_at": "2026-10-08T15:09:00Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558477921,
+      "name": "frozen-nold-qualification-37795948041-1-7",
+      "digest": "sha256:390ea749ce94a4bd00158e4813b71d95e7433432355385f759e878bae83f16bc",
+      "size_in_bytes": 4752,
+      "created_at": "2026-10-08T14:52:29Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558611675,
+      "name": "frozen-nold-qualification-37795948041-1-8",
+      "digest": "sha256:3ce42be12dafb1364dff11b649ee155531998b4445c9bfbd246ed879947041f1",
+      "size_in_bytes": 4756,
+      "created_at": "2026-10-08T14:52:40Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558661456,
+      "name": "frozen-nold-qualification-37795948041-1-9",
+      "digest": "sha256:0522eb275129db92684f8d7b41791324486e37c7653c46d9925f9bdf147fad26",
+      "size_in_bytes": 4671,
+      "created_at": "2026-10-08T14:52:33Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558751674,
+      "name": "frozen-nold-qualification-37795948041-1-10",
+      "digest": "sha256:e35854180d4ab1fd64213bcaf818e86ba90a3478ccb6f7c8e0e0ac690d0bb1ee",
+      "size_in_bytes": 4674,
+      "created_at": "2026-10-08T14:53:51Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558438236,
+      "name": "frozen-nold-qualification-37795948041-1-11",
+      "digest": "sha256:7b6ece03ca899d0cf02f86cb52bd70fd2ead3a6da6655109a9c4f46167477127",
+      "size_in_bytes": 4744,
+      "created_at": "2026-10-08T14:52:56Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11559185070,
+      "name": "frozen-nold-qualification-37795948041-1-12",
+      "digest": "sha256:eb8b0c1941325b266d66a9750bac072cb6a5dac5cfd29f4d1568d11562d1abfb",
+      "size_in_bytes": 4676,
+      "created_at": "2026-10-08T14:52:50Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558428296,
+      "name": "frozen-nold-qualification-37795948041-1-13",
+      "digest": "sha256:cd4a71905d1b239bf4c03df7588c542efca0565fb97666b65d17620601fb9cf3",
+      "size_in_bytes": 4761,
+      "created_at": "2026-10-08T14:52:59Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558751562,
+      "name": "frozen-nold-qualification-37795948041-1-14",
+      "digest": "sha256:62c7691e7a0bde3782a045883df895b166e5a724dfdd9c6481bf85c17cc3b71e",
+      "size_in_bytes": 4812,
+      "created_at": "2026-10-08T14:53:16Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558213867,
+      "name": "frozen-nold-qualification-37795948041-1-15",
+      "digest": "sha256:0f37cca4c755a865db244be972bc96bd3b0d66b6c24c69e27ee67516fce2767f",
+      "size_in_bytes": 4664,
+      "created_at": "2026-10-08T14:53:15Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558468173,
+      "name": "frozen-nold-qualification-37795948041-1-16",
+      "digest": "sha256:a938350ae56bff5f0c4198d3c56b890ec4df3f508e6a4fc8ddafd6f4bb5958dc",
+      "size_in_bytes": 4681,
+      "created_at": "2026-10-08T14:53:37Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558308766,
+      "name": "frozen-nold-qualification-37795948041-1-17",
+      "digest": "sha256:587634f0173ad10d04420f3d8030ef09019e6cd73a810f6ee6aeb5ecc62ebfe7",
+      "size_in_bytes": 4747,
+      "created_at": "2026-10-08T14:53:28Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558552997,
+      "name": "frozen-nold-qualification-37795948041-1-18",
+      "digest": "sha256:9dd9bf340f1bb5a9120b1e0c89d3f016f151c4a8f3943d0b4394ee0b5297df63",
+      "size_in_bytes": 4716,
+      "created_at": "2026-10-08T14:53:43Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558806334,
+      "name": "frozen-nold-qualification-37795948041-1-19",
+      "digest": "sha256:f6746d8d3aa1fb45dec670ffa61b26b6990c10d598cc0ba9819aba81bf03dbe7",
+      "size_in_bytes": 4674,
+      "created_at": "2026-10-08T14:53:41Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11557864913,
+      "name": "frozen-nold-qualification-37795948041-1-20",
+      "digest": "sha256:3f623d9abee4f79d890437232955d757be47d672ddb7f08f2d17a4a855f8027c",
+      "size_in_bytes": 4674,
+      "created_at": "2026-10-08T14:53:54Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11559335097,
+      "name": "frozen-nold-qualification-37795948041-1-21",
+      "digest": "sha256:d8255250954b41c02c17608a833fa4c202aba8166de01507d7dc497aae503a0b",
+      "size_in_bytes": 4671,
+      "created_at": "2026-10-08T14:54:01Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558706323,
+      "name": "frozen-nold-qualification-37795948041-1-22",
+      "digest": "sha256:c4ac0ab7b7786aec4219162ef9ea8df196640c307a78452b2a21a8dde8136a2d",
+      "size_in_bytes": 4672,
+      "created_at": "2026-10-08T14:54:14Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558950481,
+      "name": "frozen-nold-qualification-37795948041-1-23",
+      "digest": "sha256:e2062badd3da317ee8189954015c9e94e931b5d998956bf17849c0d806a17191",
+      "size_in_bytes": 4748,
+      "created_at": "2026-10-08T14:54:17Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    },
+    {
+      "id": 11558811329,
+      "name": "frozen-nold-qualification-37795948041-1-24",
+      "digest": "sha256:a4a096b37d51d6f375afcf6bd334b143fb71dcfb9046764a4d72323536bb0aba",
+      "size_in_bytes": 4748,
+      "created_at": "2026-10-08T14:54:21Z",
+      "expires_at": "2027-01-06T14:51:47Z"
+    }
+  ],
+  "evidence_retention": "All 24 original artifact ZIPs and extracted evidence were preserved outside the repository; GitHub artifacts expire after 90 days. These repository records preserve the check log, boundary diagnosis, library selections, identities and aggregate conclusions."
+}

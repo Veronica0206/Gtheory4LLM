@@ -8,6 +8,7 @@ are deleted, no Git state is changed, and no network requests are made.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -317,6 +318,15 @@ class PublicAudit:
                             b"   public content before copying the bundle into `artifacts/`.")
                 # Git stores LF; Windows worktrees may present the same prose as CRLF.
                 scanned = content.replace(sentence, b"").replace(sentence.replace(b"\n", b"\r\n"), b"")
+            elif (historical and not archive and relative == "tests/test_nold_evidence.py" and
+                  reason == "private Windows profile path" and hashlib.sha256(content).hexdigest() ==
+                  "c3f844a2afc618d72daca66a46ff50d05fe25ca26d84dd15fb3654be810a9e18"):
+                # Commit 35165d8's reviewed regression fixture is synthetic.
+                # Excuse only its exact historical blob and line for this one
+                # pattern; current files, other paths and edited blobs still fail.
+                line = (b'        root = r"C:' + b'\\Users' +
+                        br'\RUNNER~1\AppData\Local\Temp\directory with spaces"' + b'\n')
+                scanned = content.replace(line, b"")
             if pattern.search(scanned):
                 self.fail(label, reason)
         if relative in GENERATED_BUILD_FILES:
@@ -439,9 +449,10 @@ class PublicAudit:
                         continue
                 elif mode not in {"100644", "100755"} or not self.allowed_path_silent(relative):
                     continue
-                # The historical prose exception is specific to one document;
-                # its cached result must not excuse identical bytes elsewhere.
-                cache_scope = relative if relative == "docs/RELEASE_CHECKLIST.md" else PurePosixPath(relative).suffix
+                # File-specific exceptions must not excuse identical bytes at
+                # another path through a shared historical-content cache entry.
+                exception_paths = {"docs/RELEASE_CHECKLIST.md", "tests/test_nold_evidence.py"}
+                cache_scope = relative if relative in exception_paths else PurePosixPath(relative).suffix
                 cache_key = (oid, cache_scope)
                 if cache_key in self.content_cache:
                     continue

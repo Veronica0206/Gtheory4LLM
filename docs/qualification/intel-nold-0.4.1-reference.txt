@@ -1,0 +1,97 @@
+libblas-dev:amd64	3.10.0-2ubuntu1
+libblas3:amd64	3.10.0-2ubuntu1
+liblapack-dev:amd64	3.10.0-2ubuntu1
+liblapack3:amd64	3.10.0-2ubuntu1
+Name: libblas.so.3-x86_64-linux-gnu
+Link: /usr/lib/x86_64-linux-gnu/libblas.so.3
+Status: manual
+Best: /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+Value: /usr/lib/x86_64-linux-gnu/blas/libblas.so.3
+
+Alternative: /usr/lib/x86_64-linux-gnu/blas/libblas.so.3
+Priority: 10
+
+Alternative: /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+Priority: 100
+Name: liblapack.so.3-x86_64-linux-gnu
+Link: /usr/lib/x86_64-linux-gnu/liblapack.so.3
+Status: manual
+Best: /usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.so.3
+Value: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3
+
+Alternative: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3
+Priority: 10
+
+Alternative: /usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.so.3
+Priority: 100
+Name: libblas.so-x86_64-linux-gnu
+Link: /usr/lib/x86_64-linux-gnu/libblas.so
+Slaves:
+ blas.pc-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/pkgconfig/blas.pc
+ cblas.h-x86_64-linux-gnu /usr/include/x86_64-linux-gnu/cblas.h
+ libblas.a-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/libblas.a
+Status: manual
+Best: /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so
+Value: /usr/lib/x86_64-linux-gnu/blas/libblas.so
+
+Alternative: /usr/lib/x86_64-linux-gnu/blas/libblas.so
+Priority: 10
+Slaves:
+ blas.pc-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/pkgconfig/blas-netlib.pc
+ cblas.h-x86_64-linux-gnu /usr/include/x86_64-linux-gnu/cblas-netlib.h
+ libblas.a-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/blas/libblas.a
+
+Alternative: /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so
+Priority: 100
+Slaves:
+ blas.pc-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/openblas-pthread/pkgconfig/blas-openblas.pc
+ cblas.h-x86_64-linux-gnu /usr/include/x86_64-linux-gnu/openblas-pthread/cblas.h
+ libblas.a-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.a
+Name: liblapack.so-x86_64-linux-gnu
+Link: /usr/lib/x86_64-linux-gnu/liblapack.so
+Slaves:
+ lapack.pc-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/pkgconfig/lapack.pc
+ liblapack.a-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/liblapack.a
+Status: manual
+Best: /usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.so
+Value: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so
+
+Alternative: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so
+Priority: 10
+Slaves:
+ lapack.pc-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/pkgconfig/lapack-netlib.pc
+ liblapack.a-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/lapack/liblapack.a
+
+Alternative: /usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.so
+Priority: 100
+Slaves:
+ lapack.pc-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/openblas-pthread/pkgconfig/lapack-openblas.pc
+ liblapack.a-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.a
+bd8a282c845e100cbb28dd31f9cf19757d508bf7a07a7f62bbe8c04cafb81646  /usr/lib/x86_64-linux-gnu/blas/libblas.so.3
+86b2c20720e2aafb6b84d20d252cd39c5b22a6f7452f8bb920a06d8c8439124c  /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3
+	linux-vdso.so.1 (0x00007f40a516e000)
+	libblas.so.3 => /lib/x86_64-linux-gnu/libblas.so.3 (0x00007f40a4c46000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f40a4b5f000)
+	libreadline.so.8 => /lib/x86_64-linux-gnu/libreadline.so.8 (0x00007f40a4b0b000)
+	libpcre2-8.so.0 => /lib/x86_64-linux-gnu/libpcre2-8.so.0 (0x00007f40a4a74000)
+	libdeflate.so.0 => /lib/x86_64-linux-gnu/libdeflate.so.0 (0x00007f40a4a50000)
+	liblzma.so.5 => /lib/x86_64-linux-gnu/liblzma.so.5 (0x00007f40a4a23000)
+	libbz2.so.1.0 => /lib/x86_64-linux-gnu/libbz2.so.1.0 (0x00007f40a4a10000)
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007f40a49f4000)
+	libtirpc.so.3 => /lib/x86_64-linux-gnu/libtirpc.so.3 (0x00007f40a49c6000)
+	libicuuc.so.70 => /lib/x86_64-linux-gnu/libicuuc.so.70 (0x00007f40a47cb000)
+	libicui18n.so.70 => /lib/x86_64-linux-gnu/libicui18n.so.70 (0x00007f40a449c000)
+	libgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (0x00007f40a4450000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f40a4227000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f40a5170000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f40a4207000)
+	libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007f40a41d5000)
+	libgssapi_krb5.so.2 => /lib/x86_64-linux-gnu/libgssapi_krb5.so.2 (0x00007f40a4181000)
+	libicudata.so.70 => /lib/x86_64-linux-gnu/libicudata.so.70 (0x00007f40a2561000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007f40a2335000)
+	libkrb5.so.3 => /lib/x86_64-linux-gnu/libkrb5.so.3 (0x00007f40a226a000)
+	libk5crypto.so.3 => /lib/x86_64-linux-gnu/libk5crypto.so.3 (0x00007f40a223b000)
+	libcom_err.so.2 => /lib/x86_64-linux-gnu/libcom_err.so.2 (0x00007f40a2235000)
+	libkrb5support.so.0 => /lib/x86_64-linux-gnu/libkrb5support.so.0 (0x00007f40a2225000)
+	libkeyutils.so.1 => /lib/x86_64-linux-gnu/libkeyutils.so.1 (0x00007f40a221e000)
+	libresolv.so.2 => /lib/x86_64-linux-gnu/libresolv.so.2 (0x00007f40a220b000)

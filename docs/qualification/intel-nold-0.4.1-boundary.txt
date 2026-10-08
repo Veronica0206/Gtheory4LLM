@@ -1,0 +1,144 @@
+Gtheory4LLM 0.4.1 | R Under development (unstable) (2026-10-03 r90638) | long double: FALSE 
+panel digest (category counts): 120 71 97 | sum(eta) = 16.693106632238027 
+WARNING: Discrete fit did not converge under numerical acceptance checks. Inspect gt_diagnostics(fit); coefficients and D studies are unavailable until the fit is numerically accepted. 
+
+==== ordinal boundary panel, maxit = 200 ====
+numerically_accepted: FALSE | optimizer_completed: TRUE | converged: FALSE 
+acceptance_failures: restart_or_tolerance_stability_failed 
+optimizer: L-BFGS-B | code: 0 | message: CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | trials: 4 of 4 | selected: alternative_1_tight 
+inner: converged TRUE | gradient 1.11022e-14 | iterations 6 
+variances: item 1.020903316, rater 0.2608073225 
+minus2loglik: 510.00577865765 
+-- outer_stationarity
+List of 9
+ $ stationary_within_tolerance   : logi TRUE
+ $ fixed_effect_score            : Named num [1:2] 2.21e-04 -1.63e-05
+ $ fixed_effect_scaled_norm      : num 1.3e-05
+ $ covariance_scaled_norm        : num 8.7e-06
+ $ finite_difference_disagreement: num 3.48e-05
+ $ tolerance                     : num 0.001
+ $ scaling                       : chr "Fixed scores divided by sqrt(number of rows); source covariance PSD projection after scaling by max(1, largest "| __truncated__
+ $ interpretation                : chr "Independent local first-order Laplace-objective stationarity only; not global optimality, identification, or in"| __truncated__
+ $ warnings                      : chr(0) 
+-- stability
+List of 15
+ $ checked                               : logi TRUE
+ $ stable                                : logi FALSE
+ $ primary_optimizer_code                : int 0
+ $ primary_objective_at_tighter_tolerance: num 272
+ $ tight_objectives                      : num [1:2] 272 255
+ $ optimizer_codes                       : int [1:2] 0 0
+ $ relative_objective_differences        : num [1:2] 0.068 0
+ $ scaled_parameter_differences          : num [1:2] 0.843 0
+ $ objective_tolerance                   : num 1e-06
+ $ parameter_tolerance                   : num 0.02
+ $ alternative_starts                    : int 1
+ $ validation_inner_tol                  : num 1e-09
+ $ validation_reltol                     : num 1e-10
+ $ inner_tol                             : num 1e-07
+ $ inner_maxit                           : int 60
+-- final_checks
+List of 1
+ $ :List of 6
+  ..$ label          : chr "tight_candidate_2"
+  ..$ valid          : logi TRUE
+  ..$ error          : NULL
+  ..$ warnings       : chr(0) 
+  ..$ elapsed_seconds: num 0.003
+  ..$ failure        : NULL
+-- evaluations
+List of 8
+ $ count                   : int 235
+ $ invalid                 : int 9
+ $ validity_events         : int 0
+ $ valid_at_inner_budget   : int 0
+ $ inner_budget            : int 60
+ $ retention_limit         : int 8
+ $ validity_retention_limit: int 8
+ $ scope                   : chr "Every evaluation of the coarse or tightened objective made by the optimizer and by the one tighter-tolerance re"| __truncated__
+-- attempt primary | available TRUE | code 0 | objective 272.33474299874 | message CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | error - | warnings - 
+   parameters rating::threshold_parameter1 -0.2104283942 rating::threshold_parameter2 -0.4594585229 item::variance[rating]  0.1600000000 rater::variance[rating]  0.1600000000 
+-- attempt primary_tight | available TRUE | code 0 | objective 272.33474299874 | message CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | error - | warnings - 
+   parameters rating::threshold_parameter1 -0.2104283942 rating::threshold_parameter2 -0.4594585229 item::variance[rating]  0.1600000000 rater::variance[rating]  0.1600000000 
+-- attempt alternative_1 | available TRUE | code 0 | objective 255.00289222101 | message CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | error - | warnings - 
+   parameters  -0.3352406007  -0.0221715390   1.0209899674   0.2605081638 
+-- attempt alternative_1_tight | available TRUE | code 0 | objective 255.00288932882 | message CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | error - | warnings - 
+   parameters  -0.33531027602  -0.02196754156   1.02090331622   0.26080732248 
+-- stages
+   NULL passed        The optimizer reported completion. 
+   NULL passed        The conditional mode converged within the requested tolerance. 
+   NULL passed        Independent stationarity held within tolerance. 
+   NULL failed        Restarts or tighter tolerances did not reproduce the retained solution. 
+   NULL failed        Acceptance failed: restart_or_tolerance_stability_failed 
+   NULL not_assessed  Approximation adequacy is not established for this fit (not_assessed_first_order_laplace). 
+WARNING: Discrete fit did not converge under numerical acceptance checks. Inspect gt_diagnostics(fit); coefficients and D studies are unavailable until the fit is numerically accepted. 
+
+==== ordinal boundary panel, maxit = 1000 ====
+numerically_accepted: FALSE | optimizer_completed: TRUE | converged: FALSE 
+acceptance_failures: restart_or_tolerance_stability_failed 
+optimizer: L-BFGS-B | code: 0 | message: CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | trials: 4 of 4 | selected: alternative_1_tight 
+inner: converged TRUE | gradient 1.11022e-14 | iterations 6 
+variances: item 1.020903316, rater 0.2608073225 
+minus2loglik: 510.00577865765 
+-- outer_stationarity
+List of 9
+ $ stationary_within_tolerance   : logi TRUE
+ $ fixed_effect_score            : Named num [1:2] 2.21e-04 -1.63e-05
+ $ fixed_effect_scaled_norm      : num 1.3e-05
+ $ covariance_scaled_norm        : num 8.7e-06
+ $ finite_difference_disagreement: num 3.48e-05
+ $ tolerance                     : num 0.001
+ $ scaling                       : chr "Fixed scores divided by sqrt(number of rows); source covariance PSD projection after scaling by max(1, largest "| __truncated__
+ $ interpretation                : chr "Independent local first-order Laplace-objective stationarity only; not global optimality, identification, or in"| __truncated__
+ $ warnings                      : chr(0) 
+-- stability
+List of 15
+ $ checked                               : logi TRUE
+ $ stable                                : logi FALSE
+ $ primary_optimizer_code                : int 0
+ $ primary_objective_at_tighter_tolerance: num 272
+ $ tight_objectives                      : num [1:2] 272 255
+ $ optimizer_codes                       : int [1:2] 0 0
+ $ relative_objective_differences        : num [1:2] 0.068 0
+ $ scaled_parameter_differences          : num [1:2] 0.843 0
+ $ objective_tolerance                   : num 1e-06
+ $ parameter_tolerance                   : num 0.02
+ $ alternative_starts                    : int 1
+ $ validation_inner_tol                  : num 1e-09
+ $ validation_reltol                     : num 1e-10
+ $ inner_tol                             : num 1e-07
+ $ inner_maxit                           : int 60
+-- final_checks
+List of 1
+ $ :List of 6
+  ..$ label          : chr "tight_candidate_2"
+  ..$ valid          : logi TRUE
+  ..$ error          : NULL
+  ..$ warnings       : chr(0) 
+  ..$ elapsed_seconds: num 0.003
+  ..$ failure        : NULL
+-- evaluations
+List of 8
+ $ count                   : int 235
+ $ invalid                 : int 9
+ $ validity_events         : int 0
+ $ valid_at_inner_budget   : int 0
+ $ inner_budget            : int 60
+ $ retention_limit         : int 8
+ $ validity_retention_limit: int 8
+ $ scope                   : chr "Every evaluation of the coarse or tightened objective made by the optimizer and by the one tighter-tolerance re"| __truncated__
+-- attempt primary | available TRUE | code 0 | objective 272.33474299874 | message CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | error - | warnings - 
+   parameters rating::threshold_parameter1 -0.2104283942 rating::threshold_parameter2 -0.4594585229 item::variance[rating]  0.1600000000 rater::variance[rating]  0.1600000000 
+-- attempt primary_tight | available TRUE | code 0 | objective 272.33474299874 | message CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | error - | warnings - 
+   parameters rating::threshold_parameter1 -0.2104283942 rating::threshold_parameter2 -0.4594585229 item::variance[rating]  0.1600000000 rater::variance[rating]  0.1600000000 
+-- attempt alternative_1 | available TRUE | code 0 | objective 255.00289222101 | message CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | error - | warnings - 
+   parameters  -0.3352406007  -0.0221715390   1.0209899674   0.2605081638 
+-- attempt alternative_1_tight | available TRUE | code 0 | objective 255.00288932882 | message CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH | error - | warnings - 
+   parameters  -0.33531027602  -0.02196754156   1.02090331622   0.26080732248 
+-- stages
+   NULL passed        The optimizer reported completion. 
+   NULL passed        The conditional mode converged within the requested tolerance. 
+   NULL passed        Independent stationarity held within tolerance. 
+   NULL failed        Restarts or tighter tolerances did not reproduce the retained solution. 
+   NULL failed        Acceptance failed: restart_or_tolerance_stability_failed 
+   NULL not_assessed  Approximation adequacy is not established for this fit (not_assessed_first_order_laplace). 

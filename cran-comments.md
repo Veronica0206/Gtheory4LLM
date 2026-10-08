@@ -32,8 +32,9 @@ set them rather than coerced. The comparison and the recording are exercised
 with constructed records and fits before any fit is compared. That test
 change is the only difference from 0.4.0.
 
-On the checked noLD environment the boundary diagnostic remains explicitly
-refused by stationarity and stability safeguards at both iteration budgets.
+On the 2026-10-07 checked noLD environment the boundary diagnostic remains
+explicitly refused by stationarity and stability safeguards at both iteration
+budgets.
 The completed checks therefore validate correct refusal, not a repaired optimizer.
 That optimizer limitation remains tracked in issue #59:
 <https://github.com/Veronica0206/Gtheory4LLM/issues/59>.
@@ -118,8 +119,23 @@ verifies reference BLAS/LAPACK before dependency compilation, checks both saved
 systems, and rechecks loaded libraries and their identities after dependencies
 are loaded and after the package checks. This environment remedy does not
 modify the published archive, repair OpenBLAS, or establish that all Intel or
-noLD configurations fail. Full qualification of the unchanged archive on the
-affected Intel CPU is recorded separately when complete. The active native
+noLD configurations fail.
+
+On 2026-10-08 the full unchanged archive was then qualified on an affected
+Xeon 6973P-C with R-devel 2026-10-03 r90638, long-double capability FALSE and
+size 0, and verified reference BLAS/LAPACK 3.10.0-2ubuntu1. The complete check
+reported 0 errors, 0 warnings and 0 notes; all 27 package test files, examples,
+vignette rebuilds and PDF manual passed. The additional installed-test sweep
+passed 27/27. The original backend on that same machine failed all 80 planned
+native solves; all four reference checkpoints passed 80/80. The fixed panel
+retains all 24 acquisition records, with one affected CPU qualified and 23
+non-target acquisitions. The archive, manual and manifest remained unchanged:
+<https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37795948041>.
+
+At both iteration budgets the ordinal boundary diagnostic still refused the
+fit for restart/tolerance instability under the unchanged safeguards. This
+qualification establishes an environment remedy, not an optimizer repair or a
+passing result for the original OpenBLAS configuration. The active native
 investigation is issue #66; issue #43 records the earlier capture scope:
 <https://github.com/Veronica0206/Gtheory4LLM/issues/66>.
 
