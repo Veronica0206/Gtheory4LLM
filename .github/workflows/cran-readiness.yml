@@ -185,6 +185,10 @@ jobs:
           apt-get install -y -qq cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev pandoc tidy qpdf
           cmake --version | sed -n '1p'
           pandoc --version | sed -n '1p'
+      - name: Select and verify reference BLAS for noLD
+        # Qualify this R/noLD build with verified reference libraries. The
+        # captured OpenBLAS dispatch failure remains separate from this gate.
+        run: bash .github/nold/select_reference_blas.sh "$GITHUB_WORKSPACE/nold-evidence/reference-setup"
       - name: Install TeX for the PDF manual
         shell: bash
         run: |
@@ -210,6 +214,14 @@ jobs:
           mkdir -p "$RUNNER_TEMP/lib" "$RUNNER_TEMP/unpacked"
           R CMD INSTALL --no-docs --library="$RUNNER_TEMP/lib" "$ARCHIVE"
           tar -xzf "$ARCHIVE" -C "$RUNNER_TEMP/unpacked"
+      - name: Verify reference BLAS with installed numerical dependencies
+        # Loading the actual installed dependencies must not introduce another
+        # BLAS provider after the initial environment proof.
+        run: |
+          set -euo pipefail
+          : "${GTHEORY_REFERENCE_BASELINE:?missing reference backend baseline}"
+          test -f "$GTHEORY_REFERENCE_BASELINE"
+          R_LIBS="$RUNNER_TEMP/lib" Rscript --vanilla .github/nold/check_reference_blas.R reference "$GITHUB_WORKSPACE/nold-evidence/reference-loaded" Matrix OpenMx lme4 ordinal Gtheory4LLM 2>&1 | tee "$GITHUB_WORKSPACE/nold-evidence/reference-loaded.txt"
       - name: Show how the fit CRAN reported ends on this build
         # Evidence, recorded before the gate so that a refused check still
         # leaves it; the script's own failure would fail the job.
@@ -232,6 +244,12 @@ jobs:
           if ! grep -q '^Status: OK' "$log"; then echo "The check did not end with Status: OK"; tail -80 "$log"; exit 1; fi
       - name: Run every installed test of the exact archive
         run: Rscript --vanilla .github/nold/run_tests.R "$RUNNER_TEMP/lib" "$RUNNER_TEMP/unpacked/Gtheory4LLM/tests" "$GITHUB_WORKSPACE/nold-evidence/installed-tests" 2>&1 | tee "$GITHUB_WORKSPACE/nold-evidence/installed-tests-summary.txt"
+      - name: Recheck reference BLAS after the complete test run
+        run: |
+          set -euo pipefail
+          : "${GTHEORY_REFERENCE_BASELINE:?missing reference backend baseline}"
+          test -f "$GTHEORY_REFERENCE_BASELINE"
+          R_LIBS="$RUNNER_TEMP/lib" Rscript --vanilla .github/nold/check_reference_blas.R reference "$GITHUB_WORKSPACE/nold-evidence/reference-final" Matrix OpenMx lme4 ordinal Gtheory4LLM 2>&1 | tee "$GITHUB_WORKSPACE/nold-evidence/reference-final.txt"
       - name: Keep the evidence
         # The candidate manifest and the archive's verified identity, the
         # platform and installed packages, the check log and every test output.
@@ -249,5 +267,8 @@ jobs:
             nold-evidence/check/**/tests/*.Rout.fail
             nold-evidence/installed-tests/
             nold-evidence/specimens/
+            nold-evidence/reference-setup/
+            nold-evidence/reference-loaded/
+            nold-evidence/reference-final/
           if-no-files-found: error
           retention-days: 90

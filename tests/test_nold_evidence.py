@@ -153,17 +153,46 @@ class NoLDEvidenceWorkflowTests(unittest.TestCase):
         self.assertIn("if: always()", evidence)
         self.assertIn("nold-evidence/check/**/tests/*.Rout.fail", evidence)
         self.assertIn("nold-evidence/installed-tests/", evidence)
+        for directory in ("reference-setup", "reference-loaded", "reference-final"):
+            self.assertIn(f"nold-evidence/{directory}/", evidence)
         # Container-visible shell paths differ from runner.temp expressions
         # consumed by a host-side action. The upload must use checkout paths.
         self.assertNotIn("${{ runner.temp }}", evidence)
 
+    def test_reference_backend_is_verified_before_and_after_package_checks(self):
+        job = nold_job()
+        steps = (
+            "Select and verify reference BLAS for noLD",
+            "Install TeX for the PDF manual",
+            "Install the dependencies",
+            "Install the exact archive",
+            "Verify reference BLAS with installed numerical dependencies",
+            "Show how the fit CRAN reported ends on this build",
+            "Check the exact archive",
+            "Run every installed test of the exact archive",
+            "Recheck reference BLAS after the complete test run",
+        )
+        offsets = [job.index("      - name: " + name + "\n") for name in steps]
+        self.assertEqual(offsets, sorted(offsets))
+        setup = step_run(job, steps[0])
+        self.assertIn('bash .github/nold/select_reference_blas.sh ', setup)
+        self.assertIn('"$GITHUB_WORKSPACE/nold-evidence/reference-setup"', setup)
+        for name in (steps[4], steps[-1]):
+            command = step_run(job, name)
+            self.assertIn('R_LIBS="$RUNNER_TEMP/lib" Rscript --vanilla ', command)
+            self.assertIn('.github/nold/check_reference_blas.R reference ', command)
+            self.assertIn('Matrix OpenMx lme4 ordinal Gtheory4LLM', command)
+        self.assertNotIn("continue-on-error:", job)
+
     @unittest.skipUnless(BASH, "Bash is required to exercise the workflow pipelines")
-    def test_both_pipelines_preserve_upstream_failure_and_captured_output(self):
+    def test_all_pipelines_preserve_upstream_failure_and_captured_output(self):
         job = nold_job()
         self.assertRegex(job, r"defaults:\n      run:\n        shell: bash\n")
         commands = (
             ("Show how the fit CRAN reported ends on this build", "boundary-fit-diagnosis.txt"),
             ("Run every installed test of the exact archive", "installed-tests-summary.txt"),
+            ("Verify reference BLAS with installed numerical dependencies", "reference-loaded.txt"),
+            ("Recheck reference BLAS after the complete test run", "reference-final.txt"),
         )
         with tempfile.TemporaryDirectory(prefix="gtheory-nold-pipeline-") as temporary:
             root = Path(temporary)
@@ -171,11 +200,16 @@ class NoLDEvidenceWorkflowTests(unittest.TestCase):
             bin_dir.mkdir()
             fake = bin_dir / "Rscript"
             fake.write_text("#!/bin/sh\nprintf 'captured stdout\\n'\n"
-                            "printf 'captured stderr\\n' >&2\nexit \"$TEST_R_EXIT\"\n")
+                            "printf 'captured stderr\\n' >&2\n"
+                            "printf 'library: %s\\n' \"$R_LIBS\"\n"
+                            "exit \"$TEST_R_EXIT\"\n")
             fake.chmod(0o755)
             (root / "nold-evidence").mkdir()
+            baseline = root / "reference-runtime.rds"
+            baseline.write_text("The fake Rscript does not read this fixture.\n")
             env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
-                       RUNNER_TEMP=str(root), GITHUB_WORKSPACE=str(root))
+                       RUNNER_TEMP=str(root), GITHUB_WORKSPACE=str(root),
+                       GTHEORY_REFERENCE_BASELINE=str(baseline))
             for name, filename in commands:
                 command = step_run(job, name)
                 for exit_code in (0, 7):
@@ -189,6 +223,86 @@ class NoLDEvidenceWorkflowTests(unittest.TestCase):
                         captured = (root / "nold-evidence" / filename).read_text()
                         self.assertIn("captured stdout", captured)
                         self.assertIn("captured stderr", captured)
+                        if filename.startswith("reference-"):
+                            self.assertIn("library: " + str(root / "lib"), captured)
+
+    @unittest.skipUnless(BASH, "Bash is required to exercise missing-baseline refusal")
+    def test_later_reference_probes_require_the_exported_baseline_file(self):
+        names = ("Verify reference BLAS with installed numerical dependencies",
+                 "Recheck reference BLAS after the complete test run")
+        with tempfile.TemporaryDirectory(prefix="gtheory-nold-baseline-") as temporary:
+            root = Path(temporary)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            fake = bin_dir / "Rscript"
+            fake.write_text('#!/bin/sh\nprintf "Rscript must not execute without a baseline\\n"\n')
+            fake.chmod(0o755)
+            (root / "nold-evidence").mkdir()
+            env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
+                       RUNNER_TEMP=str(root), GITHUB_WORKSPACE=str(root))
+            env.pop("GTHEORY_REFERENCE_BASELINE", None)
+            for name in names:
+                command = step_run(nold_job(), name)
+                for value in (None, "", str(root / "missing-runtime.rds")):
+                    with self.subTest(step=name, baseline=value):
+                        scenario = dict(env)
+                        if value is not None:
+                            scenario["GTHEORY_REFERENCE_BASELINE"] = value
+                        result = subprocess.run(
+                            [BASH, "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", command],
+                            cwd=root, env=scenario, capture_output=True, text=True, timeout=20)
+                        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertNotIn("Rscript must not execute", result.stdout + result.stderr)
+                        if not value:
+                            self.assertIn("missing reference backend baseline", result.stderr)
+
+    @unittest.skipUnless(BASH, "Bash is required to exercise setup failure propagation")
+    def test_reference_selection_failure_stops_the_workflow_step(self):
+        command = step_run(nold_job(), "Select and verify reference BLAS for noLD")
+        with tempfile.TemporaryDirectory(prefix="gtheory-nold-select-") as temporary:
+            root = Path(temporary)
+            helper = root / ".github/nold/select_reference_blas.sh"
+            helper.parent.mkdir(parents=True)
+            helper.write_text('printf "output: %s\\n" "$1"\nexit "$TEST_SELECT_EXIT"\n')
+            for status in (0, 19):
+                with self.subTest(helper_exit=status):
+                    result = subprocess.run(
+                        [BASH, "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", command],
+                        cwd=root, env=dict(os.environ, GITHUB_WORKSPACE=str(root),
+                                           TEST_SELECT_EXIT=str(status)),
+                        capture_output=True, text=True, timeout=20)
+                    self.assertEqual(result.returncode, status, result.stderr)
+                    self.assertIn(str(root / "nold-evidence/reference-setup"), result.stdout)
+
+    @unittest.skipUnless(BASH, "Bash is required to exercise the package-check gate")
+    def test_full_check_requires_both_successful_exit_and_status_ok(self):
+        command = step_run(nold_job(), "Check the exact archive")
+        with tempfile.TemporaryDirectory(prefix="gtheory-nold-check-") as temporary:
+            root = Path(temporary)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            for name, script in {
+                "pdflatex": "#!/bin/sh\nexit 0\n",
+                "R": ('#!/bin/sh\nmkdir -p Gtheory4LLM.Rcheck\n'
+                      'printf "%s\\n" "$TEST_CHECK_STATUS" > Gtheory4LLM.Rcheck/00check.log\n'
+                      'exit "$TEST_CHECK_EXIT"\n'),
+            }.items():
+                executable = bin_dir / name
+                executable.write_text(script)
+                executable.chmod(0o755)
+            env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
+                       GITHUB_WORKSPACE=str(root), ARCHIVE=str(root / "candidate.tar.gz"))
+            for status, code, accepted in (("Status: OK", 0, True), ("Status: OK", 7, False),
+                                          ("Status: 1 ERROR", 0, False),
+                                          ("Status: 1 WARNING", 0, False),
+                                          ("Status: 1 NOTE", 0, False),
+                                          ("check did not finish", 0, False)):
+                with self.subTest(status=status, check_exit=code):
+                    result = subprocess.run(
+                        [BASH, "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", command],
+                        cwd=root, env=dict(env, TEST_CHECK_STATUS=status, TEST_CHECK_EXIT=str(code)),
+                        capture_output=True, text=True, timeout=20)
+                    self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
 
 
 @unittest.skipUnless(RSCRIPT, "Rscript is required to exercise installed-test evidence")

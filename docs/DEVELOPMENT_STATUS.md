@@ -47,6 +47,41 @@ archive did not ship; that history is separate from the 0.2.0 noLD correction.
 
 ## Validation evidence
 
+### Intel/noLD native backend
+
+On 2026-10-08 a [fixed twelve-runner investigation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37787174962)
+reached the affected Intel Xeon 6973P-C (family 6, model 173). On that machine,
+the pinned R-devel/noLD image and OpenBLAS 0.3.20 selected Cooperlake with one
+thread. Both captured 28-by-28 systems reproduced their original incorrect
+steps exactly. Each default arm failed all 240 native paired solves; NEHALEM
+and reference BLAS/LAPACK each passed all 240. Restoring the default restored
+the failures. Hybrid native/scalar solves localized the fault to native backward
+substitution; accurate forward solves and Cholesky factors did not prevent it.
+Independent scalar regrading agreed with every recorded validity verdict.
+The eleven other allocations passed; they do not clear the affected default.
+
+The noLD CI remedy selects verified reference BLAS and LAPACK runtime/linker
+libraries before dependency compilation, retains both captured systems as exact
+hexadecimal R fixtures, and checks the actual loaded backend and runtime-file
+identities before dependencies, after loading the installed numerical stack,
+and after the full check and installed-test loop. The three workflows and all
+seven required check contexts remain. No packaged source, numerical threshold,
+release archive, manifest or tag changes as part of this environment remedy.
+
+The full affected-CPU qualification of the unchanged published 0.4.1 archive is
+pending. The replay establishes a remedy for the captured operations, not a
+full package pass, a repaired upstream kernel, a CPU hardware defect, or noLD
+causation. [Issue #66](https://github.com/Veronica0206/Gtheory4LLM/issues/66)
+tracks the native issue; #43's completed scope was capture. The separate
+optimizer/stationarity limitation remains in #59. The package rejects these
+invalid starting steps before returning a fit; its scalar/sparse/Gaussian
+coverage is not broadened by this result.
+
+GitHub published the immutable 0.4.1 release on 2026-10-08 with the three assets
+matching the committed bundle. The maintainer confirmed on 2026-10-08 that it
+has not been submitted to CRAN. The historical qualification below remains
+attributed to its original source, archive and environment.
+
 ### 0.4.1 selected archive
 
 The [ordinary R-devel and noLD qualification run](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37701136749)

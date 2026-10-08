@@ -18,8 +18,9 @@ estimates. Variance-coordinate and boundary-projection checks remain uncondition
 The production optimizer and acceptance thresholds are unchanged.
 
 The characterization test, which reproduces ten canonical fits against a
-stored baseline, likewise required every discrete case to be numerically
-accepted; on one check of the tagged but unpublished 0.4.0, a noLD runner
+stored baseline, required its accepted-reference ordinal case to be numerically
+accepted; the suite also includes an intentionally refused discrete control.
+On one check of the tagged but unpublished 0.4.0, a noLD runner
 refused its ordinal case through the same safeguards. That ordinal case, the
 one case observed to be refused this way, is now reported as the machine's
 outcome when it is refused by those two safeguards and by nothing else: its
@@ -100,13 +101,27 @@ This update also corrects batch-audit metadata name collisions and wide HTML
 report table layout, and updates validation and release documentation.
 
 The minimum-R qualification above uses explicitly verified reference libraries.
-A separate captured native solve failure under Ubuntu 22.04/OpenBLAS 0.3.20
-remains under investigation: the stored step does not solve its system even
-though the stored factor is accurate. The package refuses that operation under
-its unchanged backward-error bound, without rescue or retry. Passing with the
-reference backend is not a claim that the older native-library failure is fixed.
-The failure evidence has been retained durably. Issue #43 records the capture:
-<https://github.com/Veronica0206/Gtheory4LLM/issues/43>.
+On 2026-10-08, a fixed twelve-runner investigation reproduced two captured
+native solve failures on Intel Xeon 6973P-C with the pinned noLD build and
+OpenBLAS 0.3.20's Cooperlake dispatch. Native backward substitution reproduced
+the saved wrong answers in all 240 paired solves in each default arm. On the
+same machine, forced NEHALEM and reference BLAS/LAPACK each passed 240/240;
+restoring the default restored the failures. Scalar residuals and hybrid
+solves independently localized this execution-path dependency. The other
+eleven allocated runners passed the same replay protocol:
+<https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37787174962>.
+
+The package rejects these invalid starting steps under its unchanged
+backward-error bound before returning a fitted result. This is separate from
+the optimizer refusal in issue #59. The noLD CI remedy explicitly selects and
+verifies reference BLAS/LAPACK before dependency compilation, checks both saved
+systems, and rechecks loaded libraries and their identities after dependencies
+are loaded and after the package checks. This environment remedy does not
+modify the published archive, repair OpenBLAS, or establish that all Intel or
+noLD configurations fail. Full qualification of the unchanged archive on the
+affected Intel CPU is recorded separately when complete. The active native
+investigation is issue #66; issue #43 records the earlier capture scope:
+<https://github.com/Veronica0206/Gtheory4LLM/issues/66>.
 
 Gaussian equal-fixed-batch call effects are supported within the documented
 scope. Batch-aware reliability and D studies, broader sparse qualification and

@@ -155,10 +155,26 @@ libraries; a mismatch stops the job. The artifact includes the package versions,
 alternatives, loaded paths and R session in `minimum-r-reference-blas.txt`, and
 the compiled-dependency cache is separate from the previous OpenBLAS cache.
 A successful job qualifies R 4.5.0 with this reference backend. The preserved
-Ubuntu 22.04/OpenBLAS 0.3.20 native solve failure is unresolved; this environment
-selection does not fix that failure. Production still rejects an invalid solve
-under the same backward-error bound, without rescue or retry. The full
-Ubuntu 24.04/current-R and noLD jobs retain their separate backend coverage.
+Ubuntu 22.04/OpenBLAS 0.3.20 native solve failure was localized on Xeon 6973P-C
+to native backward substitution under Cooperlake dispatch. Changing the
+environment avoids that captured failure without repairing the upstream path;
+production still rejects an invalid solve under the same bound, without rescue
+or retry. [The evidence record](../docs/DEVELOPMENT_STATUS.md#intelnold-native-backend)
+distinguishes replay, full archive qualification and the outstanding upstream
+repair.
+
+The noLD job also selects and verifies reference BLAS/LAPACK using
+`.github/nold/select_reference_blas.sh` before compiling dependencies. Its
+`check_reference_blas.R` gate exercises the two exact public captured systems
+with stored and freshly computed factors, using an independent scalar residual
+and the unchanged `32*d*eps` bound. It rejects wrong library paths, missing
+mapping/noLD evidence, any loaded OpenBLAS, changed native-runtime hashes,
+warnings or errors in the solves, and inaccurate results. It repeats after
+loading the installed dependencies and after all package checks; the baseline
+and every checkpoint are retained with noLD evidence. These probes supplement
+the complete package check, PDF manual and installed-test sweep; they never
+replace them. The full Ubuntu 24.04/current-R job retains its separately
+recorded backend coverage.
 OpenMx 2.22.11 uses the
 `Rf_isDataFrame` C API introduced in R 4.5.0 while declaring only
 `R (>= 3.5.0)` itself; the package therefore declares R 4.5.0 or later on its

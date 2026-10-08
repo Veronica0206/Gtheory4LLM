@@ -134,6 +134,15 @@ scientifically sufficient. Those are separate questions with separate evidence.
 
 ## Infrastructure
 
+- **Native numerical backend.** On the tested Intel Xeon 6973P-C/noLD stack,
+  OpenBLAS 0.3.20's Cooperlake path reproducibly returned incorrect backward
+  solves for two captured systems. The same machine passed with reference
+  BLAS/LAPACK and with forced NEHALEM dispatch. The noLD CI environment uses
+  verified reference BLAS/LAPACK; it does not repair the faulty OpenBLAS path
+  or make all native arithmetic trustworthy. The package's existing guards
+  reject the captured invalid starting steps before returning a fit. See
+  [the backend investigation and qualification record](DEVELOPMENT_STATUS.md#intelnold-native-backend)
+  and [issue #66](https://github.com/Veronica0206/Gtheory4LLM/issues/66).
 - R 4.5.0 or later is required, inherited from OpenMx rather than from this
   package's own code. The README's install section explains why, and what to do
   if you must use an older pairing.
