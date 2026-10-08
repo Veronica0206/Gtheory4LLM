@@ -1,0 +1,61 @@
+name: Frozen 0.4.1 Intel reference-backend qualification
+
+# Isolated qualification branch only. Do not merge this fourth workflow into
+# the production branch, whose existing three-workflow contract is preserved.
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/intel-nold-archive-qualification]
+
+permissions:
+  contents: read
+
+# No cancellation of a fixed acquisition panel after a favorable result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    name: Frozen archive target acquisition ${{ matrix.replica }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        replica: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+    container:
+      image: ghcr.io/r-hub/containers/nold@sha256:4d8aeacfd5130c824ff593cde19e5ffaed96c170ca397837f56163a201e09389
+    defaults:
+      run:
+        shell: bash
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      OPENBLAS_VERBOSE: '2'
+      MAKEFLAGS: '-j4'
+      RENV_CONFIG_AUTOLOADER_ENABLED: 'FALSE'
+      RENV_CONFIG_PPM_ENABLED: 'FALSE'
+      PYTHONDONTWRITEBYTECODE: '1'
+      GTHEORY_REPLICA: ${{ matrix.replica }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Acquire the target and qualify the frozen archive on that same host
+        run: |
+          set -euo pipefail
+          mkdir -p frozen-nold-qualification-evidence
+          bash .github/nold/qualify_frozen_nold.sh 2>&1 | tee frozen-nold-qualification-evidence/driver.log
+      - name: Preserve every acquisition and result, including all failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: frozen-nold-qualification-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.replica }}
+          path: frozen-nold-qualification-evidence/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Require tracked package and release files to remain unchanged
+        if: always()
+        run: git -c safe.directory="$GITHUB_WORKSPACE" diff --exit-code HEAD --
