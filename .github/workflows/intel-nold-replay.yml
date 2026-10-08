@@ -1,0 +1,55 @@
+name: Intel noLD captured-matrix investigation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/intel-nold-replay]
+
+permissions:
+  contents: read
+  issues: read
+
+# A fixed acquisition panel, never retry-until-green. Each CPU and outcome is retained.
+# This isolated diagnostic branch must not be used as release qualification.
+jobs:
+  replay:
+    name: Captured-matrix diagnostic ${{ matrix.replica }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        replica: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    container:
+      image: ghcr.io/r-hub/containers/nold@sha256:4d8aeacfd5130c824ff593cde19e5ffaed96c170ca397837f56163a201e09389
+    defaults:
+      run:
+        shell: bash
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      OPENBLAS_VERBOSE: '2'
+      PYTHONDONTWRITEBYTECODE: '1'
+      GTHEORY_REQUIRE_NOLD: '1'
+      GTHEORY_REPLICA: ${{ matrix.replica }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Execute fixed same-machine comparisons, retaining numerical failures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p intel-replay-evidence
+          bash .github/nold/intel_replay_driver.sh 2>&1 | tee intel-replay-evidence/driver.log
+      - name: Preserve every CPU and result, including operational failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: intel-nold-replay-${{ matrix.replica }}
+          path: intel-replay-evidence/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Require tracked source and release files to remain unchanged
+        if: always()
+        run: git -c safe.directory="$GITHUB_WORKSPACE" diff --exit-code

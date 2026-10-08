@@ -1,0 +1,53 @@
+Issue #66: predeclared captured-matrix diagnostic, 2026-10-08
+
+Question: Does the captured incorrect 28x28 dense solve recur on Intel Xeon
+6973P-C under the pinned R-devel/noLD container? If so, does changing only the
+numerical backend path on that same host remove this captured failure?
+
+This branch is isolated diagnostic infrastructure. It must not be merged or
+treated as release qualification. No packaged source, acceptance threshold,
+published archive, manifest, tag or required check is changed. The published
+0.4.1 archive hash remains 8261b2d8084a54fa69a4bb3b7ae0caac3eefcc75ba83969d09422d525460e554.
+
+The protocol is fixed before the first push:
+- Twelve ubuntu-latest hosted-runner jobs, at most six concurrent. Preserve all
+  CPU allocations and outcomes. No adaptive reruns or success-only selection.
+- Same pinned noLD image as the failed release-related run, digest
+  sha256:4d8aeacfd5130c824ff593cde19e5ffaed96c170ca397837f56163a201e09389.
+- Both hash-pinned, already-public synthetic specimens from issue #66.
+- Fixed arm order on each machine: original default; forced NEHALEM; reference
+  BLAS/LAPACK; restored original default. Threads fixed at one in all arms,
+  matching the observed failing run. Each arm gets three fresh R processes.
+- Specimen order is binary/ordinal in processes 1 and 3, ordinal/binary in
+  process 2, giving both specimens first-solve coverage. Metadata getters run
+  only after the first native forward/back pair has been saved.
+- Each process executes twenty predetermined repetitions for each specimen,
+  first with its stored factor, then with a newly computed Cholesky factor.
+- Compare native triangular solves, independent scalar triangular solves,
+  hybrid solves, and scalar backward errors. Keep the existing 32*d*eps bound.
+  Record intermediate vectors and every new invalid operation.
+- Record CPU details, R and native library identities, actual OpenBLAS core
+  and threads, runtime mappings and environment. Reject an unverified backend.
+- Reference package installation occurs after the first two arms. Restore and
+  verify the original library paths and bytes for the final default arm.
+
+Interpretation is bounded:
+- Successful workflow execution means the protocol ran, not that all numerical
+  operations passed. Inspect results.tsv and the stored invalid steps.
+- No affected CPU obtained: the affected-host question remains unanswered.
+- Affected CPU obtained but default replay passes: non-reproduction of these
+  captured matrices alone does not clear the earlier package-level failure.
+- Default fails, alternate passes, restored default fails on the same machine:
+  evidence of backend-path dependence for these specimens. This does not prove
+  a CPU hardware defect, a particular instruction defect, or noLD causation.
+- A matched ordinary-R build would be needed to establish noLD causation.
+- Even clean captured-matrix replays do not qualify the full package on an
+  alternate backend; that requires the unchanged archive's package tests/check.
+
+Source rationale:
+R backsolve/forwardsolve call DTRSM:
+https://stat.ethz.ch/R-manual/R-devel/library/base/html/backsolve.html
+The exact OpenBLAS version accepts NEHALEM; actual dispatch must be verified:
+https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.20/driver/others/dynamic.c
+Related, different CPU/operation/threading report is hypothesis only:
+https://github.com/OpenMathLib/OpenBLAS/issues/5267
