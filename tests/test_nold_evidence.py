@@ -137,7 +137,20 @@ def step_run(job: str, name: str) -> str:
     return "\n".join(lines)
 
 
+def normalized_shell_path(path: str | Path) -> str:
+    """Bash may append forward slashes to a native Windows environment path."""
+    return os.path.normcase(os.path.normpath(str(path).replace("\\", "/")))
+
+
 class NoLDEvidenceWorkflowTests(unittest.TestCase):
+    def test_mixed_windows_shell_separators_preserve_path_identity(self):
+        root = r"C:\Users\RUNNER~1\AppData\Local\Temp\directory with spaces"
+        for suffix in ("lib", "nold-evidence/reference-setup"):
+            mixed = root + "/" + suffix
+            native = root + "\\" + suffix.replace("/", "\\")
+            self.assertEqual(normalized_shell_path(mixed), normalized_shell_path(native))
+            self.assertNotEqual(normalized_shell_path(mixed), normalized_shell_path(native + "-other"))
+
     def test_candidate_and_evidence_paths_are_shared_with_the_gate(self):
         job = nold_job()
         self.assertIn("needs: build-release", job)
@@ -224,7 +237,9 @@ class NoLDEvidenceWorkflowTests(unittest.TestCase):
                         self.assertIn("captured stdout", captured)
                         self.assertIn("captured stderr", captured)
                         if filename.startswith("reference-"):
-                            self.assertIn("library: " + str(root / "lib"), captured)
+                            libraries = [normalized_shell_path(line.removeprefix("library: "))
+                                         for line in captured.splitlines() if line.startswith("library: ")]
+                            self.assertEqual(libraries, [normalized_shell_path(root / "lib")])
 
     @unittest.skipUnless(BASH, "Bash is required to exercise missing-baseline refusal")
     def test_later_reference_probes_require_the_exported_baseline_file(self):
@@ -272,7 +287,9 @@ class NoLDEvidenceWorkflowTests(unittest.TestCase):
                                            TEST_SELECT_EXIT=str(status)),
                         capture_output=True, text=True, timeout=20)
                     self.assertEqual(result.returncode, status, result.stderr)
-                    self.assertIn(str(root / "nold-evidence/reference-setup"), result.stdout)
+                    outputs = [normalized_shell_path(line.removeprefix("output: "))
+                               for line in result.stdout.splitlines() if line.startswith("output: ")]
+                    self.assertEqual(outputs, [normalized_shell_path(root / "nold-evidence/reference-setup")])
 
     @unittest.skipUnless(BASH, "Bash is required to exercise the package-check gate")
     def test_full_check_requires_both_successful_exit_and_status_ok(self):
