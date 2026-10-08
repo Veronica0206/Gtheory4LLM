@@ -144,7 +144,7 @@ def normalized_shell_path(path: str | Path) -> str:
 
 class NoLDEvidenceWorkflowTests(unittest.TestCase):
     def test_mixed_windows_shell_separators_preserve_path_identity(self):
-        root = r"C:\Users\RUNNER~1\AppData\Local\Temp\directory with spaces"
+        root = r"C:\runner-temp\directory with spaces"
         for suffix in ("lib", "nold-evidence/reference-setup"):
             mixed = root + "/" + suffix
             native = root + "\\" + suffix.replace("/", "\\")
