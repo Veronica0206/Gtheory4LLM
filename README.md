@@ -14,7 +14,7 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Source version: **0.4.1.9000**.
+Source version: **0.5.0**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -55,8 +55,9 @@ library(Gtheory4LLM)
 The repository keeps checksummed release files in [`artifacts/`](https://github.com/Veronica0206/Gtheory4LLM/tree/main/artifacts).
 A 0.4.0 bundle, `Gtheory4LLM_0.4.0.tar.gz`, was prepared and tagged but never published; 0.4.1 supersedes it.
 To install this source version, run `R CMD build .`, then
-`R CMD INSTALL Gtheory4LLM_0.4.1.9000.tar.gz`, the development archive it creates.
-The retained qualified release is `Gtheory4LLM_0.4.1.tar.gz`; it is not rebuilt by this development work. Building the vignette
+`R CMD INSTALL Gtheory4LLM_0.5.0.tar.gz`, the archive it creates.
+For the exact checked release archive, use the versioned GitHub release and
+verify its accompanying manifest. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
 CRAN availability is separate from GitHub availability. The version CRAN
 carries is recorded in the repository [development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
@@ -171,11 +172,11 @@ session is recorded separately. See the [reporting guide](https://github.com/Ver
 
 ## Plan an annotation study
 
-The development source separates three quantities: **distinct pilot items**
+Study planning separates three quantities: **distinct pilot items**
 provide estimation information, **annotations per item** define the final score,
 and **items per request** define shared context and request overhead. Increasing
-one does not substitute for increasing another. These additions belong to source
-0.4.1.9000; the retained 0.4.1 archive is unchanged, and no 0.5.0 release is implied.
+one does not substitute for increasing another. These workflows are included in
+source version 0.5.0; their statistical boundaries are described below.
 
 The [study-planning vignette](vignettes/study-planning.Rmd) runs synthetic examples
 of all three additions. Its monetary amounts are illustrative user inputs.

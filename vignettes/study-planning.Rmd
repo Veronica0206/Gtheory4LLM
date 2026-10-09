@@ -14,9 +14,8 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 options(width = 95)
 ```
 
-This tutorial illustrates the study-planning additions in development source
-0.4.1.9000. It does not change the qualified 0.4.1 archive or establish a new
-release. All observations and monetary amounts below are synthetic. No requests
+This tutorial illustrates the study-planning workflows in source version
+0.5.0. All observations and monetary amounts below are synthetic. No requests
 are executed and no provider prices are retrieved.
 
 | Quantity | Purpose |

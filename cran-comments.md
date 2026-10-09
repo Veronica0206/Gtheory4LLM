@@ -1,4 +1,12 @@
-## Update: Gtheory4LLM 0.4.1
+## Gtheory4LLM 0.5.0 submission preparation
+
+The 0.5.0 source adds the bounded study-planning workflows documented in NEWS.
+The final archive identity and completed ordinary R-devel/noLD results must
+replace this preparation notice before submission. No 0.5.0 submission is
+claimed. Earlier 0.4.1 evidence below is retained as historical context only;
+it does not qualify the 0.5.0 archive or extend the old timing-NOTE exception.
+
+## Historical checked update: Gtheory4LLM 0.4.1
 
 This update corrects the test ERROR reported for 0.2.0 in CRAN's additional
 noLD check, as requested before 2026-10-26. It also includes the development

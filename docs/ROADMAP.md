@@ -1,9 +1,9 @@
 # Roadmap
 
 Release history and development priorities, with current implementation separated
-from release qualification. The source is **0.4.1.9000**. The qualified published
-0.4.1 archive remains unchanged; the planning additions below do not constitute
-a 0.5.0 release or assert CRAN submission or acceptance. Completed source changes
+from release qualification. The source is **0.5.0**, frozen for Study Planning
+release qualification. The published 0.4.1 archive remains unchanged. Source
+versioning does not assert GitHub publication or CRAN acceptance. Completed source changes
 are recorded in [NEWS.md](../NEWS.md), and source-identified run evidence belongs
 in [development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
 
@@ -16,16 +16,15 @@ rules; they do not repair or replace the optimizer or expand sparse qualificatio
 | 0.1.0 and 0.2.0 | Historical published releases; their tagged archives remain immutable |
 | 0.4.0 | Prepared and tagged but not published; superseded by 0.4.1 |
 | 0.4.1 | Retained qualified maintenance archive, including the recorded noLD reference-backend correction and evidence |
-| 0.4.1.9000 | Current development source: fixed-layout Gaussian batch projections, bounded cost-aware allocation search, and Gaussian pilot precision simulation; separate new-source qualification required |
+| 0.5.0 Study Planning | Frozen source: fixed-layout Gaussian batch projections, bounded cost-aware allocation search, and Gaussian pilot precision simulation; final archive qualification and publication tracked in development status |
 | Future sparse milestone (previously planned as 0.5.0) | Public backend selection only after dense-sparse qualification and the declared full-panel resource benchmark; no release is implied by this target label |
 | Further statistical development | Broader validation campaigns, unbalanced targets, discrete uncertainty and joint batch/cost planning |
 | 1.0 | Future API stability and a substantially broader validated operating range |
 
-## Current development: study planning
+## 0.5.0: study planning
 
-The intended next feature release is **0.5.0 Study Planning**, covering the
-three additions below. The source remains development `0.4.1.9000` until a
-separate final-version candidate is prepared and qualified. This scope does not
+**0.5.0 Study Planning** covers the three additions below. The final-version
+archive requires its own qualification and publication evidence. This scope does not
 complete the former sparse milestone or joint batch/cost planning.
 
 Three implemented additions separate pilot information, final annotations per

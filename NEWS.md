@@ -1,7 +1,7 @@
-# Gtheory4LLM 0.4.1.9000 (development)
+# Gtheory4LLM 0.5.0 — Study Planning
 
 <!-- release-identity:start -->
-Source version: **0.4.1.9000**.
+Source version: **0.5.0**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -9,8 +9,8 @@ These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
 
-This development line adds bounded study-planning tools. The qualified 0.4.1
-archive, release assets and numerical acceptance rules are unchanged.
+This version adds bounded study-planning tools. Historical release assets and
+the numerical acceptance rules are unchanged.
 
 - `gt_batch_reliability()` and `gt_batch_dstudy()` project item-score, named
   contrast and aggregate error under a fitted equal fixed Gaussian batching

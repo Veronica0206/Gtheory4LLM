@@ -4,30 +4,32 @@ Current release and development state. Version history is in [NEWS.md](../NEWS.m
 planned work is in [the roadmap](ROADMAP.md), and implementation boundaries are
 in [limitations](LIMITATIONS.md).
 
-## Current source development
+## 0.5.0 Study Planning release preparation
 
-The `0.4.1.9000` development branch adds fixed-layout Gaussian batch targets,
-cost-aware allocation planning and Gaussian pilot precision simulation. Its
-new source and tests are distinct from the retained, qualified 0.4.1 release.
-The source gate must validate this branch before integration; old release
-checks do not qualify these new APIs. CRAN submission remains a separate
-maintainer action.
+Source version 0.5.0 freezes the reviewed fixed-layout Gaussian batch targets,
+cost-aware allocation planning and Gaussian pilot precision simulation. No
+statistical functionality or numerical acceptance rule changes during this
+release transition. The final 0.5.0 archive must be qualified independently;
+CRAN submission remains a separate maintainer action.
 
-PR #69 at `64cff2ec056242b390e3ea5f09206092ffdfba4c` passed the
-[full hosted validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37887290629)
-and [candidate readiness checks](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37887290814)
-on 2026-10-09. The full gate completed 32 stages; the Python suite ran 186 tests
-with one platform-specific skip. Ordinary R-devel reported no errors or warnings
-and one incoming-feasibility NOTE concerning the development version and update
-timing. The noLD check reported no errors, warnings or notes, and its separate
-installed-test loop passed all 30 tests. HTML manual checking passed.
+The preceding PR #69 development head
+`776a50048b0fa489eed8f843154a229b123c01f0` passed all seven check contexts on
+2026-10-09. The [full gate](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37949434330)
+completed 32 stages and 186 Python tests with one platform-specific skip.
+[Candidate readiness](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37949434420)
+checked the same 531,403-byte development archive, SHA-256
+`674784339d973daa432fdb63ad8e8f8ef591fb0f3996bb4f7b20453b18a14331`,
+from synthetic merge `48b1b36034f58c94dfa2bd4bf7c8423e91797b46`.
+Ordinary R-devel reported 0 errors, 0 warnings and 1 incoming NOTE; noLD with
+verified reference BLAS/LAPACK reported 0 errors, 0 warnings and 0 notes.
+Both checks completed all 30 package tests, both vignettes and the PDF manual;
+the separate noLD installed-test loop passed 30/30. These are development
+qualification results, not final-version release evidence.
 
-That checkpoint checked development archive SHA-256
-`069358363a1e976b0ce8b7979ca69c50b1e800e65edee41b9391fbeb3a8bed8b`,
-527,967 bytes, from synthetic merge commit
-`93580afa9aacb3c5e90821cac8ccec25c14bdb89`, in both R-devel environments.
-It does not qualify subsequent source changes or a final 0.5.0 archive. The
-[roadmap](ROADMAP.md) defines the intended Study Planning release scope.
+The current incoming-NOTE policy does not extend the earlier 0.4.0/0.4.1
+maintenance timing allowance to 0.5.0. Final candidate and publication checks
+must pass their own gates. The previous published bundle is retained until a
+qualified 0.5.0 candidate can be adopted unchanged.
 
 ## Release state
 
@@ -41,7 +43,7 @@ as a platform outcome. 0.4.1 corrects that test and nothing else in the package.
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.4.1.9000` (study-planning development). The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released, and `0.4.0` was tagged but not published |
+| Checkout version | `0.5.0` (Study Planning release preparation). The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released, and `0.4.0` was tagged but not published |
 | Bundle in `artifacts/` | `0.4.1`, adopted unchanged from the checked candidate; the archive and manual identities are recorded below and in the manifest |
 | Bundle source commit | `9b59788ad9bfc6068faea9115b62ea920d58e745` |
 | Manifest publication state | Read `release_state` in [the manifest](../artifacts/manifest.json). `prepared` records staging; `published` records the publication commit/tag identity. Neither field alone proves a GitHub upload or CRAN submission |
