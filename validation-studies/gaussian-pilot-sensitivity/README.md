@@ -61,6 +61,12 @@ reported count. Independent Python checks recomputed all four-cell counts,
 mean widths, and Monte Carlo errors from the 400 retained records and verified
 unique data/retry seeds and matching source fingerprints.
 
+Editorial clarification: the frozen protocol's phrase "no parameter reuse
+across panels" refers to independent random-effect realizations and sampled
+levels. The generating means and variances are deliberately fixed within each
+scenario. The protocol bytes and their recorded fingerprints are preserved;
+this clarification changes no design setting, execution or result.
+
 ## Reproduction
 
 Run from this repository against committed package sources, using a new output
