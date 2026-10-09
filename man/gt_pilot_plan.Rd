@@ -9,19 +9,21 @@ gt_pilot_plan(fit, grid, nsim, seed, coefficient = "Erho2", outcome = NULL,
 }
 \arguments{
   \item{fit}{An accepted Gaussian fit supported by \code{\link{gt_simulate}}.}
-  \item{grid}{A numeric data frame with required \code{n_items} and optional
-  instrumentation facet count columns. All counts must be integers of at least
-  two; unspecified facet counts retain the original pilot counts. Each row is a
-  proposed pilot data-collection design. At most 100 rows are accepted. A facet
-  named \code{n_items} must first be renamed to avoid ambiguity.}
+  \item{grid}{A numeric data frame with one proposed pilot per row. The required
+  \code{n_items} column gives the object count. Optional facet columns give the
+  pilot's facet counts. All counts must be integers of at least two.
+
+  At most 100 rows are accepted. Unspecified facets retain the original counts.
+  A facet called \code{n_items} must first be renamed to avoid ambiguity.}
   \item{nsim}{Number of attempted replicates per candidate. The total across
   all candidates must not exceed 10000. Small values are software illustrations,
   not precise planning evidence.}
   \item{seed}{Required integer seed. Each attempted replicate receives a recorded
   deterministic data seed and a separate \code{retry_seed} for its refit.
-  An explicit \code{control$gaussian$retry_seed} is preserved; otherwise a separate
-  seed is assigned and recorded for each refit. Caller random-number state and
-  kind are restored.}
+  An explicitly supplied Gaussian retry seed is preserved. Otherwise a separate
+  seed is assigned and recorded for each refit.
+
+  The caller's random-number state and kind are restored.}
   \item{coefficient}{\code{"Erho2"} or \code{"Phi"}.}
   \item{outcome}{One reported outcome. Required for multivariate outcome results.}
   \item{score}{Optional explicit composite weights from \code{\link{gt_score}}.}

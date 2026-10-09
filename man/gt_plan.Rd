@@ -33,12 +33,18 @@ with one row per candidate, or a function called once with a planning data frame
 The planning frame contains \code{design_id}, \code{allocation_} prefixed facet
 counts, \code{annotations_per_item}, \code{study_items}, and
 \code{total_annotations}. It has an \code{allocation_columns} attribute mapping
-column names to the original facets. The function returns a cost-component data
-frame, or a list with \code{costs}, optional \code{resources} (a nonnegative numeric
-data frame), and optional \code{assumptions} (character text). A list in this form
-can also be supplied directly. Components are summed: do not include an already
-summed total as an extra component. Prices, usage assumptions, overhead, retry
-costs, evaluator setup and human-review costs are entirely user supplied.}
+column names to the original facets.
+
+The function returns a cost-component data frame or a list containing
+\code{costs}. Such a list can also be supplied directly. Its optional entries are:
+\itemize{
+\item \code{resources}: a nonnegative numeric data frame.
+\item \code{assumptions}: character text.
+}
+
+Components are summed: do not include an already summed total as an extra
+component. Prices, usage assumptions, overhead, retry costs, evaluator setup
+and human-review costs are entirely user supplied.}
 \item{currency}{One three-letter uppercase currency code; all cost components
 must already use that same currency. No exchange conversion is performed.}
 \item{cost_date}{The date of the supplied cost assumptions, as \code{Date} or
@@ -130,15 +136,19 @@ A \code{gt_plan} list. \code{results} (also \code{as.data.frame(x)}) retains all
 candidate allocations, coefficients and intervals, cost components/resources,
 constraint status/reasons, target status, minimum-cost and Pareto indicators,
 cost rank among feasible rows, and baseline cost/error/coefficient changes.
+
 \code{source_contributions} reports universe, relative-error and absolute-error
-contributions and the error reductions per source. \code{allocations},
-\code{all_coefficients}, \code{cost_breakdown}, \code{resources},
-\code{constraint_checks} and \code{baseline} preserve their full records.
-\code{provenance} records the currency/date, cost description/assumptions and
-callback text, explicit search scope, target, score/universe, interval
+contributions and the error reductions per source. The input allocations and
+full coefficient tables remain in \code{allocations} and \code{all_coefficients}.
+Cost and resource records remain in \code{cost_breakdown} and \code{resources}.
+The \code{constraint_checks} element preserves every check. The \code{baseline}
+element records the chosen comparison.
+
+\code{provenance} records the currency, date, cost assumptions and callback
+text. It also records the search scope, target, score, facet universe, interval
 qualifications, original fitted counts and selected baseline.
-\code{fit_diagnostics} retains the fitted numerical diagnostics. No request is
-executed and no provider price is queried.
+\code{fit_diagnostics} retains the fitted numerical diagnostics.
+No request is executed and no provider price is queried.
 }
 \seealso{\code{\link{gt_reliability}}, \code{\link{gt_dstudy}},
 \code{\link{gt_dstudy_target}}}

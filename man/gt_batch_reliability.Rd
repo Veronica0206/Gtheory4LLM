@@ -68,17 +68,22 @@ weighted aggregate depends on how its weights are distributed across
 batches. Instrumentation-only sources remain in an aggregate even as the
 number of averaged items increases. There is no universal batch penalty.
 
-\strong{Interpretation of ratios.} Absolute item rows report \code{Phi}.
-Contrast rows report \code{contrast_reliability}, and aggregate rows report
-\code{aggregate_dependability}. Each is the model-implied universe variance
-of that exact weighted target divided by its universe plus annotation-error
-variance. A contrast ratio is not a single G coefficient for every possible
-item ranking. Aggregate error conditions on the selected items and excludes
-corpus-sampling uncertainty. It is not uncertainty about an unknown
-population mean. Zero total variance returns \code{NA}. All results are
-point projections; no sampling standard errors or confidence bounds are
-provided. \code{error_sd} is the model-implied annotation-error standard
-deviation, not a standard error of an estimated coefficient.
+\strong{Interpretation of ratios.} Each target has an explicit coefficient name:
+\itemize{
+\item Absolute item scores: \code{Phi}.
+\item Item contrasts: \code{contrast_reliability}.
+\item Weighted aggregates: \code{aggregate_dependability}.
+}
+Each ratio divides the universe variance of its exact weighted target by that
+variance plus annotation-error variance. A contrast ratio is not a single G
+coefficient for every possible item ranking. Aggregate error conditions on the
+selected items and excludes corpus-sampling uncertainty. It is not uncertainty
+about an unknown population mean. Zero total variance returns \code{NA}.
+
+All results are point projections; no sampling standard errors or confidence
+bounds are provided. The reported \code{error_sd} is the model-implied
+annotation-error standard deviation. It is not a standard error of an estimated
+coefficient.
 
 At most one million source-contribution rows are permitted, checked before
 materializing target results. Nonfinite quadratic forms and numerically
