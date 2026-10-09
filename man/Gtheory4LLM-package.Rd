@@ -10,7 +10,14 @@ The modeling interface supports selected item interactions, crossed and explicit
 
 Gaussian outcomes use exact balanced likelihood. Binary, ordinal, and unordered categorical outcomes use their specified observation distributions with Gaussian latent random effects, fitted by a dense first-order Laplace approximation. Joint Gaussian models and joint discrete models are supported; a joint Gaussian-discrete likelihood is not implemented.
 
-Observed Gaussian reliability and latent binary or ordinal reliability are distinct estimands. Scalar nominal reliability is not implemented. Decision studies require a complete balanced coded panel. Their projections depend on fitted source covariances and the specified universes of evaluators and prompts. Adding arbitrarily chosen LLMs does not ensure those assumptions hold. Gaussian projections carry delta-method intervals for estimation uncertainty in the fitted source covariances; they do not quantify sampling uncertainty in the facet populations, automatically find a minimum allocation, or establish annotation accuracy against human judgments. Discrete projections are point estimates only.
+Observed Gaussian reliability and latent binary or ordinal reliability are distinct estimands. Scalar nominal reliability is not implemented. Decision studies require a complete balanced coded panel. Their projections depend on fitted source covariances and the specified universes of evaluators and prompts. Adding arbitrarily chosen LLMs does not ensure those assumptions hold. Gaussian projections carry delta-method intervals for estimation uncertainty in the fitted source covariances; they propagate component-estimation uncertainty under the declared model, not violations of facet exchangeability or annotation accuracy against human judgments. Coefficients alone do not select a minimum-cost allocation. Discrete projections are point estimates only.
+
+The study-planning functions distinguish pilot item count, annotations per
+item and items per request. Use \code{\link{gt_plan}} for bounded cost-aware
+allocation search with explicit user-supplied prices, and
+\code{\link{gt_batch_reliability}} for fixed-layout Gaussian batch targets.
+These do not infer annotation accuracy, optimal provider identities or a new
+batch-size effect from an existing fit.
 
 Three publicly archived LLM annotation panels cover hate-speech, mental-health,
 and drug-review tasks, with eight outcome sets and fifteen response codings.
@@ -29,7 +36,9 @@ Laplace approximation adequacy, a global optimum, or empirical validity.
 
 Gaussian fits report asymptotic Wald standard errors for their source variance
 components and delta-method intervals for G and Phi; see
-\code{\link{gt_reliability}}. Bootstrap and jackknife intervals are not
+\code{\link{gt_reliability}}. Model-based Gaussian simulation and pilot precision planning are available
+through \code{\link{gt_simulate}} and \code{\link{gt_pilot_plan}}; these do not
+provide calibrated bootstrap intervals. Bootstrap and jackknife intervals are not
 implemented, and the discrete Laplace engine reports point estimates only.
 
 \subsection{Why this package declares R (>= 4.5.0)}{

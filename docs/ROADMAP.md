@@ -1,31 +1,59 @@
 # Roadmap
 
-Release milestones and planned work, with the reason for their order. Versions
-0.1.0 and 0.2.0 are published; the later milestones remain planned, and work
-on the 0.4.0 line since 0.2.0 is recorded at the top of [NEWS.md](../NEWS.md).
-That line was versioned 0.3.0.9000 until it was renamed; no 0.3.0 was released.
-Completed work is recorded in [NEWS.md](../NEWS.md), and current evidence is in
-[development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
+Release history and development priorities, with current implementation separated
+from release qualification. The source is **0.4.1.9000**. The qualified published
+0.4.1 archive remains unchanged; the planning additions below do not constitute
+a 0.5.0 release or assert CRAN submission or acceptance. Completed source changes
+are recorded in [NEWS.md](../NEWS.md), and source-identified run evidence belongs
+in [development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
 
-The ordering rule this follows is worth stating once, because it explains most
-of the sequencing decisions below: **numerical refactoring, API changes, release
-tooling, and new statistical capability do not travel together.** When a result
-moves, it must be obvious which of those caused it.
+Numerical backend refactoring is reviewed separately from new statistical
+targets. The current planning additions reuse the existing fit and acceptance
+rules; they do not repair or replace the optimizer or expand sparse qualification.
 
-| Release | Goal |
+| Version or workstream | State and scope |
 |---|---|
-| 0.1.0 (published) | Research beta with retry controller, standard methods, retention controls, memory guard, characterization tests and release automation |
-| 0.1.x | Maintenance: release/documentation consistency, repository protection, Action-runtime updates and fixes that preserve statistical scope |
-| 0.2.0 (published) | Maintenance release from the 0.2.0 development line: CRAN resubmission fix, staged numerical diagnostics, solve-validity refusal, and the sparse discrete prototype kept private behind the evaluator seam |
-| 0.4.0 | Maintenance and reporting release from the development line: the correction CRAN asked for to the check on R built without long double, staged diagnostics and portable reports, figures, the batch declaration with its audit, and the shared call effect for Gaussian fits of equal fixed batches; the sparse backend stays private |
-| 0.5.0 | First qualified, publicly selectable sparse backend for single binary and ordinal outcomes: dense-sparse equivalence, explicit backend selection with a resource contract, one full native-panel benchmark; no new statistical estimands |
-| 0.6.x | Broader statistical operating range: unbalanced designs, larger validation campaigns, cost-aware D studies, discrete uncertainty |
-| 1.0 | Stable general research package: defined API stability, broad validation envelope, mature Gaussian and discrete implementations |
+| 0.1.0 and 0.2.0 | Historical published releases; their tagged archives remain immutable |
+| 0.4.0 | Prepared and tagged but not published; superseded by 0.4.1 |
+| 0.4.1 | Retained qualified maintenance archive, including the recorded noLD reference-backend correction and evidence |
+| 0.4.1.9000 | Current development source: fixed-layout Gaussian batch projections, bounded cost-aware allocation search, and Gaussian pilot precision simulation; separate new-source qualification required |
+| Future sparse milestone (previously planned as 0.5.0) | Public backend selection only after dense-sparse qualification and the declared full-panel resource benchmark; no release is implied by this target label |
+| Further statistical development | Broader validation campaigns, unbalanced targets, discrete uncertainty and joint batch/cost planning |
+| 1.0 | Future API stability and a substantially broader validated operating range |
 
-The sparse backend, unbalanced designs, and complete engine modularization are
-deliberately **not** requirements for 0.1.x.
+## Current development: study planning
 
-The 0.5.0 sparse-backend work is tracked as separate reviewable changes:
+Three implemented additions separate pilot information, final annotations per
+item and items per request:
+
+- `gt_batch_reliability()` and `gt_batch_dstudy()` provide point projections for
+  accepted equal fixed Gaussian batches. The estimands distinguish absolute
+  item error, same- or different-batch contrasts and weighted aggregate error.
+  Grouping and batch size stay fixed; every instrumentation facet remains random.
+- `gt_plan()` searches a supplied finite grid under dated, user-supplied monetary
+  costs and constraints. It retains all candidates, cost ties, Pareto status and
+  baseline error contributions, with separate point or available-lower-bound
+  screening. Modelled `Call` fits remain outside this cost planner.
+- `gt_simulate()` and `gt_pilot_plan()` support Gaussian parameter scenarios and
+  bounded pilot-refitting experiments. Pilot item/facet counts can change while
+  one final target protocol stays fixed. Every failure remains in the ledger,
+  and reported Monte Carlo errors use explicit denominators.
+
+The implementation checks in [validation scope](VALIDATION_SCOPE.md) establish
+specific numerical contracts, not a scientifically adequate pilot size or
+calibrated interval coverage. The new [planning vignette](../vignettes/study-planning.Rmd)
+is a synthetic software illustration.
+
+Next planning work needs its own estimands and evidence: joint layout-aware cost
+search; randomized batch-composition and position experiments with a collection
+manifest; propagation of pilot-parameter uncertainty; discrete observed-decision
+targets; calibrated precision/coverage campaigns; and independent human-reference
+analyses. These are future work, not capabilities implied by the new interfaces.
+
+The sparse backend, unbalanced designs and complete engine modularization remain
+separate workstreams from the current planning additions.
+
+The future sparse-backend work is tracked as separate reviewable changes:
 [engine extraction](https://github.com/Veronica0206/Gtheory4LLM/issues/2),
 [sparse prototype](https://github.com/Veronica0206/Gtheory4LLM/issues/3),
 [dense-sparse equivalence](https://github.com/Veronica0206/Gtheory4LLM/issues/4),
@@ -36,8 +64,9 @@ The 0.5.0 sparse-backend work is tracked as separate reviewable changes:
 The first extraction moves the discrete response functions unchanged; sparse
 fitting begins only after that baseline is preserved.
 
-These issues belong to the [GitHub milestone](https://github.com/Veronica0206/Gtheory4LLM/milestone/1),
-which still carries the name 0.2.0 until it is renamed.
+The [GitHub milestone](https://github.com/Veronica0206/Gtheory4LLM/milestone/1) groups
+this work; issue state and milestone naming should be checked live before a
+release decision.
 Issue #2 includes both the mechanical move in PR #11 and the remaining dense
 backend interface; the move alone does not complete it. Issue #3 then builds
 the prototype with its own fixed-parameter parity and limited fitted/rejection
@@ -46,14 +75,14 @@ Diagnostics can follow the interface independently. The full-panel benchmark
 requires qualification and diagnostics, plus warm-start or AD qualification only
 if those features are used.
 
-Warm starts and automatic differentiation are **conditional** for 0.5.0, not
+Warm starts and automatic differentiation are **conditional** for the future sparse milestone, not
 required. They enter the release only if the benchmark shows the cold sparse
 implementation cannot meet its declared resource envelope, and the measurement
 decides which — conditional-mode iteration and outer finite differences are
 different bottlenecks with different answers. Adopting either unmeasured would
 be optimizing a cost nobody has observed.
 
-Complete Gaussian engine modularization is likewise not a 0.5.0 requirement.
+Complete Gaussian engine modularization is likewise not a requirement for that sparse milestone.
 The required scope is the sparse prototype, dense-sparse qualification, staged
 diagnostics, the full-panel benchmark, and the resolution of the numerical
 portability issue those results depend on.
@@ -69,7 +98,7 @@ with tolerances; acceptance decisions are compared exactly.
 Every refactor below is judged against it. Its purpose is to make one question
 answerable: *did we change the statistical result on purpose, or by accident?*
 
-## 0.5.0: the sparse backend
+## Future sparse backend: qualification gates
 
 ### Release gates
 
@@ -109,9 +138,9 @@ replacing the retry accounting required it to be independently testable. The
 rest follow the same rule: extract, show the characterization baseline is
 unchanged, then build.
 
-`load_functions.R` stays as a documented developer and source-mode compatibility
-path through 0.1.x. It is deprecated once ordinary package-development workflows
-cover the same use, and removed no earlier than 0.2.
+`load_functions.R` remains a documented developer and source-mode compatibility
+path in the current development source. Any future deprecation needs an explicit
+announcement and an equivalent supported workflow.
 
 ### A sparse discrete backend
 
@@ -139,7 +168,7 @@ Users must always be able to tell which backend produced a result.
 
 ### Warm starts and gradients
 
-Conditional work, adopted only on measured evidence; see the 0.5.0 scope above.
+Conditional work, adopted only on measured evidence; see the sparse scope above.
 
 The dense engine starts the conditional mode from zero at every likelihood
 evaluation. A sparse backend should cache the previous mode and start from it
@@ -196,7 +225,7 @@ The default rule is unchanged: `gt_reliability()` requires
 explicit and uncomfortable — an `allow_unaccepted = FALSE` argument with a
 prominent warning — and it is not added in 0.1.x.
 
-## 0.4.x and beyond
+## Further scientific development
 
 ### Scientific validation program
 
@@ -234,14 +263,14 @@ observations through the same algebra. Instead there are two named backends:
 and the fit always says which produced it. Reliability semantics for unbalanced
 designs need defining first; this is not a data-preparation feature.
 
-### D-study improvements
+### Remaining D-study research
 
-Automatic minimum-allocation search; budget-constrained designs; cost per
-evaluator, prompt and run; Pareto frontiers of reliability against cost;
-sensitivity to variance-component uncertainty; and constraints such as a minimum
-number of evaluators or a fixed facet count. LLM measurement studies carry real
-token, API and compute costs, so this is where the package could be most
-distinctive.
+Finite-grid monetary search, user constraints, Pareto status and baseline error
+explanations are implemented by `gt_plan()`. Work beyond that scope includes
+joint optimization of statistically modelled batch layouts and cost, uncertainty
+propagation across parameter scenarios, evaluator-identity selection under a
+matching model, and prediction for a future annotation panel. Lower-bound
+screening of inherited pointwise intervals does not complete those tasks.
 
 ### Discrete uncertainty
 
@@ -250,7 +279,7 @@ convincingly validated. Candidates: observed-information/Hessian uncertainty,
 profile likelihood, parametric bootstrap, and simulation-based propagation to
 reliability. For reliability coefficients specifically, a bootstrap is likely
 more defensible than applying a Hessian-based delta method to every discrete
-model. This is a 0.4+ feature.
+model. This remains future research; the Gaussian pilot helper does not implement it.
 
 ## Test infrastructure
 

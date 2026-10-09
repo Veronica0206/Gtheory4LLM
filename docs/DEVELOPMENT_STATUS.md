@@ -4,6 +4,15 @@ Current release and development state. Version history is in [NEWS.md](../NEWS.m
 planned work is in [the roadmap](ROADMAP.md), and implementation boundaries are
 in [limitations](LIMITATIONS.md).
 
+## Current source development
+
+The `0.4.1.9000` development branch adds fixed-layout Gaussian batch targets,
+cost-aware allocation planning and Gaussian pilot precision simulation. Its
+new source and tests are distinct from the retained, qualified 0.4.1 release.
+The source gate must validate this branch before integration; old release
+checks do not qualify these new APIs. CRAN submission remains a separate
+maintainer action.
+
 ## Release state
 
 The 0.4.1 publication uses the checked candidate without rebuilding the
@@ -16,7 +25,7 @@ as a platform outcome. 0.4.1 corrects that test and nothing else in the package.
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.4.1`. The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released, and `0.4.0` was tagged but not published |
+| Checkout version | `0.4.1.9000` (study-planning development). The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released, and `0.4.0` was tagged but not published |
 | Bundle in `artifacts/` | `0.4.1`, adopted unchanged from the checked candidate; the archive and manual identities are recorded below and in the manifest |
 | Bundle source commit | `9b59788ad9bfc6068faea9115b62ea920d58e745` |
 | Manifest publication state | Read `release_state` in [the manifest](../artifacts/manifest.json). `prepared` records staging; `published` records the publication commit/tag identity. Neither field alone proves a GitHub upload or CRAN submission |

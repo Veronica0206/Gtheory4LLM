@@ -34,6 +34,8 @@ into subdirectories without silently removing them from the release gate.
 | `package-preflight.R` | Preflight reporting, including the installed tutorial |
 | `package-outcome-profile.R` | Outcome category counts, group coverage and descriptive profile plots |
 | `package-batch.R` | Batch declarations, inferred and recorded calls, their audit against the data, the shared call effect a Gaussian fit of equal fixed batches estimates, checked against a dense restricted likelihood, and the status carried by every output |
+| `package-batch-reliability.R` | Dense observation-covariance contractions for fixed-layout item, contrast and aggregate targets; future counts, zero-call limit, retention and report privacy |
+| `package-simulation.R` | Installed Gaussian generation and pilot-refitting smoke with a fixed target protocol and restored caller RNG |
 | `package-analysis-report.R` | Portable reports, provenance, privacy and HTML export |
 | `package-reporting.R` | Flat coefficient tables, allocation joins, target screening and D-study plots |
 | `package-visualizations.R` | Reliability forest plots, unavailable uncertainty and graphical state preservation |
@@ -49,6 +51,9 @@ into subdirectories without silently removing them from the release gate.
 | `test_gaussian.R` | Independent dense Gaussian likelihood references |
 | `test_gaussian_review.R` | lme4 comparisons and transformations |
 | `test_gaussian_call_effect.R` | Call-effect fits against lme4 under REML and ML, with recorded calls, shuffled rows and relabelled slots |
+| `test_batch_reliability.R` | Source entrypoint for the installed independent batch-projection suite |
+| `test_planning.R` | Bounded cost search, Pareto and minimum-cost ties, constraints, source error changes, fixed-universe and unavailable-bound guards |
+| `test_simulation.R` | Independent nested multivariate generation moments, scenario guards, fixed-protocol refit precision, deterministic replay, failure ledgers and Monte Carlo denominators |
 | `test_gaussian_retry.R` | The retry controller, with the optimizer injected |
 | `test_discrete.R` | Probability and derivative identities, glmer/clmm comparisons |
 | `test_discrete_acceptance.R` | Boundary, restart and stationarity acceptance |
@@ -91,3 +96,9 @@ Rscript --vanilla tests/test_design.R
 Installed-package tests need the package installed; do not mistake a globally
 installed older version for the source under review. The full source gate is
 `python3 scripts/run_validation.py --scope source`.
+
+The planning suites describe computation under development source 0.4.1.9000.
+Their small simulation runs exercise software contracts; they do not recommend
+a pilot size or establish confidence-interval coverage. Run the full source gate
+against the current development archive separately from the unchanged qualified
+0.4.1 release artifact. A listing in this map is not evidence that a run passed.

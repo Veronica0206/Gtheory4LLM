@@ -39,10 +39,13 @@ scientifically sufficient. Those are separate questions with separate evidence.
 - **Batches.** A batch declared with `gt_batch()` is modelled only by a
   Gaussian fit of equal fixed batches: the same batches in every condition,
   each at the declared size, one row in a cell. That fit estimates one shared
-  call effect, the source `Call`. It has no reliability coefficients or
-  decision study yet, because the coefficient weights do not account for
-  which items share a call. `sequential`, `neighbor` and `by` are recorded and
-  not estimated. Every other declaration, including every binary, ordinal and
+  call effect, the source `Call`. The ordinary coefficient API refuses this
+  model. `gt_batch_reliability()` and `gt_batch_dstudy()` instead provide
+  point projections for item-score, named contrast and aggregate targets
+  conditional on its fixed layout. They do not provide estimation intervals,
+  fixed-facet projections or effects of regrouping or changing batch size.
+  `sequential`, `neighbor` and `by` are recorded and not estimated; the new batch
+  projection functions refuse these additional unmodelled patterns. Every other declaration, including every binary, ordinal and
   unordered outcome, is recorded and audited, not modelled: coefficients and
   their intervals then treat items annotated in one call as independent, and
   every output carries the status `declared_not_modelled`. A modelled call
@@ -118,8 +121,9 @@ scientifically sufficient. Those are separate questions with separate evidence.
 - Joint Gaussian **and** discrete outcomes in one fit.
 - REML for discrete outcomes.
 - Observed-score reliability for discrete outcomes.
-- Automatic minimum-allocation search, budget-constrained or cost-aware D-study
-  planning.
+- Joint optimization of modelled shared-call dependence, request grouping and
+  monetary costs; the cost planner currently accepts ordinary reliability models
+  without a modelled `Call` source.
 - Sensitivity analysis for variance-component uncertainty in extrapolated
   allocations: D studies hold the fitted source covariances fixed.
 
@@ -131,6 +135,39 @@ scientifically sufficient. Those are separate questions with separate evidence.
 - Extrapolating beyond the fitted counts holds the fitted source covariances
   fixed and assumes the same facet populations remain appropriate. The result is
   a point projection under those assumptions.
+
+## Study planning and data retention
+
+- `gt_plan()` searches only the supplied bounded candidate grid. Costs and
+  constraints are user supplied and dated; no provider prices, request execution,
+  evaluator-identity selection or empirically established human-review benefit
+  are built in. `study_items` scales costs, not per-item reliability or pilot
+  estimation precision. Fixed facets retain one declared universe across every
+  candidate. Request batching in a cost model does not add shared-call variation
+  to a fit that treats items as independent.
+- Lower-bound screening uses only available pointwise coefficient intervals.
+  They are not simultaneous bounds after searching many allocations or prediction
+  guarantees for a future annotation panel. Unavailable intervals cannot pass
+  the lower-bound screen. Boundary qualifications remain attached to results.
+- `gt_simulate()` and `gt_pilot_plan()` initially support balanced Gaussian
+  panels without a batch declaration, with one outcome vector per cell and all
+  instrumentation facets random. Pilot fitting requires at least two levels on
+  each axis. `target_counts` may specify a different final protocol, including a
+  facet count of one, held constant across pilot candidates.
+- Pilot precision summaries depend on a fitted or explicitly supplied parameter
+  scenario. They do not account automatically for parameter uncertainty, prove
+  interval coverage, provide bootstrap confidence intervals, or select a
+  scientifically adequate pilot size. Every attempted replicate stays in the
+  rate denominators; width summaries condition on interval availability.
+  Conditional boundary intervals are labelled and need separate calibration.
+- Supported shared-call fits retain item-to-batch labels as design metadata even
+  with `retain = list(data = FALSE)`. Batch projection objects also expose these
+  labels and target weights. Retention removes observations, not this layout;
+  portable `gt_report()` and HTML output exclude the labels. An old fit without
+  the recorded layout must be refitted for batch projections.
+
+These planning additions are development source 0.4.1.9000. They do not alter the
+qualified 0.4.1 archive or establish qualification of a new release.
 
 ## Infrastructure
 

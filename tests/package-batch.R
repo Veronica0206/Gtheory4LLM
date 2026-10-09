@@ -414,10 +414,10 @@ expect(identical(status$status, "modelled") && is.na(status$reason) && !length(s
          "Call" %in% summary(with_calls)$variances$source &&
          is.finite(summary(with_calls)$variances$std_error[summary(with_calls)$variances$source == "Call"]),
        "the fit says the batches are modelled and reports the call variance with its standard error")
-expect_error(gt_reliability(with_calls), "coefficients that account for which items share a call are not implemented yet",
-             "a fit with a call effect has no reliability coefficients yet")
-expect_error(gt_dstudy(with_calls, data.frame(rater = 2:3)), "are not implemented yet",
-             "a fit with a call effect has no decision study yet")
+expect_error(gt_reliability(with_calls), "Use gt_batch_reliability() or gt_batch_dstudy()",
+             "ordinary reliability directs call-effect fits to explicit fixed-layout targets")
+expect_error(gt_dstudy(with_calls, data.frame(rater = 2:3)), "Use gt_batch_reliability() or gt_batch_dstudy()",
+             "ordinary decision studies direct call-effect fits to the batch-aware API")
 expect(identical(gt_report(with_calls)$analysis$batch_status, "modelled") &&
          "Call" %in% gt_report(with_calls)$random_sources &&
          "Call" %in% gt_report(with_calls)$source_variances$source,

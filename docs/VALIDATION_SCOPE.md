@@ -1,13 +1,16 @@
 # Validation scope
 
-This document separates implemented checks from the scientific validation still needed. It is about *evidence*: what has been checked, how, and what that does not establish. The catalogue of what the software does not do is [limitations](LIMITATIONS.md), and is not repeated here. It describes the 0.4.0 source, including the Gaussian shared call effect for equal fixed batches. Historical pilot results retain their recorded source versions and do not validate every subsequent addition. This is not a new test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
+This document separates implemented checks from the scientific validation still needed. It is about *evidence*: what has been checked, how, and what that does not establish. The catalogue of what the software does not do is [limitations](LIMITATIONS.md), and is not repeated here. It describes development source 0.4.1.9000, including the new study-planning functions. The qualified 0.4.1 archive is unchanged. Historical pilot results retain their recorded source versions and do not validate every subsequent addition. This is not a new test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
 
 ## What the existing checks establish
 
 | Area | Implemented checks | What remains unestablished |
 |---|---|---|
 | Gaussian likelihood | [Full-covariance references](../tests/test_gaussian.R), [lme4 comparisons and transformations](../tests/test_gaussian_review.R), balanced ML/REML, row/outcome invariance, resource guards | Accuracy under an incorrect covariance model; general unbalanced designs |
-| Gaussian call effect | [Independent lme4 ML/REML comparisons](../tests/test_gaussian_call_effect.R), including zero call variance, recorded calls and item relabelling; [batch audit, source accounting and coefficient guards](../tests/package-batch.R) | Call-effect recovery and interval coverage across batch designs; effects of regrouping items; batch-aware reliability, D studies or choice of batch size |
+| Gaussian call effect | [Independent lme4 ML/REML comparisons](../tests/test_gaussian_call_effect.R), including zero call variance, recorded calls and item relabelling; [batch audit, source accounting and coefficient guards](../tests/package-batch.R) | Call-effect recovery and interval coverage across batch designs; effects of regrouping items or choosing a different batch size |
+| Fixed-layout batch projections | [Independent observation-covariance contractions](../tests/package-batch-reliability.R) for per-item, contrast and aggregate targets; shared-call cancellation; future counts; multivariate composites; zero-call limit; labels, retention and report privacy | Sampling uncertainty for these projections; fixed facets; generalization to new groupings or batch sizes |
+| Cost-aware planning | [Finite-grid reference comparisons](../tests/test_planning.R), retained candidates, cost ties, Pareto dominance, constraints, baseline error contributions and unavailable-bound handling | Accuracy of user-supplied costs; future-panel performance; modelled shared-call cost optimization; simultaneous post-search interval coverage |
+| Gaussian pilot simulation | [Independent nested multivariate moments](../tests/test_simulation.R), zero/singular sources, fixed target protocol, seed/replay behavior, all-attempt failure accounting and Monte Carlo denominators; [installed smoke](../tests/package-simulation.R) | Broad precision or coverage calibration; uncertainty in a fitted parameter scenario; a guaranteed pilot size; discrete or batched pilot simulation |
 | Gaussian uncertainty | [OpenMx SE comparison, classical mean-square SE formulas, covariance Jacobian, and independent coefficient derivatives](../tests/package-uncertainty.R) | Broad repeated-sampling coverage, especially near boundaries and with few facet levels |
 | Fixed facets | [Explicit random/mixed-model formulas and fixed-count guards](../tests/package-mixed-model.R) | Broad inferential coverage for combinations of fixed facets, nesting, multivariate outcomes, or extrapolation |
 | Discrete likelihood | [Probability/derivative identities and matched glmer/clmm checks](../tests/test_discrete.R); [one nonzero-variance adaptive-integration reference](../tests/test_discrete_acceptance.R) | General Laplace accuracy or parameter recovery; matching another Laplace fit is not a higher-accuracy reference |
@@ -69,7 +72,33 @@ Likelihood uncertainty reflects estimation under the fitted random-effects sampl
 - Run `gt_preflight()` before fitting. A blocked full-cell discrete term requires an explicit scientific model decision; `full_cell = FALSE` is not an automatic repair. A blocked dense model calls for a defensible smaller design or another implementation, not simply higher limits.
 - Inspect `gt_diagnostics()`. Rejected fits do not support coefficients. Accepted discrete fits with random variation still report unassessed first-order Laplace adequacy. Binary/ordinal coefficients are latent; scalar categorical and observed discrete reliability remain unsupported.
 - Gaussian fitting and analytic coefficients require the documented balanced panel. Do not fill missing judgments or relabel physical nesting merely to pass a guard. Extrapolated allocations hold source covariances fixed and need exchangeability assumptions.
-- A Gaussian fit with a modelled `Call` source does not provide reliability coefficients or D studies. Estimating its shared call variance does not establish how reliability changes when items are regrouped or a different batch size is used. Batch declarations that are not modelled carry that status; their coefficients treat items sharing a call as independent.
+- A Gaussian fit with a modelled `Call` source uses `gt_batch_reliability()` or `gt_batch_dstudy()` for explicit fixed-layout item, contrast and aggregate targets. Ordinary `gt_reliability()`, `gt_dstudy()` and `gt_plan()` refuse that model. The new projections do not establish what happens under regrouping or a different batch size. Unmodelled declarations retain their independent-item interpretation and explicit status.
+
+## Interpreting the planning checks
+
+The new source tests verify computation and reporting contracts. Their small
+simulation budgets are not recommendations for a real pilot. The Gaussian
+simulator is compared with an independently assembled observation covariance;
+the pilot planner then holds the eventual target protocol constant while varying
+the amount of pilot information. Refusals, fitting errors and unavailable
+intervals remain visible, and conditional width summaries state their denominator.
+This does not calibrate the inherited asymptotic intervals or integrate uncertainty
+in the original fitted components.
+
+Batch projection tests use an independent dense `A V A'` reference, while the
+implementation contracts source kernels without that dense observation matrix.
+This checks the declared fixed-layout estimand. It does not validate transfer of
+shared-call variance to a newly randomized grouping or another batch size.
+
+Cost-planning tests check the supplied search space and mathematical dominance
+rules. A minimum-cost label means minimum among the eligible supplied candidates
+under the entered cost model. It does not validate provider prices, a different
+set of evaluators, or a future collection outcome. Lower-bound screening retains
+pointwise and conditional-boundary qualifications.
+
+A successful focused check is not a completed full source gate, hosted CI run,
+release qualification or new statistical campaign. Use source-identified run
+reports to make those claims; this catalogue records which checks are implemented.
 
 ## Planned scientific validation matrix — not results
 

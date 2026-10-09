@@ -66,7 +66,11 @@ available. Equal measurement totals can represent different allocations;
 points are not connected into an assumed smooth relationship. Screening uses
 point estimates, retains all ties, and identifies only the best measurement
 count within the supplied candidates. It supplies neither a global optimum nor
-a guarantee about new panels. Costs per evaluator or API call are not modeled.
+a guarantee about new panels. This `gt_dstudy_target()` helper counts measurements;
+it does not model monetary costs. The separate `gt_plan()` function evaluates
+dated user-supplied costs, constraints and Pareto status over a bounded candidate
+grid. Its results are tables with explicit uncertainty status, not an extension
+of this measurement-count plot. See the [planning tutorial](../vignettes/study-planning.Rmd).
 
 ## Save figures and tables
 

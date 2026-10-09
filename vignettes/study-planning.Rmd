@@ -1,0 +1,174 @@
+---
+title: "Plan annotation effort, costs, and pilot precision"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+vignette: >
+  %\VignetteIndexEntry{Plan annotation effort, costs, and pilot precision}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE, purl=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 95)
+```
+
+This tutorial illustrates the study-planning additions in development source
+0.4.1.9000. It does not change the qualified 0.4.1 archive or establish a new
+release. All observations and monetary amounts below are synthetic. No requests
+are executed and no provider prices are retrieved.
+
+| Quantity | Purpose |
+|---|---|
+| Distinct pilot items | Information for estimating source variation and coefficients |
+| Annotations per item | The averaging protocol whose reliability is projected |
+| Items per request | Shared context and request overhead; not additional repeated measurements |
+
+## Fit a small Gaussian pilot
+
+The first example uses independent-item annotations with item, rater and
+item-by-rater sources. Runs supply replication of those sources through distinct
+coded cells. This working model defines the example's intended score universe.
+
+```{r pilot}
+library(Gtheory4LLM)
+set.seed(2718)
+panel <- expand.grid(item = 1:24, rater = 1:4, run = 1:3,
+                     KEEP.OUT.ATTRS = FALSE)
+item_rater <- as.integer(interaction(panel$item, panel$rater, drop = TRUE))
+panel$quality <- rnorm(24)[panel$item] + rnorm(4, sd = 0.5)[panel$rater] +
+  rnorm(96, sd = 0.4)[item_rater] + rnorm(nrow(panel), sd = 0.8)
+design <- gt_design("item", c("rater", "run"),
+                    random = ~ item + rater + item:rater)
+control <- gt_control(gaussian = list(extra_tries = 2L, retry_seed = 439L))
+fit <- gt_fit(panel, "quality", design, control = control)
+stopifnot(isTRUE(fit$numerically_accepted))
+gt_reliability(fit)$per_trait
+```
+
+Acceptance permits the supported projections. It does not establish a global
+optimum, adequate pilot precision, labeling accuracy or correct source selection
+for another study.
+
+## Compare costs within a declared allocation grid
+
+Here one annotation costs 0.01 illustrative dollars, with a setup cost of two
+dollars per rater. The cost callback could instead return separate request,
+token, human-review and expected-retry costs, provided all assumptions use the
+same currency and are recorded. Costs do not introduce a statistical benefit
+from review or change the population of raters represented by the fit.
+
+```{r monetary-plan}
+plan <- gt_plan(fit,
+  candidates = list(rater = c(2, 4, 6), run = c(1, 3, 5)),
+  cost = function(d) list(
+    costs = data.frame(annotation = 0.01 * d$total_annotations,
+                       setup = 2 * d$allocation_rater),
+    resources = data.frame(requests = d$total_annotations),
+    assumptions = "Illustrative prices; one item per request."),
+  currency = "USD", cost_date = "2026-10-09", study_items = 1000,
+  target = 0.80, coefficient = "Phi", baseline = 1L,
+  constraints = function(d) data.frame(budget = d$total_cost <= 180))
+as.data.frame(plan)[, c("design_id", "total_cost", "screening_value",
+                       "feasible", "minimum_cost", "pareto")]
+head(plan$source_contributions)
+```
+
+Minimum cost means minimum among the supplied candidates that meet both the
+constraints and the selected reliability screen. All candidates remain in the
+result, including cost ties and infeasible rows. Pareto candidates have no
+feasible cheaper-or-equal alternative with equal-or-better performance and at
+least one strict improvement. `screening = "lower"` separately uses an available
+lower confidence bound. It never replaces a missing bound with a point estimate;
+these are pointwise intervals, not post-search or future-panel guarantees.
+
+`study_items` changes total cost, not the per-item coefficient. Every candidate
+retains the same declared random/fixed universe. In particular, the planner
+cannot make a protocol appear more dependable by changing a random facet into
+a fixed one.
+
+## Make the batch target explicit
+
+The next synthetic panel adds a shared shift for each call of six items. Every
+condition uses the same grouping. A recorded call identifier allows the fit to
+retain that layout even when rows are reordered.
+
+```{r batch-fit}
+batched <- panel
+group <- (batched$item - 1L) %/% 6L + 1L
+call_index <- as.integer(interaction(group, batched$rater, batched$run, drop = TRUE))
+batched$call_id <- paste0("call_", call_index)
+batched$quality <- batched$quality + rnorm(max(call_index), sd = 0.7)[call_index]
+batch_design <- gt_design("item", c("rater", "run"),
+  random = ~ item + rater + item:rater, batch = gt_batch(6, id = "call_id"))
+batch_fit <- gt_fit(batched, "quality", batch_design, control = control)
+stopifnot(isTRUE(batch_fit$numerically_accepted))
+within <- c("1" = 1, "2" = -1)
+between <- c("1" = 1, "7" = -1)
+corpus <- setNames(rep(1 / 24, 24), as.character(1:24))
+batch_projection <- gt_batch_reliability(batch_fit,
+  contrasts = list(within = within, between = between), aggregate = list(corpus = corpus))
+subset(as.data.frame(batch_projection), target_kind != "absolute_item")
+subset(batch_projection$source_contributions,
+       source == "Call" & target_kind != "absolute_item")
+```
+
+A shared call shift cancels from the same-batch difference, remains in the
+between-batch difference, and contributes to each absolute item score. A corpus
+mean has another error target: call shifts average over calls, while common
+rater shifts remain. Weighted aggregates can depend on how weights are spread
+across groups. None of these effects can be represented by one universal batch
+penalty.
+
+```{r batch-design-study}
+batch_study <- gt_batch_dstudy(batch_fit,
+  expand.grid(rater = c(2, 4), run = c(1, 3)),
+  contrasts = list(within = within, between = between), aggregate = list(corpus = corpus))
+subset(as.data.frame(batch_study), target_kind == "contrast")
+```
+
+These are point projections conditional on the fitted grouping. Facet counts
+change under exchangeability assumptions; item count, grouping, batch size and
+fitted source covariances do not. All instrumentation facets remain random.
+Aggregate error is annotation error conditional on the selected items, not
+uncertainty from sampling a corpus. Contrast and aggregate ratios have explicit
+names; they are not universal item-ranking G coefficients. Sampling intervals
+are not provided.
+
+Ordinary `gt_reliability()`, `gt_dstudy()` and the monetary `gt_plan()` refuse
+modelled `Call` fits. The separate batch functions make their target explicit.
+A fit keeps the compact item-to-batch labels even with data retention disabled;
+projection objects contain those labels and target weights. Portable
+`gt_report(fit)` and HTML output exclude them.
+
+## Examine pilot precision for one final protocol
+
+More pilot information may improve coefficient estimation without changing the
+protocol eventually used for every item. The example varies pilot item and
+rater counts, but every refit estimates the same four-rater, three-run target.
+
+```{r pilot-precision}
+precision <- gt_pilot_plan(fit,
+  grid = data.frame(n_items = c(16, 24), rater = c(3, 4)),
+  target_counts = c(rater = 4, run = 3),
+  nsim = 2, seed = 2026, coefficient = "Phi", width_target = 0.25)
+precision$summary
+precision$replicates[, c("design_id", "replicate_id", "status", "accepted",
+                         "interval_available", "interval_conditional", "width")]
+```
+
+Two simulations per candidate only exercise the software. They cannot support
+a pilot-size recommendation. Set a predeclared simulation budget and inspect
+Monte Carlo uncertainty before using the results for planning. Every attempted
+replicate remains in the ledger. Precision success requires an available
+interval meeting the width target, so errors, refusals and unavailable intervals
+are non-successes. Mean widths condition on an available interval and show that
+denominator. Conditional boundary intervals retain their qualification.
+
+The simulator draws new items and new levels of every random facet from a fitted
+or explicitly supplied Gaussian parameter scenario. It does not calibrate
+coverage, integrate parameter uncertainty automatically, or provide bootstrap
+confidence intervals. The initial simulation scope excludes batch declarations
+and discrete outcomes. A model-based precision exercise does not establish
+study adequacy when its scenario or facet universe is inappropriate.

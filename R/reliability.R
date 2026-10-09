@@ -63,11 +63,11 @@ gt_score <- function(weights) {
   # A call effect is shared by the items of one call and by no others, so its
   # part in relative error depends on which items share calls. The weights
   # below know nothing of that and would count it as error common to every
-  # item. Until they do, a fit with a call effect has no coefficients.
+  # item. The separate batch-aware API requires explicit fixed-layout targets.
   if (identical(.gt_batch_status(fit$design)$status, "modelled"))
-    stop("This fit models a call effect, and coefficients that account for which items share a call ",
-         "are not implemented yet. Fit the design without its batch declaration for coefficients ",
-         "that treat items as independent.", call. = FALSE)
+    stop("This fit models a call effect. Use gt_batch_reliability() or gt_batch_dstudy() ",
+         "for explicit targets conditional on its fixed batching layout. The ordinary ",
+         "gt_reliability()/gt_dstudy() coefficients do not account for shared calls.", call. = FALSE)
   expected <- c(fit$design$terms, "Residual")
   if (!all(expected %in% names(components))) stop("Missing fitted covariance components.", call. = FALSE)
   if (any(vapply(components[expected], function(x)

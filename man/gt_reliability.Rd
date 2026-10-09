@@ -74,9 +74,10 @@ exact counts when comparing candidate minima.
 \code{"declared_not_modelled"} for a design made with
 \code{\link{gt_batch}} whose batches the fit did not model: the coefficients in
 that row treat items annotated in one call as independent. Printing and
-plotting say the same. A fit that does model a call effect is refused: its
-coefficients would need weights that account for which items share a call,
-and those are not implemented yet.
+plotting say the same. A fit that does model a call effect is refused by these
+ordinary methods. Use \code{\link{gt_batch_reliability}} and
+\code{\link{gt_batch_dstudy}} for explicit targets conditional on the fitted
+fixed Gaussian batching layout; no universal batch-adjusted G is assumed.
 
 Columns are atomic vectors suitable for CSV output.
 Additional attributes retain the fixed-facet declaration, a compact uncertainty

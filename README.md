@@ -14,7 +14,7 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Source version: **0.4.1**.
+Source version: **0.4.1.9000**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -41,12 +41,12 @@ install.packages("Gtheory4LLM")
 ```
 
 A specific release can also be installed from its versioned archive, for example
-the [v0.2.0 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.2.0):
+the [v0.4.1 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.4.1):
 
 ```r
 install.packages("OpenMx")
 install.packages(
-  "https://github.com/Veronica0206/Gtheory4LLM/releases/download/v0.2.0/Gtheory4LLM_0.2.0.tar.gz",
+  "https://github.com/Veronica0206/Gtheory4LLM/releases/download/v0.4.1/Gtheory4LLM_0.4.1.tar.gz",
   repos = NULL, type = "source"
 )
 library(Gtheory4LLM)
@@ -55,7 +55,8 @@ library(Gtheory4LLM)
 The repository keeps checksummed release files in [`artifacts/`](https://github.com/Veronica0206/Gtheory4LLM/tree/main/artifacts).
 A 0.4.0 bundle, `Gtheory4LLM_0.4.0.tar.gz`, was prepared and tagged but never published; 0.4.1 supersedes it.
 To install this source version, run `R CMD build .`, then
-`R CMD INSTALL Gtheory4LLM_0.4.1.tar.gz`, the versioned archive it creates. Building the vignette
+`R CMD INSTALL Gtheory4LLM_0.4.1.9000.tar.gz`, the development archive it creates.
+The retained qualified release is `Gtheory4LLM_0.4.1.tar.gz`; it is not rebuilt by this development work. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
 CRAN availability is separate from GitHub availability. The version CRAN
 carries is recorded in the repository [development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
@@ -167,6 +168,62 @@ Reports exclude observations and group-level identifiers, while retaining
 variable/source names and aggregate results. Review those names before sharing.
 Unavailable fitting provenance stays unavailable; the report-generation
 session is recorded separately. See the [reporting guide](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/ANALYSIS_REPORT.md).
+
+## Plan an annotation study
+
+The development source separates three quantities: **distinct pilot items**
+provide estimation information, **annotations per item** define the final score,
+and **items per request** define shared context and request overhead. Increasing
+one does not substitute for increasing another. These additions belong to source
+0.4.1.9000; the retained 0.4.1 archive is unchanged, and no 0.5.0 release is implied.
+
+The [study-planning vignette](vignettes/study-planning.Rmd) runs synthetic examples
+of all three additions. Its monetary amounts are illustrative user inputs.
+
+- `gt_batch_reliability()` and `gt_batch_dstudy()` project absolute item-score
+  error, explicitly named item differences and weighted aggregate error for
+  supported Gaussian shared-call fits. A call shift cancels from a same-batch
+  difference but remains in an absolute score. Targets condition on the recorded
+  fixed item grouping; all instrumentation facets remain random. These are point
+  projections, with no sampling intervals, regrouping or batch-size optimization.
+- `gt_plan()` evaluates a supplied bounded grid using dated, user-supplied costs
+  and constraints. It retains every candidate, minimum-cost ties, the cost versus
+  reliability Pareto set, and changes in error contributions from a declared
+  baseline. It screens a point estimate or, separately, an available lower
+  confidence bound. Missing bounds stay unavailable. It does not choose evaluator
+  identities or change a facet from random to fixed to improve a result.
+- `gt_simulate()` and `gt_pilot_plan()` draw and refit balanced Gaussian pilot
+  panels under a fitted or explicit parameter scenario. Pilot item/facet counts
+  may vary while `target_counts` holds the eventual annotation protocol constant.
+  The planner records every attempt, refusal and unavailable interval, with
+  Monte Carlo errors and conditional interval-width summaries. This evaluates
+  model-based precision, not calibrated coverage or guaranteed study adequacy.
+
+For example, after fitting an accepted model without a shared-call source:
+
+```r
+plan <- gt_plan(fit,
+  candidates = list(evaluator = 2:4, prompt = 1:3),
+  cost = function(d) data.frame(annotation = 0.01 * d$total_annotations,
+                                setup = 2 * d$allocation_evaluator),
+  currency = "USD", cost_date = "2026-10-09", study_items = 1000,
+  target = 0.80, coefficient = "Phi")
+subset(as.data.frame(plan), minimum_cost %in% TRUE)
+```
+
+The cost planner uses ordinary reliability and therefore refuses modelled `Call`
+fits. Use the separate batch projection functions for their declared targets.
+Supplying request costs for an independent-item model does not account for
+shared-call error, and adding human-review costs does not itself model a benefit
+from review. Pilot simulation currently supports Gaussian models without any
+batch declaration. See the function manuals for the remaining scope and limits.
+
+A new shared-call fit retains compact item-to-batch labels even with
+`retain = list(data = FALSE)`: the layout is necessary for named comparisons.
+Batch projection objects contain those labels and supplied target weights.
+`gt_report(fit)` and its HTML export exclude the labels; share a projection object
+only when its identifiers are appropriate to disclose. Older fits lacking the
+layout must be refitted rather than having their grouping guessed.
 
 ## Designs and outcome types
 
@@ -347,7 +404,8 @@ Each document has one job, so that nothing has to be kept true in two places.
 | Document | What it covers |
 |---|---|
 | This README | Install, a complete worked workflow, and what the package is for |
-| [vignettes/LLM-workflow.Rmd](vignettes/LLM-workflow.Rmd) | The end-to-end tutorial, installed and runnable |
+| [vignettes/LLM-workflow.Rmd](vignettes/LLM-workflow.Rmd) | The end-to-end reliability tutorial, installed and runnable |
+| [vignettes/study-planning.Rmd](vignettes/study-planning.Rmd) | Fixed-layout batch targets, monetary allocation search and Gaussian pilot precision |
 | [docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md) | Everything the package does not do, listed once |
 | [docs/VALIDATION_SCOPE.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/VALIDATION_SCOPE.md) | What has been checked, how, and what that does not establish |
 | [docs/REAL_DATA_WORKFLOW.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/REAL_DATA_WORKFLOW.md) | The bundled panels, their native outcomes, and their resource ceilings |

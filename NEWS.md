@@ -1,13 +1,33 @@
-# Gtheory4LLM 0.4.1
+# Gtheory4LLM 0.4.1.9000 (development)
 
 <!-- release-identity:start -->
-Source version: **0.4.1**.
+Source version: **0.4.1.9000**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
 These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
+
+This development line adds bounded study-planning tools. The qualified 0.4.1
+archive, release assets and numerical acceptance rules are unchanged.
+
+- `gt_batch_reliability()` and `gt_batch_dstudy()` project item-score, named
+  contrast and aggregate error under a fitted equal fixed Gaussian batching
+  layout. Targets are conditional on that layout; no new-batch-size effect or
+  universal batch-adjusted G is inferred.
+- `gt_plan()` enumerates supplied allocation grids and ranks them using dated,
+  user-supplied cost assumptions, constraints and point or available lower-bound
+  targets. It retains infeasible candidates, Pareto options and baseline
+  marginal benefits without changing the declared score universe.
+- `gt_simulate()` generates balanced Gaussian studies and `gt_pilot_plan()`
+  refits prospective pilot designs, retaining all attempts, numerical refusals,
+  interval availability and Monte Carlo uncertainty. These are model-based
+  design simulations, not calibrated bootstrap intervals or coverage guarantees.
+
+# Gtheory4LLM 0.4.1
+
+
 
 0.4.0 was tagged and its bundle staged, but it was not published or submitted:
 its release check on R built without long double refused a fit on one machine

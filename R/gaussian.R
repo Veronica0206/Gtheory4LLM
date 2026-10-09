@@ -178,6 +178,15 @@
   checked_design$observed_counts <- if (modelled)
     c(stats::setNames(call$batches * call$size, design$object), prepared$counts[design$facets]) else prepared$counts
   if (!is.null(call)) checked_design$batch_model <- call[setdiff(names(call), c("batch", "slot"))]
+  if (modelled) {
+    # Fixed-layout projections need the original item-to-batch membership even
+    # when observation retention is disabled. Keep one record per item, not the
+    # observation-level call identifiers or outcomes. Reports omit this map.
+    item_levels <- unique(data[[design$object]])
+    first_item_rows <- match(item_levels, data[[design$object]])
+    checked_design$batch_model$item_levels <- item_levels
+    checked_design$batch_model$item_batches <- unname(call$batch[first_item_rows])
+  }
   result$design <- checked_design
   result$family <- stats::setNames(lapply(outcomes, function(x)
     list(name = "gaussian", link = "identity")), outcomes)
