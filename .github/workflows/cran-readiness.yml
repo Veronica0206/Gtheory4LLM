@@ -99,9 +99,14 @@ jobs:
           sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev pandoc tidy
       - uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
-          packages: any::OpenMx, any::lme4, any::ordinal, any::knitr, any::rmarkdown
+          packages: any::OpenMx, any::lme4, any::ordinal, any::knitr, any::rmarkdown, any::V8
           dependencies: 'c("Depends", "Imports", "LinkingTo")'
           upgrade: 'TRUE'
+      - name: Verify HTML manual math-rendering runtime
+        shell: Rscript {0}
+        run: |
+          stopifnot(requireNamespace("V8", quietly = TRUE))
+          invisible(V8::v8()$eval("1 + 1"))
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: cran-candidate-built-${{ github.sha }}
