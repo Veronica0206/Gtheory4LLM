@@ -120,6 +120,11 @@ STUDY_CSV_FILES = {
 } | {
     f"validation-studies/discrete-030-usability-pilot/results/{kind}/{panel:02d}.csv"
     for kind in ("panels", "worker") for panel in range(1, 41)
+} | {"validation-studies/gaussian-pilot-sensitivity/config.csv"} | {
+    # Synthetic four-cell pilot illustration; exact evidence paths only.
+    f"validation-studies/gaussian-pilot-sensitivity/results/{name}" for name in (
+        "config.csv", "schedule.csv", "replicates.csv", "summary.csv",
+        "source-files.csv", "postrun-source-files.csv")
 }
 PUBLIC_FILES = {
     "DESCRIPTION", "NAMESPACE", "LICENSE", "LICENCE", "LICENSE.note",

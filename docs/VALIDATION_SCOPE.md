@@ -85,6 +85,15 @@ intervals remain visible, and conditional width summaries state their denominato
 This does not calibrate the inherited asymptotic intervals or integrate uncertainty
 in the original fitted components.
 
+The separate [pilot sensitivity illustration](../validation-studies/gaussian-pilot-sensitivity/README.md)
+predeclares 400 univariate Gaussian refits: interior versus near-boundary rater
+variance crossed with two versus four pilot raters, holding the final four-rater
+protocol fixed. It retains every attempt, numerical diagnostics, interval
+availability, conditional intervals, widths, all-attempt precision rates and
+Monte Carlo uncertainty. All 400 attempts in the recorded local run were accepted
+with intervals; 98 intervals were conditional on estimated boundary components.
+This is a bounded local scenario illustration, not a coverage or noLD study.
+
 Batch projection tests use an independent dense `A V A'` reference, while the
 implementation contracts source kernels without that dense observation matrix.
 This checks the declared fixed-layout estimand. It does not validate transfer of

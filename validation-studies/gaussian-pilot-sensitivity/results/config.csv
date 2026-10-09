@@ -1,0 +1,5 @@
+"scenario","pilot_raters","n_items","target_raters","var_item","var_rater","var_residual","mean","replicates","seed","width_target","level","cell_id"
+"interior",2,40,4,1,0.25,1,0,100,61091,0.2,0.95,1
+"interior",4,40,4,1,0.25,1,0,100,61092,0.2,0.95,2
+"near_boundary",2,40,4,1,1e-04,1,0,100,61093,0.2,0.95,3
+"near_boundary",4,40,4,1,1e-04,1,0,100,61094,0.2,0.95,4

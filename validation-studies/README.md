@@ -34,12 +34,20 @@ This small public-dense-engine study does not qualify the private sparse backend
 
 ## Reproduce without overwriting evidence
 
+The [Gaussian pilot sensitivity illustration](gaussian-pilot-sensitivity/README.md)
+retains 400 development-source refits over two variance scenarios and two pilot
+rater counts. All attempts estimated a fixed four-rater protocol; all were
+accepted with intervals, 98 of them conditional on estimated boundary components.
+Its scenario-dependent precision summaries and Monte Carlo uncertainty do not
+establish interval coverage or a generally sufficient pilot size.
+
 From the repository root, use new output directories:
 
 ```sh
 Rscript validation-studies/gaussian-coverage/run.R /tmp/gaussian-pilot-new
 Rscript validation-studies/discrete-laplace/run.R /tmp/laplace-pilot-new
 Rscript validation-studies/discrete-recovery/run.R /tmp/recovery-pilot-new
+Rscript validation-studies/gaussian-pilot-sensitivity/run.R /tmp/planning-pilot-new
 ```
 
 The individual protocols declare runtime budgets and incomplete-run behavior.

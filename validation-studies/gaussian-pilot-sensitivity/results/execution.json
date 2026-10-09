@@ -1,0 +1,39 @@
+{
+  "source_commit": "aaf2c672d5121d101b48bdf251203401474cbff9",
+  "source_snapshot": "SHA-256 in source-files.csv",
+  "execution_mode": "committed_package_sources",
+  "source_status": "source-status.txt",
+  "started_utc": "2026-10-09 14:58:21 UTC",
+  "complete": true,
+  "smoke": false,
+  "planned_refits": 400,
+  "attempted_refits": 400,
+  "platform": "aarch64-apple-darwin20",
+  "R": "4.5.3",
+  "package_version": "0.4.1.9000",
+  "dependencies": [
+    {
+      "package": "OpenMx",
+      "version": "2.22.11"
+    },
+    {
+      "package": "Matrix",
+      "version": "1.7.4"
+    },
+    {
+      "package": "digest",
+      "version": "0.6.39"
+    },
+    {
+      "package": "jsonlite",
+      "version": "2.0.0"
+    }
+  ],
+  "rng": ["Mersenne-Twister", "Inversion", "Rejection"],
+  "cell_boundary_budget_seconds": 600,
+  "coefficient": "Phi",
+  "scope": "Local Gaussian precision illustration; no coverage or noLD qualification",
+  "elapsed_seconds": 80.977999999999994,
+  "source_unchanged": true,
+  "finished_utc": "2026-10-09 14:59:42 UTC"
+}

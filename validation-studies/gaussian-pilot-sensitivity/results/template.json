@@ -1,0 +1,21 @@
+{
+  "seed": 199,
+  "n_items": 24,
+  "n_raters": 4,
+  "generating_variances": [4, 0.25, 1],
+  "numerically_accepted": true,
+  "converged": true,
+  "estimated_variances": [3.6903537314168022, 0.2104566480099308, 0.90578598825924961],
+  "estimator": "REML",
+  "covariance_types": ["diagonal", "diagonal", "diagonal"],
+  "control": {
+    "optimizer": "CSOLNP",
+    "threads": 1,
+    "max_iterations": 3000,
+    "tolerance": 9.9999999999999998e-13,
+    "extra_tries": 9,
+    "check_hessian": true,
+    "silent": true
+  },
+  "use": "Template model structure only; all study means and variances overridden explicitly"
+}
