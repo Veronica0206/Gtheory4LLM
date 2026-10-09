@@ -13,6 +13,22 @@ The source gate must validate this branch before integration; old release
 checks do not qualify these new APIs. CRAN submission remains a separate
 maintainer action.
 
+PR #69 at `64cff2ec056242b390e3ea5f09206092ffdfba4c` passed the
+[full hosted validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37887290629)
+and [candidate readiness checks](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37887290814)
+on 2026-10-09. The full gate completed 32 stages; the Python suite ran 186 tests
+with one platform-specific skip. Ordinary R-devel reported no errors or warnings
+and one incoming-feasibility NOTE concerning the development version and update
+timing. The noLD check reported no errors, warnings or notes, and its separate
+installed-test loop passed all 30 tests. HTML manual checking passed.
+
+That checkpoint checked development archive SHA-256
+`069358363a1e976b0ce8b7979ca69c50b1e800e65edee41b9391fbeb3a8bed8b`,
+527,967 bytes, from synthetic merge commit
+`93580afa9aacb3c5e90821cac8ccec25c14bdb89`, in both R-devel environments.
+It does not qualify subsequent source changes or a final 0.5.0 archive. The
+[roadmap](ROADMAP.md) defines the intended Study Planning release scope.
+
 ## Release state
 
 The 0.4.1 publication uses the checked candidate without rebuilding the

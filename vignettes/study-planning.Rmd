@@ -128,6 +128,11 @@ batch_study <- gt_batch_dstudy(batch_fit,
 subset(as.data.frame(batch_study), target_kind == "contrast")
 ```
 
+The data frame includes `allocation_rater`, `allocation_run`, batch size and
+uncertainty availability in ordinary columns. These survive CSV export alongside
+the target and coefficient labels. Save the projection object separately when
+the complete item grouping and target weights are needed.
+
 These are point projections conditional on the fitted grouping. Facet counts
 change under exchangeability assumptions; item count, grouping, batch size and
 fitted source covariances do not. All instrumentation facets remain random.
@@ -155,7 +160,8 @@ precision <- gt_pilot_plan(fit,
   nsim = 2, seed = 2026, coefficient = "Phi", width_target = 0.25)
 precision$summary
 precision$replicates[, c("design_id", "replicate_id", "status", "accepted",
-                         "interval_available", "interval_conditional", "width")]
+                         "interval_available", "interval_conditional", "width",
+                         "acceptance_failures", "selected_attempt")]
 ```
 
 Two simulations per candidate only exercise the software. They cannot support
@@ -165,6 +171,9 @@ replicate remains in the ledger. Precision success requires an available
 interval meeting the width target, so errors, refusals and unavailable intervals
 are non-successes. Mean widths condition on an available interval and show that
 denominator. Conditional boundary intervals retain their qualification.
+Numerically refused rows retain the fit's acceptance-failure codes and selected
+attempt identifier; errors before a fit is returned have unavailable diagnostics.
+The data and retry seeds allow an individual attempt to be replayed.
 
 The simulator draws new items and new levels of every random facet from a fitted
 or explicitly supplied Gaussian parameter scenario. It does not calibrate

@@ -45,8 +45,18 @@ to the corresponding row of \code{grid}. The grid includes all fitted
 instrumentation facets with unspecified counts filled in. The item layout,
 target weights, original counts, batch size, point-only uncertainty record
 and interpretation are retained. \code{as.data.frame()} returns the summary
-and keeps grid, interpretation and uncertainty as attributes. CSV does not
-preserve those attributes.
+with \code{allocation_<facet>} columns joined by \code{design_id}, including
+unchanged fitted counts for unspecified facets. The prefix prevents facet
+names from colliding with summary or context columns. Additional columns
+retain \code{pilot_items}, \code{batch_size}, \code{annotations_per_item},
+\code{projected_calls}, \code{extrapolated}, \code{scale},
+\code{uncertainty_available}, \code{uncertainty_reason}, and
+\code{interpretation} through a CSV roundtrip. \code{extrapolated} identifies
+allocations with any instrumentation count larger than its fitted count.
+Grid, interpretation and uncertainty attributes are retained for compatibility.
+CSV does not preserve those attributes or the full item layout and target
+weights; retain the original list, for example with \code{saveRDS()}, when
+those details are needed to reproduce a weighted target.
 }
 \seealso{\code{\link{gt_batch_reliability}}, \code{\link{gt_dstudy}}}
 \examples{

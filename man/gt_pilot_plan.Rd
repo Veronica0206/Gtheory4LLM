@@ -96,6 +96,16 @@ summaries. \code{conditional_intervals} reports how many available intervals
 hold boundary components fixed. The complete replicate table is authoritative
 for further stratified summaries.
 
+Each replicate also retains two character columns from the refit's existing
+diagnostics: \code{acceptance_failures}, with multiple failure codes separated
+by \code{|}, and \code{selected_attempt}, the returned optimizer-attempt
+identifier. These columns survive ordinary CSV export; whole fit objects are
+not retained. A missing code or identifier is \code{NA}, including when no
+fit was returned. Accepted fits usually have no failure codes, while their
+selected attempt is retained when recorded. Reliability errors and unavailable
+intervals retain diagnostics from the completed refit. Missing diagnostics do
+not imply acceptance; the \code{accepted} column remains authoritative.
+
 To replay a replicate, generate data with its recorded \code{seed}, copy
 \code{scenario$control}, replace the copied Gaussian \code{retry_seed} with
 the recorded refit seed, and refit with the recorded estimator and covariance

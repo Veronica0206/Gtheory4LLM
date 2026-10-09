@@ -151,9 +151,16 @@ gt_simulate <- function(fit, n_items, counts = NULL, seed, components = NULL,
 .gt_pilot_record <- function(design_id, replicate_id, seed) {
   data.frame(design_id = design_id, replicate_id = replicate_id, seed = seed, retry_seed = NA_integer_,
     status = "not_started", phase = "simulation", accepted = FALSE,
+    acceptance_failures = NA_character_, selected_attempt = NA_character_,
     interval_available = FALSE, interval_conditional = NA, boundary_fit = NA,
     estimate = NA_real_, lower = NA_real_, upper = NA_real_, width = NA_real_,
     meets_width = NA, reason = NA_character_, warnings = NA_character_, stringsAsFactors = FALSE)
+}
+
+.gt_pilot_diagnostic_text <- function(value) {
+  value <- unique(as.character(value))
+  value <- value[!is.na(value) & nzchar(value)]
+  if (length(value)) paste(value, collapse = "|") else NA_character_
 }
 
 .gt_pilot_summary <- function(records, allocations, width_target) {
@@ -269,10 +276,16 @@ gt_pilot_plan <- function(fit, grid, nsim, seed, coefficient = "Erho2", outcome 
           gt_fit(data, fit$outcomes, fit$design, family = gt_family("gaussian"),
             estimator = fit$estimator, covariance = covariance, residual = residual, control = refit_control))
         record$accepted <- isTRUE(refit$numerically_accepted) && isTRUE(refit$converged)
+        status <- .gt_fit_status(refit)
+        record$acceptance_failures <- .gt_pilot_diagnostic_text(status$acceptance_failures)
+        record$selected_attempt <- .gt_pilot_diagnostic_text(status$selected_attempt)
         record$boundary_fit <- length(refit$uncertainty$boundary_components) > 0L
         if (!record$accepted) {
           record$status <- "numerically_refused"
-          record$reason <- "Refit failed numerical acceptance; no coefficient was extracted."
+          detail <- if (is.na(record$acceptance_failures)) "" else
+            paste0(" (", record$acceptance_failures, ")")
+          record$reason <- paste0("Refit failed numerical acceptance", detail,
+            "; no coefficient was extracted.")
         } else {
           record$phase <- "reliability"
           reliability <- gt_reliability(refit, score = score, design = target_counts, level = level)

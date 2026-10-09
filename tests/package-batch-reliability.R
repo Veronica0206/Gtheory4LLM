@@ -163,6 +163,55 @@ expect(is.data.frame(as.data.frame(projection)) && is.data.frame(as.data.frame(s
 expect(!projection$uncertainty$available && !study$uncertainty$available,
        "new projections never claim estimated sampling intervals")
 
+# Flat exports retain allocations and their interpretation without attributes.
+# Repeated allocations, outcomes, and targets must not multiply rows or turn
+# design_id into a position-based recycling join.
+export_study <- gt_batch_dstudy(fit, grid, contrasts = list(within = within, between = between),
+  aggregate = list(concentrated = concentrated, spread = spread), score = composite)
+export_study$summary <- export_study$summary[rev(seq_len(nrow(export_study$summary))), ]
+export <- as.data.frame(export_study)
+expect(identical(export[, names(export_study$summary)], export_study$summary),
+       "flat export preserves every summary row in its supplied order")
+expect(identical(attr(export, "grid"), export_study$grid) &&
+       identical(attr(export, "interpretation"), export_study$interpretation) &&
+       identical(attr(export, "uncertainty"), export_study$uncertainty),
+       "flat export retains original attributes for compatibility")
+csv <- tempfile(fileext = ".csv")
+utils::write.csv(export, csv, row.names = FALSE)
+roundtrip <- utils::read.csv(csv, stringsAsFactors = FALSE)
+unlink(csv)
+expect(nrow(roundtrip) == 3 * (length(ids) + 4) * 3 &&
+       identical(roundtrip$design_id, export_study$summary$design_id) &&
+       identical(roundtrip$target, export_study$summary$target) &&
+       identical(roundtrip$outcome, export_study$summary$outcome),
+       "CSV retains multiple targets, outcomes, and repeated candidate rows in order")
+near(roundtrip$allocation_rater, c(2, 4, 2)[roundtrip$design_id], "CSV joins rater allocation by design_id")
+near(roundtrip$allocation_run, c(3, 5, 3)[roundtrip$design_id], "CSV joins run allocation by design_id")
+near(roundtrip$annotations_per_item, c(6, 20, 6)[roundtrip$design_id], "CSV annotation counts")
+near(roundtrip$projected_calls, c(24, 80, 24)[roundtrip$design_id], "CSV call counts for four fixed batches")
+expect(all(roundtrip$batch_size == 6 & roundtrip$pilot_items == 24) &&
+       identical(roundtrip$extrapolated, roundtrip$design_id == 2L) &&
+       all(roundtrip$scale == "observed"), "CSV retains fixed layout and extrapolation context")
+expect(all(!roundtrip$uncertainty_available) &&
+       all(roundtrip$uncertainty_reason == export_study$uncertainty$reason) &&
+       all(roundtrip$interpretation == export_study$interpretation),
+       "CSV retains point-only uncertainty and interpretation")
+partial <- as.data.frame(gt_batch_dstudy(fit, data.frame(rater = c(1, 3))))
+expect(all(partial$allocation_run == 3), "flat export includes unspecified facets at fitted counts")
+
+# A valid exporter must keep arbitrary facet names separate from its own fields.
+# This table fixture exercises naming without a numerically redundant refit.
+collision <- export_study
+names(collision$grid) <- names(collision$observed_counts) <- c("design_id", "batch_size")
+collision_export <- as.data.frame(collision, row.names = paste0("row", seq_len(nrow(collision$summary))))
+expect(!anyDuplicated(names(collision_export)) &&
+       identical(collision_export$design_id, collision$summary$design_id) &&
+       all(collision_export$batch_size == 6) &&
+       identical(rownames(collision_export), paste0("row", seq_len(nrow(collision$summary)))),
+       "prefixed allocation fields cannot overwrite identifiers or layout context")
+near(collision_export$allocation_design_id, roundtrip$allocation_rater, "identifier-named facet stays distinct")
+near(collision_export$allocation_batch_size, roundtrip$allocation_run, "batch-size-named facet stays distinct")
+
 bad <- fit
 bad$numerically_accepted <- FALSE
 expect_error(gt_batch_reliability(bad), "numerically accepted")

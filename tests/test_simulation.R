@@ -135,6 +135,8 @@ plan <- gt_pilot_plan(fit, data.frame(n_items = c(16, 24), rater = c(3, 4)),
 stopifnot(nrow(plan$replicates) == 4L, nrow(plan$summary) == 2L,
   sum(plan$summary$attempted) == 4L, identical(previous, .Random.seed),
   identical(unname(plan$scenario$target_counts), 2), all(plan$replicates$accepted),
+  all(is.na(plan$replicates$acceptance_failures)),
+  all(!is.na(plan$replicates$selected_attempt)),
   all(plan$replicates$interval_available), all(is.finite(plan$replicates$width)))
 # Replay exactly one recorded seed and independently project its coefficient.
 replay_control <- plan$scenario$control
@@ -146,11 +148,13 @@ replayed <- gt_fit(gt_simulate(fit, 16, c(rater = 3), seed = plan$replicates$see
 reference <- gt_reliability(replayed, design = c(rater = 2))
 near(plan$replicates$estimate[1], reference$per_trait$Erho2, 1e-8)
 near(plan$replicates$width[1], reference$per_trait$Erho2_upper - reference$per_trait$Erho2_lower, 1e-8)
+stopifnot(identical(plan$replicates$selected_attempt[1], gt_diagnostics(replayed)$selected_attempt))
 
 zero <- lapply(fit$covariance_components, function(value) value * 0)
 failed <- gt_pilot_plan(fit, data.frame(n_items = 8), nsim = 2, seed = 3,
   components = zero, width_target = .4)
 stopifnot(nrow(failed$replicates) == 2L, all(failed$replicates$status == "fit_error"),
+  all(is.na(failed$replicates$acceptance_failures)), all(is.na(failed$replicates$selected_attempt)),
   failed$summary$attempted == 2L, failed$summary$preparation_or_fit_errors == 2L,
   failed$summary$precision_success_rate == 0, is.na(failed$summary$mean_width_given_interval))
 expect_error(gt_pilot_plan(fit, data.frame(n_items = 8), nsim = 10001, seed = 3), "10000")
@@ -165,21 +169,54 @@ attempt <- 0L
 test_environment$gt_fit <- function(...) {
   attempt <<- attempt + 1L
   warning(sprintf("injected random draw %.17g", runif(1)))
+  if (attempt == 3L) stop("deterministic fit error fixture")
   result <- fit
   if (attempt == 1L) {
     # A variable number of retry draws must not change later replicate streams.
     invisible(runif(1000))
     result$converged <- result$numerically_accepted <- FALSE
+    result$optimizer_completed <- TRUE
+    result$diagnostics$covariance_stationarity$stationary_within_tolerance <- FALSE
+    result$diagnostics$independent_likelihood_matches <- FALSE
+    result$retry_attempts <- data.frame(attempt = 7L, status = 0L, returned_fit = TRUE,
+      error = NA_character_, external_rejection_reason = "controlled diagnostic fixture")
     warning("deterministic refusal fixture")
-  } else result$uncertainty <- list(available = FALSE, reason = "deterministic unavailable fixture")
+  } else if (attempt == 2L) {
+    result$uncertainty <- list(available = FALSE, reason = "deterministic unavailable fixture")
+  } else if (attempt == 4L) {
+    result$test_reliability_error <- TRUE
+  } else if (attempt == 5L) {
+    result$diagnostics <- NULL
+    result$retry_attempts <- NULL
+  }
   result
 }
-injected <- test_environment$gt_pilot_plan(fit, data.frame(n_items = 8), nsim = 2, seed = 3)
-stopifnot(identical(injected$replicates$status, c("numerically_refused", "interval_unavailable")),
+test_environment$gt_reliability <- function(fit, ...) {
+  if (isTRUE(fit$test_reliability_error)) stop("deterministic reliability error fixture")
+  gt_reliability(fit, ...)
+}
+injected <- test_environment$gt_pilot_plan(fit, data.frame(n_items = 8), nsim = 5, seed = 3)
+failure_codes <- "covariance_stationarity_failed|independent_likelihood_mismatch"
+stopifnot(identical(injected$replicates$status,
+    c("numerically_refused", "interval_unavailable", "fit_error", "reliability_error", "interval_available")),
   injected$summary$refused == 1L, injected$summary$interval_unavailable == 1L,
+  injected$summary$attempted == 5L, injected$summary$accepted == 3L,
+  injected$summary$preparation_or_fit_errors == 1L, injected$summary$reliability_errors == 1L,
+  identical(injected$replicates$acceptance_failures[1], failure_codes),
+  identical(injected$replicates$selected_attempt[1], "7"),
+  all(is.na(injected$replicates$acceptance_failures[-1])),
+  all(is.na(injected$replicates$selected_attempt[c(3, 5)])),
+  all(injected$replicates$selected_attempt[c(2, 4)] == gt_diagnostics(fit)$selected_attempt),
+  grepl(failure_codes, injected$replicates$reason[1], fixed = TRUE),
   grepl("deterministic refusal", injected$replicates$warnings[1]),
   identical(previous, .Random.seed))
-for (i in 1:2) {
+csv <- tempfile(fileext = ".csv")
+write.csv(injected$replicates, csv, row.names = FALSE)
+exported <- read.csv(csv, colClasses = c(acceptance_failures = "character", selected_attempt = "character"))
+unlink(csv)
+stopifnot(identical(exported$acceptance_failures, injected$replicates$acceptance_failures),
+  identical(exported$selected_attempt, injected$replicates$selected_attempt))
+for (i in 1:5) {
   expected_warning <- .gt_sim_rng(injected$replicates$retry_seed[i],
     sprintf("injected random draw %.17g", runif(1)))
   stopifnot(grepl(expected_warning, injected$replicates$warnings[i], fixed = TRUE))
@@ -191,4 +228,5 @@ stopifnot(all(explicit$replicates$retry_seed == 777L), identical(previous, .Rand
 expected_warning <- .gt_sim_rng(777, sprintf("injected random draw %.17g", runif(1)))
 stopifnot(all(grepl(expected_warning, explicit$replicates$warnings, fixed = TRUE)))
 cat("PASS: real fit/simulate/refit precision, fixed target protocol, replay, and retained failures.\n")
+cat("PASS: acceptance codes and selected attempts survive CSV export without leaking into later errors.\n")
 cat("All simulation and pilot planning tests passed.\n")

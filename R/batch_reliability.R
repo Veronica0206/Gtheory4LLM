@@ -248,6 +248,24 @@ print.gt_batch_dstudy <- function(x, ..., digits = 4L, max_rows = 12L) {
 
 as.data.frame.gt_batch_dstudy <- function(x, row.names = NULL, optional = FALSE, ...) {
   result <- x$summary
+  allocation_rows <- match(result$design_id, seq_len(nrow(x$grid)))
+  if (anyNA(allocation_rows))
+    stop("Summary design_id values must identify rows of the allocation grid.", call. = FALSE)
+  allocations <- x$grid[allocation_rows, , drop = FALSE]
+  names(allocations) <- paste0("allocation_", names(allocations))
+  annotations <- apply(x$grid, 1L, prod)
+  extrapolated <- vapply(seq_len(nrow(x$grid)), function(i)
+    any(unlist(x$grid[i, , drop = FALSE], use.names = TRUE) > x$observed_counts[names(x$grid)]), logical(1))
+  result <- cbind(result, allocations)
+  result$pilot_items <- x$pilot_items
+  result$batch_size <- x$batch_size
+  result$annotations_per_item <- annotations[allocation_rows]
+  result$projected_calls <- annotations[allocation_rows] * (x$pilot_items / x$batch_size)
+  result$extrapolated <- extrapolated[allocation_rows]
+  result$scale <- x$scale
+  result$uncertainty_available <- x$uncertainty$available
+  result$uncertainty_reason <- x$uncertainty$reason
+  result$interpretation <- x$interpretation
   if (!is.null(row.names)) rownames(result) <- row.names
   attr(result, "grid") <- x$grid
   attr(result, "interpretation") <- x$interpretation

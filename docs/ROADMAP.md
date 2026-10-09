@@ -23,6 +23,11 @@ rules; they do not repair or replace the optimizer or expand sparse qualificatio
 
 ## Current development: study planning
 
+The intended next feature release is **0.5.0 Study Planning**, covering the
+three additions below. The source remains development `0.4.1.9000` until a
+separate final-version candidate is prepared and qualified. This scope does not
+complete the former sparse milestone or joint batch/cost planning.
+
 Three implemented additions separate pilot information, final annotations per
 item and items per request:
 

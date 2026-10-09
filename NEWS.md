@@ -24,6 +24,10 @@ archive, release assets and numerical acceptance rules are unchanged.
   refits prospective pilot designs, retaining all attempts, numerical refusals,
   interval availability and Monte Carlo uncertainty. These are model-based
   design simulations, not calibrated bootstrap intervals or coverage guarantees.
+- Batch D-study data frames retain allocation counts and essential interpretation
+  fields in ordinary columns, so CSV exports remain interpretable without R
+  attributes. Pilot replicate ledgers retain numerical acceptance-failure codes
+  and the selected refit attempt without retaining whole fit objects.
 
 # Gtheory4LLM 0.4.1
 

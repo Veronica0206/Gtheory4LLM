@@ -11,4 +11,12 @@ stopifnot(nrow(simulation) == 48L, identical(previous, .Random.seed))
 plan <- gt_pilot_plan(fit, data.frame(n_items = 16), nsim = 1, seed = 3,
   target_counts = c(rater = 2), width_target = .5)
 stopifnot(nrow(plan$replicates) == 1L, plan$summary$attempted == 1L,
+  is.character(plan$replicates$acceptance_failures), is.character(plan$replicates$selected_attempt),
+  is.na(plan$replicates$acceptance_failures), !is.na(plan$replicates$selected_attempt),
   plan$scenario$target_counts[["rater"]] == 2L, identical(previous, .Random.seed))
+replay_control <- plan$scenario$control
+replay_control$gaussian$retry_seed <- plan$replicates$retry_seed
+replayed <- gt_fit(gt_simulate(fit, 16, seed = plan$replicates$seed), "score", fit$design,
+  estimator = fit$estimator, covariance = fit$covariance_types[fit$design$terms],
+  residual = fit$covariance_types[["Residual"]], control = replay_control)
+stopifnot(identical(plan$replicates$selected_attempt, gt_diagnostics(replayed)$selected_attempt))
