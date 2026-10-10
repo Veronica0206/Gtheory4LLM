@@ -1,6 +1,22 @@
 # Fixed-layout Gaussian score projections. No observation covariance is formed.
 # Public documentation and exports are maintained manually in man/ and NAMESPACE.
 
+.gt_batch_item_keys <- function(items) {
+  # A name must identify the original value, not its default printed form:
+  # as.character() can merge distinct doubles. Seventeen significant digits
+  # distinguish binary64 values independently of options(digits, scipen).
+  # These are opaque keys; projections never parse them back to numbers.
+  # Keep existing character/factor (and class-specific) labels unchanged.
+  if ((is.integer(items) || is.double(items)) && !is.object(items)) {
+    items[items == 0] <- 0 # +0 and -0 identify the same item in R.
+    keys <- sprintf("%.17g", items)
+    decimal <- Sys.localeconv()[["decimal_point"]]
+    if (nzchar(decimal) && decimal != ".") keys <- sub(decimal, ".", keys, fixed = TRUE)
+    return(keys)
+  }
+  as.character(items)
+}
+
 .gt_batch_projection_context <- function(fit, counts) {
   if (!inherits(fit, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
   if (!isTRUE(fit$numerically_accepted) || !isTRUE(fit$converged))
@@ -19,19 +35,30 @@
       any(panel$cell_replication != 1L))
     stop("Batch projections require the complete balanced panel with one observation per cell.", call. = FALSE)
   model <- fit$design$batch_model
-  items <- as.character(model$item_levels)
+  item_levels <- model$item_levels
   batch <- model$item_batches
-  if (!length(items) || is.null(batch))
+  if (!length(item_levels) || is.null(batch))
     stop("This fit has no recorded item-to-batch layout. Refit with the current version; the layout cannot be guessed.",
          call. = FALSE)
+  if (!is.atomic(item_levels) || !is.null(dim(item_levels)) || anyNA(item_levels) ||
+      anyDuplicated(item_levels) || (is.numeric(item_levels) && any(!is.finite(item_levels))))
+    stop("The recorded item-to-batch layout has missing, ambiguous, or inconsistent item identifiers.", call. = FALSE)
+  items <- .gt_batch_item_keys(item_levels)
   if (length(items) != panel$counts[[fit$design$object]] || anyNA(items) ||
       any(!nzchar(items)) || anyDuplicated(items) || length(batch) != length(items) || anyNA(batch))
     stop("The recorded item-to-batch layout has missing, ambiguous, or inconsistent item identifiers.", call. = FALSE)
   batch <- match(batch, unique(batch))
   if (max(batch) != model$batches || any(tabulate(batch) != model$size))
     stop("The recorded layout does not match the fitted equal batch sizes.", call. = FALSE)
-  if (is.data.frame(fit$data) && !setequal(as.character(fit$data[[fit$design$object]]), items))
-    stop("The retained data and recorded item layout disagree.", call. = FALSE)
+  if (is.data.frame(fit$data)) {
+    retained_items <- unique(fit$data[[fit$design$object]])
+    # setequal() alone can coerce numeric and character values through lossy
+    # default formatting. Require agreement of their unambiguous keys as well.
+    if (length(retained_items) != length(item_levels) ||
+        !setequal(retained_items, item_levels) ||
+        !setequal(.gt_batch_item_keys(retained_items), items))
+      stop("The retained data and recorded item layout disagree.", call. = FALSE)
+  }
   observed <- panel$counts[fit$design$facets]
   planned <- observed
   if (!is.null(counts)) {

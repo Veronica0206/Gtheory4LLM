@@ -1,6 +1,9 @@
 ## Gtheory4LLM 0.5.0 submission preparation
 
 The 0.5.0 source adds the bounded study-planning workflows documented in NEWS.
+It also corrects a false refusal in batch projections for distinct numeric
+item identifiers that share a default printed representation; fitted covariance
+estimation and projection arithmetic are unchanged.
 The final archive identity and completed ordinary R-devel/noLD results must
 replace this preparation notice before submission. No 0.5.0 submission is
 claimed. Earlier 0.4.1 evidence below is retained as historical context only;

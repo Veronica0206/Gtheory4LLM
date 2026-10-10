@@ -143,6 +143,126 @@ for (target in c("contrast:within", "contrast:between"))
          projection$summary$outcome == "score"],
        "recorded-call shuffled refit with no retained observations", tolerance = 1e-5)
 expect(is.null(lean$data) && is.null(lean$model), "projection works without retained outcomes or backend model")
+
+# Distinct doubles can have identical default character representations. Fit
+# them through the public API, then address targets using the returned keys.
+numeric_ids <- 1e15 + seq_along(ids) - 1
+expect(anyDuplicated(as.character(numeric_ids)) > 0L && !anyDuplicated(numeric_ids),
+       "numeric-ID regression has distinct values with colliding display strings")
+numeric_data <- data
+numeric_data$item <- numeric_ids[match(data$item, ids)]
+numeric_fit <- gt_fit(numeric_data, c("score", "second"), design,
+  covariance = c(item = "unstructured", Call = "unstructured"), residual = "diagonal", control = control)
+expect(isTRUE(numeric_fit$numerically_accepted), "large-numeric-ID reference fit is accepted")
+numeric_projection <- gt_batch_reliability(numeric_fit)
+numeric_keys <- numeric_projection$layout$item
+expect(length(unique(numeric_keys)) == length(ids) && identical(as.numeric(numeric_keys), numeric_ids),
+       "numeric item keys preserve every original double exactly")
+numeric_within <- stats::setNames(c(1, -1), numeric_keys[c(1, 2)])
+numeric_between <- stats::setNames(c(1, -1), numeric_keys[c(1, 7)])
+numeric_spread <- stats::setNames(rep(1 / 6, 6), numeric_keys[c(1, 2, 7, 8, 13, 19)])
+numeric_targets <- list(within = numeric_within, between = numeric_between)
+numeric_projection <- gt_batch_reliability(numeric_fit,
+  contrasts = numeric_targets, aggregate = list(spread = numeric_spread), score = composite)
+for (target in c("contrast:within", "contrast:between", "aggregate:spread"))
+  near(numeric_projection$summary$coefficient[numeric_projection$summary$target == target],
+       projection$summary$coefficient[projection$summary$target == target],
+       "numeric target weights preserve the character-ID projection", tolerance = 1e-5)
+numeric_study <- gt_batch_dstudy(numeric_fit, data.frame(rater = c(2, 4), run = c(3, 5)),
+  contrasts = numeric_targets, aggregate = list(spread = numeric_spread), score = composite)
+character_study <- gt_batch_dstudy(fit, data.frame(rater = c(2, 4), run = c(3, 5)),
+  contrasts = list(within = within, between = between), aggregate = list(spread = spread), score = composite)
+near(numeric_study$summary$error_variance, character_study$summary$error_variance,
+     "numeric-ID D studies agree with the equivalent character-ID fit", tolerance = 1e-5)
+numeric_shuffled <- numeric_fit
+numeric_shuffled$data <- numeric_fit$data[sample(nrow(numeric_data)), ]
+near(gt_batch_reliability(numeric_shuffled, contrasts = numeric_targets)$summary$coefficient,
+     gt_batch_reliability(numeric_fit, contrasts = numeric_targets)$summary$coefficient,
+     "typed retained membership is invariant to row permutation")
+numeric_lean <- gt_fit(numeric_data[sample(nrow(numeric_data)), ], c("score", "second"), design,
+  covariance = c(item = "unstructured", Call = "unstructured"), residual = "diagonal", control = lean_control)
+expect(isTRUE(numeric_lean$numerically_accepted) && is.null(numeric_lean$data),
+       "large-numeric-ID shuffled fit is accepted without retained observations")
+numeric_lean_projection <- gt_batch_reliability(numeric_lean,
+  contrasts = numeric_targets, aggregate = list(spread = numeric_spread), score = composite)
+for (target in c("contrast:within", "contrast:between", "aggregate:spread")) {
+  selected <- numeric_projection$summary$target == target
+  selected_lean <- numeric_lean_projection$summary$target == target
+  near(numeric_lean_projection$summary$coefficient[selected_lean],
+       numeric_projection$summary$coefficient[selected],
+       "numeric weighted targets survive shuffled fitting without observations", tolerance = 1e-5)
+}
+
+# Projection fixtures isolate key formatting from numerical fitting. Character
+# and factor labels stay unchanged; numeric keys are independent of print
+# options, preserve fractional doubles and identify either signed zero as 0.
+check_keys <- function(item_values, expected) {
+  renamed <- fit
+  renamed$design$batch_model$item_levels <- item_values
+  renamed$data$item <- item_values[match(data$item, ids)]
+  result <- gt_batch_reliability(renamed)
+  if (!is.null(expected))
+    expect(identical(result$layout$item, expected), "projection exposes stable item keys")
+  near(result$summary$coefficient, gt_batch_reliability(fit)$summary$coefficient,
+       "key formatting cannot change projected coefficients")
+  result$layout$item
+}
+check_keys(ids, ids)
+check_keys(factor(ids, levels = rev(ids)), ids)
+check_keys(seq_along(ids), as.character(seq_along(ids)))
+fractional_ids <- c(-0, .1, 1 + .Machine$double.eps, 1 + 2 * .Machine$double.eps,
+                    seq_len(length(ids) - 4L) + 2)
+fractional_keys <- check_keys(fractional_ids, sprintf("%.17g", replace(fractional_ids, 1L, 0)))
+expect(identical(as.numeric(fractional_keys), fractional_ids) && fractional_keys[1L] == "0",
+       "fractional and signed-zero keys preserve R item identity")
+# The keys are opaque strings, even at floating-point extremes. In particular,
+# R's no-long-double parser need not recover extreme values exactly, and the
+# projection must never need that conversion to preserve identity.
+smallest <- .Machine$double.xmin * .Machine$double.eps
+extreme_ids <- c(0, smallest, -smallest, .Machine$double.xmin, -.Machine$double.xmin,
+                 .Machine$double.xmax, -.Machine$double.xmax, .1,
+                 seq_len(length(ids) - 8L))
+extreme_keys <- check_keys(extreme_ids, NULL)
+expect(length(extreme_keys) == length(extreme_ids) && !anyDuplicated(extreme_keys),
+       "extreme finite numeric identifiers have distinct keys without reparsing")
+local({
+  previous <- options(digits = 3, scipen = -9, OutDec = ",")
+  on.exit(options(previous))
+  expect(identical(gt_batch_reliability(numeric_fit)$layout$item, numeric_keys),
+         "large numeric keys ignore print options")
+  check_keys(fractional_ids, fractional_keys)
+})
+local({
+  previous <- Sys.getlocale("LC_NUMERIC")
+  on.exit(suppressWarnings(Sys.setlocale("LC_NUMERIC", previous)))
+  # This locale is optional on the test host; do not change the process locale
+  # permanently, and always exercise the option-independent contract above.
+  alternative <- suppressWarnings(Sys.setlocale("LC_NUMERIC", "de_DE.UTF-8"))
+  if (nzchar(alternative)) check_keys(fractional_ids, fractional_keys)
+})
+bad_numeric <- numeric_fit
+bad_numeric$data$item[bad_numeric$data$item == numeric_ids[1L]] <- numeric_ids[1L] + .5
+expect_error(gt_batch_reliability(bad_numeric), "retained data and recorded item layout disagree")
+bad_numeric <- numeric_fit
+bad_numeric$data$item <- as.character(bad_numeric$data$item)
+expect_error(gt_batch_reliability(bad_numeric), "complete balanced panel")
+bad_labels <- fit
+decimal_ids <- seq_along(ids) / 10
+bad_labels$design$batch_model$item_levels <- decimal_ids
+bad_labels$data$item <- as.character(decimal_ids[match(data$item, ids)])
+expect(length(unique(bad_labels$data$item)) == length(decimal_ids) &&
+         setequal(bad_labels$data$item, decimal_ids),
+       "coercive membership alone would accept changed retained identifier types")
+expect_error(gt_batch_reliability(bad_labels), "retained data and recorded item layout disagree")
+for (invalid_ids in list(replace(numeric_ids, 2L, numeric_ids[1L]),
+                        replace(numeric_ids, 2L, NA_real_),
+                        replace(numeric_ids, 2L, Inf),
+                        c(0, -0, numeric_ids[-c(1L, 2L)]),
+                        as.list(numeric_ids))) {
+  bad_numeric <- numeric_fit
+  bad_numeric$design$batch_model$item_levels <- invalid_ids
+  expect_error(gt_batch_reliability(bad_numeric), "missing, ambiguous, or inconsistent item identifiers")
+}
 report <- gt_report(fit)
 raw_report <- serialize(report, NULL)
 expect(!length(grepRaw("PRIVATE_ITEM_", raw_report, fixed = TRUE)), "portable report excludes item layout identifiers")

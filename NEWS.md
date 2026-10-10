@@ -28,6 +28,11 @@ the numerical acceptance rules are unchanged.
   fields in ordinary columns, so CSV exports remain interpretable without R
   attributes. Pilot replicate ledgers retain numerical acceptance-failure codes
   and the selected refit attempt without retaining whole fit objects.
+- Batch projections preserve distinct numeric item identifiers, including large
+  adjacent values that have the same default printed representation. Use the
+  returned `layout$item` keys to name contrast and aggregate weights. This
+  corrects a false refusal after an otherwise valid fit; covariance estimation
+  and projection arithmetic are unchanged.
 
 # Gtheory4LLM 0.4.1
 

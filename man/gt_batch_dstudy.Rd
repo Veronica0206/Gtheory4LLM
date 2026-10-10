@@ -30,7 +30,10 @@ Batch size and item count cannot be varied.}
 }
 \details{
 Every candidate uses the target and assumptions documented in
-\code{\link{gt_batch_reliability}}. All instrumentation facets remain random;
+\code{\link{gt_batch_reliability}}. Name target weights using the item keys
+in \code{gt_batch_reliability(fit)$layout$item}. Numeric keys preserve the
+original values and can differ from ordinary printed numeric labels.
+All instrumentation facets remain random;
 this function cannot improve a projection by changing the universe to fixed
 facets. It neither generates allocations nor optimizes costs. It returns
 all supplied candidates, including repeated rows. No intervals are created.

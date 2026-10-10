@@ -26,7 +26,7 @@ cannot be changed. All instrumentation facets remain random.}
 \item{contrasts}{A numeric vector named by item identifiers and summing to
 zero, or a named list of such vectors. Omitted items have weight zero.
 For example, \code{list(within = c(item1 = 1, item2 = -1))} declares an item
-difference. Identifiers refer to the fitted layout.}
+difference. Use the item keys in the returned \code{layout$item}; see Details.}
 \item{aggregate}{A numeric vector named by item identifiers, or a named
 list of such vectors. Every vector must have nonnegative weights summing
 to one. Omitted items have weight zero; weights are not normalized.}
@@ -40,6 +40,18 @@ Per-outcome results are also returned.}
 \item{...}{Reserved for additional print or data-frame arguments.}
 }
 \details{
+\strong{Item keys.} Call the function without target weights to obtain
+\code{layout$item}, then use these keys to name contrast and aggregate weights.
+Character identifiers and factor labels are unchanged. Plain integer and double
+identifiers use distinct character keys with 17 significant digits,
+independent of the \code{digits}, \code{scipen}, and \code{OutDec} options.
+Numeric keys always use a decimal point, including in comma-decimal locales.
+Reuse these keys as character strings; do not convert them back to numbers.
+These keys can differ from ordinary printed labels, particularly for large or
+fractional numbers. Positive and negative zero identify the same item.
+The fit retains the original typed identifiers for membership checks, including
+when observation retention is disabled. Row order does not define target identity.
+
 \strong{Target and scope.} The universe score is the object main effect.
 Each final item score averages a complete panel of all instrumentation
 conditions with equal weights. The fitted object grouping is held fixed.
@@ -99,7 +111,7 @@ and outcome, plus requested composites, with universe variance, error
 variance, error standard deviation, ratio and its explicit name.
 \code{source_contributions} records each source's role, kernel contraction,
 divisor and variance contribution. \code{layout} and \code{target_weights}
-record the item grouping and weighted targets. Other fields record fitted
+record the item keys, grouping and weighted targets. Other fields record fitted
 and planned facet counts, pilot-item count, annotations per item, projected
 calls, unchanged batch size, extrapolation, scale and interpretation.
 \code{uncertainty$available} is \code{FALSE}. \code{as.data.frame()} returns

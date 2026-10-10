@@ -6,11 +6,23 @@ in [limitations](LIMITATIONS.md).
 
 ## 0.5.0 Study Planning release preparation
 
-Source version 0.5.0 freezes the reviewed fixed-layout Gaussian batch targets,
-cost-aware allocation planning and Gaussian pilot precision simulation. No
-statistical functionality or numerical acceptance rule changes during this
-release transition. The final 0.5.0 archive must be qualified independently;
-CRAN submission remains a separate maintainer action.
+Source version 0.5.0 contains the reviewed fixed-layout Gaussian batch targets,
+cost-aware allocation planning and Gaussian pilot precision simulation. After
+the initial freeze, independent review identified a false refusal of valid
+batch fits whose distinct numeric item identifiers share a default printed
+representation. The focused correction preserves typed item identity and
+provides unambiguous keys for named target weights. Covariance estimation,
+projection arithmetic and numerical acceptance rules are unchanged.
+
+The initial candidate from `3b40219f3fec6e3ae672259e1baf8324b4b0bff8`
+(531,305 bytes, SHA-256
+`e71cbb295505908c2aca4a173839ab60ecb919584a94784082a92a8aa861d317`)
+is superseded and retained as historical evidence. Its ordinary R-devel check
+reported 0 errors, 0 warnings and the recent-update timing NOTE; its noLD check
+passed with verified reference BLAS/LAPACK on AMD EPYC 7763. Those results do
+not qualify the corrected source. The replacement candidate must pass its own
+ordinary R-devel, noLD, compatibility and full staged-bundle gates before
+publication. CRAN submission remains a separate maintainer action.
 
 The preceding PR #69 development head
 `776a50048b0fa489eed8f843154a229b123c01f0` passed all seven check contexts on
