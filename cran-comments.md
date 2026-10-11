@@ -1,165 +1,99 @@
-## Gtheory4LLM 0.5.0 submission preparation
+## Gtheory4LLM 0.5.0
 
-The 0.5.0 source adds the bounded study-planning workflows documented in NEWS.
-It also corrects a false refusal in batch projections for distinct numeric
-item identifiers that share a default printed representation; fitted covariance
-estimation and projection arithmetic are unchanged.
-The final archive identity and completed ordinary R-devel/noLD results must
-replace this preparation notice before submission. No 0.5.0 submission is
-claimed. Earlier 0.4.1 evidence below is retained as historical context only;
-it does not qualify the 0.5.0 archive or extend the old timing-NOTE exception.
-
-## Historical checked update: Gtheory4LLM 0.4.1
-
-This update corrects the test ERROR reported for 0.2.0 in CRAN's additional
-noLD check, as requested before 2026-10-26. It also includes the development
-since 0.2.0 described in NEWS.md.
+This submission contains the correction CRAN requested before 2026-10-26 for the
+0.2.0 ERROR in CRAN's additional noLD check, together with the development since
+0.2.0 described in NEWS.md. 0.4.0 and 0.4.1 were tagged on GitHub but never
+submitted to CRAN; 0.5.0 is the first CRAN submission after 0.2.0.
 
 ### Correction of the reported noLD ERROR
 
-Two tests are corrected, both only in how they report a refused fit.
+Two tests were corrected, both only in how they report a refused fit.
+`tests/package-discrete-safety.R` required numerical acceptance of an ordinal
+boundary fit that the optimizer's safeguards correctly refuse on R built without
+long double; it now requires accepted fits to reproduce the reference values and
+refused fits to be refused by exactly the stationarity or restart-stability
+safeguards. `tests/package-characterization.R` reports the one ordinal case
+observed to stall as that platform's outcome under the same conditions. The
+production optimizer and acceptance thresholds are unchanged; the optimizer
+limitation remains tracked in issue #59.
 
-The ordinal boundary test previously demanded numerical acceptance when the
-optimizer did not satisfy the acceptance safeguards. The corrected test requires
-accepted fits to reproduce the reference likelihood and variance components.
-A refused fit must have an explicit FALSE acceptance flag and nonempty reasons
-limited to stationarity or restart/tolerance stability. Deterministic negative
-cases reject missing flags, empty or unexpected reasons and incorrect accepted
-estimates. Variance-coordinate and boundary-projection checks remain unconditional.
-The production optimizer and acceptance thresholds are unchanged.
+### New functionality since 0.2.0
 
-The characterization test, which reproduces ten canonical fits against a
-stored baseline, required its accepted-reference ordinal case to be numerically
-accepted; the suite also includes an intentionally refused discrete control.
-On one check of the tagged but unpublished 0.4.0, a noLD runner
-refused its ordinal case through the same safeguards. That ordinal case, the
-one case observed to be refused this way, is now reported as the machine's
-outcome when it is refused by those two safeguards and by nothing else: its
-estimates are not compared there, but it must still carry every other
-recorded field, the same model terms and the same variance names. Any other
-case refused this way, a refusal for any other reason, or accepted numbers
-that moved still fail, and the acceptance flags are recorded as the engine
-set them rather than coerced. The comparison and the recording are exercised
-with constructed records and fits before any fit is compared. That test
-change is the only difference from 0.4.0.
-
-On the 2026-10-07 checked noLD environment the boundary diagnostic remains
-explicitly refused by stationarity and stability safeguards at both iteration
-budgets.
-The completed checks therefore validate correct refusal, not a repaired optimizer.
-That optimizer limitation remains tracked in issue #59:
-<https://github.com/Veronica0206/Gtheory4LLM/issues/59>.
+Batch declarations with a preflight audit and a shared call effect for Gaussian
+fits of equal fixed batches; fixed-layout batch projections, bounded cost-aware
+allocation comparisons and Gaussian pilot-precision simulation, with unambiguous
+item keys for numeric item identifiers; staged numerical diagnostics, portable
+HTML reports and base-graphics figures; specimen capture for refused discrete
+solves. Details are in NEWS.md.
 
 ### Exact archive checked
 
-- Archive: Gtheory4LLM_0.4.1.tar.gz
-- Size: 482,151 bytes
-- SHA-256: 8261b2d8084a54fa69a4bb3b7ae0caac3eefcc75ba83969d09422d525460e554
-- Source commit: 9b59788ad9bfc6068faea9115b62ea920d58e745
-- Completed ordinary R-devel and noLD workflow:
-  <https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37701136749>
+- Archive: Gtheory4LLM_0.5.0.tar.gz
+- Size: 534,035 bytes
+- SHA-256: 10d501afc114335d6e5f1ddd4f933673726db50979b973549f1d1c893a873cc8
+- Source commit: 854e5e792b5dfcbacc88c2a32c0c9792b2d3772d
+- Ordinary R-devel and noLD workflow run:
+  <https://github.com/Veronica0206/Gtheory4LLM/actions/runs/38014263622>
 
 The archive was built with R 4.6.1 from that commit, the head of `main` once
-the 0.4.1 test correction and its tightening were integrated, and adopted
-unchanged from the checked candidate. The downloaded candidate manifest and the
-noLD evidence record the same bytes, SHA-256 and source commit. An earlier
-0.4.1 candidate built from 63079ab, SHA-256 `c70c38b4…`, passed the same
-checks but was superseded by this one before any publication or submission.
+the 0.5.0 source was integrated, and adopted unchanged from the checked
+candidate. The candidate manifest and the noLD evidence record the same bytes,
+SHA-256 and source commit.
 
-### Check environments and results (2026-10-07 UTC)
+### Check environments and results (2026-10-10 and 2026-10-11 UTC)
 
-- Linux x86-64 (Ubuntu 24.04), R-devel 4.7.0 (2026-10-06 r90643),
-  `R CMD check --as-cran`: 0 errors, 0 warnings, 1 NOTE. All 27 package test
-  files, examples, vignettes and the PDF manual passed for the exact archive
-  above.
-- Linux x86-64 (Ubuntu 22.04, OpenBLAS 0.3.20), R-devel (2026-10-03 r90638)
-  configured without long double (`capabilities("long.double") == FALSE`,
-  sizeof long double 0): full `R CMD check --no-stop-on-test-error` of the
-  same archive, 0 errors, 0 warnings, 0 notes. All 27 package test files,
-  vignettes and the PDF manual passed, and a separate installed-package test
-  run completed all 27 files with zero failures. On that runner the ordinal boundary diagnostic was refused at both iteration budgets by the stationarity and restart/tolerance stability safeguards, while the characterization baseline reproduced all ten canonical cases.
-- Ubuntu 22.04, R 4.5.0 with verified reference BLAS/LAPACK 3.10.0;
-  Windows Server 2022, R 4.6.1 (ucrt); macOS arm64, R 4.6.1: all three
-  compatibility suites passed 20 of 20 stages, with 0 errors, 0 warnings and
-  0 notes in their package checks, which did not use `--as-cran`. Reference
-  manuals were checked separately.
-- Full locked numerical validation passed all 29 stages at the source commit,
-  including the independent OpenMx, lme4 and ordinal comparisons; its source
-  package check under `--as-cran` reported the same single NOTE. The 173
-  Python regressions include one platform-specific skip per platform.
-- Local preparation on macOS arm64 with R 4.5.3 adopted the checked archive,
-  built the manual above and passed the source validation scope; a local full
-  validation of the staged bundle then passed all 29 stages, including the
-  fresh-library install and smoke test of the archive, with the same single
-  NOTE.
+- Linux x86-64 (Ubuntu 24.04), R-devel 4.7.0 (2026-10-09 r90655),
+  `R CMD check --as-cran`: 0 errors, 0 warnings, 0 notes. All 30 package test
+  files, examples, both vignettes and the PDF and HTML manuals passed for the
+  exact archive above. An earlier attempt of the same job on 2026-10-10
+  reported one NOTE, "Days since last update: 6", and nothing else.
+- Linux x86-64 (Ubuntu 22.04), R-devel (2026-10-03 r90638) configured without
+  long double (`capabilities("long.double") == FALSE`, sizeof long double 0),
+  with verified reference BLAS/LAPACK before, during and after the check: full
+  `R CMD check --no-stop-on-test-error` of the same archive, 0 errors,
+  0 warnings, 0 notes. All 30 package test files, vignettes and the PDF manual
+  passed, and a separate installed-package test run completed all 30 files
+  with zero failures. On that runner the ordinal boundary diagnostic was
+  refused by the stationarity and restart/tolerance stability safeguards,
+  while the characterization baseline reproduced all ten canonical cases.
+- Ubuntu 22.04, R 4.5.0 with verified reference BLAS/LAPACK; Windows Server
+  2022, R 4.6.1 (ucrt); macOS arm64, R 4.6.1: all three compatibility suites
+  passed 20 of 20 stages, with 0 errors, 0 warnings and 0 notes in their
+  package checks, which did not use `--as-cran`.
+- Full locked numerical validation (R 4.5.3, Ubuntu 24.04) passed all 32
+  stages at the source commit, including the independent OpenMx, lme4 and
+  ordinal comparisons and the rehearsal-bundle artifact stage; its source
+  package check under `--as-cran` reported 0 notes. The 186 Python
+  regressions include one platform-specific skip per platform.
+- Local preparation on macOS arm64 with R 4.5.3 adopted the checked archive
+  unchanged, built the manual above and passed the source validation scope
+  with 0 errors, 0 warnings and 0 notes; a local full validation of the
+  staged bundle then passed all 32 stages, including the fresh-library
+  install and smoke test of the archive. Both local runs disabled R's remote
+  incoming lookups (`_R_CHECK_CRAN_INCOMING_REMOTE_=false`) because github.com
+  answered HTTP 503 to this machine's link checks after repeated runs; the
+  hosted R-devel check above performed the full remote incoming check,
+  including every README link, on the same bytes.
 
 R's external system-clock check (`_R_CHECK_SYSTEM_CLOCK_`) was disabled in
 every environment above: the hosted runners set it to FALSE through
 `r-lib/actions/setup-r`, the noLD check does not run it, and locally it was
-disabled because both of R's time services were unreachable from that machine.
+disabled because both of R's time services are unreachable from that machine.
 No check reported here verified the system clock against an external service;
 the file-timestamp check itself passed everywhere.
 
-The single ordinary R-devel NOTE is incoming feasibility:
-"Days since last update: 3", counted on 2026-10-07 from CRAN's publication of
-0.2.0 on 2026-10-04. This is a CRAN-requested maintenance update to correct
-the 0.2.0 noLD ERROR before 2026-10-26. The NOTE count and this explicit
-reason are retained in the validation report and archive provenance; other
-NOTEs, warnings, errors and incomplete checks are not permitted by this policy.
+### Known limitations that this release does not claim to fix
 
-### Other corrections and qualification limits
-
-This update also corrects batch-audit metadata name collisions and wide HTML
-report table layout, and updates validation and release documentation.
-
-The minimum-R qualification above uses explicitly verified reference libraries.
-On 2026-10-08, a fixed twelve-runner investigation reproduced two captured
-native solve failures on Intel Xeon 6973P-C with the pinned noLD build and
-OpenBLAS 0.3.20's Cooperlake dispatch. Native backward substitution reproduced
-the saved wrong answers in all 240 paired solves in each default arm. On the
-same machine, forced NEHALEM and reference BLAS/LAPACK each passed 240/240;
-restoring the default restored the failures. Scalar residuals and hybrid
-solves independently localized this execution-path dependency. The other
-eleven allocated runners passed the same replay protocol:
-<https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37787174962>.
-
-The package rejects these invalid starting steps under its unchanged
-backward-error bound before returning a fitted result. This is separate from
-the optimizer refusal in issue #59. The noLD CI remedy explicitly selects and
-verifies reference BLAS/LAPACK before dependency compilation, checks both saved
-systems, and rechecks loaded libraries and their identities after dependencies
-are loaded and after the package checks. This environment remedy does not
-modify the published archive, repair OpenBLAS, or establish that all Intel or
-noLD configurations fail.
-
-On 2026-10-08 the full unchanged archive was then qualified on an affected
-Xeon 6973P-C with R-devel 2026-10-03 r90638, long-double capability FALSE and
-size 0, and verified reference BLAS/LAPACK 3.10.0-2ubuntu1. The complete check
-reported 0 errors, 0 warnings and 0 notes; all 27 package test files, examples,
-vignette rebuilds and PDF manual passed. The additional installed-test sweep
-passed 27/27. The original backend on that same machine failed all 80 planned
-native solves; all four reference checkpoints passed 80/80. The fixed panel
-retains all 24 acquisition records, with one affected CPU qualified and 23
-non-target acquisitions. The archive, manual and manifest remained unchanged:
-<https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37795948041>.
-
-At both iteration budgets the ordinal boundary diagnostic still refused the
-fit for restart/tolerance instability under the unchanged safeguards. This
-qualification establishes an environment remedy, not an optimizer repair or a
-passing result for the original OpenBLAS configuration. The active native
-investigation is issue #66; issue #43 records the earlier capture scope:
-<https://github.com/Veronica0206/Gtheory4LLM/issues/66>.
-
-Gaussian equal-fixed-batch call effects are supported within the documented
-scope. Batch-aware reliability and D studies, broader sparse qualification and
-the remaining development roadmap are not claimed by this maintenance work.
+Two numerical limitations remain tracked separately and are unchanged by this
+release: the discrete optimizer can report completion without reaching a
+stationary point on some machines, which the engine refuses rather than
+accepts (issue #59), and a native backward substitution under OpenBLAS 0.3.20
+on one Intel CPU model returned an incorrect Newton step, which the package's
+backward-error bound rejects before any fit is returned (issue #66). The noLD
+results above were obtained with verified reference BLAS/LAPACK.
 
 ### CRAN status and reverse dependencies
 
-CRAN's check results retrieved on 2026-10-07 list published 0.2.0 as OK on
-all nine ordinary flavors reported, with noLD as its only additional issue:
-<https://cran.r-project.org/web/checks/check_results_Gtheory4LLM.html>.
-
-The CRAN source package index retrieved on 2026-10-07 at 17:28 UTC contained
-25,370 package records. No reverse dependencies on Gtheory4LLM were found in
-Depends, Imports, LinkingTo, Suggests or Enhances.
+CRAN's package index retrieved on 2026-10-10 lists 0.2.0 as the current
+version. No reverse dependencies on Gtheory4LLM were found in Depends,
+Imports, LinkingTo, Suggests or Enhances among the 25,366 package records.

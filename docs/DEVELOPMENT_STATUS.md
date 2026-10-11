@@ -38,37 +38,41 @@ Both checks completed all 30 package tests, both vignettes and the PDF manual;
 the separate noLD installed-test loop passed 30/30. These are development
 qualification results, not final-version release evidence.
 
-The current incoming-NOTE policy does not extend the earlier 0.4.0/0.4.1
-maintenance timing allowance to 0.5.0. Final candidate and publication checks
-must pass their own gates. The previous published bundle is retained until a
-qualified 0.5.0 candidate can be adopted unchanged.
+The incoming-NOTE policy was not extended to 0.5.0. On 2026-10-11 UTC, once the
+seven-day timing window after the 0.2.0 CRAN publication had passed, the
+corrected candidate's ordinary R-devel job was rerun on the same built archive
+and reported 0 errors, 0 warnings and 0 notes. PR #70 was then integrated into
+`main` by fast-forward at `854e5e792b5dfcbacc88c2a32c0c9792b2d3772d`, and that
+checked candidate was adopted unchanged as the 0.5.0 bundle recorded below.
 
 ## Release state
 
-The 0.4.1 publication uses the checked candidate without rebuilding the
-package. The records below identify the selected bundle and the completed
-pre-publication checkpoint on 2026-10-07; they do not assert later delivery or
-CRAN acceptance. 0.4.0 was tagged `v0.4.0` on 2026-10-06 but never published or
-submitted: the no-long-double check of that tagged commit refused a discrete
-fit on one runner, and `tests/package-characterization.R` could not report that
-as a platform outcome. 0.4.1 corrects that test and nothing else in the package.
+The 0.5.0 bundle uses the checked candidate without rebuilding the package.
+The records below identify the selected bundle and the pre-publication
+checkpoint on 2026-10-11; they do not assert later delivery or CRAN
+acceptance. 0.4.1 was published as an immutable GitHub release on 2026-10-08
+and was never submitted to CRAN; 0.5.0 carries its noLD test correction
+together with the study-planning additions. 0.4.0 was tagged `v0.4.0` on
+2026-10-06 but never published or submitted: the no-long-double check of that
+tagged commit refused a discrete fit on one runner, and
+`tests/package-characterization.R` could not report that as a platform outcome.
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.5.0` (Study Planning release preparation). The development line was versioned `0.3.0.9000` and then `0.4.0.9000`; no 0.3.0 was released, and `0.4.0` was tagged but not published |
-| Bundle in `artifacts/` | `0.4.1`, adopted unchanged from the checked candidate; the archive and manual identities are recorded below and in the manifest |
-| Bundle source commit | `9b59788ad9bfc6068faea9115b62ea920d58e745` |
+| Checkout version | `0.5.0` (Study Planning release). The development line was versioned `0.3.0.9000`, `0.4.0.9000` and `0.4.1.9000`; no 0.3.0 was released, `0.4.0` was tagged but not published, and `0.4.1` was published on GitHub only |
+| Bundle in `artifacts/` | `0.5.0`, adopted unchanged from the checked candidate; the archive and manual identities are recorded below and in the manifest |
+| Bundle source commit | `854e5e792b5dfcbacc88c2a32c0c9792b2d3772d` |
 | Manifest publication state | Read `release_state` in [the manifest](../artifacts/manifest.json). `prepared` records staging; `published` records the publication commit/tag identity. Neither field alone proves a GitHub upload or CRAN submission |
-| `v0.4.1` identity | The release-identity gate requires the tag to contain the published manifest and to preserve the candidate source in its ancestry. A tag alone does not establish asset delivery |
-| GitHub delivery | Completion requires a non-draft, immutable [v0.4.1 release](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.4.1) with exactly the archive, manual and manifest, verified against the committed bytes. This document does not substitute for that delivery record |
-| Historical releases | [v0.2.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.2.0) is immutable with three assets; its archive, manual, manifest and tag remain unchanged. `v0.4.0` identifies the withdrawn 0.4.0 publication-metadata commit and carries no release assets. `v0.1.0` identifies publication commit `2332d40`; that older release remains `immutable: false` |
-| Repository protection checkpoint | On 2026-10-07, `main` required seven check contexts including noLD, and the authenticated policy verifier passed. Release-tag protection blocked updates and deletions of `v*` with no bypass actors |
-| CRAN checkpoint | On 2026-10-07 before 0.4.1 publication/submission, CRAN distributed `0.2.0`, published on 2026-10-04, as OK on all nine ordinary flavors reported. Its additional noLD check reported an ERROR in `tests/package-discrete-safety.R`; CRAN requested a correction before 2026-10-26. Submission receipt, maintainer confirmation and CRAN acceptance/publication are separate subsequent events |
+| `v0.5.0` identity | The release-identity gate requires the tag to contain the published manifest and to preserve the candidate source in its ancestry. A tag alone does not establish asset delivery |
+| GitHub delivery | Completion requires a non-draft, immutable [v0.5.0 release](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.5.0) with exactly the archive, manual and manifest, verified against the committed bytes. This document does not substitute for that delivery record |
+| Historical releases | [v0.4.1](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.4.1) is immutable with three assets and was never submitted to CRAN. [v0.2.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.2.0) is immutable with three assets; its archive, manual, manifest and tag remain unchanged. `v0.4.0` identifies the withdrawn 0.4.0 publication-metadata commit and carries no release assets. `v0.1.0` identifies publication commit `2332d40`; that older release remains `immutable: false` |
+| Repository protection checkpoint | On 2026-10-07, `main` required seven check contexts including noLD, and the authenticated policy verifier passed. Release-tag protection blocked updates and deletions of `v*` with no bypass actors. On 2026-10-11 PR #70 was integrated by fast-forward with all seven required checks green |
+| CRAN checkpoint | On 2026-10-10, before any 0.5.0 submission, CRAN distributed `0.2.0`, published on 2026-10-04; its additional noLD check reported an ERROR in `tests/package-discrete-safety.R`, for which CRAN requested a correction before 2026-10-26. 0.4.1 was never submitted, so 0.5.0 is the submission that carries that correction. No reverse dependencies were found in the index of 25,366 packages. Submission receipt, maintainer confirmation and CRAN acceptance/publication are separate subsequent events |
 
-The selected archive is `Gtheory4LLM_0.4.1.tar.gz`, 482,151 bytes, SHA-256
-`8261b2d8084a54fa69a4bb3b7ae0caac3eefcc75ba83969d09422d525460e554`.
-The selected `Gtheory4LLM-manual.pdf` is 234,911 bytes, SHA-256
-`9c866b0876c1ac0575af2e9c2c670922b782138d41bdc7c4e1ff1e7efb0bc8c1`.
+The selected archive is `Gtheory4LLM_0.5.0.tar.gz`, 534,035 bytes, SHA-256
+`10d501afc114335d6e5f1ddd4f933673726db50979b973549f1d1c893a873cc8`.
+The selected `Gtheory4LLM-manual.pdf` is 320,150 bytes, SHA-256
+`9660dbd7d11a083ef5b915391bb2d47b7dfab41b3eef16bb670c17a59607fc33`.
 Publication metadata changes do not alter either file or the package source.
 
 The checkout, bundle manifest, tag, GitHub release and CRAN submission are
@@ -85,6 +89,62 @@ returned for two README links (`scripts/VALIDATION.md`, `LICENSE`) to files the
 archive did not ship; that history is separate from the 0.2.0 noLD correction.
 
 ## Validation evidence
+
+### 0.5.0 selected archive
+
+The [ordinary R-devel and noLD qualification run](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/38014263622)
+built the selected archive with R 4.6.1 from
+`854e5e792b5dfcbacc88c2a32c0c9792b2d3772d`, the head of `main` once
+[PR #70](https://github.com/Veronica0206/Gtheory4LLM/pull/70) was integrated by
+fast-forward, and checked those exact bytes twice.
+
+- Ordinary Linux R-devel 4.7.0, 2026-10-09 r90655, completed `R CMD check --as-cran`
+  with **0 errors, 0 warnings and 0 notes** on 2026-10-11 UTC. The first attempt
+  of the same job on 2026-10-10 reported only "Days since last update: 6", which
+  the 0.5.0 policy does not excuse; the job was rerun on the same built archive
+  once that window had passed. All 30 package test files, examples, both
+  vignettes and the PDF and HTML manuals passed.
+- noLD R-devel, 2026-10-03 r90638, with long-double support verified absent, on
+  an Intel Xeon Platinum 8370C runner with verified reference BLAS/LAPACK before,
+  during and after the check, checked the same archive with **0 errors,
+  0 warnings and 0 notes**: all 30 package test files, vignette rebuilds and the
+  PDF manual passed, the separate installed-test loop completed 30/30 files, and
+  the reference probes recorded 80 native solves with 0 invalid. On that runner
+  the ordinal boundary diagnostic was refused by the stationarity and
+  restart/tolerance stability safeguards, while the characterization baseline
+  reproduced all ten canonical cases.
+
+The two push-triggered workflows on the same commit qualified the integrated
+source with bundles staged from it:
+
+- [Full numerical validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/38014250354):
+  **32/32 stages**, including the rehearsal-bundle artifact stage, with a source
+  package check under `--as-cran` reporting 0 notes after the rerun. The 186
+  Python regressions include one platform-specific skip.
+- [R and platform compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/38014250352):
+  **20/20 stages on each of Windows (R 4.6.1), macOS (R 4.6.1) and Ubuntu 22.04
+  with minimum R 4.5.0 and verified reference BLAS/LAPACK**.
+
+The bundle was prepared locally on macOS arm64 with R 4.5.3 by
+`scripts/prepare_release.py --dry-run --from-checked-candidate` with no
+maintenance exception: the archive was adopted unchanged, the manual was built
+with its overfull-box gate, and the source validation scope passed with
+0 errors, 0 warnings and 0 notes. A local `run_validation.py --scope all
+--as-cran` against the committed bundle then passed all 32 stages,
+including the fresh-library install and smoke test of the archive. Both local
+runs disabled R's remote incoming lookups (`_R_CHECK_CRAN_INCOMING_REMOTE_=false`)
+because github.com answered HTTP 503 to this machine's link checks after
+repeated runs; the hosted R-devel check above performed the full remote
+incoming check, including every README link, on the same bytes. The local
+runs evaluated the incoming date rule in UTC.
+
+R's external system-clock check (`_R_CHECK_SYSTEM_CLOCK_`) was disabled in
+every environment recorded here, as for 0.4.1; the local runs evaluated the
+incoming date rule in UTC. No check recorded here verified the system clock
+against an external service.
+
+Later publication-PR checks require their own recorded results; this
+checkpoint does not predict their outcomes.
 
 ### Intel/noLD native backend
 
