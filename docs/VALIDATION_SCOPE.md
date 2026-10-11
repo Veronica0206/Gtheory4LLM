@@ -1,6 +1,6 @@
 # Validation scope
 
-This document separates implemented checks from the scientific validation still needed. It is about *evidence*: what has been checked, how, and what that does not establish. The catalogue of what the software does not do is [limitations](LIMITATIONS.md), and is not repeated here. It describes development source 0.4.1.9000, including the new study-planning functions. The qualified 0.4.1 archive is unchanged. Historical pilot results retain their recorded source versions and do not validate every subsequent addition. This is not a new test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
+This document separates implemented checks from the scientific validation still needed. It is about *evidence*: what has been checked, how, and what that does not establish. The catalogue of what the software does not do is [limitations](LIMITATIONS.md), and is not repeated here. It describes source version 0.5.0, including the study-planning functions. The published 0.4.1 archive is unchanged. Historical pilot results retain their recorded source versions and do not validate every subsequent addition. This is not a new test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
 
 ## What the existing checks establish
 

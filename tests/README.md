@@ -97,7 +97,7 @@ Installed-package tests need the package installed; do not mistake a globally
 installed older version for the source under review. The full source gate is
 `python3 scripts/run_validation.py --scope source`.
 
-The planning suites describe computation under development source 0.4.1.9000.
+The planning suites describe computation under source version 0.5.0.
 Their small simulation runs exercise software contracts; they do not recommend
 a pilot size or establish confidence-interval coverage. Run the full source gate
 against the current development archive separately from the unchanged qualified

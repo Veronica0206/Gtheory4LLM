@@ -135,8 +135,7 @@ including the fresh-library install and smoke test of the archive. Both local
 runs disabled R's remote incoming lookups (`_R_CHECK_CRAN_INCOMING_REMOTE_=false`)
 because github.com answered HTTP 503 to this machine's link checks after
 repeated runs; the hosted R-devel check above performed the full remote
-incoming check, including every README link, on the same bytes. The local
-runs evaluated the incoming date rule in UTC.
+incoming check, including every README link, on the same bytes.
 
 R's external system-clock check (`_R_CHECK_SYSTEM_CLOCK_`) was disabled in
 every environment recorded here, as for 0.4.1; the local runs evaluated the
