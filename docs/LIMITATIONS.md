@@ -94,6 +94,9 @@ scientifically sufficient. Those are separate questions with separate evidence.
   by more than an order of magnitude.
 - `approximation_adequacy` stays `not_assessed_first_order_laplace` for any fit
   with random variation. Numerical acceptance is not integration accuracy.
+  `gt_laplace_check()` measures the Laplace error in the objective of one
+  fitted model at its fitted parameters; it does not change this label and
+  says nothing about bias in the estimates.
 - **No discrete uncertainty.** The engine computes no observed information.
   Discrete coefficients are point estimates; standard errors, confidence
   intervals, bootstrap and jackknife are not implemented. `NA` means unavailable,

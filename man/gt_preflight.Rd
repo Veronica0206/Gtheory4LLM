@@ -38,6 +38,7 @@ gt_preflight(data, outcomes, design = NULL, family = gt_family("gaussian"),
 source and parameter totals, resource estimates, and interpretation notes.
 It also contains:
 \itemize{
+\item \code{engine}: the engine a fit of this request would use, under the label \code{gt_diagnostics()} reports: the exact balanced Gaussian engine, the lme4 engine when \code{control} selects it, or the dense discrete Laplace engine. With lme4 the checks also record whether lme4 is installed and whether the request is univariate.
 \item \code{sources}: a data frame describing the random sources a fit
 would estimate: the retained declared sources and, for a batch the fit would
 model, the call source. The parameter and dimension totals describe these.

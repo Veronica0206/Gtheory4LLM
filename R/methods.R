@@ -211,7 +211,8 @@ vcov.gt_fit <- function(object, ...) {
 
 print.gt_diagnostics <- function(x, ...) {
   cat("G-theory fit diagnostics |", if (length(x$engine)) x$engine else "engine not recorded", "\n")
-  cat("Estimator:", x$estimator, "\n")
+  cat("Estimator:", x$estimator, "| approximation:",
+      if (length(x$approximation)) x$approximation else "not recorded", "\n")
   .gt_print_fit_status(x)
   # The staged summary is the reason a reader does not have to reconstruct the
   # numerical pathway from private records, so printing has to show it.

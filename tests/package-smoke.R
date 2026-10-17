@@ -4,7 +4,7 @@ expected_exports <- c("gt_design", "gt_batch", "gt_family", "gt_control", "gt_sc
                       "gt_components", "gt_component_vcov", "gt_reliability", "gt_dstudy",
                       "gt_dstudy_target", "gt_diagnostics", "gt_example", "gt_preflight",
                       "gt_report", "gt_export_report", "gt_batch_reliability", "gt_batch_dstudy",
-                      "gt_plan", "gt_simulate", "gt_pilot_plan")
+                      "gt_plan", "gt_simulate", "gt_pilot_plan", "gt_laplace_check")
 stopifnot(setequal(getNamespaceExports("Gtheory4LLM"), expected_exports))
 stopifnot(is.function(getS3method("print", "gt_fit")),
           is.function(getS3method("print", "gt_report")),
@@ -15,6 +15,7 @@ stopifnot(is.function(getS3method("print", "gt_fit")),
           is.function(getS3method("print", "gt_score")),
           is.function(getS3method("print", "gt_example")),
           is.function(getS3method("print", "gt_pilot_plan")),
+          is.function(getS3method("print", "gt_laplace_check")),
           is.function(getS3method("as.data.frame", "gt_pilot_plan")),
           is.function(getS3method("deviance", "gt_fit")),
           is.function(getS3method("formula", "gt_fit")),

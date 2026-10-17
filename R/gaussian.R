@@ -41,7 +41,7 @@
 }
 
 .gt_gaussian_validate_control <- function(control) {
-  allowed <- c("start", "optimizer", "max_iterations", "tolerance", "check_hessian",
+  allowed <- c("engine", "start", "optimizer", "max_iterations", "tolerance", "check_hessian",
                "threads", "silent", "extra_tries", "retry_seed", "max_preparation_bytes")
   if (!is.list(control) || (length(control) && (is.null(names(control)) ||
       anyNA(names(control)) || any(!nzchar(names(control))) || anyDuplicated(names(control)))))
@@ -49,6 +49,17 @@
   unknown <- setdiff(names(control), allowed)
   if (length(unknown)) stop("Unsupported Gaussian control setting(s): ",
                            paste(unknown, collapse = ", "), call. = FALSE)
+  if (!is.null(control$engine) && (!is.character(control$engine) || length(control$engine) != 1L ||
+      is.na(control$engine) || !control$engine %in% c("openmx", "lme4")))
+    stop("engine must be 'openmx' (the exact balanced likelihood, the default) or 'lme4'.", call. = FALSE)
+  # The exact engine's optimizer settings have no meaning for lme4, and a
+  # setting that is accepted and ignored is worse than one that is refused.
+  if (identical(control$engine, "lme4")) {
+    foreign <- intersect(names(control), .GT_LME4_ONLY_EXACT)
+    if (length(foreign))
+      stop("Gaussian control setting(s) ", paste(foreign, collapse = ", "),
+           " apply to the exact engine only; the lme4 engine uses lme4's own optimizer and computes no Hessian.", call. = FALSE)
+  }
   if (!is.null(control$optimizer) && (!is.character(control$optimizer) ||
       length(control$optimizer) != 1L || is.na(control$optimizer) ||
       !control$optimizer %in% c("CSOLNP", "SLSQP", "NPSOL")))
@@ -168,9 +179,14 @@
   if (!is.null(control$start))
     control$start <- .gt_gaussian_validate_start(control$start, outcomes,
                                                c(spec, "Residual"))
-  result <- do.call(engine$fit, c(list(data = data, outcomes = outcomes,
+  result <- if (identical(control$engine, "lme4"))
+    .gt_fit_gaussian_lme4(data, outcomes, facets, spec, estimator == "REML", covariance, residual,
+      prepared, engine, control,
+      call = if (modelled) list(term = .GT_CALL_TERM, batch_column = columns[[1L]]) else NULL)
+  else do.call(engine$fit, c(list(data = data, outcomes = outcomes,
     facets = facets, spec = spec, reml = estimator == "REML",
-    covariance = covariance, residual = residual, prepared = prepared), control))
+    covariance = covariance, residual = residual, prepared = prepared),
+    control[setdiff(names(control), "engine")]))
   checked_design <- .gt_design_validated(design,
     "Complete Cartesian coded panel, one observation per full cell; declared parent-scoped grouping terms. Physical nesting not inferred.")
   # Counts are reported for the design variables. With a modelled batch the
@@ -191,9 +207,15 @@
   result$family <- stats::setNames(lapply(outcomes, function(x)
     list(name = "gaussian", link = "identity")), outcomes)
   result$estimator <- estimator
-  result$backend <- "OpenMx exact balanced Gaussian factorial contrasts"
+  if (identical(control$engine, "lme4")) {
+    result$backend <- "lme4 random-intercept sources, checked against the exact balanced deviance"
+    result$source <- "Gaussian source variances maximized by lme4::lmer; the exact balanced likelihood is evaluated at the estimates."
+  } else {
+    result$backend <- "OpenMx exact balanced Gaussian factorial contrasts"
+    result$engine <- "exact_balanced_gaussian"
+    result$source <- "Balanced Gaussian source-covariance likelihood using OpenMx."
+  }
   result$backend_fit <- result$model
-  result$source <- "Balanced Gaussian source-covariance likelihood using OpenMx."
   result$prepared <- prepared
   result$likelihood_convention <- list(
     fixed_effects = "One profiled fixed intercept per outcome", reml_intercept_constant = "D * log(N)",

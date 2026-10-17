@@ -36,6 +36,19 @@ and every estimate are unchanged.
   fitted facet counts, or the reason none is reported, and prints it after the
   source variances. `deviance(fit)` returns the fitted objective for every fit,
   including one that failed numerical acceptance; `logLik()` still refuses one.
+- A second Gaussian engine: `gt_control(gaussian = list(engine = "lme4"))`
+  fits the declared sources as random intercepts with lme4, one outcome at a
+  time and with the call source when a batch is modelled. The fit is accepted
+  only when the exact balanced deviance evaluated at lme4's estimates agrees
+  with lme4's criterion, after lme4's own gradient check and a restart. It
+  computes no standard errors, so coefficient intervals are unavailable on this
+  path. `gt_diagnostics()` now records engine, optimizer and approximation as
+  three separate facts.
+- `gt_laplace_check(fit)` measures the first-order Laplace error of a discrete
+  fit at its fitted parameters: adaptive Gauss-Hermite quadrature up to four
+  random-effect dimensions, importance sampling from the Laplace Gaussian
+  otherwise, with the Monte Carlo standard error and effective sample size. It
+  measures the error in the objective, not bias in the estimates.
 - `gt_design()`, `gt_family()`, `gt_control()`, `gt_batch()`, `gt_score()` and
   `gt_example()` results print as short descriptions instead of raw lists, and
   `gt_pilot_plan()` returns a classed `gt_pilot_plan` with `print()` and

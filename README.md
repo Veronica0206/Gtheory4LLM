@@ -252,6 +252,13 @@ identification or successful fitting.
 | Ordinal | Cumulative probit/logit, univariate or joint | Explicitly requested latent-response coefficients |
 | Unordered categorical | Reference-category multinomial softmax, univariate or joint | No scalar coefficient implemented |
 
+Gaussian fits use the exact balanced likelihood through OpenMx by default;
+`gt_control(gaussian = list(engine = "lme4"))` fits the same sources through
+lme4 and is accepted only when the exact deviance at its estimates agrees with
+lme4's criterion. Discrete fits have one engine, the first-order Laplace
+likelihood; `gt_laplace_check(fit)` measures its error on a fitted model by
+quadrature or importance sampling.
+
 Discrete observations follow their chosen response distributions; their latent
 random effects remain Gaussian. Gaussian assumptions therefore remain part of
 the model. Latent binary/ordinal reliability concerns an averaged latent

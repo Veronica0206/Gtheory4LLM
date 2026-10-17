@@ -319,8 +319,15 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
   residual_parameters <- 0
   resources <- list()
   kernel_check <- "not_applicable"
+  gaussian_engine <- if (gaussian && identical(control$gaussian$engine, "lme4")) "lme4" else "openmx"
   if (gaussian) {
     .gt_gaussian_validate_control(control$gaussian)
+    if (gaussian_engine == "lme4") {
+      add_check("lme4_available", .gt_lme4_available(),
+                "The lme4 engine needs the lme4 package: install.packages('lme4').")
+      add_check("single_outcome_for_lme4", length(outcomes) == 1L,
+                "The lme4 engine fits one Gaussian outcome at a time; joint outcomes use the exact engine.")
+    }
     if (is.null(residual)) residual <- "unstructured"
     .gt_validate_residual_request(residual)
     component_names <- c(fitted, "Residual")
@@ -431,7 +438,8 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
   if ("data" %in% names(recorded_call) && !is.name(recorded_call$data))
     recorded_call$data <- as.name("<dropped>")
   report <- structure(list(call = recorded_call, outcomes = outcomes, families = families,
-    engine = if (gaussian) "exact_balanced_gaussian" else "dense_joint_discrete_laplace",
+    engine = if (!gaussian) "dense_joint_discrete_laplace" else
+      if (gaussian_engine == "lme4") "lme4_gaussian_mixed_model" else "exact_balanced_gaussian",
     observations = n, observed_counts = counts, observed_cells = length(cell_counts),
     expected_cells = expected_cells, observed_replication = sort(unique(as.integer(cell_counts))),
     complete_balanced_panel = balanced, panel_audit = panel$audit, outcome_profile = outcome_profile, sources = sources,

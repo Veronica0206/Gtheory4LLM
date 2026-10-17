@@ -167,6 +167,9 @@ gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian")
 
 .gt_strip_observations <- function(object) {
   if (methods::is(object, "MxModel") && !is.null(object@data)) object@data <- NULL
+  # An lme4 model carries its model frame and cannot be separated from the
+  # observations, so dropping the data drops the model with it.
+  if (methods::is(object, "merMod")) return(NULL)
   object
 }
 
@@ -194,9 +197,16 @@ gt_components <- function(fit, correlation = FALSE, tolerance = 1e-8) {
 gt_diagnostics <- function(fit) {
   if (!inherits(fit, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
   status <- .gt_fit_status(fit)
+  # Engine, optimizer and approximation are three different things: another
+  # optimizer is not another engine, and neither changes the approximation.
+  adequacy <- as.character(fit$approximation_adequacy)
+  approximation <- if (!is.null(fit$diagnostics$approximation)) fit$diagnostics$approximation else
+    if (!length(adequacy)) NA_character_ else
+    if (adequacy[[1L]] %in% .GT_EXACT_LIKELIHOODS) "None: the likelihood is exact for this design." else
+    "First-order Laplace marginal likelihood."
   structure(list(estimator = fit$estimator, engine = if (!is.null(fit$engine)) fit$engine else fit$backend,
        optimizer_completed = fit$optimizer_completed, numerically_accepted = fit$numerically_accepted,
-       approximation_adequacy = fit$approximation_adequacy,
+       approximation_adequacy = fit$approximation_adequacy, approximation = approximation,
        optimizer = status$optimizer, optimization_trials = status$optimization_trials,
        selected_attempt = status$selected_attempt,
        acceptance_failures = status$acceptance_failures,
