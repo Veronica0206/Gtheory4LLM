@@ -28,6 +28,8 @@ The \code{stages} element summarises the numerical checks a fit passed through, 
 \item \code{optimization_trials}: the recorded trial count.
 \item \code{selected_attempt}: the returned candidate's identifier.
 \item \code{acceptance_failures}: reasons for rejecting the returned fit.
+\item \code{stationarity}: the record of the independent stationarity check that decided acceptance, with its verdict, tolerance, and the scaled gradient it measured.
+\item \code{likelihood_agreement}: for the \pkg{lme4} engine, the exact balanced deviance evaluated at the estimates beside \pkg{lme4}'s criterion and their difference; \code{NULL} for engines that make no such comparison.
 \item \code{attempt_failures}: recorded trial errors or rejections.
 \item \code{boundary_sources}: zero or nearly singular covariance sources.
 \item \code{parameter_bounds}: artificial parameter-bound contacts.

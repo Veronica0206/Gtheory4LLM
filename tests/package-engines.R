@@ -36,6 +36,11 @@ run <- function() {
   diagnostics <- gt_diagnostics(lme)
   expect(grepl("^None", diagnostics$approximation) && grepl("lme4", diagnostics$optimizer),
          "engine, optimizer and approximation are recorded separately")
+  expect(is.finite(diagnostics$likelihood_agreement$difference) &&
+           identical(diagnostics$stationarity, lme$diagnostics$covariance_stationarity) &&
+           is.null(gt_diagnostics(exact)$likelihood_agreement) &&
+           is.list(gt_diagnostics(exact)$stationarity),
+         "the stationarity and likelihood-agreement records are public")
   expect(any(grepl("approximation:", capture.output(print(diagnostics)), fixed = TRUE)), "and printed")
 
   # --- lme4's own criteria -----------------------------------------------------

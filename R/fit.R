@@ -212,6 +212,13 @@ gt_diagnostics <- function(fit) {
        acceptance_failures = status$acceptance_failures,
        attempt_failures = status$attempt_failures,
        boundary_sources = status$boundary_sources, parameter_bounds = status$parameter_bounds,
+       # The two records a reader most often wants without opening the engine's
+       # private diagnostics: the stationarity check that decided acceptance, and
+       # the independent likelihood evaluation where the engine made one.
+       # Exact indexing: `$` would partial-match independent_likelihood_matches.
+       stationarity = if (!is.null(fit[["diagnostics"]][["outer_stationarity"]]))
+         fit[["diagnostics"]][["outer_stationarity"]] else fit[["diagnostics"]][["covariance_stationarity"]],
+       likelihood_agreement = fit[["diagnostics"]][["independent_likelihood"]],
        standard_errors_available = isTRUE(fit$uncertainty$available),
        standard_errors_unavailable_reason = fit$uncertainty$reason,
        component_standard_errors = fit$component_standard_errors,

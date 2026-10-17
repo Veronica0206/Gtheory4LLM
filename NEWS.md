@@ -46,7 +46,9 @@ and every estimate are unchanged.
   the solution, and the exact balanced deviance evaluated at the estimates
   agrees with lme4's criterion. It computes no standard errors, so coefficient
   intervals are unavailable on this path. `gt_diagnostics()` now records
-  engine, optimizer and approximation as three separate facts.
+  engine, optimizer and approximation as three separate facts, and exposes the
+  stationarity record and, for the lme4 engine, the likelihood agreement
+  record at its top level.
 - `gt_laplace_check(fit)` compares the first-order Laplace objective of a
   discrete fit, at its fitted parameters, with a refined numerical estimate of
   the marginal likelihood: adaptive Gauss-Hermite quadrature up to four
