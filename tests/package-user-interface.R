@@ -66,8 +66,10 @@ stopifnot(inherits(s, "summary.gt_fit"), is.function(getS3method("print", "summa
   !any(c("model", "backend_fit", "data", "prepared") %in% names(s)))
 output <- capture.output(returned <- print(s, digits = 4))
 stopifnot(identical(returned, s), length(output) < 45L,
+  inherits(s$reliability, "gt_reliability"), is.null(s$reliability_note),
   any(grepl("Selected attempt:", output, fixed = TRUE)),
   any(grepl("Source variances", output, fixed = TRUE)),
+  any(grepl("Reliability at the fitted facet counts", output, fixed = TRUE)),
   !any(grepl("OBSERVATION_CONTENT_MUST_NOT_PRINT|MxModel|\\$data", output)))
 for (bad in list(0, 23, 2.5, NA_real_, "3", c(2, 3))) {
   error <- tryCatch(print(s, digits = bad), error = identity)
@@ -89,6 +91,8 @@ binary <- gt_fit(d, "binary", design, gt_family("binary", "logit"),
     list(item = matrix(0, 1, 1), rater = matrix(0, 1, 1)))))
 ds <- summary(binary)
 stopifnot(binary$numerically_accepted,
+  is.null(ds$reliability), grepl("scale = \"latent\"", ds$reliability_note, fixed = TRUE),
+  any(grepl("Reliability: Request gt_reliability", capture.output(print(ds)), fixed = TRUE)),
   identical(ds$diagnostics$selected_attempt, binary$diagnostics$selected_attempt),
   identical(ds$diagnostics$approximation_adequacy, "exact_no_random_variation"),
   setequal(ds$diagnostics$boundary_sources, c("item", "rater")),
@@ -115,3 +119,28 @@ stopifnot(identical(rd$acceptance_failures, rejected$diagnostics$acceptance_fail
   any(grepl("diagnostic only", output, fixed = TRUE)),
   !rejected$numerically_accepted)
 cat("PASS: summaries distinguish rejected trials, natural boundaries, artificial bounds, and approximation adequacy.\n")
+
+# Declarations and example sets print as short descriptions, never as raw lists,
+# and a design never prints observations.
+printed <- function(x) capture.output(print(x))
+ordinal_family <- gt_family("ordinal", levels = 1:3)
+stopifnot(any(grepl("Random sources: item + rater", printed(design), fixed = TRUE)),
+  any(grepl("Specification only", printed(design), fixed = TRUE)),
+  any(grepl("Data checked against this declaration", printed(fit$design), fixed = TRUE)),
+  !any(grepl("OBSERVATION_CONTENT_MUST_NOT_PRINT|\\$data", printed(fit$design))),
+  any(grepl("ordinal | link: probit", printed(ordinal_family), fixed = TRUE)),
+  any(grepl("Ordered levels: 1 < 2 < 3", printed(ordinal_family), fixed = TRUE)),
+  any(grepl("Reference category: b",
+    printed(gt_family("categorical", levels = c("a", "b", "c"), reference = "b")), fixed = TRUE)),
+  any(grepl("check_hessian = FALSE",
+    printed(gt_control(gaussian = list(check_hessian = FALSE))), fixed = TRUE)),
+  any(grepl("all except data", printed(gt_control(retain = list(data = FALSE))), fixed = TRUE)),
+  any(grepl("20 items per call", printed(gt_batch(20)), fixed = TRUE)),
+  any(grepl("sequential (reach 19)", printed(gt_batch(20, sequential = TRUE)), fixed = TRUE)),
+  any(grepl("efficacy = 0.5, safety = 0.5",
+    printed(gt_score(c(efficacy = 0.5, safety = 0.5))), fixed = TRUE)),
+  any(grepl("hate_speech | native coding | 21600 rows", printed(gt_example("hate_speech")), fixed = TRUE)),
+  length(printed(gt_example("hate_speech"))) < 10L)
+for (x in list(design, ordinal_family, gt_control(), gt_batch(20), gt_score(c(score = 1))))
+  stopifnot(identical(withVisible(print(x))$visible, FALSE))
+cat("PASS: declarations print as descriptions and return themselves invisibly.\n")

@@ -1,5 +1,6 @@
 \name{gt_design}
 \alias{gt_design}
+\alias{print.gt_design}
 \title{Declare a Generalizability-Theory Random-Source Design}
 \description{Declares an object of measurement, any number of instrumentation facets, selected object interactions, and explicit parent-scoped nesting. This constructor preserves the requested source terms; fitting validates the observed data and resolves any residual alias.}
 \usage{
@@ -7,6 +8,7 @@ gt_design(object, facets, crossed = facets, nested = NULL,
   item_interactions = "complete", instrument_interactions = "complete",
   item_nested = character(), random = NULL, full_cell = TRUE,
   replicates = 1L, max_terms = 4096L, batch = NULL)
+\method{print}{gt_design}(x, ...)
 }
 \arguments{
 \item{object}{One column name for the object of measurement.}
@@ -16,14 +18,18 @@ gt_design(object, facets, crossed = facets, nested = NULL,
 \item{item_interactions}{\code{"complete"}, \code{"additive"}, or the maximum number of crossed instrumentation facets in an object interaction. The object itself is excluded from this order. Additive adds individual object-by-crossed-facet interactions.}
 \item{instrument_interactions}{\code{"complete"}, \code{"additive"}, or a maximum interaction order among crossed instrumentation facets. Declared nested groups remain present.}
 \item{item_nested}{Nested child names whose complete ancestor-expanded group should also interact with the object. This does not implicitly add other ancestor-by-object interactions.}
-\item{random}{Optional explicit one-sided formula or character vector of source terms. Formula syntax is limited to names, \code{+}, \code{:}, \code{*}, parentheses, and 0/1. Cannot be combined with explicitly supplied automatic selectors.}
+\item{random}{Optional explicit one-sided formula or character vector of source terms. Formula syntax is limited to names, \code{+}, \code{:}, \code{*}, \code{/}, parentheses, and 0/1; \code{a/b} expands to \code{a + a:b} and \code{(a + b)/c} to \code{a + b + a:b:c}, as in R's formula algebra. Cannot be combined with explicitly supplied automatic selectors.}
 \item{full_cell}{Retain the object-by-all-facets source when the requested expansion contains it. \code{FALSE} removes exactly that one term and leaves every other requested source unchanged. Unlike the other selectors this may be combined with \code{random}.}
 \item{replicates}{Positive integer observations per complete object-by-facets cell. Observed replication is checked during fitting.}
 \item{max_terms}{Positive integer bound on source expansion, checked before expansion.}
 \item{batch}{Optional \code{\link{gt_batch}} declaration that items were annotated several to a call. \code{NULL}, the default, leaves items independent given the declared sources. Its \code{by} must name a declared facet, and its \code{order} and \code{id} columns other than the object and the facets.}
+\item{x}{A \code{gt_design} object for the print method.}
+\item{...}{Further print arguments; currently unused.}
 }
-\value{A \code{gt_design} list containing the object, facets, requested terms and their members, nesting metadata, and pending data-validation information.}
+\value{A \code{gt_design} list containing the object, facets, requested terms and their members, nesting metadata, and pending data-validation information. \code{print()} shows the object, the facets, the requested sources, any nesting and batch declaration, and whether data have been checked against the declaration, and returns the design invisibly.}
 \details{The object main effect is always present. With all facets crossed, complete object and instrumentation interactions retain the full hierarchy. At one observation per cell, a Gaussian full-cell source is indistinguishable from a free residual and is combined with it during fitting. A requested observation-level source is rejected for discrete families, because it cannot be separated from the identified discrete observation model. It is never dropped silently: declare the reduced model with \code{full_cell = FALSE}, which removes only that source, or write the intended terms with \code{random}.
+
+The same source grammar is accepted as the right-hand side of a two-sided model formula by \code{\link{gt_fit}} and \code{\link{gt_preflight}}, which then build this object themselves: \code{score ~ item * rater} is \code{gt_design("item", "rater")} for the outcome \code{score}.
 
 Nesting defines parent-scoped groups shared across objects. It does not establish that a physical sampling design is balanced or identifiable. Arbitrary design declaration does not imply that every backend supports every resulting model.
 
@@ -40,6 +46,7 @@ selected <- gt_design("item", c("evaluator", "prompt", "temp", "seed"),
 selected$terms_requested
 reduced <- gt_design("item", c("rater", "occasion"), random = ~ item + rater)
 reduced$terms_requested
+print(reduced)
 # The same crossed design without the observation-level source, which a
 # binary or ordinal fit at one observation per cell cannot identify. This is
 # where a first discrete fit should start; see the worked script in
@@ -65,4 +72,8 @@ nested_design <- gt_design("person", c("item_code", "question"),
   crossed = "question", nested = list(item_code = "question"))
 nested_design$terms_requested   # item_code:question identifies the six items
 nested_design$nested_groups
+# The same nesting written as a source formula: question / item_code is
+# question + question:item_code.
+gt_design("person", c("item_code", "question"),
+  random = ~ person + question / item_code + person:question)$terms_requested
 }

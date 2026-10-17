@@ -14,7 +14,7 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Source version: **0.5.0**.
+Source version: **0.5.0.9000**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -41,12 +41,13 @@ install.packages("Gtheory4LLM")
 ```
 
 A specific release can also be installed from its versioned archive, for example
-the [v0.4.1 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.4.1):
+the [v0.5.0 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.5.0),
+`Gtheory4LLM_0.5.0.tar.gz`:
 
 ```r
 install.packages("OpenMx")
 install.packages(
-  "https://github.com/Veronica0206/Gtheory4LLM/releases/download/v0.4.1/Gtheory4LLM_0.4.1.tar.gz",
+  "https://github.com/Veronica0206/Gtheory4LLM/releases/download/v0.5.0/Gtheory4LLM_0.5.0.tar.gz",
   repos = NULL, type = "source"
 )
 library(Gtheory4LLM)
@@ -55,7 +56,7 @@ library(Gtheory4LLM)
 The repository keeps checksummed release files in [`artifacts/`](https://github.com/Veronica0206/Gtheory4LLM/tree/main/artifacts).
 A 0.4.0 bundle, `Gtheory4LLM_0.4.0.tar.gz`, was prepared and tagged but never published; 0.4.1 supersedes it.
 To install this source version, run `R CMD build .`, then
-`R CMD INSTALL Gtheory4LLM_0.5.0.tar.gz`, the archive it creates.
+`R CMD INSTALL Gtheory4LLM_0.5.0.9000.tar.gz`, the development archive it creates.
 For the exact checked release archive, use the versioned GitHub release and
 verify its accompanying manifest. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
@@ -81,6 +82,10 @@ or `vignette("LLM-workflow", package = "Gtheory4LLM")`. Its source is
 ```r
 # llm_data and llm_design are created by the tutorial above.
 gt_preflight(llm_data, "quality", llm_design)
+fit <- gt_fit(llm_data, "quality", llm_design)
+# The same model as one formula: the outcome on the left; on the right the
+# object of measurement first, then the facets and their sources.
+fit <- gt_fit(quality ~ item * (evaluator + prompt) + evaluator:prompt:run, llm_data)
 summary(fit)
 gt_diagnostics(fit)$numerically_accepted
 gt_reliability(fit)
@@ -232,7 +237,9 @@ Facet names do not impose a hierarchy. Declare any nonempty subset of the
 instrumentation facets to interact with the object, give other facets explicit
 nesting parents, and choose higher-order interactions separately. With four
 facets, all 15 nonempty crossed subsets are supported by the design interface.
-An explicit random-source formula is also available. `gt_preflight()` reports
+An explicit random-source formula is also available, and `gt_fit()` and
+`gt_preflight()` accept a two-sided model formula such as `score ~ item * rater`
+in place of the outcome names and the design. `gt_preflight()` reports
 the requested and resolved sources, dimensions, replication, resource limits,
 and downstream operations before optimization; it does not certify statistical
 identification or successful fitting.

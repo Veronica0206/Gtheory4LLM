@@ -13,6 +13,12 @@ gt_score <- function(weights) {
   structure(list(weights = weights, normalization = "as_supplied"), class = "gt_score")
 }
 
+print.gt_score <- function(x, ...) {
+  cat("Composite score weights (", x$normalization, "): ",
+      paste(names(x$weights), format(x$weights, trim = TRUE), sep = " = ", collapse = ", "), "\n", sep = "")
+  invisible(x)
+}
+
 # Panel facts for the balanced-panel rules, from the data where it was kept.
 .gt_reliability_panel <- function(fit, dimensions) {
   if (is.data.frame(fit$data)) {

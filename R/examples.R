@@ -45,7 +45,7 @@ gt_example <- function(name = NULL, coding = c("native", "manuscript"), director
     result <- resource$codings[[coding]]
     result$source <- normalizePath(bundled, mustWork = TRUE)
     result$source_provenance <- resource$source_provenance
-    return(result)
+    return(structure(result, class = "gt_example"))
   }
   filename <- if (name == "hate_speech") "hate_labeling_final.csv" else
     if (startsWith(name, "mental_health")) "mh_labeling_final.csv" else "drug_labeling_final.csv"
@@ -107,7 +107,19 @@ gt_example <- function(name = NULL, coding = c("native", "manuscript"), director
     }
   }
   if (anyNA(data)) stop("Prepared example contains missing values.")
-  list(data = data, outcomes = names(families), families = families,
+  structure(list(data = data, outcomes = names(families), families = families,
        object = "item", facets = c("evaluator", "prompt", "temp", "seed"),
-       name = name, coding = coding, source = normalizePath(path), notes = notes)
+       name = name, coding = coding, source = normalizePath(path), notes = notes),
+    class = "gt_example")
+}
+
+print.gt_example <- function(x, ...) {
+  families <- vapply(x$families, `[[`, character(1), "family")
+  cat("Gtheory4LLM example:", x$name, "|", x$coding, "coding |", nrow(x$data), "rows\n")
+  cat("Object:", x$object, "| facets:", paste(x$facets, collapse = ", "), "\n")
+  cat("Outcomes:", paste(paste0(x$outcomes, " (", families, ")"), collapse = ", "), "\n")
+  cat("Source:", x$source, "\n")
+  if (length(x$notes)) cat(paste(paste0("- ", x$notes), collapse = "\n"), "\n")
+  cat("Use $data, $outcomes, $object and $facets with gt_design() and gt_fit().\n")
+  invisible(x)
 }

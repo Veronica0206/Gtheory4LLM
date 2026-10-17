@@ -10,10 +10,14 @@
 # estimator: ML/REML for Gaussian; ML_Laplace for discrete outcomes.
 # residual: Gaussian residual covariance structure. Discrete outcomes
 #   use their identified observation models, not a fitted Gaussian residual.
-gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
+gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian"),
                    estimator = NULL, covariance = "unstructured", residual = NULL,
                    control = gt_control()) {
-  if (!inherits(design, "gt_design")) stop("Use gt_design() to declare the design.", call. = FALSE)
+  arguments <- .gt_formula_arguments(data, outcomes, design, family, !missing(family))
+  data <- arguments$data
+  outcomes <- arguments$outcomes
+  design <- arguments$design
+  family <- arguments$family
   if (!is.data.frame(data) || !nrow(data) || anyDuplicated(names(data)))
     stop("data must be a nonempty data frame with unique column names.", call. = FALSE)
   outcomes <- .gt_design_names(outcomes, "outcomes")
@@ -73,7 +77,15 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
       reason = "the call effect is estimated for Gaussian outcomes only")
   result$estimator <- estimator
   result$data <- resolved$data
-  result$call <- match.call()
+  call <- match.call()
+  if (arguments$swapped) {
+    # Record the arguments as they were resolved, so the data argument is the
+    # data whichever position it was given in.
+    given <- as.list(call)
+    call[["data"]] <- given[["outcomes"]]
+    call[["outcomes"]] <- given[["data"]]
+  }
+  result$call <- call
   result$N <- nrow(data)
   result$D <- length(outcomes)
   result$control <- control
@@ -84,7 +96,9 @@ gt_fit <- function(data, outcomes, design, family = gt_family("gaussian"),
   # studies remain available after the modelled data is dropped. It records
   # what was observed; it never stands in for data that was checked.
   result$panel <- .gt_panel_summary(resolved$data, design)
-  class(result) <- unique(c("gt_fit", class(result)))
+  # One class vector for every engine: the engine subclass first, then gt_fit,
+  # so that methods dispatch on either and no backend label leaks into class().
+  class(result) <- c(if (all(kinds == "gaussian")) "gt_gaussian_fit" else "gt_discrete_fit", "gt_fit")
   .gt_apply_retention(result, control$retain)
 }
 
@@ -326,13 +340,32 @@ summary.gt_fit <- function(object, ...) {
     variances$std_error <- errors$std_error[matched]
     variances$at_boundary <- errors$at_boundary[matched]
   }
+  # The coefficients a summary is asked for. A Gaussian fit's observed-score
+  # Erho2 and Phi at the fitted facet counts are computed where the fit allows
+  # it, and the reason is kept where it does not. Binary and ordinal fits
+  # report latent-response coefficients only on an explicit request, so the
+  # summary says how to ask rather than choosing a scale on the user's behalf.
+  kinds <- vapply(object$families, `[[`, character(1), "family")
+  reliability <- NULL
+  reliability_note <- NULL
+  if (all(kinds == "gaussian")) {
+    reliability <- tryCatch(gt_reliability(object), error = function(error) {
+      reliability_note <<- conditionMessage(error)
+      NULL
+    })
+  } else if (any(kinds == "categorical")) {
+    reliability_note <- "Unordered categorical outcomes have no default scalar coefficient."
+  } else {
+    reliability_note <- "Request gt_reliability(fit, scale = \"latent\") for identified latent-response coefficients."
+  }
   structure(list(outcomes = object$outcomes, families = object$families,
        N = object$N, random_sources = length(.gt_fitted_sources(object$design)),
        instrumentation_facets = length(object$design$facets),
        estimator = object$estimator, minus2loglik = object$minus2loglik,
        covariance_components = components, variances = variances,
        means = object$means, coefficients = object$coefficients,
-       thresholds = object$thresholds, diagnostics = gt_diagnostics(object)),
+       thresholds = object$thresholds, reliability = reliability,
+       reliability_note = reliability_note, diagnostics = gt_diagnostics(object)),
     class = "summary.gt_fit")
 }
 
@@ -353,6 +386,18 @@ print.summary.gt_fit <- function(x, ..., digits = max(3L, getOption("digits") - 
     print(utils::head(x$variances, 20L), row.names = FALSE, digits = digits)
     if (nrow(x$variances) > 20L)
       cat("Further source variances are available in summary(fit)$variances.\n")
+  }
+  if (!is.null(x$reliability)) {
+    r <- x$reliability
+    cat("\nReliability at the fitted facet counts (", r$scale, " scale; ",
+        paste(paste(names(r$design), r$design, sep = "="), collapse = ", "), "):\n", sep = "")
+    columns <- intersect(c("outcome", "Erho2", "Erho2_lower", "Erho2_upper",
+                           "Phi", "Phi_lower", "Phi_upper"), names(r$per_trait))
+    print(.gt_drop_empty_columns(utils::head(r$per_trait[columns], 20L)),
+          row.names = FALSE, digits = digits)
+    cat("Erho2: relative comparisons; Phi: absolute decisions. gt_dstudy(fit, grid) projects other allocations.\n")
+  } else if (!is.null(x$reliability_note)) {
+    cat("\nReliability:", x$reliability_note, "\n")
   }
   if (length(x$coefficients)) {
     # An ordinal outcome's location is fixed at zero for identification. It

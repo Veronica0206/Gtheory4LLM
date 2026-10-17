@@ -5,7 +5,7 @@
 \title{Inspect Data, Source Dimensions, and Backend Limits Before Fitting}
 \description{Reports observed design and outcome information, random-source dimensions, parameter counts, and the current backend's structural and resource restrictions without optimizing a model. Declared absent categories are reported as a failed check; fitting continues to reject them. Other category and source-resolution rules match fitting.}
 \usage{
-gt_preflight(data, outcomes, design, family = gt_family("gaussian"),
+gt_preflight(data, outcomes, design = NULL, family = gt_family("gaussian"),
   covariance = "unstructured", residual = NULL,
   control = gt_control(), max_examples = 10L)
 
@@ -16,9 +16,9 @@ gt_preflight(data, outcomes, design, family = gt_family("gaussian"),
   max_variables = 8L, max_label_chars = 18L, ...)
 }
 \arguments{
-\item{data}{A nonempty data frame with unique column names.}
-\item{outcomes}{One or more outcome column names.}
-\item{design}{A design from \code{\link{gt_design}}.}
+\item{data}{A nonempty data frame with unique column names. With a model formula it may also be given second, after the formula.}
+\item{outcomes}{One or more outcome column names, or a two-sided model formula as accepted by \code{\link{gt_fit}}, which then also supplies the design.}
+\item{design}{A design from \code{\link{gt_design}}. Omit it with a formula; a family given in this position after a formula is read as \code{family}.}
 \item{family}{A family from \code{\link{gt_family}}, or a named family list matching the outcomes.}
 \item{covariance}{The source covariance specification accepted by \code{\link{gt_fit}}.}
 \item{residual}{Gaussian residual covariance specification, or \code{NULL} for the default. Do not specify this argument for discrete outcomes.}

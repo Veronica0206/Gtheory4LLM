@@ -1,16 +1,20 @@
 \name{gt_control}
 \alias{gt_control}
+\alias{print.gt_control}
 \title{Configure Gaussian and Discrete Fitting and Acceptance Checks}
 \description{Collects backend controls in separate named lists, together with which optional components a fitted object keeps. Backend-specific names and values are checked when a model is fitted.}
 \usage{
 gt_control(gaussian = list(), discrete = list(), retain = list())
+\method{print}{gt_control}(x, ...)
 }
 \arguments{
 \item{gaussian}{Uniquely named list of Gaussian settings, described below.}
 \item{discrete}{Uniquely named list of discrete settings, described below.}
 \item{retain}{Uniquely named list of logical retention switches, described below. Every default is \code{TRUE}.}
+\item{x}{A \code{gt_control} object for the print method.}
+\item{...}{Further print arguments; currently unused.}
 }
-\value{A \code{gt_control} object with separate Gaussian and discrete control lists and a resolved retention record.}
+\value{A \code{gt_control} object with separate Gaussian and discrete control lists and a resolved retention record. \code{print()} lists the settings that differ from the package defaults and the components a fit will keep, and returns the object invisibly.}
 \details{\strong{Retained components.} \code{retain} decides which optional parts of a fitted object are kept. All four default to \code{TRUE}; dropping a component is always something the caller asked for.
 \itemize{
 \item \code{data}: the modelled data frame. Dropping it removes every copy of the observations from the fit, including the summary copy the Gaussian OpenMx model carried and the data argument of the recorded call, which is replaced by a marker. Compact item-to-batch design labels remain on a supported shared-call fit so that \code{gt_batch_reliability()} can evaluate named targets; this switch does not de-identify the fitted design. Portable reports exclude these labels.

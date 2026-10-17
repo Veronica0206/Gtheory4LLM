@@ -79,6 +79,18 @@ gt_batch <- function(size, order = NULL, by = NULL, sequential = FALSE, neighbor
                  id = id, assumption = paste(assumption, collapse = " ")), class = "gt_batch")
 }
 
+print.gt_batch <- function(x, ...) {
+  cat("Declared batches:", x$size, "items per call\n")
+  cat("Calls:", if (is.null(x$id)) "inferred from the item order" else paste("recorded in column", x$id),
+      "| order:", if (is.null(x$order)) "as the data are stored" else paste("column", x$order), "\n")
+  if (!is.null(x$by)) cat("Dependence may differ by:", x$by, "\n")
+  patterns <- c(if (x$sequential) paste0("sequential (reach ", x$sequential, ")"),
+                if (x$neighbor) paste0("neighbour (reach ", x$neighbor, ")"))
+  cat("Positional patterns:", if (length(patterns)) paste(patterns, collapse = ", ") else "none declared", "\n")
+  cat(x$assumption, "\n")
+  invisible(x)
+}
+
 .gt_batch_order_values <- function(data, batch) {
   if (!batch$order %in% names(data))
     stop("The batch order column ", sQuote(batch$order), " is not in the data.", call. = FALSE)

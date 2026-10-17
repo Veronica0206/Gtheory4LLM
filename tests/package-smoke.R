@@ -8,6 +8,15 @@ expected_exports <- c("gt_design", "gt_batch", "gt_family", "gt_control", "gt_sc
 stopifnot(setequal(getNamespaceExports("Gtheory4LLM"), expected_exports))
 stopifnot(is.function(getS3method("print", "gt_fit")),
           is.function(getS3method("print", "gt_report")),
+          is.function(getS3method("print", "gt_design")),
+          is.function(getS3method("print", "gt_family")),
+          is.function(getS3method("print", "gt_control")),
+          is.function(getS3method("print", "gt_batch")),
+          is.function(getS3method("print", "gt_score")),
+          is.function(getS3method("print", "gt_example")),
+          is.function(getS3method("print", "gt_pilot_plan")),
+          is.function(getS3method("as.data.frame", "gt_pilot_plan")),
+          is.function(getS3method("deviance", "gt_fit")),
           is.function(getS3method("summary", "gt_fit")),
           is.function(getS3method("print", "summary.gt_fit")),
           is.function(getS3method("plot", "gt_dstudy")),
@@ -19,7 +28,7 @@ catalog <- gt_example()
 stopifnot(nrow(catalog) == 8L)
 for (name in catalog$name) {
   native <- gt_example(name)
-  stopifnot(nrow(native$data) == 21600L,
+  stopifnot(inherits(native, "gt_example"), nrow(native$data) == 21600L,
     identical(names(native$data), c(native$object, native$facets, native$outcomes)),
     !anyNA(native$data), file.exists(native$source),
     startsWith(normalizePath(native$source), normalizePath(system.file(package = "Gtheory4LLM"))),
@@ -49,6 +58,7 @@ design <- gt_design("item", "rater", random = ~ item + rater)
 fit <- gt_fit(d, "score", design, control = gt_control(gaussian =
   list(check_hessian = FALSE, retry_seed = 42, extra_tries = 2)))
 stopifnot(fit$numerically_accepted,
+          identical(class(fit), c("gt_gaussian_fit", "gt_fit")),
           gt_diagnostics(fit)$diagnostics$independent_likelihood_matches,
           identical(names(gt_components(fit)), c("item", "rater", "Residual")),
           is.list(summary(fit)))
@@ -85,5 +95,7 @@ check_likelihood(nominal, d$nominal)
 joint <- gt_fit(d, c("binary", "ordinal"), design,
   list(binary = gt_family("binary", "logit"), ordinal = gt_family("ordinal")), control = fixed(2))
 stopifnot(joint$numerically_accepted,
+  identical(class(binary), c("gt_discrete_fit", "gt_fit")),
+  identical(class(joint), c("gt_discrete_fit", "gt_fit")),
   abs(joint$minus2loglik - binary$minus2loglik - ordinal$minus2loglik) < 1e-6)
 cat("PASS: installed binary, ordinal, nominal, and joint discrete likelihood identities.\n")

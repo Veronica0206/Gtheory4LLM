@@ -1,13 +1,41 @@
-# Gtheory4LLM 0.5.0 — Study Planning
+# Gtheory4LLM 0.5.0.9000 (development)
 
 <!-- release-identity:start -->
-Source version: **0.5.0**.
+Source version: **0.5.0.9000**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
 These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
+
+This development line gives the interface the conventions of other R model
+objects. The published 0.5.0 archive, its numerical engines, acceptance rules
+and every estimate are unchanged.
+
+- `gt_fit()` and `gt_preflight()` accept a two-sided model formula in place of
+  the outcome names and the design: `gt_fit(score ~ item * rater, data)` or
+  `gt_fit(cbind(efficacy, safety) ~ item + rater, data)`, with the data frame
+  before or after the formula and a family in the third position as `glm()`
+  users expect. The first variable on the right-hand side is the object of
+  measurement and the others are the facets; the resolved design is the one
+  `gt_design()` builds, recorded with its formula in `fit$design$formula`. The
+  source grammar gains `/`, so `question / item_code` declares
+  `question + question:item_code`. Replicates, batches and the automatic nesting
+  selectors still need `gt_design()`.
+- Every fit has the class vector `c("gt_gaussian_fit", "gt_fit")` or
+  `c("gt_discrete_fit", "gt_fit")`. The Gaussian engine's internal class label
+  and the discrete engine's bare `"list"` no longer appear in `class(fit)`.
+- `summary(fit)` carries a Gaussian fit's observed-score reliability at the
+  fitted facet counts, or the reason none is reported, and prints it after the
+  source variances. `deviance(fit)` returns the fitted objective for every fit,
+  including one that failed numerical acceptance; `logLik()` still refuses one.
+- `gt_design()`, `gt_family()`, `gt_control()`, `gt_batch()`, `gt_score()` and
+  `gt_example()` results print as short descriptions instead of raw lists, and
+  `gt_pilot_plan()` returns a classed `gt_pilot_plan` with `print()` and
+  `as.data.frame()` methods. The elements of every object are unchanged.
+
+# Gtheory4LLM 0.5.0 — Study Planning
 
 This version adds bounded study-planning tools. Historical release assets and
 the numerical acceptance rules are unchanged.

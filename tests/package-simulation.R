@@ -14,6 +14,11 @@ stopifnot(nrow(plan$replicates) == 1L, plan$summary$attempted == 1L,
   is.character(plan$replicates$acceptance_failures), is.character(plan$replicates$selected_attempt),
   is.na(plan$replicates$acceptance_failures), !is.na(plan$replicates$selected_attempt),
   plan$scenario$target_counts[["rater"]] == 2L, identical(previous, .Random.seed))
+flat <- as.data.frame(plan)
+stopifnot(inherits(plan, "gt_pilot_plan"),
+  any(grepl("Pilot precision study", capture.output(print(plan)), fixed = TRUE)),
+  identical(names(flat)[1:2], c("design_id", "n_items")),
+  identical(flat$attempted, plan$summary$attempted), nrow(flat) == nrow(plan$allocations))
 replay_control <- plan$scenario$control
 replay_control$gaussian$retry_seed <- plan$replicates$retry_seed
 replayed <- gt_fit(gt_simulate(fit, 16, seed = plan$replicates$seed), "score", fit$design,

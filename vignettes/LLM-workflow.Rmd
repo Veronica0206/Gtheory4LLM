@@ -125,6 +125,16 @@ stopifnot(isTRUE(diagnostics$numerically_accepted))
 gt_components(fit)
 ```
 
+The same model can be declared as one formula, with the data frame before or
+after it: the outcome on the left; on the right the object of measurement
+first, then the facets and their sources. It is the same fit.
+
+```{r formula-fit}
+formula_fit <- gt_fit(quality ~ item * (evaluator + prompt) + evaluator:prompt:run,
+  llm_data, control = fit$control)
+all.equal(gt_components(formula_fit), gt_components(fit))
+```
+
 The Gaussian default estimator is REML. The trial budget allows the initial fit
 plus two additional attempts; it is not resampling. The chosen optimizer remains
 fixed across attempts. Inspect numerical acceptance and source-boundary

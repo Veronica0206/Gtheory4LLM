@@ -1,10 +1,12 @@
 \name{gt_batch}
 \alias{gt_batch}
+\alias{print.gt_batch}
 \title{Declare That Items Were Annotated Several to a Call}
 \description{Declares that the object of measurement was submitted in calls of several items, so that items sharing a call are not independent. Without a declaration every function treats items as independent given the declared sources.}
 \usage{
 gt_batch(size, order = NULL, by = NULL, sequential = FALSE,
   neighbor = FALSE, id = NULL)
+\method{print}{gt_batch}(x, ...)
 }
 \arguments{
 \item{size}{The number of items in a call: one integer of at least 2. With \code{id}, the most a call may hold.}
@@ -13,8 +15,10 @@ gt_batch(size, order = NULL, by = NULL, sequential = FALSE,
 \item{sequential}{\code{FALSE}, or how many preceding items may affect an item: a whole number from 1 to \code{size - 1}. \code{TRUE} means every preceding item in the call.}
 \item{neighbor}{\code{FALSE}, or how many positions apart two items may be and still affect each other, in either direction: a whole number from 1 to \code{size - 1}. \code{TRUE} means any distance within the call.}
 \item{id}{Optional name of a column identifying the call that produced each row. \code{NULL}, the default, infers the batches from the item order.}
+\item{x}{A \code{gt_batch} object for the print method.}
+\item{...}{Further print arguments; currently unused.}
 }
-\value{A \code{gt_batch} list holding the size, the order column, the facet named in \code{by}, the two reaches as integers with 0 for a pattern that is off, the call column, and the assumption they state in words.}
+\value{A \code{gt_batch} list holding the size, the order column, the facet named in \code{by}, the two reaches as integers with 0 for a pattern that is off, the call column, and the assumption they state in words. \code{print()} shows the declaration and that assumption, and returns the object invisibly.}
 \details{A declaration is passed to \code{\link{gt_design}} and travels with the design to every function that receives it or a fit made from it.
 
 By default items in one call are assumed to affect each other equally, whatever their order, and items in different calls are independent given the declared sources. That the dependence varies with position is a separate, optional claim, and two patterns fit it. In a sequential pattern an item is affected by items submitted before it. In a neighbour pattern items close together affect each other in either direction. Data in which every item keeps the same position cannot always tell the two apart, so each is declared on its own, and declaring one asks for it to be examined rather than asserting it.

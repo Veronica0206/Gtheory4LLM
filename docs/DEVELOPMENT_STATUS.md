@@ -59,7 +59,7 @@ tagged commit refused a discrete fit on one runner, and
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.5.0` (Study Planning release). The development line was versioned `0.3.0.9000`, `0.4.0.9000` and `0.4.1.9000`; no 0.3.0 was released, `0.4.0` was tagged but not published, and `0.4.1` was published on GitHub only |
+| Checkout version | `0.5.0.9000`, the development line after the 0.5.0 Study Planning release. Earlier development versions were `0.3.0.9000`, `0.4.0.9000` and `0.4.1.9000`; no 0.3.0 was released, `0.4.0` was tagged but not published, and `0.4.1` was published on GitHub only |
 | Bundle in `artifacts/` | `0.5.0`, adopted unchanged from the checked candidate; the archive and manual identities are recorded below and in the manifest |
 | Bundle source commit | `854e5e792b5dfcbacc88c2a32c0c9792b2d3772d` |
 | Manifest publication state | Read `release_state` in [the manifest](../artifacts/manifest.json). `prepared` records staging; `published` records the publication commit/tag identity. Neither field alone proves a GitHub upload or CRAN submission |

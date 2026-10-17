@@ -171,16 +171,83 @@
     if (length(op) != 1L) .gt_design_abort("Unsupported call in random formula.")
     if (op == "(" && length(node) == 2L) return(walk(node[[2L]]))
     if (op == "+" && length(node) == 2L) return(walk(node[[2L]]))
-    if (!op %in% c("+", ":", "*") || length(node) != 3L)
-      .gt_design_abort("Only names, '+', ':', '*', parentheses, and 0/1 are allowed in random; use nested for nesting.")
+    if (!op %in% c("+", ":", "*", "/") || length(node) != 3L)
+      .gt_design_abort("Only names, '+', ':', '*', '/', parentheses, and 0/1 are allowed in random.")
     left <- walk(node[[2L]])
     right <- walk(node[[3L]])
     if (op == "+") return(compact(c(left, right)))
+    if (op == "/") {
+      # a/b is a + a:b, and (a + b)/c is a + b + a:b:c: every variable on the
+      # left is nested jointly in the right, as R's own formula algebra reads it.
+      within <- unique(unlist(left, use.names = FALSE))
+      if (!length(within)) .gt_design_abort("The left side of '/' must name at least one variable.")
+      return(compact(c(left, product(list(within), right))))
+    }
     interaction <- product(left, right)
     if (op == ":") return(interaction)
     compact(c(left, right, interaction))
   }
   walk(random[[2L]])
+}
+
+# Read a two-sided model formula as outcomes plus a random-source design
+#
+# The left-hand side names the outcomes: one column, or cbind() of several for
+# a joint fit. The right-hand side is the random-source grammar of gt_design():
+# the first variable named there is the object of measurement and the others
+# are the instrumentation facets, in order of appearance. Nothing in the
+# formula is evaluated. Replicates, batches and the automatic nesting selectors
+# have no formula syntax; declare those with gt_design().
+.gt_formula_specification <- function(formula) {
+  if (!inherits(formula, "formula") || length(formula) != 3L)
+    .gt_design_abort("A model formula needs outcomes on the left and random sources on the right, for example score ~ item * rater.")
+  lhs <- formula[[2L]]
+  all_symbols <- function(nodes) length(nodes) > 0L && all(vapply(nodes, is.symbol, logical(1)))
+  outcomes <- if (is.symbol(lhs)) as.character(lhs) else
+    if (is.call(lhs) && identical(lhs[[1L]], as.name("cbind")) && all_symbols(as.list(lhs)[-1L]))
+      vapply(as.list(lhs)[-1L], as.character, character(1)) else
+    .gt_design_abort("The left-hand side must name one outcome column or cbind() several.")
+  rhs <- formula[-2L]
+  variables <- unique(unlist(.gt_design_formula_terms(rhs, 4096L), use.names = FALSE))
+  if (length(variables) < 2L)
+    .gt_design_abort("The right-hand side must name the object of measurement first and at least one instrumentation facet.")
+  design <- gt_design(variables[1L], variables[-1L], random = rhs)
+  design$formula <- paste(deparse(formula, width.cutoff = 500L), collapse = " ")
+  list(outcomes = outcomes, design = design)
+}
+
+# Accept (data, outcomes, design) or a model formula in place of the outcomes,
+# with the data frame before or after it. With a formula there is no design
+# argument to give, so a family in that position is read as the family, the
+# order glm() users expect. Fitting and preflight share this so that both
+# read one request identically.
+.gt_formula_arguments <- function(data, outcomes, design, family, family_given) {
+  swapped <- inherits(data, "formula")
+  if (swapped) {
+    if (!is.data.frame(outcomes))
+      stop("With a formula first, the data frame comes second, as in gt_fit(score ~ item + rater, data).", call. = FALSE)
+    formula <- data
+    data <- outcomes
+    outcomes <- formula
+  }
+  if (inherits(outcomes, "formula")) {
+    is_family <- function(x) inherits(x, "gt_family") ||
+      (is.list(x) && length(x) > 0L && all(vapply(x, inherits, logical(1), "gt_family")))
+    if (is_family(design)) {
+      if (family_given)
+        stop("The family was supplied twice: once after the formula and once as family.", call. = FALSE)
+      family <- design
+      design <- NULL
+    }
+    if (!is.null(design))
+      stop("Supply either a model formula or a gt_design() declaration, not both.", call. = FALSE)
+    specification <- .gt_formula_specification(outcomes)
+    outcomes <- specification$outcomes
+    design <- specification$design
+  }
+  if (!inherits(design, "gt_design"))
+    stop("Use gt_design() to declare the design, or give a model formula such as score ~ item * rater.", call. = FALSE)
+  list(data = data, outcomes = outcomes, design = design, family = family, swapped = swapped)
 }
 
 # Construct a flexible G-theory random-source specification
@@ -208,7 +275,8 @@
 #   groups also interact with the object. Does not imply ancestor object terms.
 # random: Optional explicit one-sided formula or character vector of
 #   grouping terms. Cannot be combined with explicit automatic selector options.
-#   Formula grammar is restricted to names, +, :, *, parentheses, and 0/1.
+#   Formula grammar is restricted to names, +, :, *, /, parentheses, and
+#   0/1; a/b expands to a + a:b.
 # full_cell: Retain the object-by-all-facets source when the requested
 #   expansion contains it. FALSE removes exactly that one term and changes
 #   nothing else, which is how a binary/ordinal study with one observation per
@@ -344,6 +412,26 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
   # Added only when declared, so a design without one is the object it always was.
   if (!is.null(batch)) design$batch <- batch
   design
+}
+
+# Print a declaration as the sources it requests, before or after fitting
+print.gt_design <- function(x, ...) {
+  cat("G-theory design: object", x$object, "| facets:", paste(x$facets, collapse = ", "), "\n")
+  cat("Random sources:", paste(x$terms_requested, collapse = " + "), "\n")
+  if (length(x$aliased_terms))
+    cat("Combined with the residual for this fit:", paste(x$aliased_terms, collapse = ", "), "\n")
+  if (length(x$nested))
+    cat("Nested:", paste(vapply(names(x$nested), function(child)
+      paste(child, "in", paste(x$nested[[child]], collapse = ":")), character(1)), collapse = "; "), "\n")
+  cat("Construction:", x$construction, "| replicates per cell:", x$replicates, "\n")
+  if (!isTRUE(x$full_cell)) cat("The object-by-all-facets source was removed (full_cell = FALSE).\n")
+  if (!is.null(x$formula)) cat("Formula:", x$formula, "\n")
+  if (!is.null(x$batch))
+    cat("Batches:", x$batch$size, "items per call",
+        if (is.null(x$batch$by)) "" else paste("| dependence may differ by", x$batch$by), "\n")
+  cat(if (isTRUE(x$validated_data)) "Data checked against this declaration." else
+    "Specification only: the data are checked when fitting.", "\n")
+  invisible(x)
 }
 
 # Resolve statistical aliases only after the observation family and actual

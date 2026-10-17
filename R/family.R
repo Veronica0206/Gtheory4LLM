@@ -42,6 +42,18 @@ gt_family <- function(family = "gaussian", link = NULL, levels = NULL,
                  reference = reference, ordered = family == "ordinal"), class = "gt_family")
 }
 
+print.gt_family <- function(x, ...) {
+  cat("G-theory outcome family:", x$family, "| link:", x$link, "\n")
+  if (!is.null(x$levels)) {
+    cat(if (isTRUE(x$ordered)) "Ordered levels:" else "Levels:",
+        paste(x$levels, collapse = if (isTRUE(x$ordered)) " < " else ", "), "\n")
+  } else if (x$family != "gaussian") {
+    cat("Levels: taken from the data when fitting\n")
+  }
+  if (!is.null(x$reference)) cat("Reference category:", x$reference, "\n")
+  invisible(x)
+}
+
 .gt_resolve_families <- function(data, outcomes, family, allow_absent = FALSE) {
   # Preflight can describe declared-but-unobserved categories as a failed
   # check. Fitting and every other caller retain the strict default.
@@ -133,4 +145,19 @@ gt_control <- function(gaussian = list(), discrete = list(), retain = list()) {
   }
   structure(list(gaussian = gaussian, discrete = discrete,
                  retain = .gt_validate_retention(retain)), class = "gt_control")
+}
+
+print.gt_control <- function(x, ...) {
+  brief <- function(value) if (is.atomic(value) && length(value) <= 4L)
+    paste(deparse(value, width.cutoff = 60L), collapse = " ") else
+    paste0("<", class(value)[1L], " of length ", length(value), ">")
+  settings <- function(engine) if (!length(engine)) "package defaults" else
+    paste(names(engine), vapply(engine, brief, character(1)), sep = " = ", collapse = ", ")
+  cat("G-theory fitting controls\n")
+  cat("Gaussian engine:", settings(x$gaussian), "\n")
+  cat("Discrete engine:", settings(x$discrete), "\n")
+  dropped <- names(x$retain)[!x$retain]
+  cat("Retained fit components:",
+      if (length(dropped)) paste("all except", paste(dropped, collapse = ", ")) else "all", "\n")
+  invisible(x)
 }

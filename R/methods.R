@@ -29,6 +29,22 @@ nobs.gt_fit <- function(object, ...) {
   as.integer(object$N)
 }
 
+# Minus twice the fitted objective: the restricted log likelihood under REML,
+# the profile log likelihood under ML, and the first-order Laplace
+# approximation for discrete outcomes.
+#
+# Unlike logLik(), this is returned for a fit that failed numerical
+# acceptance. The objective where the optimizer stopped is what a user reads
+# to see how far a refused fit got, and reporting it is not a verdict:
+# model selection goes through logLik(), which refuses such a fit.
+deviance.gt_fit <- function(object, ...) {
+  .gt_require_fit(object)
+  value <- object$minus2loglik
+  if (!is.numeric(value) || length(value) != 1L || !is.finite(value))
+    stop("This fit does not record a finite objective value.", call. = FALSE)
+  as.numeric(value)
+}
+
 # Log likelihood with the parameter count each estimator actually fitted.
 #
 # Gaussian ML profiles one intercept per outcome; those are estimated, so they

@@ -1,17 +1,21 @@
 \name{gt_example}
 \alias{gt_example}
+\alias{print.gt_example}
 \title{Load Modeling Tables from Three LLM-Annotated Datasets}
 \description{Lists eight documented outcome sets or loads their design columns and modeled outcomes. Installed resources omit raw text and API metadata.}
 \usage{
 gt_example(name = NULL, coding = c("native", "manuscript"),
   directory = NULL)
+\method{print}{gt_example}(x, ...)
 }
 \arguments{
 \item{name}{Outcome-set name, or NULL to list available sets.}
 \item{coding}{Use \code{"native"} to preserve response types. Use \code{"manuscript"} for the seven original Gaussian working-score codings.}
 \item{directory}{Optional directory containing example RDS resources or source CSV files, supplied explicitly as one nonempty path. A file named \code{<name>.rds} takes precedence over CSV loading. An installed package always loads bundled RDS resources when this argument is omitted, regardless of workspace variables.}
+\item{x}{A \code{gt_example} object for the print method.}
+\item{...}{Further print arguments; currently unused.}
 }
-\value{A catalog data frame when name is NULL. Otherwise a list with data, outcome names, observation families, object and facet names, example name, coding, source, and interpretation notes. Installed resources also provide portable source-provenance metadata.}
+\value{A catalog data frame when name is NULL. Otherwise a \code{gt_example} list with data, outcome names, observation families, object and facet names, example name, coding, source, and interpretation notes. Installed resources also provide portable source-provenance metadata. \code{print()} describes the set without printing any rows and returns the object invisibly.}
 \details{Every set retains 21,600 measurement rows: 100 text objects by 4 evaluators, 3 prompts, 6 temperatures, and 3 seeds. Full tables exceed default dense discrete fitting limits; use a predeclared small panel or a future scalable backend for discrete examples.
 
 Available outcome sets are:

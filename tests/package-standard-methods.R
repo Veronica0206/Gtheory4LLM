@@ -42,6 +42,11 @@ expect(isTRUE(attr(value, "REML")), "a REML fit is labelled as restricted")
 expect(identical(attr(value, "likelihood"), "restricted"), "the likelihood kind is labelled")
 expect(identical(attr(value, "nobs"), nrow(panel)), "logLik carries the observation count")
 
+# --- deviance is the retained objective, a plain number -----------------------
+expect(identical(deviance(reml), reml$minus2loglik), "deviance returns the retained objective")
+expect(is.numeric(deviance(ml)) && is.null(attributes(deviance(ml))), "deviance is a plain number")
+near(deviance(ml), -2 * as.numeric(logLik(ml)), "ML deviance is minus twice the log likelihood")
+
 ml_value <- logLik(ml)
 expect(identical(attr(ml_value, "df"), as.integer(ml$n_model_parameters)),
        "an ML fit counts covariance parameters and profiled means")

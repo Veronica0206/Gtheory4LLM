@@ -5,6 +5,7 @@
 ^\.Rhistory$
 ^\.RData$
 ^\.Rproj\.user$
+^Rplots\.pdf$
 ^FUNCTIONS\.md$
 ^PACKAGE_PLAN\.md$
 ^load_functions\.R$

@@ -42,6 +42,7 @@ into subdirectories without silently removing them from the release gate.
 | `package-argument-parity.R` | Shared fitting/preflight argument validation; absent categories are additionally reported as blocked preflight objects |
 | `package-tuple-keys.R` | Interaction keys that user labels must not collide with |
 | `package-user-interface.R` | Printing, summaries, and what they must never leak |
+| `package-formula-interface.R` | The model-formula route of fitting and preflight: equivalence with `gt_design()`, both argument orders, a family after the formula, class vectors, and the refusals |
 
 ## Source-level tests
 

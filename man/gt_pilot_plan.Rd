@@ -1,11 +1,15 @@
 \name{gt_pilot_plan}
 \alias{gt_pilot_plan}
+\alias{print.gt_pilot_plan}
+\alias{as.data.frame.gt_pilot_plan}
 \title{Evaluate Pilot Precision under a Gaussian Parameter Scenario}
 \usage{
 gt_pilot_plan(fit, grid, nsim, seed, coefficient = "Erho2", outcome = NULL,
   score = NULL, kind = "outcome", width_target = NULL, level = 0.95,
   target_counts = NULL, components = NULL, means = NULL,
   control = fit$control, max_rows = 1000000L)
+\method{print}{gt_pilot_plan}(x, ..., digits = 4L, max_rows = 12L)
+\method{as.data.frame}{gt_pilot_plan}(x, row.names = NULL, optional = FALSE, ...)
 }
 \arguments{
   \item{fit}{An accepted Gaussian fit supported by \code{\link{gt_simulate}}.}
@@ -42,7 +46,13 @@ gt_pilot_plan(fit, grid, nsim, seed, coefficient = "Erho2", outcome = NULL,
   \item{control}{Refitting controls from \code{\link{gt_control}}; default is
   the original fit's controls. No numerical acceptance rule or limit is relaxed.}
   \item{max_rows}{Maximum generated rows per replicate, as for
-  \code{\link{gt_simulate}}.}
+  \code{\link{gt_simulate}}, and in the print method the number of
+  candidate pilots shown.}
+  \item{x}{A \code{gt_pilot_plan} object.}
+  \item{digits}{Significant digits in the printed table.}
+  \item{row.names, optional}{As for \code{\link{as.data.frame}}; \code{row.names}
+  replaces the row names of the returned data frame and \code{optional} is ignored.}
+  \item{...}{Further method arguments; currently unused.}
 }
 \description{
 Simulates and refits proposed balanced Gaussian pilot panels, then records
@@ -86,7 +96,10 @@ A list with \code{allocations}, one row per proposed pilot;
 \code{replicates}, one row per attempted simulation/refit;
 \code{summary}, rates, denominators, Monte Carlo standard errors, and conditional
 width summaries; \code{scenario}, the parameters, target protocol, estimator,
-coefficient, seeds, and controls; and \code{interpretation}.
+coefficient, seeds, and controls; and \code{interpretation}. The object has
+class \code{gt_pilot_plan}: \code{print()} shows each candidate's allocation
+beside its acceptance, interval and precision rates, and \code{as.data.frame()}
+returns one row per candidate, joining \code{allocations} with \code{summary}.
 
 \code{accepted} counts accepted fits even when coefficient extraction fails.
 \code{interval_unavailable} counts successful coefficient extraction without a
@@ -120,7 +133,8 @@ plan <- gt_pilot_plan(fit,
   grid = expand.grid(n_items = c(40, 80), evaluator = c(3, 5)),
   nsim = 200, seed = 2026, coefficient = "Phi", width_target = 0.15,
   target_counts = c(evaluator = 3))
-plan$summary
+plan
+as.data.frame(plan)
 plan$replicates
 }
 }

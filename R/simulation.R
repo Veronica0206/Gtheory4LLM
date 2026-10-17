@@ -323,7 +323,7 @@ gt_pilot_plan <- function(fit, grid, nsim, seed, coefficient = "Erho2", outcome 
     }
     do.call(rbind, rows)
   })
-  list(allocations = allocation_table, replicates = records,
+  structure(list(allocations = allocation_table, replicates = records,
     summary = .gt_pilot_summary(records, allocation_table, width_target),
     scenario = list(parameter_source = model$parameter_source, components = model$components,
       means = model$means, covariance_types = model$covariance_types, estimator = fit$estimator,
@@ -336,5 +336,33 @@ gt_pilot_plan <- function(fit, grid, nsim, seed, coefficient = "Erho2", outcome 
       "Rates use every attempted replicate; mean widths condition on an available interval.",
       "Precision success requires an available interval meeting width_target, so failures are non-successes.",
       "Conditional intervals remain labelled; their widths do not validate boundary coverage.",
-      "These are model-based plug-in operating characteristics, not calibrated coverage or bootstrap inference."))
+      "These are model-based plug-in operating characteristics, not calibrated coverage or bootstrap inference.")),
+    class = "gt_pilot_plan")
+}
+
+# One row per candidate pilot: its allocation beside its rates and widths.
+as.data.frame.gt_pilot_plan <- function(x, row.names = NULL, optional = FALSE, ...) {
+  result <- cbind(x$summary["design_id"], x$allocations, x$summary[-1L])
+  if (!is.null(row.names)) rownames(result) <- row.names
+  result
+}
+
+print.gt_pilot_plan <- function(x, ..., digits = 4L, max_rows = 12L) {
+  .gt_print_coefficient_options(digits, max_rows)
+  scenario <- x$scenario
+  cat("Pilot precision study |", nrow(x$allocations), "candidate pilot(s) x", scenario$nsim,
+      "simulated refits |", scenario$coefficient, "for", scenario$kind,
+      if (length(scenario$outcome)) scenario$outcome else "", "\n")
+  cat("Target protocol:", paste(paste(names(scenario$target_counts), scenario$target_counts, sep = "="),
+      collapse = ", "), "| estimator", scenario$estimator, "| seed", scenario$seed, "\n")
+  shown <- cbind(x$allocations, x$summary[c("attempted", "accepted", "interval_available",
+    "mean_width_given_interval", "precision_success_rate")])
+  print(utils::head(shown, max_rows), row.names = FALSE, digits = digits)
+  if (nrow(shown) > max_rows) cat("Further pilots remain in as.data.frame(x).\n")
+  target <- x$summary$width_target[1L]
+  cat(if (is.na(target)) "No width target was set, so precision success rates are NA." else
+    paste0("Precision success: an available interval no wider than ", format(target), "."), "\n")
+  cat("Rates use every attempted replicate; widths condition on an available interval.\n")
+  cat("Model-based plug-in operating characteristics, not calibrated coverage; see $replicates.\n")
+  invisible(x)
 }

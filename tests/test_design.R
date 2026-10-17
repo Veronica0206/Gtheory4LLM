@@ -195,9 +195,17 @@ check("custom terms cannot be combined with automatic selectors", {
   fails(gt_design("item", facets4, random = ~ item + evaluator,
                   instrument_interactions = "additive"))
 })
-check("custom formula rejects calls, slash nesting, and executable blocks", {
+check("slash declares nesting as R's formula algebra reads it", {
+  nested <- gt_design("item", c("question", "item_code"),
+                      random = ~ item + question / item_code)
+  same_set(nested$terms, c("item", "question", "question:item_code"))
+  joint <- gt_design("item", c("a", "b", "c"), random = ~ item + (a + b) / c)
+  same_set(joint$terms, c("item", "a", "b", "a:b:c"))
+  fails(gt_design("item", facets4, random = ~ item + 0 / evaluator))
+})
+check("custom formula rejects calls, subtraction, and executable blocks", {
   fails(gt_design("item", facets4, random = ~ item + log(evaluator)))
-  fails(gt_design("item", facets4, random = ~ item + evaluator / prompt))
+  fails(gt_design("item", facets4, random = ~ item + evaluator - prompt))
   .injection_probe <- new.env(parent = emptyenv())
   .injection_probe$called <- FALSE
   malicious <- ~ item + { .injection_probe$called <- TRUE; evaluator }
