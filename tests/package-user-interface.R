@@ -80,7 +80,9 @@ for (bad in list(0, 23, 2.5, NA_real_, "3", c(2, 3))) {
 unidentified <- fit
 unidentified$retry_attempts$returned_fit[] <- FALSE
 stopifnot(is.na(gt_diagnostics(unidentified)$selected_attempt),
-  any(grepl("Selected attempt: not identified", capture.output(print(unidentified)), fixed = TRUE)))
+  any(grepl("Selected attempt: not identified", capture.output(print(unidentified)), fixed = TRUE)),
+  any(grepl("Object of measurement: item | facets: rater", capture.output(print(fit)), fixed = TRUE)),
+  any(grepl("Object of measurement: item | facets: rater", output, fixed = TRUE)))
 cat("PASS: classed Gaussian summaries preserve estimates without dumping models or data.\n")
 
 # The zero-random-variation limit gives an independently checkable binary fit.

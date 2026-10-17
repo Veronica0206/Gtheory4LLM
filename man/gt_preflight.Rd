@@ -7,7 +7,8 @@
 \usage{
 gt_preflight(data, outcomes, design = NULL, family = gt_family("gaussian"),
   covariance = "unstructured", residual = NULL,
-  control = gt_control(), max_examples = 10L)
+  control = gt_control(), max_examples = 10L, formula = NULL,
+  measured = NULL)
 
 \method{print}{gt_preflight}(x, ...)
 
@@ -23,6 +24,7 @@ gt_preflight(data, outcomes, design = NULL, family = gt_family("gaussian"),
 \item{covariance}{The source covariance specification accepted by \code{\link{gt_fit}}.}
 \item{residual}{Gaussian residual covariance specification, or \code{NULL} for the default. Do not specify this argument for discrete outcomes.}
 \item{control}{Engine controls from \code{\link{gt_control}}. Resource limits are read from the selected engine's controls.}
+\item{formula, measured}{The model formula under its own name and the right-hand variable that is the object of measurement, as for \code{\link{gt_fit}}.}
 \item{max_examples}{A nonnegative finite integer, no greater than \code{.Machine$integer.max}. Maximum rows in each panel-audit table and in each outcome/variable no-variation example table, and maximum invalid design-row indices in an error. Zero suppresses examples while retaining counts and truncation metadata. Defaults to 10.}
 \item{x}{An object returned by \code{gt_preflight}.}
 \item{type}{Plot mutually exclusive full-cell counts (\code{"cells"}), random-source dimensions (\code{"sources"}), or descriptive category coverage across design-variable groups (\code{"outcomes"}).}

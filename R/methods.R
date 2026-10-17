@@ -29,6 +29,54 @@ nobs.gt_fit <- function(object, ...) {
   as.integer(object$N)
 }
 
+# The model formula of any fit. A fit declared by formula returns that formula;
+# a fit declared with gt_design() returns the equivalent one, built from its
+# outcomes and requested sources, so update() has a model to edit either way.
+.gt_formula_name <- function(x) ifelse(make.names(x) == x, x, paste0("`", x, "`"))
+
+formula.gt_fit <- function(x, ...) {
+  .gt_require_fit(x)
+  text <- x$design$formula
+  if (is.null(text)) {
+    outcomes <- .gt_formula_name(x$outcomes)
+    lhs <- if (length(outcomes) == 1L) outcomes else paste0("cbind(", paste(outcomes, collapse = ", "), ")")
+    terms <- vapply(strsplit(x$design$terms_requested, ":", fixed = TRUE), function(parts)
+      paste(.gt_formula_name(parts), collapse = ":"), character(1))
+    text <- paste(lhs, "~", paste(terms, collapse = " + "))
+  }
+  stats::as.formula(text, env = globalenv())
+}
+
+# Refit with an edited model or edited arguments, as update() does for other
+# model objects. The recorded call already names every argument, so a new
+# formula replaces the outcomes and design it was fitted with, and the object
+# of measurement is carried along explicitly so that re-ordering the formula
+# cannot change the scientific target of the refit.
+update.gt_fit <- function(object, formula., ..., evaluate = TRUE) {
+  .gt_require_fit(object)
+  call <- object$call
+  if (!is.call(call)) stop("This fit does not record the call that produced it.", call. = FALSE)
+  extras <- match.call(expand.dots = FALSE)$...
+  if (identical(call[["data"]], as.name("<dropped>")) && is.null(extras[["data"]]))
+    stop("This fit was stored without its data (retain = list(data = FALSE)); supply data = to update().",
+         call. = FALSE)
+  if (!missing(formula.)) {
+    if (!is.null(object$design$batch) || !identical(as.integer(object$design$replicates), 1L))
+      stop("A formula cannot carry a batch declaration or replicates; declare the new model with gt_design() and refit.",
+           call. = FALSE)
+    call[["formula"]] <- stats::update.formula(formula(object), formula.)
+    # Removing an absent element from a call is an error, unlike for a list.
+    for (name in intersect(c("outcomes", "design"), names(call))) call[[name]] <- NULL
+    if (is.null(call[["measured"]])) call[["measured"]] <- object$design$object
+  }
+  if (length(extras)) {
+    existing <- names(extras) %in% names(call)
+    for (name in names(extras)[existing]) call[[name]] <- extras[[name]]
+    if (any(!existing)) call <- as.call(c(as.list(call), extras[!existing]))
+  }
+  if (evaluate) eval(call, parent.frame()) else call
+}
+
 # Minus twice the fitted objective: the restricted log likelihood under REML,
 # the profile log likelihood under ML, and the first-order Laplace
 # approximation for discrete outcomes.

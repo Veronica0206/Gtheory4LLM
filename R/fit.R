@@ -12,8 +12,10 @@
 #   use their identified observation models, not a fitted Gaussian residual.
 gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian"),
                    estimator = NULL, covariance = "unstructured", residual = NULL,
-                   control = gt_control()) {
-  arguments <- .gt_formula_arguments(data, outcomes, design, family, !missing(family))
+                   control = gt_control(), formula = NULL, measured = NULL) {
+  if (missing(outcomes)) outcomes <- NULL
+  arguments <- .gt_formula_arguments(data, outcomes, design, family, !missing(family),
+                                     formula, measured)
   data <- arguments$data
   outcomes <- arguments$outcomes
   design <- arguments$design
@@ -77,15 +79,7 @@ gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian")
       reason = "the call effect is estimated for Gaussian outcomes only")
   result$estimator <- estimator
   result$data <- resolved$data
-  call <- match.call()
-  if (arguments$swapped) {
-    # Record the arguments as they were resolved, so the data argument is the
-    # data whichever position it was given in.
-    given <- as.list(call)
-    call[["data"]] <- given[["outcomes"]]
-    call[["outcomes"]] <- given[["data"]]
-  }
-  result$call <- call
+  result$call <- .gt_recorded_call(match.call(), arguments)
   result$N <- nrow(data)
   result$D <- length(outcomes)
   result$control <- control
@@ -314,6 +308,7 @@ gt_diagnostics <- function(fit) {
 
 print.gt_fit <- function(x, ...) {
   cat("G-theory fit:", length(x$outcomes), "outcome(s),", x$N, "measurement rows\n")
+  cat("Object of measurement:", x$design$object, "| facets:", paste(x$design$facets, collapse = ", "), "\n")
   cat("Families:", paste(vapply(x$families, `[[`, character(1), "family"), collapse = ", "),
       "| Estimator:", x$estimator, "\n")
   cat("Random sources:", length(.gt_fitted_sources(x$design)),
@@ -359,7 +354,8 @@ summary.gt_fit <- function(object, ...) {
     reliability_note <- "Request gt_reliability(fit, scale = \"latent\") for identified latent-response coefficients."
   }
   structure(list(outcomes = object$outcomes, families = object$families,
-       N = object$N, random_sources = length(.gt_fitted_sources(object$design)),
+       N = object$N, object = object$design$object, facets = object$design$facets,
+       random_sources = length(.gt_fitted_sources(object$design)),
        instrumentation_facets = length(object$design$facets),
        estimator = object$estimator, minus2loglik = object$minus2loglik,
        covariance_components = components, variances = variances,
@@ -375,6 +371,8 @@ print.summary.gt_fit <- function(x, ..., digits = max(3L, getOption("digits") - 
     stop("digits must be one integer from 1 to 22.", call. = FALSE)
   cat("G-theory fit summary:", length(x$outcomes), "outcome(s),", x$N, "measurement rows\n")
   cat("Outcomes:", paste(x$outcomes, collapse = ", "), "\n")
+  if (!is.null(x$object))
+    cat("Object of measurement:", x$object, "| facets:", paste(x$facets, collapse = ", "), "\n")
   cat("Families:", paste(vapply(x$families, `[[`, character(1), "family"), collapse = ", "),
       "| Estimator:", x$estimator, "\n")
   cat("Random sources:", x$random_sources,

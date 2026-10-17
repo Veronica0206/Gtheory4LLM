@@ -193,12 +193,15 @@
 # Read a two-sided model formula as outcomes plus a random-source design
 #
 # The left-hand side names the outcomes: one column, or cbind() of several for
-# a joint fit. The right-hand side is the random-source grammar of gt_design():
-# the first variable named there is the object of measurement and the others
-# are the instrumentation facets, in order of appearance. Nothing in the
-# formula is evaluated. Replicates, batches and the automatic nesting selectors
-# have no formula syntax; declare those with gt_design().
-.gt_formula_specification <- function(formula) {
+# a joint fit. The right-hand side is the random-source grammar of gt_design().
+# The object of measurement is the variable named by `measured`; without one
+# it is the first variable on the right-hand side, and the design records which
+# rule applied so every print can say so. (The argument is not called `object`
+# because that is the first formal of update() and the other stats generics.) The other variables are the
+# instrumentation facets, in order of appearance. Nothing in the formula is
+# evaluated. Replicates, batches and the automatic nesting selectors have no
+# formula syntax; declare those with gt_design().
+.gt_formula_specification <- function(formula, measured = NULL) {
   if (!inherits(formula, "formula") || length(formula) != 3L)
     .gt_design_abort("A model formula needs outcomes on the left and random sources on the right, for example score ~ item * rater.")
   lhs <- formula[[2L]]
@@ -210,27 +213,49 @@
   rhs <- formula[-2L]
   variables <- unique(unlist(.gt_design_formula_terms(rhs, 4096L), use.names = FALSE))
   if (length(variables) < 2L)
-    .gt_design_abort("The right-hand side must name the object of measurement first and at least one instrumentation facet.")
-  design <- gt_design(variables[1L], variables[-1L], random = rhs)
+    .gt_design_abort("The right-hand side must name the object of measurement and at least one instrumentation facet.")
+  if (is.null(measured)) {
+    object <- variables[1L]
+    rule <- "first right-hand variable"
+  } else {
+    if (!is.character(measured) || length(measured) != 1L || is.na(measured) || !measured %in% variables)
+      .gt_design_abort("measured must name one variable of the formula's right-hand side: ",
+                       paste(variables, collapse = ", "), ".")
+    object <- measured
+    rule <- "declared"
+  }
+  design <- gt_design(object, variables[variables != object], random = rhs)
   design$formula <- paste(deparse(formula, width.cutoff = 500L), collapse = " ")
+  design$object_rule <- rule
   list(outcomes = outcomes, design = design)
 }
 
-# Accept (data, outcomes, design) or a model formula in place of the outcomes,
-# with the data frame before or after it. With a formula there is no design
-# argument to give, so a family in that position is read as the family, the
-# order glm() users expect. Fitting and preflight share this so that both
-# read one request identically.
-.gt_formula_arguments <- function(data, outcomes, design, family, family_given) {
+# Accept (data, outcomes, design), a model formula in place of the outcomes
+# with the data frame before or after it, or a named formula argument. With a
+# formula there is no design argument to give, so a family in that position is
+# read as the family, the order glm() users expect. Fitting and preflight share
+# this so that both read one request identically. The returned flags let the
+# caller record a call in which every argument sits under its own name.
+.gt_formula_arguments <- function(data, outcomes, design, family, family_given,
+                                  formula = NULL, measured = NULL) {
   swapped <- inherits(data, "formula")
   if (swapped) {
     if (!is.data.frame(outcomes))
       stop("With a formula first, the data frame comes second, as in gt_fit(score ~ item + rater, data).", call. = FALSE)
-    formula <- data
+    given <- data
     data <- outcomes
+    outcomes <- given
+  }
+  if (!is.null(formula)) {
+    if (!inherits(formula, "formula"))
+      stop("formula must be a two-sided model formula such as score ~ item * rater.", call. = FALSE)
+    if (!is.null(outcomes))
+      stop("Supply the model once: as formula, or as outcomes with a design.", call. = FALSE)
     outcomes <- formula
   }
-  if (inherits(outcomes, "formula")) {
+  family_from_design <- FALSE
+  formula_route <- inherits(outcomes, "formula")
+  if (formula_route) {
     is_family <- function(x) inherits(x, "gt_family") ||
       (is.list(x) && length(x) > 0L && all(vapply(x, inherits, logical(1), "gt_family")))
     if (is_family(design)) {
@@ -238,16 +263,38 @@
         stop("The family was supplied twice: once after the formula and once as family.", call. = FALSE)
       family <- design
       design <- NULL
+      family_from_design <- TRUE
     }
     if (!is.null(design))
       stop("Supply either a model formula or a gt_design() declaration, not both.", call. = FALSE)
-    specification <- .gt_formula_specification(outcomes)
+    specification <- .gt_formula_specification(outcomes, measured)
     outcomes <- specification$outcomes
     design <- specification$design
+  } else if (!is.null(measured)) {
+    stop("measured applies with a model formula; a gt_design() declaration already names its object of measurement.", call. = FALSE)
   }
   if (!inherits(design, "gt_design"))
     stop("Use gt_design() to declare the design, or give a model formula such as score ~ item * rater.", call. = FALSE)
-  list(data = data, outcomes = outcomes, design = design, family = family, swapped = swapped)
+  list(data = data, outcomes = outcomes, design = design, family = family, swapped = swapped,
+       formula_route = formula_route, family_from_design = family_from_design)
+}
+
+# Record a call with every argument under its own name: the data as data
+# whichever position it was given in, a formula as formula, and a family that
+# followed the formula as family. update() then edits the call it reads.
+.gt_recorded_call <- function(call, arguments) {
+  given <- as.list(call)
+  if (arguments$swapped) {
+    call[["data"]] <- given[["outcomes"]]
+    call[["outcomes"]] <- given[["data"]]
+  }
+  # Renaming keeps each argument where it was written, so the recorded call
+  # still reads like the user's.
+  if (arguments$formula_route && is.null(call[["formula"]]))
+    names(call)[match("outcomes", names(call))] <- "formula"
+  if (arguments$family_from_design)
+    names(call)[match("design", names(call))] <- "family"
+  call
 }
 
 # Construct a flexible G-theory random-source specification
@@ -425,7 +472,9 @@ print.gt_design <- function(x, ...) {
       paste(child, "in", paste(x$nested[[child]], collapse = ":")), character(1)), collapse = "; "), "\n")
   cat("Construction:", x$construction, "| replicates per cell:", x$replicates, "\n")
   if (!isTRUE(x$full_cell)) cat("The object-by-all-facets source was removed (full_cell = FALSE).\n")
-  if (!is.null(x$formula)) cat("Formula:", x$formula, "\n")
+  if (!is.null(x$formula))
+    cat("Formula:", x$formula, "| object of measurement:", x$object,
+        if (identical(x$object_rule, "declared")) "(declared)" else "(first right-hand variable)", "\n")
   if (!is.null(x$batch))
     cat("Batches:", x$batch$size, "items per call",
         if (is.null(x$batch$by)) "" else paste("| dependence may differ by", x$batch$by), "\n")

@@ -213,9 +213,12 @@
 # Inspect an observed design before fitting
 gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaussian"),
                          covariance = "unstructured", residual = NULL,
-                         control = gt_control(), max_examples = 10L) {
+                         control = gt_control(), max_examples = 10L, formula = NULL,
+                         measured = NULL) {
   max_examples <- .gt_preflight_example_limit(max_examples, "max_examples")
-  arguments <- .gt_formula_arguments(data, outcomes, design, family, !missing(family))
+  if (missing(outcomes)) outcomes <- NULL
+  arguments <- .gt_formula_arguments(data, outcomes, design, family, !missing(family),
+                                     formula, measured)
   data <- arguments$data
   outcomes <- arguments$outcomes
   design <- arguments$design
@@ -424,12 +427,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
   # do.call(), or with the data written inline, its data argument is the data
   # frame itself, unused columns included. Only a plain object name is kept;
   # anything else is replaced by the marker a fit uses when its data is dropped.
-  recorded_call <- match.call()
-  if (arguments$swapped) {
-    given <- as.list(recorded_call)
-    recorded_call[["data"]] <- given[["outcomes"]]
-    recorded_call[["outcomes"]] <- given[["data"]]
-  }
+  recorded_call <- .gt_recorded_call(match.call(), arguments)
   if ("data" %in% names(recorded_call) && !is.name(recorded_call$data))
     recorded_call$data <- as.name("<dropped>")
   report <- structure(list(call = recorded_call, outcomes = outcomes, families = families,

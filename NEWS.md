@@ -17,12 +17,18 @@ and every estimate are unchanged.
   the outcome names and the design: `gt_fit(score ~ item * rater, data)` or
   `gt_fit(cbind(efficacy, safety) ~ item + rater, data)`, with the data frame
   before or after the formula and a family in the third position as `glm()`
-  users expect. The first variable on the right-hand side is the object of
-  measurement and the others are the facets; the resolved design is the one
-  `gt_design()` builds, recorded with its formula in `fit$design$formula`. The
-  source grammar gains `/`, so `question / item_code` declares
-  `question + question:item_code`. Replicates, batches and the automatic nesting
-  selectors still need `gt_design()`.
+  users expect, or under its own name as `formula =`. The object of
+  measurement is named by `measured =`, or else is the first variable on the
+  right-hand side, and every print of the fit or its design says which; the
+  other variables are the facets. The resolved design is the one `gt_design()`
+  builds, recorded with its formula in `fit$design$formula`. The source grammar
+  gains `/`, so `question / item_code` declares `question + question:item_code`.
+  Replicates, batches and the automatic nesting selectors still need
+  `gt_design()`.
+- `formula(fit)` returns the model formula of any fit, also one declared with
+  `gt_design()`, and `update(fit, . ~ . + item:rater)` refits it from the
+  recorded call with the object of measurement carried along; the recorded
+  `fit$call` names each argument whichever order it was given in.
 - Every fit has the class vector `c("gt_gaussian_fit", "gt_fit")` or
   `c("gt_discrete_fit", "gt_fit")`. The Gaussian engine's internal class label
   and the discrete engine's bare `"list"` no longer appear in `class(fit)`.

@@ -3,31 +3,39 @@
 \alias{logLik.gt_fit}
 \alias{deviance.gt_fit}
 \alias{nobs.gt_fit}
+\alias{formula.gt_fit}
+\alias{update.gt_fit}
 \alias{coef.gt_fit}
 \alias{vcov.gt_fit}
 \alias{gt_component_vcov}
 \title{Standard Extractors for Fitted Generalizability Models}
-\description{Log likelihood, deviance, observation count, fixed location estimates, and the sampling covariance of the estimated source covariances, following the usual R conventions where they apply and refusing where they do not.}
+\description{Log likelihood, deviance, observation count, model formula, refitting with \code{update()}, fixed location estimates, and the sampling covariance of the estimated source covariances, following the usual R conventions where they apply and refusing where they do not.}
 \usage{
 \method{logLik}{gt_fit}(object, ...)
 \method{deviance}{gt_fit}(object, ...)
 \method{nobs}{gt_fit}(object, ...)
+\method{formula}{gt_fit}(x, ...)
+\method{update}{gt_fit}(object, formula., ..., evaluate = TRUE)
 \method{coef}{gt_fit}(object, ...)
 \method{vcov}{gt_fit}(object, ...)
 gt_component_vcov(fit, type = c("components", "parameters"), ...)
 }
 \arguments{
-\item{object}{A fitted \code{gt_fit} object.}
+\item{object, x}{A fitted \code{gt_fit} object.}
 \item{fit}{A fitted \code{gt_fit} object.}
+\item{formula.}{Changes to the model formula in the notation of \code{\link[stats]{update.formula}}, such as \code{. ~ . + item:rater}; omit it to change other arguments only.}
+\item{evaluate}{Whether to refit. \code{FALSE} returns the updated call instead.}
 \item{type}{Which covariance matrix to return. \code{"components"} gives the delta-method covariance of the unique source covariance entries. Each is labelled by its source and matrix position. \code{"parameters"} gives the free optimizer-parameter covariance instead.}
-\item{...}{Further method arguments; currently unused.}
+\item{...}{For \code{update()}, arguments of \code{\link{gt_fit}} to add or replace in the recorded call, for example \code{estimator = "ML"} or \code{measured = "item"}. Otherwise unused.}
 }
-\value{\code{logLik()} returns a \code{logLik} object carrying \code{df}, \code{nobs}, a \code{REML} flag, and a \code{likelihood} label. \code{nobs()} returns the number of measurement rows as an integer. \code{deviance()} returns minus twice the fitted objective as a plain number: the restricted log likelihood under REML, the profile log likelihood under ML, and the first-order Laplace approximation for discrete outcomes. \code{coef()} returns a named numeric vector of fixed location or contrast estimates. \code{gt_component_vcov()} returns a labelled covariance matrix with \code{scope}, \code{method}, and \code{conditional_on_zero} attributes, or raises an error explaining why none exists. \code{vcov()} always raises an error; see below.}
+\value{\code{formula()} returns the model formula: the one the fit was declared with, or for a fit declared through \code{gt_design()} the equivalent formula built from its outcomes and requested sources. \code{update()} returns the refitted \code{gt_fit}, or the call when \code{evaluate = FALSE}. \code{logLik()} returns a \code{logLik} object carrying \code{df}, \code{nobs}, a \code{REML} flag, and a \code{likelihood} label. \code{nobs()} returns the number of measurement rows as an integer. \code{deviance()} returns minus twice the fitted objective as a plain number: the restricted log likelihood under REML, the profile log likelihood under ML, and the first-order Laplace approximation for discrete outcomes. \code{coef()} returns a named numeric vector of fixed location or contrast estimates. \code{gt_component_vcov()} returns a labelled covariance matrix with \code{scope}, \code{method}, and \code{conditional_on_zero} attributes, or raises an error explaining why none exists. \code{vcov()} always raises an error; see below.}
 \details{\strong{Parameter counts.} Gaussian ML profiles one intercept per outcome. Those intercepts are estimated, so \code{df} counts them alongside the covariance parameters, and \code{AIC()} and \code{BIC()} then reproduce the fit's \code{ml_AIC} and \code{ml_BIC_response_vectors}. Gaussian REML uses a restricted likelihood whose \code{df} counts the covariance parameters only; the returned object sets \code{REML = TRUE} so nothing downstream mistakes it for an ML value, and \code{AIC()} reproduces \code{reml_AIC_variance_parameters}. \code{BIC()} on a REML fit uses N response vectors with that same parameter count, which the fit records as \code{reml_BIC_response_vectors_variance_parameters}; the N * D scalar-score convention remains \code{reml_BIC_scalar_scores_variance_parameters}. A restricted-likelihood criterion compares models sharing the same fixed-effects structure. Every fit here has exactly one intercept per outcome, so covariance models remain comparable, but a REML value must never be compared with an ML value.
 
 \strong{Observations.} \code{nobs()} counts measurement rows, which are the response vectors of the likelihood. A joint fit of D outcomes on N rows has N response vectors and not N * D independent observations, because the outcomes within a row share the same random sources. \code{BIC()} therefore uses N. The alternative N * D scalar-score convention and the archive's variance-only conventions remain in the fit object under explicit names; see \code{\link{gt_fit}}.
 
 \strong{Rejected fits.} A fit that failed numerical acceptance is refused by \code{logLik()}, and through it by \code{AIC()} and \code{BIC()}, just as \code{\link{gt_reliability}} refuses it. The two apply one rule: a Gaussian fit is refused on an explicit failure, and a discrete fit must carry an affirmative acceptance, so a discrete object whose acceptance flag is missing or \code{NA} is refused rather than read as accepted. Its objective is retained in \code{minus2loglik} for diagnosis, but a likelihood that did not pass the fit's own numerical checks is not a basis for model selection.
+
+\strong{Formula and update.} \code{formula()} gives every fit a formula, so \code{update()} can edit the model of a fit declared either way: the recorded call is re-evaluated in the caller's environment with the formula under \code{formula}, the previous \code{outcomes} and \code{design} removed, and the object of measurement carried along in \code{measured} so that an edited formula cannot change the scientific target by re-ordering. A design that declares replicates or a batch cannot be expressed as a formula, so such a fit refuses a formula change and must be refit from a new \code{gt_design()}; arguments other than the formula can still be updated. A fit stored without its data (\code{retain = list(data = FALSE)}) needs \code{data =} supplied to \code{update()}.
 
 \strong{Deviance.} \code{deviance()} returns the objective for every fit, including one that failed numerical acceptance, because the value where the optimizer stopped is what a user reads to see how far a refused fit got. It describes the fit and is not a verdict on it: model selection goes through \code{logLik()}, \code{AIC()} and \code{BIC()}, which refuse such a fit.
 
@@ -48,6 +56,11 @@ fit <- gt_fit(d, "score", design,
 logLik(fit)
 deviance(fit)
 nobs(fit)
+formula(fit)
+# Refit the crossed model from the recorded call; at one observation per
+# cell the item:rater source is combined with the residual.
+crossed <- update(fit, . ~ . + item:rater)
+crossed$design
 coef(fit)
 AIC(fit)   # restricted-likelihood criterion for a REML fit
 # The covariance of the estimated source covariances. vcov() deliberately

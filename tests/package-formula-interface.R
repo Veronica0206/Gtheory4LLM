@@ -32,9 +32,45 @@ expect(identical(by_formula$design$formula, "score ~ item + rater"), "the design
 expect(is.null(by_design$design$formula), "a design built by gt_design() records none")
 expect(identical(by_formula$outcomes, "score"), "the left-hand side names the outcome")
 expect(identical(formula_first$call$data, quote(d)) &&
-         inherits(eval(formula_first$call$outcomes), "formula"),
-       "a formula-first call is recorded with the data as data")
+         inherits(eval(formula_first$call$formula), "formula") && is.null(formula_first$call$outcomes),
+       "a formula-first call is recorded with the data as data and the formula as formula")
 expect(identical(deviance(by_formula), by_formula$minus2loglik), "deviance is the fitted objective")
+
+# --- The object of measurement is explicit or visibly defaulted ------------------
+named <- gt_fit(formula = score ~ item + rater, data = d, control = quiet)
+same(gt_components(named), gt_components(by_design), "the formula may be given under its own name")
+reordered <- gt_fit(d, score ~ rater + item, control = quiet)
+measured <- gt_fit(d, score ~ rater + item, measured = "item", control = quiet)
+expect(identical(reordered$design$object, "rater") && identical(measured$design$object, "item"),
+       "without measured the first right-hand variable is the object; measured overrides it")
+same(gt_components(reordered), gt_components(by_design), "re-ordering leaves the variance components unchanged")
+same(gt_reliability(measured)$per_trait, gt_reliability(by_design)$per_trait,
+     "the same object of measurement gives the same coefficients")
+expect(!isTRUE(all.equal(gt_reliability(reordered)$per_trait$Phi, gt_reliability(by_design)$per_trait$Phi)),
+       "a different object of measurement gives different coefficients")
+expect(identical(reordered$design$object_rule, "first right-hand variable") &&
+         identical(measured$design$object_rule, "declared"), "the design records which rule applied")
+expect(any(grepl("object of measurement: rater (first right-hand variable)",
+                 capture.output(print(reordered$design)), fixed = TRUE)),
+       "the design print says which variable is measured and why")
+expect(any(grepl("Object of measurement: rater | facets: item", capture.output(print(reordered)), fixed = TRUE)),
+       "the fit print names the object of measurement")
+
+# --- formula() and update() work for fits declared either way ------------------
+expect(identical(formula(by_formula), score ~ item + rater), "formula() returns the declared formula")
+expect(identical(formula(by_design), score ~ item + rater), "formula() reconstructs a design fit's formula")
+crossed_design <- gt_fit(d, "score", gt_design("item", "rater"), control = quiet)
+expect(identical(formula(crossed_design), score ~ item + rater + item:rater),
+       "the reconstructed formula lists the requested sources")
+updated <- update(by_design, . ~ . + item:rater)
+same(gt_components(updated), gt_components(crossed_design), "update() refits the edited model")
+expect(identical(updated$design$object, "item") && identical(updated$call$measured, "item"),
+       "update() carries the object of measurement explicitly")
+expect(identical(update(by_formula, estimator = "ML")$estimator, "ML"), "update() replaces an argument")
+expect(identical(update(reordered, . ~ ., measured = "item")$design$object, "item"),
+       "update() can redeclare the object of measurement")
+expect(is.call(update(by_formula, . ~ . + item:rater, evaluate = FALSE)), "evaluate = FALSE returns the call")
+expect(identical(names(by_formula$call)[2:3], c("data", "formula")), "the recorded call names the formula")
 
 # --- Joint outcomes, crossing and nesting ---------------------------------------
 joint <- gt_fit(d, cbind(score, second) ~ item * rater, control = quiet)
@@ -74,11 +110,18 @@ refusals <- list(
   formula_without_data = function(f) f(score ~ item + rater, "score"),
   unknown_column = function(f) f(d, score ~ item + judge),
   outcome_on_both_sides = function(f) f(d, score ~ score + rater),
-  no_design = function(f) f(d, "score"))
+  no_design = function(f) f(d, "score"),
+  measured_with_design = function(f) f(d, "score", design, measured = "item"),
+  measured_not_in_formula = function(f) f(d, score ~ item + rater, measured = "judge"),
+  outcomes_and_formula = function(f) f(d, "score", formula = score ~ item + rater),
+  formula_not_a_formula = function(f) f(d, formula = "score ~ item + rater"))
 expected <- c(both = "not both", family_twice = "supplied twice", one_sided = "outcomes on the left",
   transformed_outcome = "left-hand side", object_alone = "at least one instrumentation facet",
   formula_without_data = "comes second", unknown_column = "Missing outcome or design columns",
-  outcome_on_both_sides = "must differ", no_design = "gt_design() to declare the design")
+  outcome_on_both_sides = "must differ", no_design = "gt_design() to declare the design",
+  measured_with_design = "applies with a model formula",
+  measured_not_in_formula = "measured must name one variable",
+  outcomes_and_formula = "Supply the model once", formula_not_a_formula = "formula must be")
 for (name in names(refusals)) {
   fitted <- outcome(refusals[[name]](function(...) gt_fit(..., control = quiet)))
   checked <- outcome(refusals[[name]](gt_preflight))
@@ -87,6 +130,26 @@ for (name in names(refusals)) {
   expect(grepl(expected[[name]], checked, fixed = TRUE),
          paste0("gt_preflight refuses '", name, "' for the same reason; got: ", checked))
 }
+
+# --- update() refuses what a formula cannot carry -------------------------------------
+dropped <- gt_fit(d, score ~ item + rater,
+  control = gt_control(gaussian = list(check_hessian = FALSE, retry_seed = 42), retain = list(data = FALSE)))
+expect(grepl("without its data", outcome(update(dropped, . ~ . + item:rater)), fixed = TRUE),
+       "a fit stored without data asks for data =")
+same(gt_components(update(dropped, . ~ . + item:rater, data = d)), gt_components(crossed_design),
+     "and refits once data = is supplied")
+# Recorded design states that no formula can express, exercised on a copy of an
+# accepted fit so the guard is tested apart from the engines' own support.
+with_replicates <- by_design
+with_replicates$design$replicates <- 2L
+with_batch <- by_design
+with_batch$design$batch <- gt_batch(2)
+for (blocked in list(with_replicates, with_batch))
+  expect(grepl("cannot carry a batch declaration or replicates",
+               outcome(update(blocked, . ~ . + item:rater)), fixed = TRUE),
+         "a design with replicates or a batch declaration refuses a formula update")
+expect(identical(update(with_batch, estimator = "ML")$estimator, "ML"),
+       "but other arguments can still be updated")
 
 # --- Nothing in a formula is evaluated ---------------------------------------------
 probe <- new.env(parent = emptyenv())

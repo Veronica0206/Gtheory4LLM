@@ -84,7 +84,8 @@ or `vignette("LLM-workflow", package = "Gtheory4LLM")`. Its source is
 gt_preflight(llm_data, "quality", llm_design)
 fit <- gt_fit(llm_data, "quality", llm_design)
 # The same model as one formula: the outcome on the left; on the right the
-# object of measurement first, then the facets and their sources.
+# object of measurement first, then the facets and their sources
+# (or name it: measured = "item").
 fit <- gt_fit(quality ~ item * (evaluator + prompt) + evaluator:prompt:run, llm_data)
 summary(fit)
 gt_diagnostics(fit)$numerically_accepted
