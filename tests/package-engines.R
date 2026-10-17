@@ -91,6 +91,56 @@ run <- function() {
   expect(isTRUE(lme4_batch$design$batch_model$modelled) && isTRUE(lme4_batch$numerically_accepted),
          "the batch is recorded as modelled and the fit accepted")
 
+  # --- The acceptance logic on constructed inputs ---------------------------------
+  # A scalar Hessian of 1e8 with gradient 100: a Newton displacement of 1e-6
+  # would pass, but lme4's Cholesky-scaled statistic min(|R^-1 g|, |g|) is 0.01
+  # and fails its tolerance of 0.002. The engine must apply the latter.
+  scaled <- Gtheory4LLM:::.gt_lme4_scaled_gradient
+  verdict <- Gtheory4LLM:::.gt_lme4_stationarity
+  accept <- Gtheory4LLM:::.gt_lme4_acceptance
+  near(scaled(100, matrix(1e8)), 0.01, 1e-12, "the scaled gradient is lme4's statistic, not a Newton step")
+  expect(is.na(scaled(c(1, 1), matrix(c(1, 2, 2, 1), 2))), "an indefinite Hessian gives no statistic")
+  expect(is.na(scaled(c(NA, 1), diag(2))) && is.na(scaled(c(1, Inf), diag(2))), "nonfinite derivatives give no statistic")
+  derivatives <- function(gradient, hessian, one_sided = rep(NA_real_, length(gradient)))
+    list(value = 0, gradient = gradient, hessian = hessian, one_sided = one_sided, step = rep(1e-4, length(gradient)))
+  failing <- verdict(derivatives(100, matrix(1e8)), interior = TRUE)
+  expect(identical(failing$stationary_within_tolerance, FALSE) && abs(failing$covariance_scaled_norm - 0.01) < 1e-12,
+         "the counterexample is refused")
+  passing <- verdict(derivatives(1e-4, matrix(1)), interior = TRUE)
+  expect(isTRUE(passing$stationary_within_tolerance), "a small scaled gradient passes")
+  unusable <- verdict(derivatives(c(1, 1), matrix(c(1, 2, 2, 1), 2)), interior = c(TRUE, TRUE))
+  expect(is.na(unusable$stationary_within_tolerance) && grepl("Cholesky", unusable$error, fixed = TRUE),
+         "unusable curvature gives an NA verdict with its reason")
+  inward <- verdict(derivatives(c(1e-4, NA), matrix(c(1, NA, NA, NA), 2), one_sided = c(NA, -0.5)),
+                    interior = c(TRUE, FALSE))
+  expect(identical(inward$stationary_within_tolerance, FALSE) && grepl("inward", inward$error, fixed = TRUE),
+         "a boundary parameter whose deviance falls off the bound is refused")
+  outward <- verdict(derivatives(c(1e-4, NA), matrix(c(1, NA, NA, NA), 2), one_sided = c(NA, 0.5)),
+                     interior = c(TRUE, FALSE))
+  expect(isTRUE(outward$stationary_within_tolerance), "a constrained optimum on the bound is accepted")
+  expect(identical(accept(0L, character(), passing, TRUE, TRUE), character()), "a clean record has no failures")
+  expect("lme4_convergence_warning" %in% accept(0L, "Model failed to converge with max|grad| = 0.1", passing, TRUE, TRUE),
+         "an lme4 convergence warning refuses the fit")
+  expect("stationarity_unavailable" %in% accept(0L, character(), unusable, TRUE, TRUE),
+         "an NA stationarity verdict refuses the fit rather than passing it")
+  expect(all(c("optimizer_incomplete", "covariance_stationarity_failed", "restart_or_tolerance_stability_failed",
+               "independent_likelihood_mismatch") %in% accept(1L, character(), failing, FALSE, FALSE)),
+         "every failure is named")
+
+  # --- A boundary fit under the stated policy --------------------------------------
+  set.seed(1)
+  flat <- d
+  flat$score <- rnorm(12)[flat$item] + rnorm(nrow(flat))
+  singular <- gt_fit(flat, "score", design, control = lme4_control)
+  expect(isTRUE(singular$diagnostics$boundary_components[["rater"]]) &&
+           "rater" %in% gt_diagnostics(singular)$boundary_sources,
+         "a source at zero variance is recorded as a boundary component")
+  expect(!is.na(singular$diagnostics$covariance_stationarity$stationary_within_tolerance) &&
+           is.finite(singular$diagnostics$covariance_stationarity$boundary_one_sided_derivatives),
+         "the boundary is judged by its one-sided derivative, not left unassessed")
+  expect(isTRUE(singular$numerically_accepted) == identical(singular$diagnostics$acceptance_failures, character()),
+         "acceptance of the boundary fit follows the recorded failures")
+
   # --- Planning refits through the same engine ---------------------------------
   plan <- gt_pilot_plan(lme, data.frame(n_items = 12), nsim = 1, seed = 5)
   expect(plan$summary$accepted == 1L, "a pilot plan refits through lme4")

@@ -39,16 +39,23 @@ and every estimate are unchanged.
 - A second Gaussian engine: `gt_control(gaussian = list(engine = "lme4"))`
   fits the declared sources as random intercepts with lme4, one outcome at a
   time and with the call source when a batch is modelled. The fit is accepted
-  only when the exact balanced deviance evaluated at lme4's estimates agrees
-  with lme4's criterion, after lme4's own gradient check and a restart. It
-  computes no standard errors, so coefficient intervals are unavailable on this
-  path. `gt_diagnostics()` now records engine, optimizer and approximation as
-  three separate facts.
-- `gt_laplace_check(fit)` measures the first-order Laplace error of a discrete
-  fit at its fitted parameters: adaptive Gauss-Hermite quadrature up to four
+  only when lme4's optimizer completes without a convergence warning, the
+  package's own stationarity check on lme4's deviance function passes (lme4's
+  Cholesky-scaled gradient statistic over interior parameters, and no inward
+  one-sided derivative at a parameter on its zero bound), a restart reproduces
+  the solution, and the exact balanced deviance evaluated at the estimates
+  agrees with lme4's criterion. It computes no standard errors, so coefficient
+  intervals are unavailable on this path. `gt_diagnostics()` now records
+  engine, optimizer and approximation as three separate facts.
+- `gt_laplace_check(fit)` compares the first-order Laplace objective of a
+  discrete fit, at its fitted parameters, with a refined numerical estimate of
+  the marginal likelihood: adaptive Gauss-Hermite quadrature up to four
   random-effect dimensions, importance sampling from the Laplace Gaussian
-  otherwise, with the Monte Carlo standard error and effective sample size. It
-  measures the error in the objective, not bias in the estimates.
+  otherwise, with the Monte Carlo standard error and effective sample size.
+  Limits are applied before anything is allocated, every new solve is
+  verified, an unevaluable point makes the estimate unavailable rather than
+  zero, and each result carries a usability verdict. It measures the error in
+  the objective, not bias in the estimates, and does not refit the model.
 - `gt_design()`, `gt_family()`, `gt_control()`, `gt_batch()`, `gt_score()` and
   `gt_example()` results print as short descriptions instead of raw lists, and
   `gt_pilot_plan()` returns a classed `gt_pilot_plan` with `print()` and
