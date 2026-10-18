@@ -126,16 +126,20 @@ structures. Earlier replicate failures or optimizer retries do not alter later
 replicates' random streams.
 }
 \examples{
-\dontrun{
-# fit is a numerically accepted Gaussian fit with an evaluator facet.
-# Pilot allocation varies, but each pilot estimates a three-evaluator protocol.
+# Small synthetic panel and four refits to demonstrate the interface only.
+d <- expand.grid(item = 1:12, evaluator = 1:3)
+d$quality <- sin(d$item) + d$evaluator / 5 +
+  cos(d$item * d$evaluator) / 4
+fit <- gt_fit(quality ~ item + evaluator, d, measured = "item",
+  control = gt_control(gaussian = list(retry_seed = 42)))
+# Each pilot estimates the same three-evaluator protocol.
 plan <- gt_pilot_plan(fit,
-  grid = expand.grid(n_items = c(40, 80), evaluator = c(3, 5)),
-  nsim = 200, seed = 2026, coefficient = "Phi", width_target = 0.15,
+  grid = data.frame(n_items = c(8, 12), evaluator = c(2, 3)),
+  nsim = 2, seed = 2026, coefficient = "Phi", width_target = 0.15,
   target_counts = c(evaluator = 3))
 plan
 as.data.frame(plan)
 plan$replicates
-}
+# Two simulations per candidate cannot support a pilot-size recommendation.
 }
 \seealso{\code{\link{gt_simulate}}, \code{\link{gt_reliability}}, \code{\link{gt_dstudy}}}

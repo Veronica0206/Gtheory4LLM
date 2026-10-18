@@ -80,18 +80,22 @@ or `vignette("LLM-workflow", package = "Gtheory4LLM")`. Its source is
 [vignettes/LLM-workflow.Rmd](vignettes/LLM-workflow.Rmd). The main steps are:
 
 ```r
-# llm_data and llm_design are created by the tutorial above.
-gt_preflight(llm_data, "quality", llm_design)
-fit <- gt_fit(llm_data, "quality", llm_design)
-# The same model as one formula, with the measurement object named explicitly.
-fit <- gt_fit(quality ~ item * (evaluator + prompt) + evaluator:prompt:run,
-              llm_data, measured = "item")
+# llm_data is created by the tutorial above.
+llm_formula <- quality ~ item * (evaluator + prompt) + evaluator:prompt:run
+gt_preflight(llm_formula, llm_data, measured = "item")
+fit <- gt_fit(llm_formula, llm_data, measured = "item")
 summary(fit)
 gt_diagnostics(fit)$numerically_accepted
-gt_reliability(fit)
-gt_dstudy(fit, expand.grid(evaluator = c(2, 4, 6),
-                          prompt = c(2, 3, 4), run = c(1, 2)))
+as.data.frame(gt_reliability(fit))
+dstudy <- gt_dstudy(fit, expand.grid(evaluator = c(2, 4, 6),
+  prompt = c(2, 3, 4), run = c(1, 2)))
+as.data.frame(dstudy)
 ```
+
+The formula names outcomes and random sources in one call. Use `gt_design()`
+when a facet appears in no random-source term, or when declaring within-cell
+replication or batches; those declarations have no formula syntax. The
+study-planning vignette retains explicit designs for these cases.
 
 G describes relative comparisons between items. Phi additionally includes
 absolute shifts across the declared measurement conditions. Decision studies
@@ -109,8 +113,8 @@ where the likelihood curvature and boundary rules permit them. They use the
 restricted (REML) or profile (ML) likelihood Hessian:
 
 ```r
-summary(fit)$variances          # variance, std_error, boundary flag
-gt_reliability(fit)$per_trait   # Erho2, Erho2_se, Erho2_lower, Erho2_upper, ...
+summary(fit)$variances          # Documented source-variance summary table.
+subset(as.data.frame(gt_reliability(fit)), kind == "outcome")
 logLik(fit); AIC(fit); gt_component_vcov(fit)
 ```
 
@@ -131,7 +135,7 @@ interaction is averaged over that facet's levels and joins universe-score
 variance, and a source built only from fixed facets leaves the model.
 
 ```r
-gt_reliability(fit, fixed = "temp")
+gt_reliability(fit, fixed = "prompt")
 ```
 
 A fixed facet's count cannot be changed, and a decision study may not project
@@ -181,7 +185,7 @@ Study planning separates three quantities: **distinct pilot items**
 provide estimation information, **annotations per item** define the final score,
 and **items per request** define shared context and request overhead. Increasing
 one does not substitute for increasing another. These workflows are included in
-source version 0.5.0; their statistical boundaries are described below.
+the package since version 0.5.0; their statistical boundaries are described below.
 
 The [study-planning vignette](vignettes/study-planning.Rmd) runs synthetic examples
 of all three additions. Its monetary amounts are illustrative user inputs.
@@ -251,6 +255,11 @@ identification or successful fitting.
 | Ordinal | Cumulative probit/logit, univariate or joint | Explicitly requested latent-response coefficients |
 | Unordered categorical | Reference-category multinomial softmax, univariate or joint | No scalar coefficient implemented |
 
+`gt_family()` records category order and reference categories explicitly, beyond
+the distribution and link in a base R family object. Named lists match these
+specifications to joint outcomes. Gaussian and discrete outcomes cannot be
+combined in one joint fit.
+
 Gaussian fits use the exact balanced likelihood through OpenMx by default.
 For univariate Gaussian models, `gt_control(gaussian = list(engine = "lme4"))`
 fits the same sources through lme4. Acceptance requires completion,
@@ -259,7 +268,8 @@ calculations at the lme4 estimates. These checks do not prove global
 optimality. This alternative does not supply source-variance standard errors
 or coefficient intervals.
 
-Discrete fits use a first-order Laplace likelihood. `gt_laplace_check(fit)`
+Discrete fits use a first-order Laplace likelihood; an integrated external
+engine adapter for these outcomes is not implemented. `gt_laplace_check(fit)`
 compares its objective at the fitted parameters with numerical quadrature or
 importance sampling. The latter uses a defensive mixture of 90% Laplace
 Gaussian and 10% random-effect prior, with the full mixture density in every
@@ -346,6 +356,8 @@ not eight independent datasets. The package includes design identifiers and
 modeled annotations from the [public OSF deposit](https://doi.org/10.17605/OSF.IO/K9CAJ).
 The original source CSV checksums match that deposit. Raw texts, original corpus
 reference labels, and API metadata are omitted from the package tables.
+Use `gt_example()` rather than `data()` to load an outcome set: it returns the
+chosen coding, its family specification, and provenance together with the data.
 
 The six discrete native outcome sets each contain 21,600 rows and exceed the
 dense discrete engine limits by more than an order of magnitude; raising the

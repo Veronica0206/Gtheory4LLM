@@ -41,3 +41,14 @@ The plotting method uses base graphics; PDF and PNG devices can save the
 same figure without additional plotting dependencies.}
 \seealso{\code{\link{gt_reliability}}, \code{\link{gt_dstudy}},
 \code{\link{gt_preflight}}}
+\examples{
+# Entirely synthetic continuous scores.
+d <- expand.grid(item = 1:12, evaluator = 1:3)
+d$quality <- sin(d$item) + d$evaluator / 5 +
+  cos(d$item * d$evaluator) / 4
+fit <- gt_fit(quality ~ item + evaluator, d, measured = "item",
+  control = gt_control(gaussian = list(retry_seed = 42)))
+reliability <- gt_reliability(fit)
+plot(reliability, target = 0.80)
+as.data.frame(reliability)
+}

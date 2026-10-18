@@ -14,7 +14,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 options(width = 95)
 ```
 
-This tutorial illustrates the study-planning workflows in source version
+This tutorial illustrates the study-planning workflows introduced in version
 0.5.0. All observations and monetary amounts below are synthetic. No requests
 are executed and no provider prices are retrieved.
 
@@ -29,6 +29,9 @@ are executed and no provider prices are retrieved.
 The first example uses independent-item annotations with item, rater and
 item-by-rater sources. Runs supply replication of those sources through distinct
 coded cells. This working model defines the example's intended score universe.
+It needs `gt_design()` because `run` is a declared facet without its own random
+source. The formula interface infers facets from source terms and cannot express
+that distinction. Adding a random run source would change this model.
 
 ```{r pilot}
 library(Gtheory4LLM)
@@ -42,8 +45,8 @@ design <- gt_design("item", c("rater", "run"),
                     random = ~ item + rater + item:rater)
 control <- gt_control(gaussian = list(extra_tries = 2L, retry_seed = 439L))
 fit <- gt_fit(panel, "quality", design, control = control)
-stopifnot(isTRUE(fit$numerically_accepted))
-gt_reliability(fit)$per_trait
+stopifnot(isTRUE(gt_diagnostics(fit)$numerically_accepted))
+subset(as.data.frame(gt_reliability(fit)), kind == "outcome")
 ```
 
 Acceptance permits the supported projections. It does not establish a global
@@ -92,6 +95,7 @@ a fixed one.
 The next synthetic panel adds a shared shift for each call of six items. Every
 condition uses the same grouping. A recorded call identifier allows the fit to
 retain that layout even when rows are reordered.
+Batch declarations also require `gt_design()`; they have no formula syntax.
 
 ```{r batch-fit}
 batched <- panel
@@ -102,7 +106,7 @@ batched$quality <- batched$quality + rnorm(max(call_index), sd = 0.7)[call_index
 batch_design <- gt_design("item", c("rater", "run"),
   random = ~ item + rater + item:rater, batch = gt_batch(6, id = "call_id"))
 batch_fit <- gt_fit(batched, "quality", batch_design, control = control)
-stopifnot(isTRUE(batch_fit$numerically_accepted))
+stopifnot(isTRUE(gt_diagnostics(batch_fit)$numerically_accepted))
 within <- c("1" = 1, "2" = -1)
 between <- c("1" = 1, "7" = -1)
 corpus <- setNames(rep(1 / 24, 24), as.character(1:24))
@@ -157,7 +161,7 @@ precision <- gt_pilot_plan(fit,
   grid = data.frame(n_items = c(16, 24), rater = c(3, 4)),
   target_counts = c(rater = 4, run = 3),
   nsim = 2, seed = 2026, coefficient = "Phi", width_target = 0.25)
-precision$summary
+as.data.frame(precision)
 precision$replicates[, c("design_id", "replicate_id", "status", "accepted",
                          "interval_available", "interval_conditional", "width",
                          "acceptance_failures", "selected_attempt")]

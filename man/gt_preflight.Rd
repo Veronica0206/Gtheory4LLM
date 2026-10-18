@@ -42,6 +42,18 @@ It also contains:
 \item \code{sources}: a data frame describing the random sources a fit
 would estimate: the retained declared sources and, for a batch the fit would
 model, the call source. The parameter and dimension totals describe these.
+\item \code{random_dimension}: the sum of \code{sources$random_dimension},
+with each source's observed group count multiplied by its predictor dimension
+count. This includes a modelled call source when present. For Gaussian requests
+it is a conceptual random-effect dimension, not the dimension of a dense matrix
+allocated by the exact factorial engine.
+\item \code{resources}: engine-specific allocation estimates and limits.
+For Gaussian requests, \code{resources$factorial_strata} is \eqn{2^a}, where
+\eqn{a} counts the object and declared facet axes, plus one extra axis when
+the fit models batches. This describes the exact balanced representation;
+it is also reported for the lme4 route, whose estimates are checked against
+that exact deviance. It is absent for discrete requests, whose resource
+estimates instead concern dense random-effect calculations.
 \item \code{panel_audit}: bounded panel diagnostics, described below.
 \item \code{outcome_profile}: a named list of descriptive outcome summaries,
 category counts, grouping coverage, and bounded no-variation examples.

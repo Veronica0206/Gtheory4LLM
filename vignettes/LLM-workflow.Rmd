@@ -50,11 +50,8 @@ llm_data <- expand.grid(item = factor(seq_len(24)),
   prompt = factor(paste0("prompt_", seq_len(3))),
   run = factor(seq_len(2)))
 
-llm_design <- gt_design("item", c("evaluator", "prompt", "run"),
-  crossed = c("evaluator", "prompt"),
-  nested = list(run = c("evaluator", "prompt")),
-  item_interactions = "additive", instrument_interactions = "additive")
-llm_design$terms_requested
+llm_formula <- quality ~ item * (evaluator + prompt) + evaluator:prompt:run
+llm_formula
 ```
 
 This declares six random sources: item, evaluator, prompt, item-by-evaluator,
@@ -64,6 +61,12 @@ evaluator-by-prompt effects are not silently added. Omitting them is an
 assumption of this known simulation; a real study needs its own justification.
 The exact Gaussian engine currently requires a complete coded Cartesian panel
 with one row per full cell.
+
+The formula names the outcome on the left and random sources on the right.
+We also supply `measured = "item"` so the object of measurement does not depend
+on term order. Use `gt_design()` when a facet appears in no random-source term,
+or when declaring within-cell replication or batches; those declarations have
+no formula syntax. The study-planning vignette illustrates these cases.
 
 ```{r simulate}
 source_sd <- c(item = 1.2, evaluator = 0.4, prompt = 0.3,
@@ -86,7 +89,7 @@ configured size limits, and the supported reliability scale, without building a
 model matrix or running an optimizer.
 
 ```{r preflight}
-preflight <- gt_preflight(llm_data, "quality", llm_design)
+preflight <- gt_preflight(llm_formula, llm_data, measured = "item")
 print(preflight)
 preflight$sources
 stopifnot(preflight$fitting_feasible)
@@ -104,7 +107,7 @@ coded levels; it cannot discover a level that never appeared in the data.
 ```{r panel-audit, fig.width=7, fig.height=4}
 preflight$panel_audit$summary
 plot(preflight, type = "cells")
-incomplete <- gt_preflight(llm_data[-1, ], "quality", llm_design)
+incomplete <- gt_preflight(llm_formula, llm_data[-1, ], measured = "item")
 incomplete$panel_audit$missing_cells
 ```
 
@@ -114,7 +117,7 @@ codes or missing measurements before deciding how the study should be analysed.
 ## 3. Fit and inspect acceptance
 
 ```{r fit}
-fit <- gt_fit(llm_data, "quality", llm_design,
+fit <- gt_fit(llm_formula, llm_data, measured = "item",
   control = gt_control(gaussian = list(optimizer = "CSOLNP",
     extra_tries = 2L, retry_seed = 415L, threads = 1L)))
 print(summary(fit))
@@ -123,16 +126,6 @@ print(diagnostics[c("numerically_accepted", "selected_attempt",
                     "acceptance_failures", "approximation_adequacy")])
 stopifnot(isTRUE(diagnostics$numerically_accepted))
 gt_components(fit)
-```
-
-The same model can be declared as one formula, with the data frame before or
-after it: the outcome on the left; on the right the object of measurement
-first, then the facets and their sources. It is the same fit.
-
-```{r formula-fit}
-formula_fit <- gt_fit(quality ~ item * (evaluator + prompt) + evaluator:prompt:run,
-  llm_data, control = fit$control)
-all.equal(gt_components(formula_fit), gt_components(fit))
 ```
 
 The Gaussian default estimator is REML. The trial budget allows the initial fit
@@ -156,6 +149,8 @@ summary(fit)$variances
 ```{r reliability}
 reliability <- gt_reliability(fit)
 reliability
+reliability_table <- as.data.frame(reliability)
+subset(reliability_table, kind == "outcome")
 reliability$interpretation
 ```
 
@@ -176,7 +171,6 @@ a guarantee about a future sample of evaluators or prompts.
 ```{r reliability-figure, fig.width=8, fig.height=4.5}
 plot(reliability, target = 0.80,
   main = "Reliability of the declared mean quality score")
-reliability_table <- as.data.frame(reliability)
 ```
 
 The dashed reference is an illustrative target. Missing intervals are shown as

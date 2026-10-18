@@ -153,10 +153,14 @@ No request is executed and no provider price is queried.
 \seealso{\code{\link{gt_reliability}}, \code{\link{gt_dstudy}},
 \code{\link{gt_dstudy_target}}}
 \examples{
-\dontrun{
-# fit is an accepted Gaussian item x evaluator x prompt model.
+# Small synthetic Gaussian example; no data or prices are downloaded.
+d <- expand.grid(item = 1:12, evaluator = 1:3)
+d$quality <- sin(d$item) + d$evaluator / 5 +
+  cos(d$item * d$evaluator) / 4
+fit <- gt_fit(quality ~ item + evaluator, d, measured = "item",
+  control = gt_control(gaussian = list(retry_seed = 42)))
 plan <- gt_plan(fit,
-  candidates = list(evaluator = 2:4, prompt = 1:3),
+  candidates = list(evaluator = 2:4),
   cost = function(d) list(
     costs = data.frame(annotation = 0.01 * d$total_annotations,
                        setup = 2 * d$allocation_evaluator),
@@ -167,9 +171,8 @@ plan <- gt_plan(fit,
   constraints = function(d) data.frame(
     budget = d$total_cost <= 150,
     requests = d$resource_request_count <= 10000),
-  cost_description = "User-supplied illustrative costs, not provider prices.")
+  cost_description = "Illustrative costs; not provider prices.")
 plan
-subset(as.data.frame(plan), minimum_cost %in% TRUE)
+subset(as.data.frame(plan), minimum_cost \%in\% TRUE)
 plan$source_contributions
-}
 }

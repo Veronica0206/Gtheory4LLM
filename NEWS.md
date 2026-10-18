@@ -12,6 +12,11 @@ version does not assert that a corresponding release has been published.
 This version gives the interface the conventions of other R model objects. The published 0.5.0 archive, its numerical engines, acceptance rules
 and every estimate are unchanged.
 
+- The introductory workflow and README now lead with an explicit measurement
+  object and model formula, while planning examples explain when a design
+  declaration is required. Preflight dimension and factorial-strata fields are
+  documented, and planning, pilot-planning and reliability-plot help pages have
+  small self-contained runnable examples.
 - `gt_fit()` and `gt_preflight()` accept a two-sided model formula in place of
   the outcome names and the design: `gt_fit(score ~ item * rater, data)` or
   `gt_fit(cbind(efficacy, safety) ~ item + rater, data)`, with the data frame

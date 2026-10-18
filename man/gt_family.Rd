@@ -17,7 +17,12 @@ gt_family(family = "gaussian", link = NULL, levels = NULL,
 \item{...}{Further print arguments; currently unused.}
 }
 \value{A \code{gt_family} object describing the observation distribution. \code{print()} shows the family, link, declared levels in their order and reference category, and returns the object invisibly.}
-\details{Numeric binary responses must be 0/1. Ordinal and categorical families require at least three categories; use the separate binary family for two categories. Ordinal order must come from declared levels or an ordered factor. Every declared category must occur in the fitted data. Numeric Gaussian outcomes are never constructed by silently converting factors.
+\details{The package uses \code{gt_family()} rather than base R family objects
+to record category ordering and reference categories as part of the observation
+model. A named list assigns these specifications to joint outcomes; joint
+Gaussian--discrete fitting is not implemented.
+
+Numeric binary responses must be 0/1. Ordinal and categorical families require at least three categories; use the separate binary family for two categories. Ordinal order must come from declared levels or an ordered factor. Every declared category must occur in the fitted data. Numeric Gaussian outcomes are never constructed by silently converting factors.
 
 Categorical random effects use reference-category contrasts. An unstructured covariance can be transformed under a reference change; a diagonal contrast covariance imposes a model restriction that depends on the reference category.}
 \seealso{\code{\link{gt_fit}}}

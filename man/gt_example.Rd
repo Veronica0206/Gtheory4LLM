@@ -16,7 +16,11 @@ gt_example(name = NULL, coding = c("native", "manuscript"),
 \item{...}{Further print arguments; currently unused.}
 }
 \value{A catalog data frame when name is NULL. Otherwise a \code{gt_example} list with data, outcome names, observation families, object and facet names, example name, coding, source, and interpretation notes. Installed resources also provide portable source-provenance metadata. \code{print()} describes the set without printing any rows and returns the object invisibly.}
-\details{Every set retains 21,600 measurement rows: 100 text objects by 4 evaluators, 3 prompts, 6 temperatures, and 3 seeds. Full tables exceed default dense discrete fitting limits; use a predeclared small panel or a future scalable backend for discrete examples.
+\details{Load these installed resources with \code{gt_example()}, not
+\code{data()}. The loader keeps the chosen outcome coding, its family
+specification, and source provenance together with the measurement table.
+
+Every set retains 21,600 measurement rows: 100 text objects by 4 evaluators, 3 prompts, 6 temperatures, and 3 seeds. Full tables exceed default dense discrete fitting limits; use a predeclared small panel or a future scalable backend for discrete examples.
 
 Available outcome sets are:
 \itemize{
