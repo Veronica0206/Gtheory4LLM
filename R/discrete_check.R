@@ -218,28 +218,32 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
 print.gt_laplace_check <- function(x, ..., digits = 6L) {
   if (!is.numeric(digits) || length(digits) != 1L || is.na(digits) || digits < 1 || digits > 22)
     stop("digits must be one integer from 1 to 22.", call. = FALSE)
-  cat("Laplace approximation check |", x$method, "|", x$random_dimension, "random-effect dimension(s) |",
-      x$observations, "observations\n")
+  cat("Laplace approximation check:",
+      if (x$method == "quadrature") "adaptive Gauss-Hermite quadrature" else "importance sampling", "\n")
+  cat("Random-effect dimension:", x$random_dimension, "| observations:", x$observations, "\n")
   if (!isTRUE(x$available)) {
-    cat("Refined estimate unavailable:", x$reason, "\n")
+    .gt_cat_wrap("Refined estimate unavailable:", x$reason)
     cat("Laplace -2 log likelihood:", format(x$laplace_minus2loglik, digits = digits), "\n")
     return(invisible(x))
   }
   cat("-2 log likelihood: Laplace", format(x$laplace_minus2loglik, digits = digits),
-      "| refined", format(x$refined_minus2loglik, digits = digits),
-      "| difference", format(x$difference, digits = digits),
-      "(", format(x$per_observation, digits = 3L), "per observation )\n")
-  if (x$method == "quadrature")
-    cat("Adaptive Gauss-Hermite with", x$nodes, "nodes per dimension; refining by 5 nodes moves the estimate by",
+      "| refined", format(x$refined_minus2loglik, digits = digits), "\n")
+  cat("Difference (Laplace - refined):", format(x$difference, digits = digits),
+      "| per observation:", format(x$per_observation, digits = 3L), "\n")
+  if (x$method == "quadrature") {
+    cat("Nodes per dimension:", x$nodes, "| refining by 5 nodes moves the estimate by",
         format(x$refinement_difference, digits = 3L), "\n")
-  else
-    cat("Importance sampling:", x$draws, "draws, seed", x$seed, "| Monte Carlo SE",
-        format(x$mc_se, digits = 3L), "| effective sample size", format(x$effective_sample_size, digits = 4L), "\n")
-  cat(if (isTRUE(x$usable)) "Usable:" else "Not usable:", x$reason, "\n")
+  } else {
+    cat("Draws:", x$draws, "| seed:", x$seed, "| Monte Carlo SE:", format(x$mc_se, digits = 3L),
+        "| effective sample size:", format(x$effective_sample_size, digits = 4L), "\n")
+  }
+  .gt_cat_wrap(if (isTRUE(x$usable)) "Usable:" else "Not usable:", x$reason)
   if (!isTRUE(x$recomputed_agrees))
-    cat("The recomputed Laplace objective differs from the stored fit value; the parameters or data may not be the fitted ones.\n")
+    .gt_cat_wrap("The recomputed Laplace objective differs from the stored fit value;",
+                 "the parameters or data may not be the fitted ones.")
   if (!x$numerically_accepted)
-    cat("The fit was not numerically accepted; this comparison describes its stopping point, not an estimate.\n")
-  cat("The difference is the Laplace error in the objective at fixed parameters, not bias in the estimates.\n")
+    .gt_cat_wrap("The fit was not numerically accepted; this comparison describes its",
+                 "stopping point, not an estimate.")
+  cat("The difference is the objective's Laplace error, not bias in the estimates.\n")
   invisible(x)
 }

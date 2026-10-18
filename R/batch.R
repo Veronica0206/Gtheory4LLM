@@ -87,7 +87,7 @@ print.gt_batch <- function(x, ...) {
   patterns <- c(if (x$sequential) paste0("sequential (reach ", x$sequential, ")"),
                 if (x$neighbor) paste0("neighbour (reach ", x$neighbor, ")"))
   cat("Positional patterns:", if (length(patterns)) paste(patterns, collapse = ", ") else "none declared", "\n")
-  cat(x$assumption, "\n")
+  .gt_cat_wrap(x$assumption, exdent = 0L)
   invisible(x)
 }
 

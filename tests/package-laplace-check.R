@@ -93,7 +93,8 @@ for (bad in list(0, 4, 81, 2.5, NA)) expect(inherits(tryCatch(gt_laplace_check(f
                                             "invalid node counts are refused")
 
 printed <- capture.output(print(check))
-expect(any(grepl("Laplace approximation check | quadrature", printed, fixed = TRUE)) &&
+expect(any(grepl("Laplace approximation check: adaptive Gauss-Hermite quadrature", printed, fixed = TRUE)) &&
+         !any(nchar(printed) > 80L) &&
          any(grepl("Usable:", printed, fixed = TRUE)) &&
          any(grepl("not bias in the estimates", printed, fixed = TRUE)) &&
          identical(withVisible(print(check))$visible, FALSE), "the print names the method, the verdict and its scope")

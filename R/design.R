@@ -6,6 +6,16 @@
 
 .gt_design_abort <- function(...) stop(..., call. = FALSE)
 
+# Print one sentence wrapped to the console width, as R's own printing does,
+# so that a long reason or note is readable in a narrow console and in a
+# typeset listing alike. Continuation lines are indented by exdent.
+.gt_cat_wrap <- function(..., exdent = 2L, sep = " ") {
+  width <- getOption("width", 80L)
+  if (!is.numeric(width) || length(width) != 1L || is.na(width)) width <- 80L
+  lines <- strwrap(paste(..., sep = sep), width = max(40L, as.integer(width) - 1L), exdent = exdent)
+  cat(paste0(lines, "\n"), sep = "")
+}
+
 # Integer codes avoid collisions between user labels containing separators.
 # Drop column names before do.call() so names such as sep, collapse, or
 # recycle0 remain data columns rather than matching paste() control arguments.
@@ -464,7 +474,7 @@ gt_design <- function(object, facets, crossed = facets, nested = NULL,
 # Print a declaration as the sources it requests, before or after fitting
 print.gt_design <- function(x, ...) {
   cat("G-theory design: object", x$object, "| facets:", paste(x$facets, collapse = ", "), "\n")
-  cat("Random sources:", paste(x$terms_requested, collapse = " + "), "\n")
+  .gt_cat_wrap("Random sources:", paste(x$terms_requested, collapse = " + "))
   if (length(x$aliased_terms))
     cat("Combined with the residual for this fit:", paste(x$aliased_terms, collapse = ", "), "\n")
   if (length(x$nested))

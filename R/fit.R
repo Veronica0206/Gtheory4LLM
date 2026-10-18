@@ -305,9 +305,9 @@ gt_diagnostics <- function(fit) {
   cat("Likelihood approximation:", show(d$approximation_adequacy), "\n")
   if (isFALSE(d$standard_errors_available) && length(d$standard_errors_unavailable_reason) &&
       !is.na(d$standard_errors_unavailable_reason))
-    cat("Standard errors: unavailable -", d$standard_errors_unavailable_reason, "\n")
+    .gt_cat_wrap("Standard errors: unavailable -", d$standard_errors_unavailable_reason)
   if (length(d$acceptance_failures))
-    cat("Acceptance failures:", paste(d$acceptance_failures, collapse = "; "), "\n")
+    .gt_cat_wrap("Acceptance failures:", paste(d$acceptance_failures, collapse = "; "))
   cat("Boundary or nearly singular sources:", show(d$boundary_sources, "none recorded"), "\n")
   if (length(d$parameter_bounds))
     cat("Artificial parameter bounds:", paste(d$parameter_bounds, collapse = ", "), "\n")
@@ -404,15 +404,18 @@ print.summary.gt_fit <- function(x, ..., digits = max(3L, getOption("digits") - 
   }
   if (!is.null(x$reliability)) {
     r <- x$reliability
-    cat("\nReliability at the fitted facet counts (", r$scale, " scale; ",
-        paste(paste(names(r$design), r$design, sep = "="), collapse = ", "), "):\n", sep = "")
+    cat("\n")
+    .gt_cat_wrap(paste0("Reliability at the fitted facet counts (", r$scale, " scale; ",
+        paste(paste(names(r$design), r$design, sep = "="), collapse = ", "), "):"))
     columns <- intersect(c("outcome", "Erho2", "Erho2_lower", "Erho2_upper",
                            "Phi", "Phi_lower", "Phi_upper"), names(r$per_trait))
     print(.gt_drop_empty_columns(utils::head(r$per_trait[columns], 20L)),
           row.names = FALSE, digits = digits)
-    cat("Erho2: relative comparisons; Phi: absolute decisions. gt_dstudy(fit, grid) projects other allocations.\n")
+    .gt_cat_wrap("Erho2: relative comparisons; Phi: absolute decisions.",
+                 "gt_dstudy(fit, grid) projects other allocations.")
   } else if (!is.null(x$reliability_note)) {
-    cat("\nReliability:", x$reliability_note, "\n")
+    cat("\n")
+    .gt_cat_wrap("Reliability:", x$reliability_note)
   }
   if (length(x$coefficients)) {
     # An ordinal outcome's location is fixed at zero for identification. It
@@ -433,7 +436,12 @@ print.summary.gt_fit <- function(x, ..., digits = max(3L, getOption("digits") - 
     print(x$thresholds, digits = digits)
   }
   notes <- unique(c(x$diagnostics$diagnostics$issues, x$diagnostics$notes))
-  if (length(notes)) cat("\nNotes:\n", paste(paste0("- ", notes), collapse = "\n"), "\n", sep = "")
-  cat("\nUse gt_components(fit) for full covariance matrices and gt_diagnostics(fit) for details.\n")
+  if (length(notes)) {
+    cat("\nNotes:\n")
+    for (note in notes) .gt_cat_wrap(paste0("- ", note))
+  }
+  cat("\n")
+  .gt_cat_wrap("Use gt_components(fit) for full covariance matrices and",
+               "gt_diagnostics(fit) for details.")
   invisible(x)
 }

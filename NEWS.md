@@ -61,7 +61,8 @@ and every estimate are unchanged.
 - `gt_design()`, `gt_family()`, `gt_control()`, `gt_batch()`, `gt_score()` and
   `gt_example()` results print as short descriptions instead of raw lists, and
   `gt_pilot_plan()` returns a classed `gt_pilot_plan` with `print()` and
-  `as.data.frame()` methods. The elements of every object are unchanged.
+  `as.data.frame()` methods. The elements of every object are unchanged. Print methods wrap long sentences to the console width
+  (`getOption("width")`), as R's own printing does.
 
 # Gtheory4LLM 0.5.0 — Study Planning
 

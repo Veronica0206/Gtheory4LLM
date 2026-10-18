@@ -65,7 +65,7 @@ stopifnot(inherits(s, "summary.gt_fit"), is.function(getS3method("print", "summa
   identical(s$variances$source, c("item", "rater", "Residual")),
   !any(c("model", "backend_fit", "data", "prepared") %in% names(s)))
 output <- capture.output(returned <- print(s, digits = 4))
-stopifnot(identical(returned, s), length(output) < 45L,
+stopifnot(identical(returned, s), length(output) < 45L, !any(nchar(output) > 80L),
   inherits(s$reliability, "gt_reliability"), is.null(s$reliability_note),
   any(grepl("Selected attempt:", output, fixed = TRUE)),
   any(grepl("Source variances", output, fixed = TRUE)),
