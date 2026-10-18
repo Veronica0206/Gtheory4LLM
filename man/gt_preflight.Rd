@@ -48,6 +48,7 @@ count. This includes a modelled call source when present. For Gaussian requests
 it is a conceptual random-effect dimension, not the dimension of a dense matrix
 allocated by the exact factorial engine.
 \item \code{resources}: engine-specific allocation estimates and limits.
+
 For Gaussian requests, \code{resources$factorial_strata} is \eqn{2^a}, where
 \eqn{a} counts the object and declared facet axes, plus one extra axis when
 the fit models batches. This describes the exact balanced representation;
