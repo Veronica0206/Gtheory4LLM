@@ -43,20 +43,33 @@ and every estimate are unchanged.
   Cholesky-scaled gradient statistic over interior parameters, and no inward
   one-sided derivative at a parameter on its zero bound), a restart reproduces
   the solution, and the exact balanced deviance evaluated at the estimates
-  agrees with lme4's criterion. It computes no standard errors, so coefficient
-  intervals are unavailable on this path. `gt_diagnostics()` now records
+  agrees with lme4's criterion. It computes no source-variance standard errors,
+  so reliability-coefficient intervals are unavailable on this path. `gt_diagnostics()` now records
   engine, optimizer and approximation as three separate facts, and exposes the
   stationarity record and, for the lme4 engine, the likelihood agreement
   record at its top level.
 - `gt_laplace_check(fit)` compares the first-order Laplace objective of a
   discrete fit, at its fitted parameters, with a refined numerical estimate of
   the marginal likelihood: adaptive Gauss-Hermite quadrature up to four
-  random-effect dimensions, importance sampling from the Laplace Gaussian
-  otherwise, with the Monte Carlo standard error and effective sample size.
+  random-effect dimensions, defensive-mixture importance sampling otherwise,
+  with the Monte Carlo standard error and effective sample size. The mixture
+  contains 90% Laplace Gaussian and 10% random-effect prior and uses the full
+  mixture density for all weights; the prior component guarantees finite
+  weight moments for the categorical probability likelihoods. Monte Carlo
+  precision remains a finite-sample diagnostic, not an error bound.
   Limits are applied before anything is allocated, every new solve is
   verified, an unevaluable point makes the estimate unavailable rather than
-  zero, and each result carries a usability verdict. It measures the error in
-  the objective, not bias in the estimates, and does not refit the model.
+  zero, and each result carries a usability verdict. The comparison estimates
+  a fixed-parameter objective discrepancy, with finite-sample limitations; it
+  does not assess parameter bias or refit the model.
+- The lme4 engine maps boundary flags through the fitted grouping identities,
+  so differing source order and group counts cannot label the wrong variance
+  component as zero. `gt_diagnostics()` exposes a `parameter_map` linking each
+  retained theta and derivative position to its scientific source and lme4
+  parameter identity, including when the engine model is not retained. Existing
+  numeric order, integer boundary positions and acceptance arithmetic are
+  unchanged. The lme4 path returns source covariance estimates; its unavailable
+  quantity is their sampling covariance, not those estimates.
 - `gt_design()`, `gt_family()`, `gt_control()`, `gt_batch()`, `gt_score()` and
   `gt_example()` results print as short descriptions instead of raw lists, and
   `gt_pilot_plan()` returns a classed `gt_pilot_plan` with `print()` and

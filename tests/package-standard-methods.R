@@ -88,7 +88,7 @@ expect(!any(names(coef(reml)) %in% names(reml$covariance_components)),
 # a different matrix under a name that promises this one.
 message <- expect_error(vcov(reml), "covariance of coef\\(\\) is not available",
                         "vcov on a Gaussian fit")
-expect(grepl("profiled out of the likelihood", message, fixed = TRUE),
+expect(grepl("no implemented covariance extractor for the profiled outcome means", message, fixed = TRUE),
        "the refusal says why the means have no curvature")
 expect(grepl("gt_component_vcov(fit)", message, fixed = TRUE),
        "the refusal names the function that does have a covariance matrix")

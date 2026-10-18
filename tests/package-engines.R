@@ -63,6 +63,9 @@ run <- function() {
   dropped <- gt_fit(d, "score", design, control = gt_control(gaussian = list(engine = "lme4"),
                                                                retain = list(data = FALSE)))
   expect(is.null(dropped$model) && is.null(dropped$data), "dropping the data drops the lme4 model")
+  expect(identical(gt_diagnostics(dropped)$parameter_map, diagnostics$parameter_map) &&
+           is.null(gt_diagnostics(exact)$parameter_map),
+         "the public lme4 parameter map survives retention controls and is absent for other engines")
   near(unlist(gt_components(dropped)), unlist(gt_components(lme)), 1e-12, "and changes no estimate")
 
   # --- Refusals ---------------------------------------------------------------
@@ -145,6 +148,49 @@ run <- function() {
          "the boundary is judged by its one-sided derivative, not left unassessed")
   expect(isTRUE(singular$numerically_accepted) == identical(singular$diagnostics$acceptance_failures, character()),
          "acceptance of the boundary fit follows the recorded failures")
+
+  # Renaming the small grouping factor makes source order disagree with lme4's
+  # order by number of levels. Neither its identity nor its boundary may move.
+  renamed <- flat
+  names(renamed)[names(renamed) == "rater"] <- "evaluator"
+  renamed_fit <- gt_fit(score ~ evaluator + item, renamed, measured = "item",
+                        control = lme4_control)
+  expect(isTRUE(renamed_fit$diagnostics$boundary_components[["evaluator"]]) &&
+           isFALSE(renamed_fit$diagnostics$boundary_components[["item"]]) &&
+           identical(gt_diagnostics(renamed_fit)$boundary_sources, "evaluator"),
+         "boundary source labels survive lme4's grouping-factor reordering")
+  renamed_components <- gt_components(renamed_fit)
+  original_components <- gt_components(singular)
+  near(renamed_components$evaluator, original_components$rater, 1e-6,
+       "renaming a facet preserves its boundary variance")
+  near(renamed_components$item, original_components$item, 1e-6,
+       "renaming a facet preserves the object variance")
+  expect(any(grepl("Boundary or nearly singular sources: evaluator",
+                   capture.output(summary(renamed_fit)), fixed = TRUE)),
+         "the public summary names the correct boundary source")
+  mapped <- gt_diagnostics(renamed_fit)
+  map <- mapped$parameter_map
+  reference_theta <- lme4::getME(renamed_fit$model, "theta")
+  expect(identical(names(map), c("index", "source", "engine_parameter")) &&
+           identical(map$index, seq_along(reference_theta)) &&
+           identical(map$engine_parameter, names(reference_theta)) &&
+           identical(map$source, c("item", "evaluator")) &&
+           !identical(map$source, renamed_fit$spec),
+         "the map identifies engine positions when lme4 and declared source order differ")
+  near(renamed_fit$estimates$theta, reference_theta, 0,
+       "theta values retain lme4's numerical order")
+  expect(identical(mapped$stationarity$boundary,
+                   unname(which(reference_theta <= 1e-4))) &&
+           identical(map$source[mapped$stationarity$boundary], "evaluator"),
+         "existing integer boundary positions select the correct scientific source")
+  raw <- mapped$diagnostics$deviance_derivatives
+  expect(identical(mapped$stationarity$boundary_one_sided_derivatives,
+                   raw$one_sided[mapped$stationarity$boundary]) &&
+           is.null(names(renamed_fit$estimates$theta)) &&
+           is.null(names(raw$gradient)) && is.null(dimnames(raw$hessian)) &&
+           all(vapply(mapped$diagnostics$attempts, function(a)
+             is.null(names(a$parameters)) && length(a$parameters) == nrow(map), logical(1))),
+         "mapping preserves existing raw derivative, theta and attempt-field semantics")
 
   # --- Planning refits through the same engine ---------------------------------
   plan <- gt_pilot_plan(lme, data.frame(n_items = 12), nsim = 1, seed = 5)

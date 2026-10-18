@@ -81,6 +81,36 @@ class PublicContentsTests(unittest.TestCase):
         self.assertNotIn("validation-studies/discrete-sparse-fitted-smoke/sparse-results.csv",
                          module.STUDY_CSV_FILES)
 
+    def test_laplace_refinement_csvs_have_an_exact_finite_allowlist(self):
+        prefix = "validation-studies/laplace-refinement/"
+        expected = {prefix + "results-20261018/" + name for name in (
+            "fixture.csv", "original-proposal-hessian.csv", "reference.csv",
+            "replicates.csv", "summary.csv")}
+        self.assertEqual({path for path in module.STUDY_CSV_FILES
+                          if path.startswith(prefix)}, expected)
+        for path in expected:
+            self.write(path, "scenario,estimate\nsynthetic,0.5\n")
+        self.assertFalse(self.check().findings)
+        for path in (prefix + "results-20261018/unreviewed.csv",
+                     prefix + "results-20261019/fixture.csv",
+                     prefix + "results-20261018/nested/fixture.csv"):
+            with self.subTest(path=path):
+                audit = module.PublicAudit(self.root, "synthetic")
+                self.assertFalse(audit.allowed_path(path, path))
+                self.assertTrue(any("declared synthetic" in x["reason"] for x in audit.findings))
+
+    def test_refinement_csvs_and_fingerprint_labels_still_reject_private_paths(self):
+        prefix = "validation-studies/laplace-refinement/results-20261018/"
+        for name in ("fixture.csv", "original-proposal-hessian.csv", "reference.csv",
+                     "replicates.csv", "summary.csv", "source-sha256-before.txt",
+                     "source-sha256-after.txt"):
+            with self.subTest(name=name):
+                fixture = self.write(prefix + name,
+                    "sha256,file\n" + "a" * 64 + ",/" + "Users" + "/private-person/source.R\n")
+                self.assertTrue(any(x["reason"] == "private home-directory path"
+                                    for x in self.check().findings))
+                fixture.unlink()
+
     def test_release_kind_must_be_explicit_and_known(self):
         with self.assertRaises(ValueError):
             module.PublicAudit(self.root, "unreviewed")

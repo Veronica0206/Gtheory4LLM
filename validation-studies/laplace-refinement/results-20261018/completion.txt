@@ -1,0 +1,4 @@
+Completed UTC: 2026-10-18 02:54:59 UTC
+80 planned diagnostic runs retained; no model refits after the initial fixture.
+The source fingerprints listed in this study were unchanged during execution.
+Scope: one binary-logit fixture; finite weight moments do not establish general MCSE calibration.

@@ -33,6 +33,7 @@ The \code{stages} element summarises the numerical checks a fit passed through, 
 \item \code{attempt_failures}: recorded trial errors or rejections.
 \item \code{boundary_sources}: zero or nearly singular covariance sources.
 \item \code{parameter_bounds}: artificial parameter-bound contacts.
+\item \code{parameter_map}: for the lme4 engine, a data frame with integer \code{index}, scientific \code{source}, and \code{engine_parameter} identity in lme4's parameter order; \code{NULL} for engines without this map. It remains available when the fitted model and data are not retained.
 \item \code{standard_errors_available}: whether a usable parameter covariance matrix was obtained.
 \item \code{standard_errors_unavailable_reason}: why it was not, when it was not.
 \item \code{component_standard_errors}: per-source variance standard errors with a boundary flag.
@@ -50,14 +51,29 @@ trials that were never run.
 
 \code{standard_errors_available} is \code{TRUE} only for a Gaussian fit whose
 numerically differentiated Hessian was computed and is positive definite. The
-Gaussian engine forms the parameter covariance matrix as \code{2 * H^-1} for the
+OpenMx Gaussian engine forms the parameter covariance matrix as \code{2 * H^-1} for the
 \code{-2 log L} fit function and maps it to source covariance entries by the
 delta method; \code{fit$uncertainty} retains that matrix, the entry Jacobian,
-and the entry covariance matrix used by \code{gt_reliability()}. The discrete
+and the entry covariance matrix used by \code{gt_reliability()}. The lme4 engine
+returns source covariance estimates but does not compute their sampling
+covariance or source-variance standard errors. The discrete
 Laplace engine computes no observed information, so its standard errors are
 always unavailable and its coefficients remain point estimates. A component at
 a variance boundary is flagged in \code{component_standard_errors}: Wald theory
 does not apply there, and the reported number is not a usable standard error.
+
+For lme4 fits, the retained theta values are relative standard deviations
+(source standard deviation divided by residual standard deviation). The
+theta vectors, derivative vectors, and Hessian rows and columns preserve
+lme4's order. Their position \code{i} refers to row \code{i} of
+\code{parameter_map}; the integer positions in \code{stationarity$boundary}
+select its boundary rows. Within \code{stationarity}, the
+\code{boundary_one_sided_derivatives} entries follow those selected rows in
+the same order. The corresponding source rows are obtained with:
+\preformatted{
+parameter_map[stationarity$boundary, ]
+}
+No parameter or boundary index is reordered by the map.
 
 \code{boundary_sources} describes natural zero or nearly singular covariance
 components and does not by itself imply rejection. \code{parameter_bounds}

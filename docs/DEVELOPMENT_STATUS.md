@@ -19,10 +19,32 @@ stationarity check on lme4's deviance function passes, a restart reproduces the
 solution and the exact balanced deviance agrees with lme4's criterion at the
 estimates; and `gt_laplace_check()`, which compares a discrete fit's Laplace
 objective with a refined numerical estimate and reports when that estimate is
-unavailable or unusable. The exact Gaussian engine, the dense Laplace engine,
-every estimate they produce and every numerical acceptance rule they apply are
-unchanged from 0.5.0; the 0.5.0 manuscript examples execute unchanged against
-this source with all claim checks passing.
+unavailable or unusable. The exact Gaussian fitting engine, the dense Laplace
+fitting engine and their numerical acceptance rules are unchanged from 0.5.0.
+
+Corrections following the initial 0.6.0 source freeze give the importance
+comparison a 90% Laplace Gaussian / 10% prior mixture and evaluate the full
+mixture density for every draw. The prior component bounds the importance
+weights for categorical likelihoods, establishing finite weight moments;
+finite-sample precision and empirical ESS remain diagnostics, not accuracy
+guarantees. The [bounded refinement study](../validation-studies/laplace-refinement/README.md)
+retains 80 fixed-parameter comparisons on one binary-logit fixture. It does not
+establish general calibration or parameter recovery.
+
+The lme4 path maps boundary flags through fitted grouping identities and exposes
+an explicit parameter-to-source map while preserving engine order and boundary
+indices. It returns estimated source covariance matrices, but does not compute
+their sampling covariance or the resulting source-variance standard errors and
+reliability intervals. The test map records the corresponding regressions.
+
+Manuscript replays on macOS and Linux have demonstrated that optimizer paths,
+near-threshold acceptance decisions and interval branches can differ across
+numerical environments. The same documented gates must be checked against each
+run's diagnostics; exact decisions from a previous environment are not a
+universal replication target. Validation reports must identify the actual
+archive, environment, command and check mode. In particular, an ordinary
+`R CMD check` result does not establish a `--as-cran` result, and validation
+of the initial freeze does not qualify later working-tree corrections.
 
 The candidate must pass its own ordinary R-devel, noLD, compatibility and
 full staged-bundle gates before publication, and the bundle will adopt the

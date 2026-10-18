@@ -5,10 +5,9 @@
 # Standard R extractors for fitted G-theory models.
 #
 # These exist so that a fit behaves like other R model objects where that is
-# honest, and refuses where it is not. The refusals are the point: the Gaussian
-# outcome means are profiled rather than freely estimated, and the discrete
-# engine computes no observed information at all, so neither has a sampling
-# covariance matrix to hand back. Inventing one would be worse than an error.
+# honest, and refuses where the package has no implemented extractor. Gaussian
+# source-covariance uncertainty is distinct from uncertainty in outcome means;
+# the discrete engine computes no observed information for either.
 
 .gt_require_fit <- function(object) {
   if (!inherits(object, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
@@ -190,18 +189,20 @@ gt_component_vcov <- function(fit, type = c("components", "parameters"), ...) {
 
 # The covariance of coef(), which this implementation does not estimate.
 #
-# Gaussian outcome means are profiled out of the likelihood rather than fitted
-# as free parameters, so there is no curvature for them to report; the discrete
-# engine computes no observed information for anything. Rather than return a
+# Profiling Gaussian means does not prevent their uncertainty from being
+# estimated, but this package does not implement that extractor, including for
+# the lme4 engine. The discrete engine computes no observed information. Rather than return a
 # different matrix under a name that promises this one, this says so and points
 # at the function that does have a covariance matrix to give. Defining the
 # method at all is deliberate: without it, vcov() would reach vcov.default and
 # fail with a message about a missing summary component instead.
 vcov.gt_fit <- function(object, ...) {
   .gt_require_fit(object)
-  detail <- if (.gt_is_gaussian(object))
-    paste("Gaussian outcome means are profiled out of the likelihood rather than",
-          "estimated as free parameters, so this engine computes no curvature for them.") else
+  detail <- if (.gt_is_gaussian(object) && identical(object$engine, "lme4_gaussian_mixed_model"))
+    "The lme4 model's fixed-effect covariance is not exposed by this package's vcov() method." else
+    if (.gt_is_gaussian(object))
+    paste("This package computes source-covariance uncertainty where available,",
+          "but has no implemented covariance extractor for the profiled outcome means.") else
     paste("The dense first-order Laplace engine computes no observed information,",
           "so its location parameters are point estimates only.")
   stop("The sampling covariance of coef() is not available for a gt_fit: ", detail,

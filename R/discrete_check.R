@@ -3,7 +3,7 @@
 # they are deliberately not roxygen, so running roxygen2 cannot replace the
 # richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # A refined numerical comparison for a discrete fit's marginal likelihood at
-# its fitted parameters, to measure the first-order Laplace error of that fit.
+# its fitted parameters, to estimate the first-order Laplace error there.
 #
 # The Laplace objective is f(u) + u'u/2 + log det(R) at the conditional mode,
 # where f is the conditional negative log likelihood of the standardized random
@@ -11,8 +11,12 @@
 # likelihood it approximates is the integral of exp(-f(u)) phi(u) du. That
 # integral is re-estimated here through the Gaussian the Laplace solution
 # already provides, N(mode, (R'R)^-1): by adaptive Gauss-Hermite quadrature in
-# few dimensions, and by importance sampling from that Gaussian otherwise,
-# with the Monte Carlo error and the effective sample size reported.
+# few dimensions, and by importance sampling from a defensive mixture otherwise:
+# 90% that Gaussian and 10% the standard-normal random-effect prior. Every
+# weight uses the full mixture density, whichever component generated its draw.
+# Since a categorical likelihood is at most one, the unnormalised importance
+# weights are bounded by 10. Their moments are finite; this does not guarantee
+# useful relative precision or calibrated finite-sample Monte Carlo intervals.
 #
 # What it establishes is limited and stated: the estimate is at fixed
 # parameters, so it measures the approximation error in the objective, not
@@ -61,6 +65,36 @@
   if (!isTRUE(response$valid)) return(NA_real_)
   -response$nll - sum(u^2) / 2 + sum(z^2) / 2 + log_det_scale
 }
+
+# The defensive proposal is q(u) = 0.9 * N(u0, H^-1) + 0.1 * N(0, I),
+# where H = R'R. A Bernoulli draw chooses the component and z is standard
+# normal in either case. Evaluate BOTH densities for EVERY draw: dividing by
+# only the sampled component would not be this mixture estimator. Normalising
+# constants cancel in the density ratio below. The prior component guarantees
+# q(u) >= 0.1 * phi(u), hence 0 <= L(u) * phi(u) / q(u) <= 10.
+.gt_laplace_mixture_log_weight <- function(z, from_prior, u0, R, W, baseline,
+                                            parameters, prep, log_det_scale) {
+  if (from_prior) {
+    u <- z
+  } else {
+    delta <- tryCatch(backsolve(R, z), error = function(e) NA_real_)
+    if (any(!is.finite(delta)) || length(delta) != length(z) ||
+        max(abs(R %*% delta - z)) > sqrt(.Machine$double.eps) * max(1, max(abs(z))))
+      return(NA_real_)
+    u <- u0 + delta
+  }
+  standardized <- as.numeric(R %*% (u - u0))
+  if (any(!is.finite(u)) || any(!is.finite(standardized))) return(NA_real_)
+  response <- .gt_d_response_kernel(baseline + matrix(W %*% u, prep$n, prep$q), parameters, prep)
+  if (!isTRUE(response$valid)) return(NA_real_)
+  log_gaussian_over_prior <- -log_det_scale - sum(standardized^2) / 2 + sum(u^2) / 2
+  value <- -response$nll - .gt_log_sum_exp(c(log(.GT_LAPLACE_PRIOR_WEIGHT),
+    log1p(-.GT_LAPLACE_PRIOR_WEIGHT) + log_gaussian_over_prior))
+  if (is.na(value) || value > -log(.GT_LAPLACE_PRIOR_WEIGHT) + 1e-10) return(NA_real_)
+  value
+}
+
+.GT_LAPLACE_PRIOR_WEIGHT <- 0.1
 
 gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance"), nodes = 20L,
                              draws = 4000L, seed = NULL, max_dimension = 60L,
@@ -125,6 +159,9 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
   H <- .gt_d_dense_evaluate(eta0, parameters, prep, backend)$H
   R <- tryCatch(chol(H), error = function(e) NULL)
   laplace_nll <- mode$nll
+  proposal <- if (method == "importance") "defensive_normal_mixture" else "laplace_gaussian_quadrature"
+  prior_weight <- if (method == "importance") .GT_LAPLACE_PRIOR_WEIGHT else NA_real_
+  proposal_draws <- NULL
   unavailable <- function(reason, count = NA_integer_) structure(list(
     available = FALSE, usable = FALSE, reason = reason,
     laplace_minus2loglik = 2 * laplace_nll, refined_minus2loglik = NA_real_,
@@ -134,6 +171,9 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
     draws = if (method == "importance") draws else NA_integer_,
     evaluations = evaluations, unavailable_evaluations = count,
     seed = if (method == "importance") seed else NA,
+    proposal = proposal, prior_weight = prior_weight, proposal_draws = proposal_draws,
+    weight_upper_bound = if (method == "importance") 1 / prior_weight else NA_real_,
+    max_importance_weight = NA_real_,
     mc_se = NA_real_, effective_sample_size = NA_real_, refinement_difference = NA_real_,
     stored_minus2loglik = fit$minus2loglik,
     recomputed_agrees = is.numeric(fit$minus2loglik) &&
@@ -152,6 +192,7 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
   mc_se <- NA_real_
   effective <- NA_real_
   refinement <- NA_real_
+  maximum_weight <- NA_real_
   failed <- 0L
   if (method == "quadrature") {
     integrate_with <- function(order) {
@@ -173,19 +214,28 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
     reason <- if (usable) "The refined grid reproduced the estimate." else
       "Refining the grid moved the estimate; increase nodes or use importance sampling."
   } else {
-    z <- .gt_sim_rng(seed, matrix(stats::rnorm(draws * dimension), draws, dimension))
-    log_terms <- vapply(seq_len(draws), function(i) weight(z[i, ]), numeric(1))
+    sample <- .gt_sim_rng(seed, list(
+      from_prior = stats::runif(draws) < prior_weight,
+      z = matrix(stats::rnorm(draws * dimension), draws, dimension)))
+    proposal_draws <- c(laplace_gaussian = sum(!sample$from_prior),
+                        standard_normal_prior = sum(sample$from_prior))
+    log_terms <- vapply(seq_len(draws), function(i)
+      .gt_laplace_mixture_log_weight(sample$z[i, ], sample$from_prior[[i]],
+        u0, R, W, baseline, parameters, prep, log_det_scale), numeric(1))
     failed <- sum(is.na(log_terms))
     if (failed > 0L)
       return(unavailable(paste0(failed, " of ", draws, " importance draws could not be evaluated."), failed))
     top <- max(log_terms)
+    if (!is.finite(top))
+      return(unavailable("No positive finite importance weight could be evaluated.", draws))
     weights <- exp(log_terms - top)
+    maximum_weight <- exp(top)
     refined_nll <- -(top + log(mean(weights)))
     mc_se <- stats::sd(weights) / (sqrt(draws) * mean(weights))
     effective <- sum(weights)^2 / sum(weights^2)
     usable <- is.finite(effective) && effective >= max(200, 0.1 * draws)
-    reason <- if (usable) "The importance weights are not degenerate by the effective-sample-size rule." else
-      "The importance weights are degenerate (effective sample size below 10% of draws or below 200); the estimate is not usable."
+    reason <- if (usable) "The empirical effective-sample-size screen passed; this is not an accuracy guarantee." else
+      "The empirical effective sample size is below 10% of draws or below 200; the diagnostic precision screen failed."
   }
   structure(list(
     available = TRUE, usable = usable, reason = reason,
@@ -198,6 +248,9 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
     draws = if (method == "importance") draws else NA_integer_,
     evaluations = evaluations, unavailable_evaluations = 0L,
     seed = if (method == "importance") seed else NA,
+    proposal = proposal, prior_weight = prior_weight, proposal_draws = proposal_draws,
+    weight_upper_bound = if (method == "importance") 1 / prior_weight else NA_real_,
+    max_importance_weight = maximum_weight,
     mc_se = 2 * mc_se, effective_sample_size = effective,
     refinement_difference = 2 * refinement,
     stored_minus2loglik = fit$minus2loglik,
@@ -208,22 +261,23 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
 }
 
 .GT_LAPLACE_CHECK_SCOPE <- paste(
-  "A refined numerical estimate of the marginal likelihood at the fitted parameters, obtained",
-  "through the Gaussian the Laplace solution provides. The difference measures the first-order",
-  "Laplace error in the objective for this fit at these parameters; it is not a measure of bias",
-  "in the estimates, which would need refitting under the refined likelihood. A stable quadrature",
-  "refinement is evidence of numerical stability, not an error bound; an importance-sampling",
-  "estimate can miss tail mass its standard error and effective sample size do not reveal.")
+  "The difference estimates the objective's Laplace error at fixed parameters, not bias in the estimates.",
+  "Stable quadrature refinement is not an error bound. Defensive-mixture importance weights have",
+  "finite moments, but this does not guarantee useful relative precision or calibrated finite-sample",
+  "Monte Carlo intervals. The Monte Carlo SE is a delta-method estimate; empirical ESS can miss",
+  "poorly sampled regions. Check independent seeds and increasing draw budgets.")
 
 print.gt_laplace_check <- function(x, ..., digits = 6L) {
   if (!is.numeric(digits) || length(digits) != 1L || is.na(digits) || digits < 1 || digits > 22)
     stop("digits must be one integer from 1 to 22.", call. = FALSE)
-  cat("Laplace approximation check:",
-      if (x$method == "quadrature") "adaptive Gauss-Hermite quadrature" else "importance sampling", "\n")
+  .gt_cat_wrap("Laplace approximation check:",
+      if (x$method == "quadrature") "adaptive Gauss-Hermite quadrature" else
+        if (identical(x$proposal, "defensive_normal_mixture")) "defensive-mixture importance sampling" else "importance sampling")
   cat("Random-effect dimension:", x$random_dimension, "| observations:", x$observations, "\n")
   if (!isTRUE(x$available)) {
     .gt_cat_wrap("Refined estimate unavailable:", x$reason)
     cat("Laplace -2 log likelihood:", format(x$laplace_minus2loglik, digits = digits), "\n")
+    .gt_cat_wrap(x$scope)
     return(invisible(x))
   }
   cat("-2 log likelihood: Laplace", format(x$laplace_minus2loglik, digits = digits),
@@ -234,8 +288,11 @@ print.gt_laplace_check <- function(x, ..., digits = 6L) {
     cat("Nodes per dimension:", x$nodes, "| refining by 5 nodes moves the estimate by",
         format(x$refinement_difference, digits = 3L), "\n")
   } else {
-    cat("Draws:", x$draws, "| seed:", x$seed, "| Monte Carlo SE:", format(x$mc_se, digits = 3L),
-        "| effective sample size:", format(x$effective_sample_size, digits = 4L), "\n")
+    if (identical(x$proposal, "defensive_normal_mixture"))
+      .gt_cat_wrap("Proposal: 90% Laplace Gaussian and 10% standard-normal prior;",
+        "unnormalised weights are bounded by 10.")
+    .gt_cat_wrap("Draws:", x$draws, "| seed:", x$seed, "| estimated Monte Carlo SE:", format(x$mc_se, digits = 3L),
+        "| empirical effective sample size:", format(x$effective_sample_size, digits = 4L))
   }
   .gt_cat_wrap(if (isTRUE(x$usable)) "Usable:" else "Not usable:", x$reason)
   if (!isTRUE(x$recomputed_agrees))
@@ -244,6 +301,6 @@ print.gt_laplace_check <- function(x, ..., digits = 6L) {
   if (!x$numerically_accepted)
     .gt_cat_wrap("The fit was not numerically accepted; this comparison describes its",
                  "stopping point, not an estimate.")
-  cat("The difference is the objective's Laplace error, not bias in the estimates.\n")
+  .gt_cat_wrap(x$scope)
   invisible(x)
 }

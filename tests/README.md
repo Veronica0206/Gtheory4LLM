@@ -24,7 +24,7 @@ into subdirectories without silently removing them from the release gate.
 | `package-mixed-model.R` | Brennan fixed facets, `full_cell = FALSE` |
 | `package-nested-designs.R` | Nested reliability, mixed fixed/nested weighting, nested D studies |
 | `package-retry-behavior.R` | Optimizer retry accounting, acceptance reporting, determinism |
-| `package-standard-methods.R` | `logLik`/`nobs`/`coef`/`vcov`, criteria, retention controls |
+| `package-standard-methods.R` | `logLik`/`nobs`/`coef`/`vcov`, criteria, retention controls, and unavailable sampling uncertainty for the lme4 engine |
 | `package-discrete-controls.R` | Discrete control surface and trial budgets |
 | `package-discrete-safety.R` | Discrete failure handling |
 | `package-discrete-backend.R` | Independent dense matrix, curvature and mode contracts |
@@ -42,8 +42,8 @@ into subdirectories without silently removing them from the release gate.
 | `package-argument-parity.R` | Shared fitting/preflight argument validation; absent categories are additionally reported as blocked preflight objects |
 | `package-tuple-keys.R` | Interaction keys that user labels must not collide with |
 | `package-user-interface.R` | Printing, summaries, and what they must never leak |
-| `package-engines.R` | The lme4 Gaussian engine against the exact engine and against lme4 itself: estimates, criteria, call effect, preflight, retention, and the acceptance logic on constructed inputs, including the scaled-gradient counterexample, unusable curvature, inward boundary derivatives and lme4 warnings |
-| `package-laplace-check.R` | The Laplace comparison against an independent one-dimensional integration, importance sampling against quadrature, the zero-variance identity, limits applied before computation, unavailable rather than zero contributions, and its refusals |
+| `package-engines.R` | The lme4 Gaussian engine against the exact engine and against lme4 itself: estimates, criteria, call effect, preflight, retention, and the acceptance logic on constructed inputs, including the scaled-gradient counterexample, unusable curvature, inward boundary derivatives and lme4 warnings; source-order boundary mapping and a public parameter map retained without the engine model |
+| `package-laplace-check.R` | The Laplace comparison against an independent one-dimensional integration, defensive-mixture importance sampling against quadrature, full-mixture weights and their bound, correlated proposals, multiple seeds and budgets, the zero-variance identity, limits applied before computation, unavailable rather than zero contributions, and its refusals |
 | `package-formula-interface.R` | The model-formula route of fitting and preflight: equivalence with `gt_design()`, both argument orders, the named `formula` and `measured` arguments, a family after the formula, class vectors, `formula()` and `update()`, and the refusals |
 
 ## Source-level tests
@@ -86,8 +86,11 @@ into subdirectories without silently removing them from the release gate.
 
 - An expected value is derived independently of the code that produces it.
   A test that re-runs the implementation's own formula shares its mistakes.
-- Numerical comparisons state a tolerance and a reason for it. Decisions —
-  accepted, rejected, which check failed — are compared exactly.
+- Numerical comparisons state a tolerance and a reason for it. Decisions on
+  controlled inputs — accepted, rejected, which check failed — are compared
+  exactly. Platform-sensitive optimizer outcomes are checked against the same
+  documented numerical gates; a saved acceptance flag from another platform
+  is not a universal expected result.
 - A test that cannot run says so rather than passing quietly.
 
 Run one file directly while developing:

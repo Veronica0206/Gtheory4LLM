@@ -1,0 +1,2 @@
+"intercept","item_variance","laplace_minus2loglik","reference_minus2loglik","reference_refinement_difference","original_proposal_precision_min","original_proposal_precision_max","defensive_prior_weight","importance_weight_upper_bound"
+0.424671419950816,2.22087972213141,27.9131039116325,27.7927637807278,0,3.67521752361871,4.57728184640589,0.1,10

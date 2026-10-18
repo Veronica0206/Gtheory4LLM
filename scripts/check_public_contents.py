@@ -125,6 +125,13 @@ STUDY_CSV_FILES = {
     f"validation-studies/gaussian-pilot-sensitivity/results/{name}" for name in (
         "config.csv", "schedule.csv", "replicates.csv", "summary.csv",
         "source-files.csv", "postrun-source-files.csv")
+} | {
+    # Reviewed three-item synthetic binary-logit fixture, independent integration
+    # references and all 80 fixed-parameter diagnostic attempts. Exact paths
+    # only; every file still undergoes private-content scanning.
+    f"validation-studies/laplace-refinement/results-20261018/{name}" for name in (
+        "fixture.csv", "original-proposal-hessian.csv", "reference.csv",
+        "replicates.csv", "summary.csv")
 }
 PUBLIC_FILES = {
     "DESCRIPTION", "NAMESPACE", "LICENSE", "LICENCE", "LICENSE.note",

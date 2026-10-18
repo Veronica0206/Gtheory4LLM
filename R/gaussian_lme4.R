@@ -193,7 +193,22 @@
                                   likelihood_matches)
   converged <- !length(failures)
   optimizer_completed <- identical(primary$optimizer_code, 0L)
-  boundary <- stats::setNames(!interior, spec)
+  # lme4 orders grouping factors by their numbers of levels, which need not
+  # match the declared source order. Match the generated grouping identities
+  # before attaching scientific source labels to parameter diagnostics.
+  theta_names <- names(lme4::getME(model, "theta"))
+  source_parameters <- match(paste0(groupings, ".(Intercept)"), theta_names)
+  if (anyNA(source_parameters) || anyDuplicated(source_parameters) ||
+      length(theta_names) != length(spec))
+    stop("The lme4 random-intercept parameters could not be matched to their declared sources.", call. = FALSE)
+  boundary <- stats::setNames(!interior[source_parameters], spec)
+  # Preserve lme4's numerical order and the existing integer boundary indices.
+  # This public map gives each retained theta/derivative position its source
+  # identity without adding attributes to quantities used by acceptance audits.
+  parameter_sources <- character(length(theta))
+  parameter_sources[source_parameters] <- spec
+  parameter_map <- data.frame(index = seq_along(theta), source = parameter_sources,
+                              engine_parameter = theta_names, stringsAsFactors = FALSE)
   N <- prepared$N
   n_variance_parameters <- length(component_names)
   total_parameters <- n_variance_parameters + 1L
@@ -238,6 +253,7 @@
     approximation_adequacy = "exact_balanced_gaussian_likelihood",
     engine = "lme4_gaussian_mixed_model",
     diagnostics = list(issues = failures, boundary_components = boundary,
+      parameter_map = parameter_map,
       hessian_checked = FALSE, standard_errors_available = FALSE,
       standard_errors_unavailable_reason = "The lme4 engine computes no standard errors for source variance components.",
       covariance_stationarity = stationarity,

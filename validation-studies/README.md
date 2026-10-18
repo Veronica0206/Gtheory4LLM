@@ -32,6 +32,19 @@ acceptance is not evidence of close parameter or reliability recovery. All
 attempts, Monte Carlo uncertainty, source identities and figures are retained.
 This small public-dense-engine study does not qualify the private sparse backend.
 
+## Defensive-mixture refinement, 2026-10-18
+
+The [Laplace-refinement study](laplace-refinement/README.md) retains 80
+fixed-parameter importance comparisons: 40 seeds at each of two draw budgets
+on one three-item binary-logit fixture, against independent one-dimensional
+integration references. The defensive mixture has finite weight moments;
+all 80 comparisons were available and passed the empirical ESS screen in the
+retained initial run. The reference lay in 40/40 and 39/40 nominal Monte Carlo
+intervals, with wide uncertainty about those proportions. These results do not
+establish general finite-sample calibration, performance for other outcome
+families or designs, or coverage of fitted model-parameter intervals. The
+protocol, all attempts, source identity and environment accompany the results.
+
 ## Reproduce without overwriting evidence
 
 The [Gaussian pilot sensitivity illustration](gaussian-pilot-sensitivity/README.md)
@@ -48,7 +61,12 @@ Rscript validation-studies/gaussian-coverage/run.R /tmp/gaussian-pilot-new
 Rscript validation-studies/discrete-laplace/run.R /tmp/laplace-pilot-new
 Rscript validation-studies/discrete-recovery/run.R /tmp/recovery-pilot-new
 Rscript validation-studies/gaussian-pilot-sensitivity/run.R /tmp/planning-pilot-new
+Rscript validation-studies/laplace-refinement/run.R /tmp/refinement-pilot-new /path/to/R/library
 ```
+
+The refinement runner can also use `GT_STUDY_LIBRARY`; with an installed
+library it runs without a repository checkout and retains its executed runner,
+protocol, completion status and before/after fingerprints.
 
 The individual protocols declare runtime budgets and incomplete-run behavior.
 Results are outside the installable R package and are not automatically rerun

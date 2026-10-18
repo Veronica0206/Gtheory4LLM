@@ -1,0 +1,36 @@
+Started UTC: 2026-10-18 02:54:42 UTC
+Package version: 0.6.0
+Installed path: /private/tmp/pm-laplace-correction-20261018/library/Gtheory4LLM
+Source revision: 4d9d57255e4e67e87f673e75dcf390380c697a11
+Source status:
+ M R/discrete_check.R
+ M R/gaussian_lme4.R
+ M man/gt_fit.Rd
+ M man/gt_fit_methods.Rd
+ M man/gt_laplace_check.Rd
+ M tests/package-engines.R
+ M tests/package-laplace-check.R
+?? validation-studies/laplace-refinement/
+
+R version 4.5.3 (2026-03-11)
+Platform: aarch64-apple-darwin20
+Running under: macOS 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] Gtheory4LLM_0.6.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.5.3

@@ -83,10 +83,9 @@ or `vignette("LLM-workflow", package = "Gtheory4LLM")`. Its source is
 # llm_data and llm_design are created by the tutorial above.
 gt_preflight(llm_data, "quality", llm_design)
 fit <- gt_fit(llm_data, "quality", llm_design)
-# The same model as one formula: the outcome on the left; on the right the
-# object of measurement first, then the facets and their sources
-# (or name it: measured = "item").
-fit <- gt_fit(quality ~ item * (evaluator + prompt) + evaluator:prompt:run, llm_data)
+# The same model as one formula, with the measurement object named explicitly.
+fit <- gt_fit(quality ~ item * (evaluator + prompt) + evaluator:prompt:run,
+              llm_data, measured = "item")
 summary(fit)
 gt_diagnostics(fit)$numerically_accepted
 gt_reliability(fit)
@@ -105,7 +104,7 @@ specified model; it is not 80% labeling accuracy or agreement with a human
 reference. Phi additionally penalizes absolute panel shifts and is no larger
 than G under this model.
 
-Gaussian fits report asymptotic standard errors and delta-method intervals
+The default Gaussian engine reports asymptotic standard errors and delta-method intervals
 where the likelihood curvature and boundary rules permit them. They use the
 restricted (REML) or profile (ML) likelihood Hessian:
 
@@ -252,12 +251,22 @@ identification or successful fitting.
 | Ordinal | Cumulative probit/logit, univariate or joint | Explicitly requested latent-response coefficients |
 | Unordered categorical | Reference-category multinomial softmax, univariate or joint | No scalar coefficient implemented |
 
-Gaussian fits use the exact balanced likelihood through OpenMx by default;
-`gt_control(gaussian = list(engine = "lme4"))` fits the same sources through
-lme4 and is accepted only when the exact deviance at its estimates agrees with
-lme4's criterion. Discrete fits have one engine, the first-order Laplace
-likelihood; `gt_laplace_check(fit)` compares its objective on a fitted model
-with a refined numerical estimate by quadrature or importance sampling.
+Gaussian fits use the exact balanced likelihood through OpenMx by default.
+For univariate Gaussian models, `gt_control(gaussian = list(engine = "lme4"))`
+fits the same sources through lme4. Acceptance requires completion,
+stationarity and restart checks, plus agreement between the two deviance
+calculations at the lme4 estimates. These checks do not prove global
+optimality. This alternative does not supply source-variance standard errors
+or coefficient intervals.
+
+Discrete fits use a first-order Laplace likelihood. `gt_laplace_check(fit)`
+compares its objective at the fitted parameters with numerical quadrature or
+importance sampling. The latter uses a defensive mixture of 90% Laplace
+Gaussian and 10% random-effect prior, with the full mixture density in every
+weight. This guarantees finite weight moments for the supported categorical
+probability likelihoods; it does not guarantee adequate precision from a
+finite sample. The Monte Carlo standard error and empirical effective sample
+size are diagnostics, and the comparison does not estimate parameter bias.
 
 Discrete observations follow their chosen response distributions; their latent
 random effects remain Gaussian. Gaussian assumptions therefore remain part of

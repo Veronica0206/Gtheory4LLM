@@ -40,10 +40,33 @@ importance <- gt_laplace_check(fit, method = "importance", draws = 20000, seed =
 expect(identical(importance$method, "importance") && is.finite(importance$mc_se) &&
          importance$effective_sample_size > 1000 && isTRUE(importance$usable),
        "importance sampling reports its Monte Carlo error and effective sample size")
+expect(identical(importance$proposal, "defensive_normal_mixture") &&
+         identical(importance$prior_weight, 0.1) && importance$weight_upper_bound == 10 &&
+         importance$max_importance_weight <= 10 &&
+         sum(importance$proposal_draws) == importance$draws &&
+         all(importance$proposal_draws > 0) &&
+         abs(importance$proposal_draws[["standard_normal_prior"]] / importance$draws - 0.1) < 0.02,
+       "the defensive mixture records both sampling components and its finite weight bound")
 expect(abs(importance$refined_minus2loglik - check$refined_minus2loglik) < 4 * importance$mc_se + 1e-6,
        "importance sampling agrees with quadrature within its error")
 expect(identical(gt_laplace_check(fit, method = "importance", draws = 20000, seed = 7)$refined_minus2loglik,
                  importance$refined_minus2loglik), "a seeded check is reproducible")
+
+# This is the original infinite-second-moment counterexample for a Gaussian-only
+# proposal: the posterior precision exceeds 2 in all independent logistic groups.
+# The defensive proposal is nevertheless bounded because q >= 0.1 * prior.
+p_mode <- fit$conditional_probabilities$y[, "1"]
+H_diagonal <- 1 + sigma^2 * tapply(p_mode * (1 - p_mode), b$item, sum)
+expect(all(H_diagonal > 2), "the binary fixture retains its Gaussian-only infinite-variance tail condition")
+set.seed(271)
+rng_before <- .Random.seed
+for (budget in c(1000L, 5000L)) for (check_seed in c(17L, 31L, 47L)) {
+  replicate_check <- gt_laplace_check(fit, method = "importance", draws = budget, seed = check_seed)
+  expect(replicate_check$available && is.finite(replicate_check$mc_se) &&
+           abs(replicate_check$refined_minus2loglik - 2 * reference) < 6 * replicate_check$mc_se + 1e-6,
+         "independent seeds and two budgets agree with the adaptive-integration reference within a broad regression tolerance")
+}
+expect(identical(.Random.seed, rng_before), "mixture component selection and normal draws preserve the caller RNG")
 
 zero <- gt_fit(b, "y", gt_design("item", "rater", random = ~ item + rater), gt_family("binary", "logit"),
   control = gt_control(discrete = list(fixed_covariance = list(item = matrix(0, 1, 1), rater = matrix(0, 1, 1)))))
@@ -71,6 +94,24 @@ expect(abs(good - (0.3^2 / 2 - (0.3 / 2)^2 / 2)) < 1e-12, "the weight helper rep
 broken <- log_weight(0.3, 0, matrix(0), matrix(0, 1, 1), matrix(0, 1, 1), 0, trivial, 0)
 expect(is.na(broken), "a factor that cannot solve its system yields an unavailable contribution, not zero")
 
+# Independent normal density calculation on a correlated two-dimensional
+# proposal: both sampling branches must divide by the same FULL mixture.
+mixture_weight <- Gtheory4LLM:::.gt_laplace_mixture_log_weight
+V <- matrix(c(0.5, 0.12, 0.12, 1.4), 2, 2)
+R <- chol(solve(V))
+u0 <- c(0.3, -0.2)
+for (z in list(c(0.4, -0.7), c(8, -6))) for (from_prior in c(FALSE, TRUE)) {
+  u <- if (from_prior) z else u0 + solve(R, z)
+  prior_density <- prod(dnorm(u))
+  gaussian_density <- exp(-log(2 * pi) - log(det(V)) / 2 -
+    as.numeric(crossprod(u - u0, solve(V, u - u0))) / 2)
+  expected <- log(prior_density / (0.9 * gaussian_density + 0.1 * prior_density))
+  actual <- mixture_weight(z, from_prior, u0, R, matrix(0, 1, 2), matrix(0, 1, 1),
+                           0, trivial, -sum(log(diag(R))))
+  expect(abs(actual - expected) < 1e-11 && actual <= log(10) + 1e-12,
+         "both component draws use the full correlated mixture density and retain the bound")
+}
+
 # --- Refusals and the data argument ------------------------------------------
 d <- expand.grid(item = 1:12, rater = 1:3)
 d$score <- sin(d$item) + d$rater / 5 + cos(d$item * d$rater) / 4
@@ -93,9 +134,17 @@ for (bad in list(0, 4, 81, 2.5, NA)) expect(inherits(tryCatch(gt_laplace_check(f
                                             "invalid node counts are refused")
 
 printed <- capture.output(print(check))
+printed_text <- paste(trimws(printed), collapse = " ")
 expect(any(grepl("Laplace approximation check: adaptive Gauss-Hermite quadrature", printed, fixed = TRUE)) &&
          !any(nchar(printed) > 80L) &&
          any(grepl("Usable:", printed, fixed = TRUE)) &&
          any(grepl("not bias in the estimates", printed, fixed = TRUE)) &&
+         grepl("not an error bound", printed_text, fixed = TRUE) &&
+         any(grepl("independent seeds", printed, fixed = TRUE)) &&
          identical(withVisible(print(check))$visible, FALSE), "the print names the method, the verdict and its scope")
-cat("PASS: the Laplace check matches an independent integration, importance sampling matches quadrature, and refusals hold.\n")
+importance_printed <- capture.output(print(importance))
+expect(any(grepl("defensive-mixture importance sampling", importance_printed, fixed = TRUE)) &&
+         any(grepl("accuracy guarantee", importance_printed, fixed = TRUE)) &&
+         any(grepl("delta-method estimate", importance_printed, fixed = TRUE)),
+       "the importance print describes its proposal and finite-sample limitations")
+cat("PASS: independent integration, defensive-mixture densities and sampling, finite weight bounds, repeated seeds/budgets, and refusals.\n")

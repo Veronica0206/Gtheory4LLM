@@ -212,6 +212,7 @@ gt_diagnostics <- function(fit) {
        acceptance_failures = status$acceptance_failures,
        attempt_failures = status$attempt_failures,
        boundary_sources = status$boundary_sources, parameter_bounds = status$parameter_bounds,
+       parameter_map = fit[["diagnostics"]][["parameter_map"]],
        # The two records a reader most often wants without opening the engine's
        # private diagnostics: the stationarity check that decided acceptance, and
        # the independent likelihood evaluation where the engine made one.
