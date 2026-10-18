@@ -4,6 +4,31 @@ Current release and development state. Version history is in [NEWS.md](../NEWS.m
 planned work is in [the roadmap](ROADMAP.md), and implementation boundaries are
 in [limitations](LIMITATIONS.md).
 
+## 0.6.0 Model Interface release preparation
+
+Source version 0.6.0 gives the interface the conventions of other R model
+objects, integrated through PR #73 and PR #74 on 2026-10-17 and 2026-10-18.
+`gt_fit()` and `gt_preflight()` accept a two-sided model formula with an
+explicit object of measurement (`measured`), every fit has one class vector
+per engine, `summary()` carries the Gaussian reliability at the fitted counts,
+`deviance()`, `formula()` and `update()` are available, and every declaration
+prints as a description. Two pieces of new estimation code arrive with their
+own acceptance and availability rules: the lme4 Gaussian engine, accepted only
+when lme4's optimizer completes without a convergence warning, the package's
+stationarity check on lme4's deviance function passes, a restart reproduces the
+solution and the exact balanced deviance agrees with lme4's criterion at the
+estimates; and `gt_laplace_check()`, which compares a discrete fit's Laplace
+objective with a refined numerical estimate and reports when that estimate is
+unavailable or unusable. The exact Gaussian engine, the dense Laplace engine,
+every estimate they produce and every numerical acceptance rule they apply are
+unchanged from 0.5.0; the 0.5.0 manuscript examples execute unchanged against
+this source with all claim checks passing.
+
+The candidate must pass its own ordinary R-devel, noLD, compatibility and
+full staged-bundle gates before publication, and the bundle will adopt the
+checked candidate unchanged. CRAN submission remains a separate maintainer
+action; the 0.5.0 archive published on CRAN on 2026-10-11 is unchanged.
+
 ## 0.5.0 Study Planning release preparation
 
 Source version 0.5.0 contains the reviewed fixed-layout Gaussian batch targets,
@@ -59,7 +84,7 @@ tagged commit refused a discrete fit on one runner, and
 
 | Fact | Value |
 |---|---|
-| Checkout version | `0.5.0.9000`, the development line after the 0.5.0 Study Planning release. Earlier development versions were `0.3.0.9000`, `0.4.0.9000` and `0.4.1.9000`; no 0.3.0 was released, `0.4.0` was tagged but not published, and `0.4.1` was published on GitHub only |
+| Checkout version | `0.6.0` (Model Interface release candidate). The development line after 0.5.0 was versioned `0.5.0.9000`; earlier development versions were `0.3.0.9000`, `0.4.0.9000` and `0.4.1.9000`; no 0.3.0 was released, `0.4.0` was tagged but not published, and `0.4.1` was published on GitHub only |
 | Bundle in `artifacts/` | `0.5.0`, adopted unchanged from the checked candidate; the archive and manual identities are recorded below and in the manifest |
 | Bundle source commit | `854e5e792b5dfcbacc88c2a32c0c9792b2d3772d` |
 | Manifest publication state | Read `release_state` in [the manifest](../artifacts/manifest.json). `prepared` records staging; `published` records the publication commit/tag identity. Neither field alone proves a GitHub upload or CRAN submission |

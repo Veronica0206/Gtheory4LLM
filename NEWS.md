@@ -1,7 +1,7 @@
-# Gtheory4LLM 0.5.0.9000 (development)
+# Gtheory4LLM 0.6.0 — Model Interface
 
 <!-- release-identity:start -->
-Source version: **0.5.0.9000**.
+Source version: **0.6.0**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -9,8 +9,7 @@ These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
 
-This development line gives the interface the conventions of other R model
-objects. The published 0.5.0 archive, its numerical engines, acceptance rules
+This version gives the interface the conventions of other R model objects. The published 0.5.0 archive, its numerical engines, acceptance rules
 and every estimate are unchanged.
 
 - `gt_fit()` and `gt_preflight()` accept a two-sided model formula in place of

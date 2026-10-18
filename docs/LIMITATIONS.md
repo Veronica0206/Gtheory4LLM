@@ -169,7 +169,7 @@ scientifically sufficient. Those are separate questions with separate evidence.
   portable `gt_report()` and HTML output exclude the labels. An old fit without
   the recorded layout must be refitted for batch projections.
 
-These planning capabilities are included in source version 0.5.0. Their
+These planning capabilities are included in source version 0.6.0. Their
 implementation and statistical limitations are described above. Source
 versioning does not establish final-archive qualification, GitHub publication
 or CRAN acceptance; see [development status](DEVELOPMENT_STATUS.md) for the

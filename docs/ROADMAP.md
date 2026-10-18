@@ -1,8 +1,8 @@
 # Roadmap
 
 Release history and development priorities, with current implementation separated
-from release qualification. The source is **0.5.0**, frozen for Study Planning
-release qualification. The published 0.4.1 archive remains unchanged. Source
+from release qualification. The source is **0.6.0**, frozen for Model Interface
+release qualification. The published 0.5.0 archive remains unchanged. Source
 versioning does not assert GitHub publication or CRAN acceptance. Completed source changes
 are recorded in [NEWS.md](../NEWS.md), and source-identified run evidence belongs
 in [development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
@@ -16,7 +16,8 @@ rules; they do not repair or replace the optimizer or expand sparse qualificatio
 | 0.1.0 and 0.2.0 | Historical published releases; their tagged archives remain immutable |
 | 0.4.0 | Prepared and tagged but not published; superseded by 0.4.1 |
 | 0.4.1 | Retained qualified maintenance archive, including the recorded noLD reference-backend correction and evidence |
-| 0.5.0 Study Planning | Frozen source: fixed-layout Gaussian batch projections, bounded cost-aware allocation search, and Gaussian pilot precision simulation; final archive qualification and publication tracked in development status |
+| 0.5.0 Study Planning | Published 2026-10-11 as a GitHub release and on CRAN: fixed-layout Gaussian batch projections, bounded cost-aware allocation search, and Gaussian pilot precision simulation; final archive qualification and publication tracked in development status |
+| 0.6.0 Model Interface | Frozen source: model-formula declaration with `measured`, `formula()` and `update()`, one class vector per engine, summary reliability and `deviance()`, print methods, the lme4 Gaussian engine cross-checked against the exact deviance, and the Laplace comparison `gt_laplace_check()`; final archive qualification and publication evidence pending |
 | Future sparse milestone (previously planned as 0.5.0) | Public backend selection only after dense-sparse qualification and the declared full-panel resource benchmark; no release is implied by this target label |
 | Further statistical development | Broader validation campaigns, unbalanced targets, discrete uncertainty and joint batch/cost planning |
 | 1.0 | Future API stability and a substantially broader validated operating range |
