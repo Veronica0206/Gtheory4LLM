@@ -89,9 +89,9 @@ def require_clean_tree(allow_dirty: bool) -> str:
     return git("rev-parse", "HEAD")
 
 
-def build_archive(package: str, version: str, work: Path) -> Path:
+def build_archive(package: str, version: str, work: Path, rscript: str = "Rscript") -> Path:
     r = Path(subprocess.check_output(
-        ["Rscript", "--vanilla", "-e",
+        [rscript, "--vanilla", "-e",
          'cat(file.path(R.home("bin"), if (.Platform$OS.type == "windows") "R.exe" else "R"))'],
         text=True).strip())
     run("Build the source archive", [str(r), "CMD", "build", str(ROOT)], cwd=work)
@@ -167,10 +167,10 @@ def adopt_checked_candidate(directory: Path, package: str, version: str, commit:
     return adopted, provenance
 
 
-def build_manual(package: str, work: Path) -> Path:
+def build_manual(package: str, work: Path, rscript: str = "Rscript") -> Path:
     manual = work / f"{package}-manual.pdf"
     run("Build the reference manual",
-        ["Rscript", "--vanilla", str(ROOT / "scripts/build_manual.R"), str(manual), str(work / "manual")])
+        [rscript, "--vanilla", str(ROOT / "scripts/build_manual.R"), str(manual), str(work / "manual")])
     if not manual.is_file():
         raise SystemExit("The manual build reported success but produced no PDF")
     return manual
@@ -232,6 +232,9 @@ def refuse_published_version(version: str, state: str, destination: Path) -> Non
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--rscript", default="Rscript",
+                        help="Interpreter for the archive build, the manual build and source validation; "
+                             "a validation run that stages a rehearsal bundle passes its own.")
     parser.add_argument("--skip-validation", action="store_true",
                         help="Rebuild the bundle without rerunning the source validation scope.")
     parser.add_argument("--cran-requested-maintenance", metavar="REASON",
@@ -274,8 +277,8 @@ def main(argv: list[str] | None = None) -> int:
             archive, provenance = adopt_checked_candidate(
                 options.from_checked_candidate.resolve(), package, version, commit, work)
         else:
-            archive = build_archive(package, version, work)
-        manual = build_manual(package, work)
+            archive = build_archive(package, version, work, rscript=options.rscript)
+        manual = build_manual(package, work, rscript=options.rscript)
         staging = work / "bundle"
         staging.mkdir()
         shutil.copy2(archive, staging / archive.name)
@@ -296,12 +299,13 @@ def main(argv: list[str] | None = None) -> int:
              "--manifest", str(manifest_path), "--verify-only", "--check-release-identity"])
         if not options.skip_validation:
             validation_command = [sys.executable, str(ROOT / "scripts/run_validation.py"), "--scope", "source",
-                                  "--as-cran", "--release-manifest", str(manifest_path)]
+                                  "--as-cran", "--rscript", options.rscript,
+                                  "--release-manifest", str(manifest_path)]
             if options.cran_requested_maintenance is not None:
                 validation_command.extend(["--cran-requested-maintenance", options.cran_requested_maintenance])
             run("Validate public sources", validation_command)
         run("Audit public content",
-            [sys.executable, str(ROOT / "scripts/check_public_contents.py"),
+            [sys.executable, str(ROOT / "scripts/check_public_contents.py"), "--rscript", options.rscript,
              "--working-tree", "--expected-data-kind", "public_llm_annotations"])
         destination.mkdir(parents=True, exist_ok=True)
         if not options.dry_run:

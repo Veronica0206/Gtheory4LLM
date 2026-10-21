@@ -89,12 +89,12 @@ class PrepareReleaseTests(unittest.TestCase):
             text=True, stderr=subprocess.PIPE).strip()
 
     def stub_builds(self):
-        def archive(package, version, work):
+        def archive(package, version, work, rscript="Rscript"):
             path = work / f"{package}_{version}.tar.gz"
             path.write_bytes(b"archive bytes")
             return path
 
-        def manual(package, work):
+        def manual(package, work, rscript="Rscript"):
             path = work / f"{package}-manual.pdf"
             path.write_bytes(b"%PDF-1.4\nmanual\n")
             return path
@@ -434,6 +434,42 @@ class PrepareReleaseTests(unittest.TestCase):
             with self.subTest(argv=argv), patch.object(RELEASE, "run") as runner, self.assertRaises(SystemExit):
                 RELEASE.main(argv)
             runner.assert_not_called()
+
+    def test_the_requested_interpreter_builds_validates_and_is_not_taken_from_path(self):
+        # A validation run that stages a rehearsal passes the interpreter it
+        # resolved; preparation must build, render and validate with that one.
+        seen = []
+
+        def archive(package, version, work, rscript="Rscript"):
+            seen.append(("archive", rscript))
+            path = work / f"{package}_{version}.tar.gz"
+            path.write_bytes(b"archive bytes")
+            return path
+
+        def manual(package, work, rscript="Rscript"):
+            seen.append(("manual", rscript))
+            path = work / f"{package}-manual.pdf"
+            path.write_bytes(b"%PDF-1.4\nmanual\n")
+            return path
+
+        with patch.object(RELEASE, "build_archive", archive), patch.object(RELEASE, "build_manual", manual), \
+                patch.object(RELEASE, "run") as runner, redirect_stdout(io.StringIO()):
+            self.assertEqual(RELEASE.main(["--rscript", "/custom/Rscript"]), 0)
+        self.assertEqual(seen, [("archive", "/custom/Rscript"), ("manual", "/custom/Rscript")])
+        for step in ("Validate public sources", "Audit public content"):
+            commands = [call.args[1] for call in runner.call_args_list if call.args[0] == step]
+            self.assertEqual(len(commands), 1, step)
+            self.assertEqual(commands[0][commands[0].index("--rscript") + 1], "/custom/Rscript", step)
+        # The real build steps invoke exactly the interpreter they were given.
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(RELEASE.subprocess, "check_output", return_value="/r/bin/R") as query, \
+                    patch.object(RELEASE, "run") as build, self.assertRaises(SystemExit):
+                RELEASE.build_archive("Gtheory4LLM", "0.9.0", Path(directory), rscript="/custom/Rscript")
+            self.assertEqual(query.call_args.args[0][:2], ["/custom/Rscript", "--vanilla"])
+            self.assertEqual(build.call_args.args[1][:3], ["/r/bin/R", "CMD", "build"])
+            with patch.object(RELEASE, "run") as build, self.assertRaises(SystemExit):
+                RELEASE.build_manual("Gtheory4LLM", Path(directory), rscript="/custom/Rscript")
+            self.assertEqual(build.call_args.args[1][:2], ["/custom/Rscript", "--vanilla"])
 
     def test_the_bundle_is_verified_after_it_is_written(self):
         with patch.object(RELEASE, "run") as runner:

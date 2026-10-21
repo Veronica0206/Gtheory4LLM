@@ -8,6 +8,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 
 MODULE = Path(__file__).resolve().parents[1] / "scripts" / "check_public_contents.py"
 spec = importlib.util.spec_from_file_location("public_audit", MODULE)
@@ -221,6 +222,21 @@ class PublicContentsTests(unittest.TestCase):
         self.assertFalse(any("test_nold_evidence.py" in x["path"] for x in audit.findings))
         self.assertTrue(any("zz_other.py" in x["path"] and
                             x["reason"] == "private Windows profile path" for x in audit.findings))
+
+    def test_serialized_resources_are_inspected_with_the_selected_interpreter(self):
+        # Release preparation passes the interpreter a validation run resolved;
+        # the audit must use it rather than whatever Rscript PATH offers first.
+        audit = module.PublicAudit(self.root, "synthetic", rscript="/custom/Rscript")
+        with patch.object(module.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = "OK\n"
+            run.return_value.stderr = ""
+            audit.inspect_rds(b"not really an rds", "inst/extdata/example.rds")
+        self.assertEqual(run.call_args.args[0][:2], ["/custom/Rscript", "--vanilla"])
+        self.assertEqual(audit.rds_checked, 1)
+        self.assertEqual(audit.findings, [])
+        default = module.PublicAudit(self.root, "synthetic")
+        self.assertEqual(default.rscript, shutil.which("Rscript"))
 
     def test_symlink_targets_are_never_read(self):
         outside = Path(self.temporary.name) / "not-part-of-package"

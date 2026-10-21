@@ -222,11 +222,14 @@ cat("OK\n")
 
 
 class PublicAudit:
-    def __init__(self, root: Path, expected_data_kind: str):
+    def __init__(self, root: Path, expected_data_kind: str, rscript: str | None = None):
         if expected_data_kind not in PUBLIC_DATA_KINDS:
             raise ValueError("The expected data kind must be an explicitly approved public kind.")
         self.root = root.resolve()
         self.expected_data_kind = expected_data_kind
+        # The interpreter that inspects serialized resources: the one the
+        # caller selected, or else the first Rscript on PATH.
+        self.rscript = rscript if rscript is not None else shutil.which("Rscript")
         self.findings: list[dict[str, str]] = []
         self.skipped_os_metadata: list[str] = []
         self.files_checked = 0
@@ -302,7 +305,7 @@ class PublicAudit:
         return True
 
     def inspect_rds(self, content: bytes, label: str, *, historical: bool = False) -> None:
-        rscript = shutil.which("Rscript")
+        rscript = self.rscript
         if rscript is None:
             self.fail(label, "Rscript is required to inspect serialized resources.")
             return
@@ -512,8 +515,9 @@ def main() -> int:
     parser.add_argument("--expected-data-kind", choices=PUBLIC_DATA_KINDS, required=True,
                         help="Required provenance kind for current files and release archives. History permits either approved public kind.")
     parser.add_argument("--output", type=Path, help="Optional JSON evidence file; otherwise print JSON.")
+    parser.add_argument("--rscript", help="Interpreter that inspects serialized resources; default: Rscript on PATH.")
     args = parser.parse_args()
-    audit = PublicAudit(args.root, args.expected_data_kind)
+    audit = PublicAudit(args.root, args.expected_data_kind, args.rscript)
     try:
         if not args.root.is_dir() or args.root.is_symlink():
             raise ValueError("The requested root must be an existing ordinary directory.")

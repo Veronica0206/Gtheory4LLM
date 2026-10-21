@@ -87,7 +87,7 @@ into subdirectories without silently removing them from the release gate.
 
 `test_committed_artifact.py`, `test_release_identity.py`, `test_prepare_release.py`,
 `test_public_contents.py`, `test_cran_readiness.py`, `test_package_validation.py`,
-`test_validation_runner.py`, `test_workflow_contract.py`,
+`test_validation_runner.py`, `test_validation_bundle.py`, `test_workflow_contract.py`,
 `test_documentation_lock.py`, `test_dependency_bootstrap.py`,
 `test_branch_protection.py`, `test_documentation_consistency.py`, `test_style.py`.
 

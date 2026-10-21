@@ -18,32 +18,147 @@ SPEC.loader.exec_module(RUNNER)
 class ValidationRunnerTests(unittest.TestCase):
     def test_the_entry_point_stages_a_manifest_only_when_none_is_supplied_and_a_run_needs_one(self):
         explicit = Path("/explicit/manifest.json")
-        with patch.object(RUNNER, "select_release_manifest") as select:
+        with patch.object(RUNNER, "select_release_manifest") as select, \
+                patch.object(RUNNER, "retained_manifest_applies", return_value=False):
             self.assertEqual(RUNNER.default_release_manifest(explicit, ROOT, needed=True), (explicit, None))
             self.assertEqual(RUNNER.default_release_manifest(None, ROOT, needed=False), (None, None))
             select.assert_not_called()
             # A rehearsal bundle staged inside the destination keeps its directory alive.
-            select.side_effect = lambda root, destination: destination / "manifest.json"
-            manifest, staging = RUNNER.default_release_manifest(None, ROOT, needed=True)
+            select.side_effect = lambda root, destination, **kwargs: destination / "manifest.json"
+            manifest, staging = RUNNER.default_release_manifest(
+                None, ROOT, needed=True, rscript="/resolved/Rscript", environment={"R_LIBS_USER": "/lib"}, timeout=9)
         self.assertIsNotNone(staging)
         self.assertEqual(manifest, Path(staging.name) / "manifest.json")
         select.assert_called_once()
         root, destination = select.call_args.args
         self.assertEqual(root, ROOT)
         self.assertEqual(destination, Path(staging.name))
+        self.assertEqual(select.call_args.kwargs,
+                         {"rscript": "/resolved/Rscript", "environment": {"R_LIBS_USER": "/lib"}, "timeout": 9})
         self.assertTrue(Path(staging.name).is_dir())
         self.assertNotIn(ROOT, Path(staging.name).parents)
         staging.cleanup()
         self.assertFalse(Path(staging.name).exists())
-        # The retained manifest, selected for a development or matching version, stages nothing.
-        with patch.object(RUNNER, "select_release_manifest", return_value=ROOT / "artifacts/manifest.json") as select:
-            manifest, staging = RUNNER.default_release_manifest(None, ROOT, needed=True)
+
+    def test_a_retained_manifest_allocates_no_staging_directory(self):
+        # Whether anything must be built is decided first, so a development or
+        # matching version never creates a temporary directory it would then
+        # have to reject when the temporary base lies inside the checkout.
+        with patch.object(RUNNER, "retained_manifest_applies", return_value=True), \
+                patch.object(RUNNER, "select_release_manifest",
+                             return_value=ROOT / "artifacts/manifest.json") as select, \
+                patch.object(RUNNER.tempfile, "TemporaryDirectory") as allocate:
+            manifest, staging = RUNNER.default_release_manifest(None, ROOT, needed=True, rscript="/r")
         self.assertEqual(manifest, ROOT / "artifacts/manifest.json")
         self.assertIsNone(staging)
-        self.assertFalse(Path(select.call_args.args[1]).exists())
+        allocate.assert_not_called()
+        self.assertEqual(select.call_args.args, (ROOT, None))
+        self.assertEqual(select.call_args.kwargs["rscript"], "/r")
+
+    def test_a_development_run_succeeds_with_the_temporary_base_inside_the_checkout(self):
+        # The entry point on this development checkout, unmodified apart from
+        # the stage plan: the retained manifest is selected and verified for
+        # real while every temporary directory would have to be created inside
+        # the checkout. Nothing is staged, so nothing is rejected.
+        base = tempfile.gettempdir()
+        probe = ROOT / "gtheory-tmp-inside-checkout-probe"
+        self.addCleanup(setattr, tempfile, "tempdir", tempfile.tempdir)
+        tempfile.tempdir = str(probe)
+        # The stage launcher is replaced, not subprocess.run: staging verifies
+        # the retained bundle for real, with git.
+        with tempfile.TemporaryDirectory(dir=base) as directory:
+            output = Path(directory) / "report.json"
+            with patch.object(RUNNER.shutil, "which", return_value="/resolved/Rscript"), \
+                 patch.object(RUNNER, "commands", return_value=[("first", ["first"])]) as plan, \
+                 patch.object(RUNNER, "launch", return_value=subprocess.CompletedProcess(["first"], 0)) as run:
+                status = RUNNER.main(["--scope", "source", "--compatibility", "--output", str(output)])
+            report = json.loads(output.read_text())
+        self.assertEqual(status, 0)
+        self.assertEqual(run.call_count, 1)
+        self.assertFalse(probe.exists())
+        self.assertEqual(report["release_manifest"], str(ROOT / "artifacts/manifest.json"))
+        self.assertFalse(report["release_manifest_staged"])
+        staging, first = report["stages"]
+        self.assertEqual((staging["name"], staging["exit_code"]), ("release_manifest_staging", 0))
+        self.assertIn("Retained manifest", staging["detail"])
+        self.assertEqual(first["name"], "first")
+        self.assertEqual(plan.call_args.args[7], ROOT / "artifacts/manifest.json")
+        self.assertFalse(plan.call_args.args[9])
+
+    def test_staging_runs_with_the_resolved_interpreter_library_and_timeout(self):
+        captured = {}
+
+        def select(root, destination, **kwargs):
+            captured.update(kwargs)
+            return destination / "manifest.json"
+
+        with tempfile.TemporaryDirectory() as directory:
+            library = Path(directory) / "library"
+            library.mkdir()
+            output = Path(directory) / "report.json"
+            with patch.object(RUNNER.shutil, "which", return_value="/resolved/Rscript"), \
+                 patch.object(RUNNER, "retained_manifest_applies", return_value=False), \
+                 patch.object(RUNNER, "select_release_manifest", side_effect=select), \
+                 patch.object(RUNNER, "commands", return_value=[("first", ["first"])]) as plan, \
+                 patch.object(RUNNER.subprocess, "run") as run:
+                run.return_value.returncode = 0
+                status = RUNNER.main(["--scope", "source", "--library", str(library), "--timeout", "77",
+                                      "--output", str(output)])
+            report = json.loads(output.read_text())
+        self.assertEqual(status, 0)
+        self.assertEqual(captured["rscript"], "/resolved/Rscript")
+        self.assertEqual(captured["environment"]["R_LIBS_USER"], str(library.resolve()))
+        self.assertEqual(captured["environment"]["GTHEORY_FULL_VALIDATION"], "true")
+        self.assertEqual(captured["timeout"], 77)
+        self.assertTrue(report["release_manifest_staged"])
+        self.assertTrue(plan.call_args.args[9])
+        staging = report["stages"][0]
+        self.assertEqual((staging["name"], staging["exit_code"]), ("release_manifest_staging", 0))
+        self.assertIn("Rehearsal bundle", staging["detail"])
+        self.assertFalse(Path(report["release_manifest"]).parent.exists())
+
+    def test_a_failed_staging_is_a_failed_stage_of_the_report(self):
+        for error, code in ((subprocess.CalledProcessError(3, ["prepare_release.py"]), 3),
+                            (subprocess.TimeoutExpired(["prepare_release.py"], 77), 124),
+                            (ValueError("Validation bundle must be outside the source checkout."), 1)):
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "report.json"
+                with patch.object(RUNNER.shutil, "which", return_value="/resolved/Rscript"), \
+                     patch.object(RUNNER, "default_release_manifest", side_effect=error), \
+                     patch.object(RUNNER, "commands") as plan, \
+                     patch.object(RUNNER.subprocess, "run") as run:
+                    status = RUNNER.main(["--scope", "source", "--timeout", "77", "--output", str(output)])
+                report = json.loads(output.read_text())
+                self.assertEqual(status, 1)
+                run.assert_not_called()
+                plan.assert_not_called()
+                self.assertEqual([stage["name"] for stage in report["stages"]], ["release_manifest_staging"])
+                self.assertEqual(report["stages"][0]["exit_code"], code)
+                self.assertFalse(report["success"])
+                self.assertFalse(report["source_validation_passed"])
+
+    def test_the_artifact_scope_checks_the_retained_bundle_and_stages_nothing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "report.json"
+            with patch.object(RUNNER.shutil, "which", return_value="/resolved/Rscript"), \
+                 patch.object(RUNNER, "retained_manifest_applies") as applies, \
+                 patch.object(RUNNER, "select_release_manifest") as select, \
+                 patch.object(RUNNER, "commands", return_value=[("first", ["first"])]), \
+                 patch.object(RUNNER.subprocess, "run") as run:
+                run.return_value.returncode = 0
+                status = RUNNER.main(["--scope", "artifact", "--output", str(output)])
+            report = json.loads(output.read_text())
+        self.assertEqual(status, 0)
+        applies.assert_not_called()
+        select.assert_not_called()
+        self.assertIsNone(report["release_manifest"])
+        self.assertFalse(report["release_manifest_staged"])
+        self.assertEqual(report["release_manifest_stages"], [])
+        self.assertEqual([stage["name"] for stage in report["stages"]], ["first"])
 
     def test_a_failed_staging_releases_its_directory(self):
-        with patch.object(RUNNER, "select_release_manifest", side_effect=ValueError("no bundle")):
+        with patch.object(RUNNER, "retained_manifest_applies", return_value=False), \
+                patch.object(RUNNER, "select_release_manifest", side_effect=ValueError("no bundle")):
             with self.assertRaises(ValueError):
                 RUNNER.default_release_manifest(None, ROOT, needed=True)
 
@@ -64,7 +179,7 @@ class ValidationRunnerTests(unittest.TestCase):
                 RUNNER.commands(ROOT, "Rscript", lock, False,
                                 **{"cran_requested_maintenance": reason, **kwargs})
 
-    def test_staged_manifest_reaches_both_identity_and_artifact_checks(self):
+    def test_an_explicit_manifest_reaches_both_checks_and_a_staged_one_only_the_identity_check(self):
         lock = json.loads((ROOT / "renv.lock").read_text())
         manifest = ROOT / "scratch-manifest.json"
         plan = RUNNER.commands(ROOT, "Rscript", lock, False, release_manifest=manifest)
@@ -74,6 +189,16 @@ class ValidationRunnerTests(unittest.TestCase):
         for command in checked:
             self.assertEqual(command[command.index("--manifest") + 1], str(manifest.resolve()))
             self.assertIn("--check-release-identity", command)
+        self.assertEqual(RUNNER.manifest_stages(plan),
+                         ["release_identity", "committed_artifact_integrity_install_smoke"])
+        # A rehearsal the entry point staged is evidence about the sources, not
+        # about the committed bundle: the artifact stage keeps the retained one.
+        staged = RUNNER.commands(ROOT, "Rscript", lock, False, release_manifest=manifest,
+                                 release_manifest_staged=True)
+        self.assertEqual(RUNNER.manifest_stages(staged), ["release_identity"])
+        artifact = dict(staged)["committed_artifact_integrity_install_smoke"]
+        self.assertNotIn("--manifest", artifact)
+        self.assertIn("--check-release-identity", artifact)
 
     def test_reference_manual_stage_runs_only_where_latex_exists(self):
         # The manual gate is the only check that rejects overfull boxes, so it

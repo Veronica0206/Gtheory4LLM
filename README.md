@@ -474,7 +474,11 @@ workflows do: a development or published source version keeps the retained
 manifest, and a frozen, not yet tagged release version whose retained manifest
 still records the previous release gets a rehearsal bundle built outside the
 checkout, so the command works on such a checkout without bypassing the
-identity checks. A version that is already tagged cannot be rebuilt as a
+identity checks. A staged rehearsal is read by the source scope's identity
+check only; the artifact scope always checks the retained, committed bundle,
+and `--scope artifact` stages nothing. Staging uses the run's interpreter,
+library and timeout, and is recorded as the `release_manifest_staging` stage
+of the report. A version that is already tagged cannot be rebuilt as a
 rehearsal; validate it against its own bundle with `--release-manifest PATH`,
 or after its bundle commit has been merged.
 

@@ -155,7 +155,8 @@ print(sessionInfo())
 def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
              scope: str = "all", compact: bool = False, as_cran: bool = False,
              release_manifest: Path | None = None,
-             cran_requested_maintenance: str | None = None) -> list[tuple[str, list[str]]]:
+             cran_requested_maintenance: str | None = None,
+             release_manifest_staged: bool = False) -> list[tuple[str, list[str]]]:
     if cran_requested_maintenance is not None and (not as_cran or scope == "artifact" or
             not isinstance(cran_requested_maintenance, str) or not cran_requested_maintenance.strip() or
             any(c in cran_requested_maintenance for c in "\r\n\x00")):
@@ -192,37 +193,70 @@ def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
             command.extend(["--output-dir", artifact_dir])
         result.append(("committed_artifact_integrity_install_smoke", command))
     if release_manifest is not None:
+        # An explicit manifest is the caller's statement of which bundle to
+        # check, so it reaches every stage that reads one. A manifest this entry
+        # point staged itself is rehearsal evidence for the source identity
+        # only: the artifact stage keeps checking the retained, committed
+        # bundle, so its result never describes a rehearsal under the
+        # committed-artifact name.
+        receives = {"release_identity"} if release_manifest_staged else \
+            {"release_identity", "committed_artifact_integrity_install_smoke"}
         for name, command in result:
-            if name in {"release_identity", "committed_artifact_integrity_install_smoke"}:
+            if name in receives:
                 command.extend(["--manifest", str(release_manifest.resolve())])
     return result
 
 
-def select_release_manifest(root: Path, destination: Path) -> Path:
+def manifest_stages(plan: list[tuple[str, list[str]]]) -> list[str]:
+    """The stages a release manifest was passed to; the report records this."""
+    return [name for name, command in plan if "--manifest" in command]
+
+
+def staging_module(root: Path):
+    scripts = str(root / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import stage_validation_bundle
+    return stage_validation_bundle
+
+
+def retained_manifest_applies(root: Path) -> bool:
+    """Whether this checkout validates against its retained manifest, building nothing."""
+    return staging_module(root).retained_manifest_applies(root)
+
+
+def select_release_manifest(root: Path, destination: Path | None, *, rscript: str = "Rscript",
+                            environment: dict | None = None, timeout: float | None = None) -> Path:
     """The manifest CI validates against, selected the same way CI selects it.
 
     A development or matching source version keeps the retained manifest; a
     frozen release version whose retained manifest records an earlier release
-    gets a rehearsal bundle built outside the checkout. Identity checks stay on.
+    gets a rehearsal bundle built outside the checkout with this run's
+    interpreter, environment and timeout. Identity checks stay on.
     """
-    scripts = str(root / "scripts")
-    if scripts not in sys.path:
-        sys.path.insert(0, scripts)
-    from stage_validation_bundle import select_manifest
-    return select_manifest(root, destination)
+    return staging_module(root).select_manifest(root, destination, rscript=rscript,
+                                                environment=environment, timeout=timeout)
 
 
-def default_release_manifest(explicit: Path | None, root: Path, needed: bool):
+def default_release_manifest(explicit: Path | None, root: Path, needed: bool, *, rscript: str = "Rscript",
+                             environment: dict | None = None, timeout: float | None = None):
     """Resolve the manifest for a run: the explicit one, a staged one, or none.
 
     Returns the manifest path and an object that keeps any staging directory
-    alive for the duration of the run.
+    alive for the duration of the run. Whether anything has to be built is
+    decided first: a retained manifest is selected without allocating a
+    staging directory, so the temporary base may even lie inside the checkout
+    without blocking a development run.
     """
     if explicit is not None or not needed:
         return explicit, None
+    if retained_manifest_applies(root):
+        return select_release_manifest(root, None, rscript=rscript, environment=environment,
+                                       timeout=timeout), None
     staging = tempfile.TemporaryDirectory(prefix="gtheory-validation-bundle-")
     try:
-        selected = select_release_manifest(root, Path(staging.name))
+        selected = select_release_manifest(root, Path(staging.name), rscript=rscript,
+                                           environment=environment, timeout=timeout)
     except Exception:
         staging.cleanup()
         raise
@@ -269,45 +303,75 @@ def main(argv: list[str] | None = None) -> int:
     if options.compact and not compatibility:
         parser.error("--compact requires --compatibility")
     lock = json.loads((ROOT / "renv.lock").read_text())
+    started_utc = datetime.now(timezone.utc).isoformat()
+    if options.library and not options.library.is_dir():
+        parser.error("--library must name an existing restored R library")
+    env = os.environ.copy()
+    env.update({"GTHEORY_FULL_VALIDATION": "true", "PYTHONDONTWRITEBYTECODE": "1",
+                "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"})
+    if options.library:
+        env["R_LIBS_USER"] = str(options.library.resolve())
+    # The interpreter and library are settled before anything runs R, so that
+    # staging a rehearsal bundle uses the same runtime as every stage after it.
+    resolved_rscript = None if options.list else shutil.which(options.rscript)
+    if resolved_rscript is None and not options.list:
+        parser.error("Rscript was not found")
     # The documented single entry point stages the manifest CI stages when
     # none is supplied, so a frozen checkout follows the same procedure as a
-    # development or published one without bypassing the identity checks.
+    # development or published one without bypassing the identity checks. Only
+    # the source scope's identity stage reads a staged manifest; the artifact
+    # scope checks the retained, committed bundle and needs nothing staged.
+    # Staging is a stage of the run: it has the run's timeout, and its failure
+    # is recorded in the report rather than ending the command before one.
+    needed = options.scope in {"source", "all"} and not options.list and not options.preflight_only
+    attempted = needed and options.release_manifest is None
+    staging_started = time.monotonic()
+    staging_failure = None
     try:
         options.release_manifest, staging = default_release_manifest(
-            options.release_manifest, ROOT, needed=not options.list and not options.preflight_only)
-    except (ValueError, subprocess.CalledProcessError) as error:
-        parser.error("release manifest staging failed: " + str(error))
-    try:
-        plan = commands(ROOT, options.rscript, lock, compatibility, options.scope, options.compact, options.as_cran,
-                        options.release_manifest, options.cran_requested_maintenance)
+            options.release_manifest, ROOT, needed, rscript=resolved_rscript or options.rscript,
+            environment=env, timeout=options.timeout)
+    except subprocess.TimeoutExpired:
+        staging, staging_failure = None, (124, f"Stage exceeded {options.timeout} seconds")
+    except subprocess.CalledProcessError as error:
+        staging, staging_failure = None, (error.returncode or 1,
+                                          "Release preparation failed while staging a rehearsal bundle")
     except ValueError as error:
-        parser.error(str(error))
+        staging, staging_failure = None, (1, str(error))
+    staged = staging is not None
+    plan = []
+    if staging_failure is None:
+        try:
+            plan = commands(ROOT, options.rscript, lock, compatibility, options.scope, options.compact,
+                            options.as_cran, options.release_manifest, options.cran_requested_maintenance, staged)
+        except ValueError as error:
+            parser.error(str(error))
     if options.preflight_only:
         plan = plan[:1]
     if options.list:
         print("\n".join(name for name, _ in plan))
         return 0
-    resolved_rscript = shutil.which(options.rscript)
-    if resolved_rscript is None:
-        parser.error("Rscript was not found")
-    env = os.environ.copy()
-    env.update({"GTHEORY_FULL_VALIDATION": "true", "PYTHONDONTWRITEBYTECODE": "1",
-                "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"})
-    if options.library:
-        if not options.library.is_dir():
-            parser.error("--library must name an existing restored R library")
-        env["R_LIBS_USER"] = str(options.library.resolve())
     mode = "preflight_only" if options.preflight_only else "compatibility" if compatibility else "locked"
-    report = {"started_utc": datetime.now(timezone.utc).isoformat(), "mode": mode,
+    report = {"started_utc": started_utc, "mode": mode,
               "scope": options.scope, "compact": options.compact, "as_cran": options.as_cran,
               "release_manifest": None if options.release_manifest is None else str(options.release_manifest),
-              "release_manifest_staged": staging is not None,
+              "release_manifest_staged": staged,
+              "release_manifest_stages": manifest_stages(plan),
               "required_independent_comparisons": list(REQUIRED), "stages": []}
     if options.cran_requested_maintenance is not None:
         report["cran_requested_maintenance"] = options.cran_requested_maintenance.strip()
     passed = True
+    if attempted and (staging_failure is not None or options.release_manifest is not None):
+        code, detail = staging_failure or (0, "Rehearsal bundle staged outside the checkout" if staged else
+                                           "Retained manifest selected; nothing staged")
+        report["stages"].append({"name": "release_manifest_staging", "exit_code": code,
+                                 "elapsed_seconds": round(time.monotonic() - staging_started, 3),
+                                 "detail": detail})
+        if code != 0:
+            print(f"FAILED: release_manifest_staging (exit {code}): {detail}", flush=True)
+            passed = False
     print("Selected Rscript: " + resolved_rscript, flush=True)
-    for name, command in plan:
+    for name, command in plan if passed else []:
         print(f"\n=== {name} ===", flush=True)
         start = time.monotonic()
         try:
@@ -334,6 +398,8 @@ def main(argv: list[str] | None = None) -> int:
         options.output.parent.mkdir(parents=True, exist_ok=True)
         options.output.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)
+    if staging is not None:
+        staging.cleanup()
     return 0 if passed else 1
 
 

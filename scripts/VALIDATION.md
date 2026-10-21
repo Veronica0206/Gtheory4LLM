@@ -44,7 +44,12 @@ never treats an unfetched tag or unqueried GitHub release as verified.
 `scripts/prepare_release.py` performs the whole preparation in one step and
 stops before publication. Its staged bundle is checked using
 `run_validation.py --release-manifest PATH`, which changes only the manifest
-location used by both source identity and artifact checks. Archive correspondence
+location used by both source identity and artifact checks. Without that option
+a frozen, untagged release version gets a rehearsal bundle staged outside the
+checkout with the run's interpreter, library and timeout; that staged manifest
+is read by the source identity check only, the artifact scope keeps checking the
+retained committed bundle, and the report names the stages the manifest reached
+under `release_manifest_stages`. Archive correspondence
 with the recorded source commit remains mandatory. See [the release checklist](../docs/RELEASE_CHECKLIST.md).
 
 
