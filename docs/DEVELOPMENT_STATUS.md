@@ -5,6 +5,16 @@ Version history is in [NEWS](../NEWS.md); implementation boundaries are in
 evidence and time-dependent statements. Current 0.6.0 identity and gates are
 recorded here and in [the detailed qualification record](#detailed-060-qualification-record).
 
+## 0.6.1 corrections
+
+Source version 0.6.1 carries four corrections to the 0.6.0 interface release
+found in an independent review: the lme4 restart must itself complete without
+a convergence warning, `gt_laplace_check()` reads retained responses as the
+engine's encoding, alternative-start discrete solutions keep their parameter
+names, and the Laplace check refuses a comparison whose workspace estimate
+exceeds the dense budget. No engine, tolerance or estimate changes; the 0.6.0
+qualification records below apply to the 0.6.0 archive and are not rerun here.
+
 ## 0.6.0 current qualification checkpoint
 
 Qualification checkpoint: 2026-10-20 21:00 America/New_York
@@ -157,8 +167,9 @@ per engine, `summary()` carries the Gaussian reliability at the fitted counts,
 prints as a description. Two pieces of new estimation code arrive with their
 own acceptance and availability rules: the lme4 Gaussian engine, accepted only
 when lme4's optimizer completes without a convergence warning, the package's
-stationarity check on lme4's deviance function passes, a restart reproduces the
-solution and the exact balanced deviance agrees with lme4's criterion at the
+stationarity check on lme4's deviance function passes, a restart that itself
+completes without a convergence warning reproduces the solution, and the exact
+balanced deviance agrees with lme4's criterion at the
 estimates; and `gt_laplace_check()`, which compares a discrete fit's Laplace
 objective with a refined numerical estimate and reports when that estimate is
 unavailable or unusable. The exact Gaussian fitting engine, the dense Laplace

@@ -366,6 +366,9 @@
   } else {
     fit$convergence <- as.integer(fit$convergence)
   }
+  # Native optimizers and bound projection may discard vector names. Restore
+  # the prepared coordinate contract without changing any parameter value.
+  names(fit$par) <- names(at)
   fit$result_available <- available
   fit$attempt <- list(label = label, start = at, error = captured$error,
     warnings = captured$warnings, elapsed_seconds = captured$elapsed_seconds,
@@ -938,6 +941,9 @@
       }
     }
     alternative <- pmin(upper - 1e-6, pmax(lower + 1e-6, alternative))
+    # pmin()/pmax() take their names from the unnamed bounds; the start keeps
+    # the prepared coordinate names so a selected alternative solution does too.
+    names(alternative) <- names(start)
     # Clipping extreme user starts can collapse otherwise distinct trials.
     # Keep a distinct first fixed-effect coordinate without using the RNG.
     duplicate_start <- function(x) any(vapply(coarse_candidates, function(candidate)

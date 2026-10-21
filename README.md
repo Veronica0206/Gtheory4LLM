@@ -14,7 +14,7 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Source version: **0.6.0**.
+Source version: **0.6.1**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -56,7 +56,7 @@ library(Gtheory4LLM)
 The repository keeps checksummed release files in [`artifacts/`](https://github.com/Veronica0206/Gtheory4LLM/tree/main/artifacts).
 A 0.4.0 bundle, `Gtheory4LLM_0.4.0.tar.gz`, was prepared and tagged but never published; 0.4.1 supersedes it.
 To install this source version, run `R CMD build .`, then
-`R CMD INSTALL Gtheory4LLM_0.6.0.tar.gz`, the archive it creates.
+`R CMD INSTALL Gtheory4LLM_0.6.1.tar.gz`, the archive it creates.
 For the exact checked release archive, use the versioned GitHub release and
 verify its accompanying manifest. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.

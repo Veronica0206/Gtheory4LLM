@@ -96,6 +96,21 @@
 
 .GT_LAPLACE_PRIOR_WEIGHT <- 0.1
 
+# Conservative workspace estimate for the diagnostic: the dense reconstruction
+# of the fitted model plus the quadrature grid or the importance-draw matrix.
+# Major arrays only, doubled for working copies; not a measured peak.
+.gt_laplace_resources <- function(n, q, dimension, method, nodes, draws) {
+  dense <- .gt_d_dense_bytes(n, q, dimension)
+  integration <- if (method == "importance") {
+    2 * (8 * as.double(draws) * dimension + 4 * 8 * draws)
+  } else {
+    points <- (nodes + 5)^dimension
+    2 * (8 * points * dimension + 3 * 8 * points + 2 * 8 * (nodes + 5)^2)
+  }
+  list(total = dense$total + integration, dense = dense, integration = integration,
+    scope = "Conservative dense reconstruction and integration workspace estimate; not a measured peak allocation.")
+}
+
 gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance"), nodes = 20L,
                              draws = 4000L, seed = NULL, max_dimension = 60L,
                              max_evaluations = 1000000L, data = NULL) {
@@ -108,7 +123,8 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
   draws <- .gt_check_count(draws, "draws", 100L, 1000000L)
   max_dimension <- .gt_check_count(max_dimension, "max_dimension", 1L, 100000L)
   max_evaluations <- .gt_check_count(max_evaluations, "max_evaluations", 100L, 100000000L)
-  if (is.null(data)) data <- fit$data
+  retained <- is.null(data)
+  if (retained) data <- fit$data
   if (!is.data.frame(data))
     stop("This fit was stored without its data (retain = list(data = FALSE)); supply data = the modelled data frame.", call. = FALSE)
   parameters <- fit$parameters
@@ -121,8 +137,15 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
   if (!all(columns %in% names(data)))
     stop("data must contain the fitted object, facet and outcome columns.", call. = FALSE)
   # The same preparation the fit ran, from the same declarations, so that the
-  # parameters are read in the coordinates they were estimated in.
-  resolved <- .gt_resolve_families(data[columns], outcomes, fit$families)
+  # parameters are read in the coordinates they were estimated in. The retained
+  # frame is the engine's own prepared input: each outcome is already encoded
+  # by the fit's resolved families (binary as 0/1 integers, ordinal and nominal
+  # as factors over the declared levels). Re-resolving it would read those
+  # encodings as new user data and, for a binary outcome with labels other
+  # than "0"/"1", refuse the fit's own responses. Data supplied by the caller
+  # is new data and still passes the strict resolver.
+  resolved <- if (retained) list(data = data[columns], families = fit$families) else
+    .gt_resolve_families(data[columns], outcomes, fit$families)
   data <- resolved$data
   prep <- .gt_d_prepare(data, outcomes, resolved$families)
   groups <- lapply(design$term_members, function(members) .gt_d_group(data, members))
@@ -142,6 +165,15 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
   if (method == "importance" && is.null(seed))
     stop("Importance sampling needs a seed so that the comparison can be reproduced.", call. = FALSE)
   dcontrol <- .gt_d_control(fit$control$discrete)
+  # The whole workspace this diagnostic allocates, judged against the fit's
+  # dense budget before any dense object or draw matrix is built. The
+  # dimension and evaluation limits above bound counts; this bounds bytes.
+  resources <- .gt_laplace_resources(prep$n, prep$q, dimension, method, nodes, draws)
+  resources$max_dense_bytes <- dcontrol$max_dense_bytes
+  if (!is.finite(resources$total) || resources$total > dcontrol$max_dense_bytes)
+    stop("The Laplace check needs an estimated ", .gt_d_format_bytes(resources$total),
+      " of dense reconstruction and integration workspace, exceeding max_dense_bytes (",
+      .gt_d_format_bytes(dcontrol$max_dense_bytes), ").", call. = FALSE)
   setup <- .gt_d_covariance_setup(groups, prep$q, fit$covariance, dcontrol, prep$dimensions)
   if (length(parameters) != length(prep$start) + length(setup$start))
     stop("The fitted parameters do not match this data and design.", call. = FALSE)
@@ -169,7 +201,7 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
     method = method, random_dimension = dimension, observations = prep$n,
     nodes = if (method == "quadrature") nodes else NA_integer_,
     draws = if (method == "importance") draws else NA_integer_,
-    evaluations = evaluations, unavailable_evaluations = count,
+    evaluations = evaluations, unavailable_evaluations = count, resources = resources,
     seed = if (method == "importance") seed else NA,
     proposal = proposal, prior_weight = prior_weight, proposal_draws = proposal_draws,
     weight_upper_bound = if (method == "importance") 1 / prior_weight else NA_real_,
@@ -246,7 +278,7 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
     method = method, random_dimension = dimension, observations = prep$n,
     nodes = if (method == "quadrature") nodes else NA_integer_,
     draws = if (method == "importance") draws else NA_integer_,
-    evaluations = evaluations, unavailable_evaluations = 0L,
+    evaluations = evaluations, unavailable_evaluations = 0L, resources = resources,
     seed = if (method == "importance") seed else NA,
     proposal = proposal, prior_weight = prior_weight, proposal_draws = proposal_draws,
     weight_upper_bound = if (method == "importance") 1 / prior_weight else NA_real_,

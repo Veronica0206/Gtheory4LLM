@@ -1,13 +1,34 @@
-# Gtheory4LLM 0.6.0 — Model Interface
+# Gtheory4LLM 0.6.1 — Corrections
 
 <!-- release-identity:start -->
-Source version: **0.6.0**.
+Source version: **0.6.1**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
 These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
+
+Four corrections to the 0.6.0 Model Interface release, found in an independent
+review. The numerical engines, the acceptance tolerances and every estimate
+of an accepted fit are unchanged.
+
+- The lme4 engine's restart check now also requires the restart itself to
+  complete with optimizer code 0 and no lme4 convergence warning; agreement
+  with an incomplete or warned restart no longer counts as reproduction. The
+  stability record names the restart's completion and warnings.
+- `gt_laplace_check()` reads a fit's retained responses as the engine's
+  encoding. A binary outcome fitted with labels other than `"0"`/`"1"` is
+  retained as 0/1 integers, and the diagnostic refused those encodings as if
+  they were new data; data supplied through `data =` is still validated.
+- Discrete solutions selected from an alternative start keep their parameter
+  names, so a warm-start refit from `fit$parameters` is accepted.
+- `gt_laplace_check()` estimates its dense reconstruction and integration
+  workspace and refuses, before allocating, a comparison whose estimate
+  exceeds the discrete `max_dense_bytes` budget; the estimate is recorded as
+  `resources`.
+
+# Gtheory4LLM 0.6.0 — Model Interface
 
 This version gives the interface the conventions of other R model objects. The published 0.5.0 archive, its numerical engines, acceptance rules
 and every estimate are unchanged.

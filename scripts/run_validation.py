@@ -64,7 +64,11 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # The sparse fitted path is the thing being qualified, and a
                  # platform-specific disagreement is exactly what it must not
                  # have. Running it only on Linux would leave that untested.
-                 "test_discrete_fitted_sparse.R"}
+                 "test_discrete_fitted_sparse.R",
+                 "test_gaussian_lme4_restart.R",
+                 "test_laplace_check_retained_data.R",
+                 "test_discrete_attempt_names.R",
+                 "test_laplace_check_resources.R"}
 
 
 MANUAL_TOOLS = ("pdflatex", "makeindex")

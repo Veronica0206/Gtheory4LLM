@@ -1,7 +1,7 @@
 # Roadmap
 
 Release history and development priorities, with current implementation separated
-from release qualification. The source is **0.6.0**, frozen for Model Interface
+from release qualification. The source is **0.6.1**, four corrections to the 0.6.0 Model Interface
 release qualification. The published 0.5.0 archive remains unchanged. Source
 versioning does not assert GitHub publication or CRAN acceptance. Completed source changes
 are recorded in [NEWS.md](../NEWS.md), and source-identified run evidence belongs

@@ -12,7 +12,8 @@
 # and is checked rather than trusted. Acceptance has four parts, each recorded:
 # lme4's optimizer completed and lme4 raised no convergence warning; the
 # package's own stationarity check on lme4's deviance function passed; a
-# restart from a different point reproduced the solution; and the exact
+# restart from a different point itself completed without a convergence
+# warning and reproduced the solution; and the exact
 # balanced deviance evaluated at the estimates agrees with lme4's criterion,
 # which verifies that the two engines fitted the same model and objective (it
 # does not by itself show that the estimates maximize it; the other three
@@ -100,6 +101,26 @@
     if (!isTRUE(likelihood_matches)) "independent_likelihood_mismatch"))
 }
 
+# The restart-reproduction rule. A restart is evidence that the optimum was
+# found twice only when it completed as cleanly as the primary attempt must:
+# lme4 optimizer code 0 and no lme4 convergence warning. A restart that stopped
+# early or warned can land next to the primary without being that evidence, so
+# agreement alone does not make the fit stable.
+.gt_lme4_restart_stability <- function(primary, alternative, objective_tolerance = 1e-6,
+                                       parameter_tolerance = 0.02) {
+  relative_objective <- abs(alternative$objective - primary$objective) / max(1, abs(primary$objective))
+  scaled_parameter <- if (length(alternative$theta) != length(primary$theta)) Inf else
+    max(abs(alternative$theta - primary$theta) / pmax(1, abs(primary$theta)))
+  restart_completed <- identical(as.integer(alternative$optimizer_code), 0L)
+  restart_warning_free <- !length(alternative$warnings)
+  list(stable = restart_completed && restart_warning_free &&
+         is.finite(relative_objective) && relative_objective <= objective_tolerance &&
+         is.finite(scaled_parameter) && scaled_parameter <= parameter_tolerance,
+       relative_objective = relative_objective, scaled_parameter = scaled_parameter,
+       restart_completed = restart_completed, restart_warning_free = restart_warning_free,
+       objective_tolerance = objective_tolerance, parameter_tolerance = parameter_tolerance)
+}
+
 .gt_fit_gaussian_lme4 <- function(data, outcomes, facets, spec, reml, covariance, residual,
                                   prepared, engine, control, call = NULL) {
   if (!.gt_lme4_available())
@@ -158,10 +179,10 @@
   alternative <- attempt("restart", ifelse(primary$theta > 0, 2 * primary$theta, 0.5))
   objective_tolerance <- 1e-6
   parameter_tolerance <- 0.02
-  relative_objective <- abs(alternative$objective - primary$objective) / max(1, abs(primary$objective))
-  scaled_parameter <- max(abs(alternative$theta - primary$theta) / pmax(1, abs(primary$theta)))
-  stable <- is.finite(relative_objective) && relative_objective <= objective_tolerance &&
-    is.finite(scaled_parameter) && scaled_parameter <= parameter_tolerance
+  restart <- .gt_lme4_restart_stability(primary, alternative, objective_tolerance, parameter_tolerance)
+  relative_objective <- restart$relative_objective
+  scaled_parameter <- restart$scaled_parameter
+  stable <- restart$stable
   model <- primary$model
   theta <- primary$theta
   # The package's own stationarity check on the function lme4 minimized.
@@ -268,13 +289,16 @@
         objective_tolerance = objective_tolerance, parameter_tolerance = parameter_tolerance,
         relative_objective_differences = relative_objective,
         scaled_parameter_differences = scaled_parameter,
-        optimizer_codes = c(primary$optimizer_code, alternative$optimizer_code)),
+        optimizer_codes = c(primary$optimizer_code, alternative$optimizer_code),
+        restart_completed = restart$restart_completed,
+        restart_warning_free = restart$restart_warning_free,
+        restart_warnings = alternative$warnings),
       attempts = attempts, selected_attempt = "primary",
       optimizer = paste0("lme4 ", model@optinfo$optimizer),
       optimizer_code = primary$optimizer_code, optimizer_message = primary$optimizer_message,
       optimization_trials = 2L, optimization_trial_budget = 2L,
       acceptance_failures = failures,
-      acceptance = "Completed lme4 optimizer with no lme4 convergence warning; the package's Cholesky-scaled gradient of lme4's deviance within lme4's tolerance over interior parameters and no inward one-sided derivative at a boundary parameter; a restart reproducing objective and parameters; and agreement of the exact balanced deviance with lme4's criterion at the estimates.",
+      acceptance = "Completed lme4 optimizer with no lme4 convergence warning; the package's Cholesky-scaled gradient of lme4's deviance within lme4's tolerance over interior parameters and no inward one-sided derivative at a boundary parameter; a restart that itself completed without a convergence warning and reproduced objective and parameters; and agreement of the exact balanced deviance with lme4's criterion at the estimates.",
       approximation = "None: the Gaussian likelihood is exact; lme4 maximizes it by profiling the fixed intercept.",
       warnings = unique(c(primary$warnings, alternative$warnings))),
     optimization_trials = 2L,

@@ -147,4 +147,20 @@ expect(any(grepl("defensive-mixture importance sampling", importance_printed, fi
          any(grepl("accuracy guarantee", importance_printed, fixed = TRUE)) &&
          any(grepl("delta-method estimate", importance_printed, fixed = TRUE)),
        "the importance print describes its proposal and finite-sample limitations")
+
+# --- Retained labeled binary responses are read as the fit's own encoding ------
+labeled <- b
+labeled$y <- factor(ifelse(b$y == 1L, "yes", "no"), levels = c("no", "yes"))
+labeled_fit <- gt_fit(labeled, "y", item_only, gt_family("binary", "logit", levels = c("no", "yes")),
+                      control = gt_control(discrete = list(maxit = 200L)))
+expect(is.integer(labeled_fit$data$y) && all(labeled_fit$data$y == b$y),
+       "the labeled fit retains its responses as 0/1 integers")
+from_retained <- gt_laplace_check(labeled_fit)
+from_explicit <- gt_laplace_check(labeled_fit, data = labeled)
+expect(isTRUE(from_retained$available) && isTRUE(from_explicit$available) &&
+         abs(from_retained$difference - from_explicit$difference) <= 1e-10 &&
+         abs(from_retained$laplace_minus2loglik - check$laplace_minus2loglik) <= 1e-8,
+       "retained and explicit labeled data give the same comparison, matching the numeric fit")
+expect(grepl("Numeric/logical binary input", outcome(gt_laplace_check(labeled_fit, data = b))),
+       "numeric 0/1 supplied as new data for a labeled family is still refused")
 cat("PASS: independent integration, defensive-mixture densities and sampling, finite weight bounds, repeated seeds/budgets, and refusals.\n")

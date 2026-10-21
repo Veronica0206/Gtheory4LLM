@@ -423,7 +423,8 @@ converged_below_bound <- function(par, fn, method, lower, upper, control)
   list(par = -5.551115e-17, value = fn(0), convergence = 0L, message = NULL)
 snapped <- optimize(c(v = 0.2), quadratic, 0, 10, list(maxit = 20), "noisy",
                     converged_below_bound)
-stopifnot(isTRUE(snapped$result_available), identical(snapped$par, 0),
+stopifnot(isTRUE(snapped$result_available), identical(unname(snapped$par), 0),
+          identical(names(snapped$par), "v"),
           identical(snapped$convergence, 0L), is.null(snapped$attempt$error))
 far_outside <- function(par, fn, method, lower, upper, control)
   list(par = -0.01, value = fn(0), convergence = 0L, message = NULL)
