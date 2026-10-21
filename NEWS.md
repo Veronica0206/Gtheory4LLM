@@ -58,6 +58,11 @@ release evidence while adding the following bounded capabilities:
   with an incomplete or warned restart no longer counts as reproduction. The
   stability record names the restart's completion and warnings.
 
+- `gt_reliability()` and `gt_dstudy()` without a projection on an observed-row
+  Gaussian fit now name `gt_dstudy(projection = "balanced")` in their refusal.
+  The shipped example scripts and help examples read acceptance and attempt
+  records through `gt_diagnostics()` rather than fit fields.
+
 Focused reference and refusal tests accompany these routes. This is not a
 released or fully qualified 1.0 package: full-panel solver qualification,
 approximation assessment, recovery and coverage studies, and final

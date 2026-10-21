@@ -116,10 +116,10 @@ gt_example_results <- local({
     # coefficients. This example preserves the original data/model regardless
     # of whether the new independent acceptance checks pass.
     coefficient_if_accepted <- function(fit) {
-      if (isTRUE(fit$numerically_accepted)) gt_reliability(fit, scale="latent") else NULL
+      if (isTRUE(gt_diagnostics(fit)$numerically_accepted)) gt_reliability(fit, scale="latent") else NULL
     }
     dstudy_if_accepted <- function(fit) {
-      if (isTRUE(fit$numerically_accepted))
+      if (isTRUE(gt_diagnostics(fit)$numerically_accepted))
         gt_dstudy(fit, data.frame(rater=c(2L,4L,6L)), scale="latent") else NULL
     }
     binary_reliability <- coefficient_if_accepted(binary)
@@ -170,12 +170,13 @@ gt_example_results <- local({
       # arithmetic rather than the acceptance verdict: optimizer trajectories
       # differ across platforms, so asserting acceptance here would go red for
       # reasons that are not defects.
-      recorded <- unlist(lapply(fit$diagnostics$attempts, `[[`, "error"))
+      report <- gt_diagnostics(fit)
+      recorded <- unlist(report$attempt_failures)
       if (any(grepl("nonnegative", recorded, fixed = TRUE)))
         stop("Discrete fit '", name, "' treated a variance coordinate at its zero ",
              "boundary as invalid instead of projecting it.", call. = FALSE)
-      if (!fit$numerically_accepted) {
-        cat("Numerically rejected", name, ":", paste(fit$diagnostics$acceptance_failures, collapse=", "), "\n")
+      if (!isTRUE(report$numerically_accepted)) {
+        cat("Numerically rejected", name, ":", paste(report$acceptance_failures, collapse=", "), "\n")
         if (name != "categorical") stopifnot(inherits(tryCatch(
           gt_reliability(fit, scale="latent"), error=identity), "error"))
       }

@@ -26,7 +26,7 @@ design <- gt_design("item", c("evaluator", "prompt"),
 preflight <- gt_preflight(d, "quality", design)
 fit <- gt_fit(d, "quality", design,
   control = gt_control(gaussian = list(retry_seed = 42, threads = 1L)))
-stopifnot(isTRUE(fit$numerically_accepted))
+stopifnot(isTRUE(gt_diagnostics(fit)$numerically_accepted))
 reliability <- gt_reliability(fit)
 study <- gt_dstudy(fit, expand.grid(evaluator = c(2, 4, 6, 8), prompt = c(1, 2, 3, 4)))
 screen <- gt_dstudy_target(study, .8, coefficient = "Phi", outcome = "quality")

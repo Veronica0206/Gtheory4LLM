@@ -61,7 +61,13 @@ print.gt_score <- function(x, ...) {
   dimensions <- c(fit$design$object, fit$design$facets)
   panel <- .gt_reliability_panel(fit, dimensions)
   if (!projected && panel$rows != prod(panel$counts) * fit$design$replicates)
-    stop("Analytic coefficients currently require a complete balanced coded panel; unbalanced allocations need separate D-study integration.", call. = FALSE)
+    stop(if (identical(fit$design$panel_type, "observed"))
+      paste("Analytic coefficients require a complete balanced coded panel. This observed-row fit",
+            "can be projected to an intended balanced allocation with",
+            "gt_dstudy(fit, grid, projection = \"balanced\"); reliability of the incomplete",
+            "observed allocation is not implemented.") else
+      "Analytic coefficients currently require a complete balanced coded panel; unbalanced allocations need separate D-study integration.",
+      call. = FALSE)
   if (any(panel$cell_replication != fit$design$replicates))
     stop("Analytic coefficients require the declared equal within-cell replication.", call. = FALSE)
   counts <- panel$counts

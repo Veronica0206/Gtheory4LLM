@@ -101,7 +101,7 @@ panel <- expand.grid(item = 1:20, evaluator = 1:3)
 panel$score <- rnorm(20)[panel$item] + rnorm(3)[panel$evaluator] +
   rnorm(nrow(panel))
 fit <- gt_fit(panel, "score", gt_design("item", "evaluator"))
-if (isTRUE(fit$numerically_accepted)) {
+if (isTRUE(gt_diagnostics(fit)$numerically_accepted)) {
   simulated <- gt_simulate(fit, n_items = 30,
     counts = c(evaluator = 4), seed = 2026)
   head(simulated)

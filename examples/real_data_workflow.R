@@ -115,13 +115,15 @@ gt_real_data_workflow <- local({
   fits <- list(restart_check_disabled = unchecked, default_acceptance = checked)
   fit_status <- do.call(rbind, lapply(names(fits), function(name) {
     fit <- fits[[name]]$result
+    report <- if (inherits(fit, "gt_fit")) gt_diagnostics(fit) else NULL
     data.frame(example = name, returned_fit = inherits(fit, "gt_fit"),
-      optimizer_completed = isTRUE(fit$optimizer_completed),
-      numerically_accepted = isTRUE(fit$numerically_accepted),
+      optimizer_completed = isTRUE(report$optimizer_completed),
+      numerically_accepted = isTRUE(report$numerically_accepted),
       message = if (inherits(fit, "error")) conditionMessage(fit) else
-        paste(gt_diagnostics(fit)$acceptance_failures, collapse = "; "), row.names = NULL)
+        paste(report$acceptance_failures, collapse = "; "), row.names = NULL)
   }))
-  stopifnot(!isTRUE(unchecked$result$numerically_accepted))
+  stopifnot(!inherits(unchecked$result, "gt_fit") ||
+    !isTRUE(gt_diagnostics(unchecked$result)$numerically_accepted))
   cat("\nSynthetic numerical examples (every outcome is retained):\n")
   print(fit_status, row.names = FALSE)
   expected_failure <- function(expression) {
@@ -139,7 +141,7 @@ gt_real_data_workflow <- local({
   if (inherits(checked$result, "gt_fit")) {
     diagnostics <- gt_diagnostics(checked$result)
     cat("Approximation adequacy:", diagnostics$approximation_adequacy, "\n")
-    if (checked$result$numerically_accepted) {
+    if (isTRUE(diagnostics$numerically_accepted)) {
       coefficient <- gt_reliability(checked$result, scale = "latent")
       coefficient_table <- as.data.frame(coefficient)
       decision_study <- gt_dstudy(checked$result, data.frame(occasion = c(6L, 12L, 24L)),
