@@ -54,7 +54,7 @@ submission date before using this draft for an actual CRAN submission.
 No 0.6.0 CRAN submission, maintainer confirmation, or acceptance is claimed.
 Refresh the CRAN status and reverse-dependency survey before an actual
 submission; the 2026-10-10 survey below is historical. See
-[the 0.6.0 qualification record](docs/RELEASE_0.6.0.md).
+[the 0.6.0 qualification record](docs/DEVELOPMENT_STATUS.md#detailed-060-qualification-record).
 
 ## Historical 0.5.0 submission comments
 
