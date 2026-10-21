@@ -1,10 +1,54 @@
 # Development status
 
-Current release and development state. Version history is in [NEWS.md](../NEWS.md),
-planned work is in [the roadmap](ROADMAP.md), and implementation boundaries are
-in [limitations](LIMITATIONS.md).
+Version history is in [NEWS](../NEWS.md); implementation boundaries are in
+[limitations](LIMITATIONS.md). Historical checkpoints below retain their original
+evidence and time-dependent statements. Current 0.6.0 identity and gates are
+recorded here and in [the qualification record](RELEASE_0.6.0.md).
 
-## 0.6.0 Model Interface release preparation
+## 0.6.0 current qualification checkpoint
+
+Qualification checkpoint: 2026-10-20 21:00 America/New_York
+(2026-10-21 01:00 UTC). Pending items describe that checkpoint; subsequent
+publication needs separate tag and delivery evidence. [PR #75](https://github.com/Veronica0206/Gtheory4LLM/pull/75)
+was integrated by protected fast-forward at
+`352468d11ee7d09d7b0fba3e97cdf167dd6a75e7`; no protection setting was relaxed.
+The prepared bundle adopts the integrated source's checked archive unchanged:
+`Gtheory4LLM_0.6.0.tar.gz`, 570,725 bytes, SHA-256
+`d9a592b7b40b73dab9b6d051b4abbe2eff5cf54b1a22d15c58c7ec1d46aef5bd`.
+The [manifest](../artifacts/manifest.json) is the bundle identity; its state
+alone does not establish delivered assets or CRAN submission.
+
+- [Ordinary R-devel](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861542):
+  selected archive, `--as-cran`, **0 errors, 0 warnings, 0 notes**, PDF manual
+  checked, all **33 packaged tests** passed. The same archive's noLD check
+  also reported **0 errors, 0 warnings, 0 notes**, with the PDF manual and
+  all 33 tests; its separate installed-test loop passed **33/33**. Reference
+  BLAS/LAPACK probes passed **80/80 at each** of setup, loaded dependencies,
+  and final stages. The independent evidence audit confirmed identical source,
+  size, and hash records and fingerprinted 368 retained files.
+- [Main full validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861801):
+  **32/32 stages**. [Main compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861768):
+  **20/20 stages each** on Windows, macOS, and minimum-R Ubuntu.
+- Local locked validation: **32/32 stages**, including selected-archive
+  installation/smoke. Its separately rebuilt source check reported **0 errors,
+  0 warnings, 0 notes**. Local remote incoming and external-clock checks were
+  disabled; hosted ordinary R-devel supplies remote incoming evidence. The
+  separate 66-page manual passed its overfull gate and visual review.
+
+Pending at this checkpoint: qualify and integrate bundle/publication metadata;
+finish sequential manuscript reproduction from the
+selected bytes and PDF review; verify immutable GitHub delivery. CRAN submission
+is a separate maintainer action and is not established by these records. The
+previous PR's synthetic-merge archive and earlier manuscript archives remain
+historical evidence, not substitutes for the selected archive's checks.
+
+Companion analyses use the qualified 0.6.0 archive. Future sparse
+categorical estimation, uncertainty, incomplete panels, observed/decision/vector
+targets, categorical calls, and planning require a separate development line,
+explicit statistical contracts, and qualification before each release. No new
+capability or 1.0.0 commitment is asserted here.
+
+## 0.6.0 interface and estimation scope
 
 Source version 0.6.0 gives the interface the conventions of other R model
 objects, integrated through PR #73 and PR #74 on 2026-10-17 and 2026-10-18.
@@ -46,12 +90,15 @@ archive, environment, command and check mode. In particular, an ordinary
 `R CMD check` result does not establish a `--as-cran` result, and validation
 of the initial freeze does not qualify later working-tree corrections.
 
-The candidate must pass its own ordinary R-devel, noLD, compatibility and
-full staged-bundle gates before publication, and the bundle will adopt the
-checked candidate unchanged. CRAN submission remains a separate maintainer
-action; the 0.5.0 archive published on CRAN on 2026-10-11 is unchanged.
+## Historical 0.5.0 and earlier checkpoints
 
-## 0.5.0 Study Planning release preparation
+The following sections preserve the previous record. Statements such as
+"current", "pending", "release state", and "development priorities" belong to
+those checkpoints; the current 0.6.0 state is above. Their numerical results,
+archive identities, limitations, and evidence links are retained. Historical
+0.5.0 CRAN/status assertions have not been refreshed by this release audit.
+
+### 0.5.0 Study Planning release preparation
 
 Source version 0.5.0 contains the reviewed fixed-layout Gaussian batch targets,
 cost-aware allocation planning and Gaussian pilot precision simulation. After
@@ -92,7 +139,7 @@ and reported 0 errors, 0 warnings and 0 notes. PR #70 was then integrated into
 `main` by fast-forward at `854e5e792b5dfcbacc88c2a32c0c9792b2d3772d`, and that
 checked candidate was adopted unchanged as the 0.5.0 bundle recorded below.
 
-## Release state
+### Release state
 
 The 0.5.0 bundle uses the checked candidate without rebuilding the package.
 The records below identify the selected bundle and the pre-publication
@@ -135,9 +182,9 @@ manifest hash does not identify CRAN's copy. The earlier `0.0.6` submission was
 returned for two README links (`scripts/VALIDATION.md`, `LICENSE`) to files the
 archive did not ship; that history is separate from the 0.2.0 noLD correction.
 
-## Validation evidence
+### Validation evidence
 
-### 0.5.0 selected archive
+#### 0.5.0 selected archive
 
 The [ordinary R-devel and noLD qualification run](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/38014263622)
 built the selected archive with R 4.6.1 from
@@ -192,7 +239,7 @@ against an external service.
 Later publication-PR checks require their own recorded results; this
 checkpoint does not predict their outcomes.
 
-### Intel/noLD native backend
+#### Intel/noLD native backend
 
 On 2026-10-08 a [fixed twelve-runner investigation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37787174962)
 reached the affected Intel Xeon 6973P-C (family 6, model 173). On that machine,
@@ -249,7 +296,7 @@ matching the committed bundle. The maintainer confirmed on 2026-10-08 that it
 has not been submitted to CRAN. The historical qualification below remains
 attributed to its original source, archive and environment.
 
-### 0.4.1 selected archive
+#### 0.4.1 selected archive
 
 The [ordinary R-devel and noLD qualification run](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/37701136749)
 built the selected archive identified above with R 4.6.1 from
@@ -307,7 +354,7 @@ and no NOTE handling was relaxed.
 Later publication-PR checks require their own recorded results; this
 checkpoint does not predict their outcomes.
 
-### 0.4.0 checkpoint, withdrawn
+#### 0.4.0 checkpoint, withdrawn
 
 0.4.0 was prepared from `e054422554499a7da54820a5072bb79b798da46c`, qualified
 by the same two R-devel checks in
@@ -328,7 +375,7 @@ solver, backward-error refusal bound and no-rescue policy remain unchanged;
 native-operation limitation. Passing these checks does not qualify the deferred
 public sparse backend or broaden the scientific claims below.
 
-### 0.2.0 candidate
+#### 0.2.0 candidate
 
 All three workflows passed at the 0.2.0 source commit `a4dd59c`:
 [exact CRAN candidate readiness](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/35814612564),
@@ -347,7 +394,7 @@ source commit, the full source validation scope with the staged manifest, the
 manual's overfull-box gate and the public-content audit; the committed bundle
 then passed the artifact integrity and fresh-library install and smoke checks.
 
-### 0.1.0 publication
+#### 0.1.0 publication
 
 All three publication-commit workflows passed at `2332d40`: compatibility,
 locked-environment full validation, and CRAN candidate readiness. The release
@@ -376,7 +423,7 @@ A skipped check is not a passing check. `scripts/run_validation.py` records
 which checks actually ran and names missing tools. Results for a previous
 commit also do not establish that a later development checkout has passed.
 
-## Current development priorities
+### Current development priorities
 
 The development interface now adds bounded panel-audit examples,
 outcome-information profiles, tabular coefficient exports, supplied-grid target
@@ -404,7 +451,7 @@ complete the full native-panel qualification benchmark.
   calibration, the qualification runner, public backend selection with a
   shared resource contract, and the full native-panel benchmark.
 
-## Scientific scope
+### Scientific scope
 
 The package remains a research beta. Its statistical pilots are reproducible
 but small; they do not establish broad recovery or coverage guarantees. Their

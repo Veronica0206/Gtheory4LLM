@@ -1,11 +1,75 @@
-## Gtheory4LLM 0.5.0
+## Gtheory4LLM 0.6.0 — submission draft, not submitted
+
+This draft records qualification as of 2026-10-20 21:00 America/New_York
+(2026-10-21 01:00 UTC), before publication or CRAN submission, for the integrated
+Model Interface source
+`352468d11ee7d09d7b0fba3e97cdf167dd6a75e7`. It adds formula-based fitting and
+preflight, conventional model classes/methods, an independently checked lme4
+Gaussian engine, and fixed-parameter Laplace approximation checks. NEWS.md
+describes the changes and documented limits. Public sparse categorical fitting, categorical
+uncertainty, and expanded categorical planning remain future work.
+
+### Selected archive and completed checks
+
+- Archive: `Gtheory4LLM_0.6.0.tar.gz`, 570,725 bytes.
+- SHA-256: `d9a592b7b40b73dab9b6d051b4abbe2eff5cf54b1a22d15c58c7ec1d46aef5bd`.
+- [Candidate workflow](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861542):
+  built with R 4.6.1; ordinary Linux R-devel 4.7.0 (2026-10-18 r90707)
+  `R CMD check --as-cran` completed with **0 errors, 0 warnings, 0 notes**, with
+  the PDF manual and all 33 packaged tests checked. The archive is adopted
+  unchanged.
+- The same candidate run's Linux x86-64/Ubuntu 22.04 noLD job used R-devel
+  (2026-10-03 r90638), with long double verified absent and reference
+  BLAS/LAPACK on AMD EPYC 7763. `R CMD check --no-stop-on-test-error` of the
+  **same archive** completed with **0 errors, 0 warnings, 0 notes**, the PDF
+  manual and all **33 packaged tests** passed, and the separate installed-test
+  loop passed **33/33**. Reference-library probes at setup, with dependencies
+  loaded, and after all tests each passed **80/80 native solves**. Retained
+  identity records match the source commit, size, and SHA-256 above.
+- [Full locked validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861801):
+  **32/32 stages** at the integrated source.
+- [Compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861768):
+  **20/20 stages per platform** on Windows/R release, macOS/R release, and
+  Ubuntu 22.04/R 4.5.0. These are source qualification with per-platform bundles.
+- Local macOS arm64/R 4.5.3 full locked validation passed **32/32 stages**.
+  The locally rebuilt source archive's `--no-manual --as-cran` check reported
+  **0 errors, 0 warnings, 0 notes**; the manual was checked separately. The
+  selected archive also passed fresh-library installation/smoke and source
+  correspondence checks. Local remote incoming and external system-clock
+  checks were disabled (`_R_CHECK_CRAN_INCOMING_REMOTE_=false`,
+  `_R_CHECK_SYSTEM_CLOCK_=false`). Hosted ordinary R-devel provides remote
+  incoming evidence for the selected archive. No external-clock verification
+  is claimed.
+
+### Pending before submission
+
+The ordinary/noLD evidence for the selected archive has been independently
+audited. Earlier PR evidence belongs to synthetic merge
+`9f7ff6239bfd7a2f7958869ce97f50cf2dcb6a92` and remains a distinct historical
+candidate; it is not substituted for the source/archive above.
+
+At the dated qualification checkpoint, publication metadata/tag checks and
+immutable GitHub delivery remained pending. Refresh those statuses and the
+submission date before using this draft for an actual CRAN submission.
+No 0.6.0 CRAN submission, maintainer confirmation, or acceptance is claimed.
+Refresh the CRAN status and reverse-dependency survey before an actual
+submission; the 2026-10-10 survey below is historical. See
+[the 0.6.0 qualification record](docs/RELEASE_0.6.0.md).
+
+## Historical 0.5.0 submission comments
+
+The following text is preserved from the preceding submission record. Its
+relative timing, status, dependency counts, and first-submission statements
+refer to that historical checkpoint, not to the 0.6.0 draft above.
+
+### Gtheory4LLM 0.5.0
 
 This submission contains the correction CRAN requested before 2026-10-26 for the
 0.2.0 ERROR in CRAN's additional noLD check, together with the development since
 0.2.0 described in NEWS.md. 0.4.0 and 0.4.1 were tagged on GitHub but never
 submitted to CRAN; 0.5.0 is the first CRAN submission after 0.2.0.
 
-### Correction of the reported noLD ERROR
+#### Correction of the reported noLD ERROR
 
 Two tests were corrected, both only in how they report a refused fit.
 `tests/package-discrete-safety.R` required numerical acceptance of an ordinal
@@ -17,7 +81,7 @@ observed to stall as that platform's outcome under the same conditions. The
 production optimizer and acceptance thresholds are unchanged; the optimizer
 limitation remains tracked in issue #59.
 
-### New functionality since 0.2.0
+#### New functionality since 0.2.0
 
 Batch declarations with a preflight audit and a shared call effect for Gaussian
 fits of equal fixed batches; fixed-layout batch projections, bounded cost-aware
@@ -26,7 +90,7 @@ item keys for numeric item identifiers; staged numerical diagnostics, portable
 HTML reports and base-graphics figures; specimen capture for refused discrete
 solves. Details are in NEWS.md.
 
-### Exact archive checked
+#### Exact archive checked
 
 - Archive: Gtheory4LLM_0.5.0.tar.gz
 - Size: 534,035 bytes
@@ -40,7 +104,7 @@ the 0.5.0 source was integrated, and adopted unchanged from the checked
 candidate. The candidate manifest and the noLD evidence record the same bytes,
 SHA-256 and source commit.
 
-### Check environments and results (2026-10-10 and 2026-10-11 UTC)
+#### Check environments and results (2026-10-10 and 2026-10-11 UTC)
 
 - Linux x86-64 (Ubuntu 24.04), R-devel 4.7.0 (2026-10-09 r90655),
   `R CMD check --as-cran`: 0 errors, 0 warnings, 0 notes. All 30 package test
@@ -82,7 +146,7 @@ disabled because both of R's time services are unreachable from that machine.
 No check reported here verified the system clock against an external service;
 the file-timestamp check itself passed everywhere.
 
-### Known limitations that this release does not claim to fix
+#### Known limitations that this release does not claim to fix
 
 Two numerical limitations remain tracked separately and are unchanged by this
 release: the discrete optimizer can report completion without reaching a
@@ -92,7 +156,7 @@ on one Intel CPU model returned an incorrect Newton step, which the package's
 backward-error bound rejects before any fit is returned (issue #66). The noLD
 results above were obtained with verified reference BLAS/LAPACK.
 
-### CRAN status and reverse dependencies
+#### CRAN status and reverse dependencies
 
 CRAN's package index retrieved on 2026-10-10 lists 0.2.0 as the current
 version. No reverse dependencies on Gtheory4LLM were found in Depends,
