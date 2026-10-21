@@ -41,13 +41,13 @@ install.packages("Gtheory4LLM")
 ```
 
 A specific release can also be installed from its versioned archive, for example
-the [v0.5.0 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.5.0),
-`Gtheory4LLM_0.5.0.tar.gz`:
+the [v0.6.0 archive](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.6.0),
+`Gtheory4LLM_0.6.0.tar.gz`:
 
 ```r
 install.packages("OpenMx")
 install.packages(
-  "https://github.com/Veronica0206/Gtheory4LLM/releases/download/v0.5.0/Gtheory4LLM_0.5.0.tar.gz",
+  "https://github.com/Veronica0206/Gtheory4LLM/releases/download/v0.6.0/Gtheory4LLM_0.6.0.tar.gz",
   repos = NULL, type = "source"
 )
 library(Gtheory4LLM)
