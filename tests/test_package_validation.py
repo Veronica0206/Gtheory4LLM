@@ -249,9 +249,10 @@ class PackageValidationTests(unittest.TestCase):
         work = ROOT / "gtheory-nested-validation-example"
         report = CHECK.sanitize({"workspace": str(work), "log": str(work / "check.log"),
                                  "source": str(ROOT / "DESCRIPTION")}, work)
+        # The sanitizer keeps the platform's own separator after the label.
         self.assertEqual(report["workspace"], "<validation>")
-        self.assertEqual(report["log"], "<validation>/check.log")
-        self.assertEqual(report["source"], "<source>/DESCRIPTION")
+        self.assertEqual(report["log"].replace("\\", "/"), "<validation>/check.log")
+        self.assertEqual(report["source"].replace("\\", "/"), "<source>/DESCRIPTION")
 
 
 if __name__ == "__main__":
