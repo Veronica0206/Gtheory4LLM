@@ -466,7 +466,10 @@ class PrepareReleaseTests(unittest.TestCase):
                     patch.object(RELEASE, "run") as build, self.assertRaises(SystemExit):
                 RELEASE.build_archive("Gtheory4LLM", "0.9.0", Path(directory), rscript="/custom/Rscript")
             self.assertEqual(query.call_args.args[0][:2], ["/custom/Rscript", "--vanilla"])
-            self.assertEqual(build.call_args.args[1][:3], ["/r/bin/R", "CMD", "build"])
+            # The R binary is a path the interpreter reported, so it is compared
+            # as a path: Windows renders it with its own separators.
+            self.assertEqual(Path(build.call_args.args[1][0]), Path("/r/bin/R"))
+            self.assertEqual(build.call_args.args[1][1:3], ["CMD", "build"])
             with patch.object(RELEASE, "run") as build, self.assertRaises(SystemExit):
                 RELEASE.build_manual("Gtheory4LLM", Path(directory), rscript="/custom/Rscript")
             self.assertEqual(build.call_args.args[1][:2], ["/custom/Rscript", "--vanilla"])
