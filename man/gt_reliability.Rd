@@ -77,7 +77,9 @@ that row treat items annotated in one call as independent. Printing and
 plotting say the same. A fit that does model a call effect is refused by these
 ordinary methods. Use \code{\link{gt_batch_reliability}} and
 \code{\link{gt_batch_dstudy}} for explicit targets conditional on the fitted
-fixed Gaussian batching layout; no universal batch-adjusted G is assumed.
+fixed Gaussian batching layout, or \code{\link{gt_categorical_target}} for
+categorical repeated-panel targets under an eligible fixed layout. Neither
+defines a universal batch-adjusted G.
 
 Columns are atomic vectors suitable for CSV output.
 Additional attributes retain the fixed-facet declaration, a compact uncertainty
@@ -94,11 +96,37 @@ In the fully random model, the object main-effect covariance defines universe-sc
 
 Declaring a facet \code{fixed} selects the mixed model of Brennan (2001). The universe of generalization then contains exactly that facet's observed levels: an object interaction containing only fixed instrumentation facets is averaged over those levels and added to universe-score variance; a source built only from fixed instrumentation facets shifts every object equally and leaves the comparison; every remaining source keeps its usual divisor. With no fixed facet this reduces exactly to the fully random decomposition. \code{$source_roles} records which role each source took. Fixed versus random treatment follows the intended universe of generalization, not a facet name or whether its levels were researcher-selected. The option changes coefficient aggregation after fitting; it does not repair a misspecified G-study covariance model.
 
-Intervals use the delta method on the logit scale, propagating the fitted parameter covariance matrix through the source covariance entries. They are asymptotic Wald intervals for estimation uncertainty under the declared random-effects model and allocation. Finite sampling of facet levels is part of that model; the intervals are not prediction intervals for the realized scores of a new panel and do not quantify misspecification of the facet populations. Wald theory does not generally apply to a source resting on a variance boundary. When inference uses an interior parameter block, the remaining intervals condition on the listed fixed components, and the fit says which way: a source whose fitted covariance is entirely zero is held at zero, and a singular but nonzero source is held fixed at its fitted covariance, which is a different statement. Unconditional coverage after that selection has not been established. The discrete engine supplies no parameter covariance matrix, so its coefficients remain point estimates.
+Intervals use the delta method on the logit scale, propagating the fitted parameter covariance matrix through the source covariance entries. They are asymptotic Wald intervals for estimation uncertainty under the declared random-effects model and allocation. Finite sampling of facet levels is part of that model; the intervals are not prediction intervals for the realized scores of a new panel and do not quantify misspecification of the facet populations. Wald theory does not generally apply to a source resting on a variance boundary. When Gaussian inference uses an interior parameter block, the remaining intervals condition on the listed fixed components, and the fit says which way: a source whose fitted covariance is entirely zero is held at zero, and a singular but nonzero source is held fixed at its fitted covariance, which is a different statement. Unconditional coverage after that selection has not been established.
 
-Coefficients for discrete outcomes are identified latent-response coefficients. They describe the average latent response under the declared measurement design, not binary proportions, majority-vote labels, or observed ordinal scores. Scalar reliability for unordered categories, observed discrete reliability, and unbalanced decision-study integration are not implemented. Instrumentation facets are averaged as random sources unless \code{fixed} names them; the function never infers a fixed-facet score universe on its own.}
+Discrete information is opt-in through
+\code{gt_control(discrete = list(check_hessian = TRUE))}. The covariance
+calculation inverts the full negative-log-likelihood information matrix,
+including intercepts or thresholds, before propagating covariance-parameter
+uncertainty. It requires an accepted fit, stable finite differences and positive
+definite information at an interior estimated covariance configuration.
+Estimated variance boundaries or failed information checks leave intervals
+unavailable with a reason. Components explicitly supplied as fixed have no
+estimated uncertainty; any resulting intervals condition on those supplied
+values. Discrete intervals inherit first-order Laplace approximation error;
+finite-sample coverage has not been established. The lme4 Gaussian routes
+supply no parameter covariance matrix for these intervals.
+
+Coefficients for discrete outcomes are identified latent-response coefficients.
+They describe the average latent response under the declared measurement
+design, not binary proportions, majority-vote labels, or observed ordinal
+scores. Use \code{\link{gt_categorical_target}} for explicitly defined
+observed-score, category-vector or decision-agreement targets; its simulation
+errors are not parameter confidence intervals. Analytic scalar G/Phi and a
+numeric-score ratio for unordered labels are not implemented. Ordinary
+coefficients for an incomplete allocation remain unavailable. An observed-row
+Gaussian fit can instead use \code{\link{gt_dstudy}} with
+\code{projection = "balanced"} to declare a complete future allocation;
+this is a separate target and requires every facet count. Instrumentation
+facets are averaged as random sources unless \code{fixed} names them; the
+function never infers a fixed-facet score universe on its own.}
 \references{Brennan, R. L. (2001). \emph{Generalizability Theory}. Springer. \doi{10.1007/978-1-4757-3456-0}}
-\seealso{\code{\link{gt_score}}, \code{\link{gt_dstudy}}}
+\seealso{\code{\link{gt_score}}, \code{\link{gt_dstudy}},
+\code{\link{gt_categorical_target}}, \code{\link{gaussian_observed}}}
 \examples{
 d <- expand.grid(item = 1:12, rater = 1:3)
 d$score <- sin(d$item) + d$rater / 5 + cos(d$item * d$rater) / 4

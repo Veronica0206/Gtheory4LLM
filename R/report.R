@@ -44,8 +44,13 @@
       counts = object$design, fixed = object$fixed_facets, level = object$level)
   } else {
     grid <- object$allocations[setdiff(names(object$allocations), object$fixed_facets)]
+    projection <- if (is.null(object$projection)) NULL else {
+      if (!identical(object$projection$target, "intended_complete_balanced"))
+        stop("The supplied D study has an unsupported projection target.", call. = FALSE)
+      "balanced"
+    }
     expected <- gt_dstudy(fit, grid, scale = object$scale, score = object$score,
-      fixed = object$fixed_facets, level = object$level)
+      fixed = object$fixed_facets, level = object$level, projection = projection)
   }
   supplied <- as.data.frame(object)
   verified <- as.data.frame(expected)
@@ -174,7 +179,8 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
   for (engine in c("gaussian", "discrete")) {
     values <- fit$control[[engine]]
     for (name in intersect(names(values), c("maxit", "extra_tries", "retry_seed", "threads",
-      "check_hessian", "max_preparation_bytes", "max_dense_bytes", "max_observations",
+      "check_hessian", "max_preparation_bytes", "max_dense_bytes", "max_sparse_bytes",
+      "max_observed_rows", "hessian_step", "hessian_tolerance", "max_observations",
       "max_random_dimension", "max_parameters", "inner_maxit", "inner_tol", "reltol",
       "validation_inner_tol", "validation_inner_maxit", "alternative_starts"))) {
       value <- values[[name]]
@@ -205,8 +211,10 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
   uncertainty <- list(available = isTRUE(fit$uncertainty$available),
     conditional = isTRUE(fit$uncertainty$restricted_to_interior),
     fixed_components = as.character(fit$uncertainty$fixed_components),
-    scope = if (!gaussian) "Discrete coefficients are point estimates only; no intervals are implemented."
-      else if (!isTRUE(fit$uncertainty$available)) "No usable fitted parameter covariance is recorded; intervals are unavailable."
+    scope = if (!isTRUE(fit$uncertainty$available))
+      "No usable fitted parameter covariance is recorded; intervals are unavailable."
+      else if (!gaussian)
+        "Asymptotic source-covariance and latent-coefficient uncertainty conditional on first-order Laplace and any specified fixed source covariances; finite-sample coverage is not established."
       else "Asymptotic estimation intervals under the declared model; not future-panel prediction intervals.")
   batch <- .gt_batch_status(fit$design)
   report <- list(schema_version = "1.0",
@@ -241,7 +249,7 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
       "Numerical acceptance is not a claim of statistical identification, accuracy, or approximation adequacy.",
       "Binary and ordinal coefficients describe latent responses, not observed labels, proportions or majority votes.",
       "Decision studies are conditional projections over supplied allocations; they do not establish an optimal design or future performance.",
-      "A backend label records what ran; this report does not qualify the private sparse prototype.",
+      "A backend label records what ran; this report does not establish large-panel performance or approximation accuracy.",
       "Only recorded scalar requested controls are shown. Omitted defaults are not reconstructed.",
       "A missing fitting session or retention record stays unknown; report-generation versions do not fill that gap."))
   structure(report, class = "gt_report")

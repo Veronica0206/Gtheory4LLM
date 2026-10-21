@@ -1,7 +1,7 @@
-# Gtheory4LLM 0.6.1 — Corrections
+# Gtheory4LLM 1.0.0.9000 — Development
 
 <!-- release-identity:start -->
-Source version: **0.6.1**.
+Source version: **1.0.0.9000**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -9,26 +9,56 @@ These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
 
-Four corrections to the 0.6.0 Model Interface release, found in an independent
-review. The numerical engines, the acceptance tolerances and every estimate
-of an accepted fit are unchanged.
+This local development version retains the formula interface and historical
+release evidence while adding the following bounded capabilities:
 
-- The lme4 engine's restart check now also requires the restart itself to
-  complete with optimizer code 0 and no lme4 convergence warning; agreement
-  with an incomplete or warned restart no longer counts as reproduction. The
-  stability record names the restart's completion and warnings.
-- `gt_laplace_check()` reads a fit's retained responses as the engine's
-  encoding. A binary outcome fitted with labels other than `"0"`/`"1"` is
-  retained as 0/1 integers, and the diagnostic refused those encodings as if
-  they were new data; data supplied through `data =` is still validated.
-- Discrete solutions selected from an alternative start keep their parameter
-  names, so a warm-start refit from `fit$parameters` is accepted.
-- `gt_laplace_check()` estimates its dense reconstruction and integration
-  workspace and refuses, before allocating, a comparison whose estimate
-  exceeds the discrete `max_dense_bytes` budget; the estimate is recorded as
-  `resources`.
+- Public dense/sparse selection for binary, ordinal, nominal and joint
+  categorical Laplace fits, including eligible equal fixed-call effects.
+  Preflight applies the selected engine's memory budget; existing default
+  row, random-dimension and parameter limits remain in force.
+- Sparse conditional solves use a bounded derivative check when rounded
+  function values block a full Newton step. Outside the small plateau window,
+  the candidate must already meet the final score tolerance; final score,
+  solve, factor and outer-fit acceptance requirements are unchanged.
+- An explicit observed-row univariate Gaussian route through lme4, with an
+  independent dense ML/REML likelihood cross-check, covariance-kernel
+  identification and row/memory guards. No missing cells are filled.
+  `gt_dstudy(projection = "balanced")` projects to a separately declared
+  complete allocation; reliability of the incomplete allocation and joint
+  incomplete Gaussian fitting remain unsupported.
+- Optional discrete observed information includes nuisance intercepts or
+  thresholds and covariance parameters. Component uncertainty and latent
+  coefficient intervals require acceptance, interior estimated components,
+  stable numerical differentiation and positive definite information.
+  Unavailable results retain their reason; intervals inherit Laplace error.
+- Shared categorical simulation preserves fitted links, thresholds, nominal
+  reference contrasts, joint covariance and eligible fixed-call layouts.
+  `gt_categorical_target()` separately defines observed-score,
+  relabeling-invariant category-vector and plurality-decision targets.
+  Decision diversity accompanies agreement, and Monte Carlo errors describe
+  integration uncertainty at fixed model parameters.
+- `gt_plan()` can screen those categorical targets over a bounded allocation
+  grid using declared costs. Binary/ordinal pilot precision planning refits
+  small complete pilots for latent intervals. A distinct categorical
+  point-estimator route includes nominal and fixed-call pilots, with
+  acceptance/availability rates, conditional bias and RMSE, and separately
+  recorded reference and inner integration errors. It provides no parameter
+  intervals or interval-width criterion.
+
+- The sparse evaluator retries an evaluation whose cold conditional-mode solve
+  fails, once, from the fit's last valid mode, under unchanged tolerances,
+  budgets and validity checks. Cold solves that succeed are unchanged. Rescued
+  evaluations are marked and counted in the fit's evaluation record.
+
+Focused reference and refusal tests accompany these routes. This is not a
+released or fully qualified 1.0 package: full-panel solver qualification,
+approximation assessment, recovery and coverage studies, and final
+cross-platform archive validation remain separate gates. Earlier version
+records below apply only to their recorded source and archive identities.
 
 # Gtheory4LLM 0.6.0 — Model Interface
+
+
 
 This version gives the interface the conventions of other R model objects. The published 0.5.0 archive, its numerical engines, acceptance rules
 and every estimate are unchanged.

@@ -2,10 +2,13 @@
 
 This contract separates the existing dense implementation into response,
 matrix, and conditional-mode operations. It is an internal implementation
-boundary with no exported backend selector. The private sparse files,
+boundary. The development version exposes backend selection through
+`gt_control(discrete = list(engine = "dense"))` or `engine = "sparse"`.
+The internal sparse files,
 `R/discrete_sparse.R` and `R/discrete_sparse_mode.R`, build on it through the
-`Matrix` import and are qualified by the frozen studies under
-`validation-studies/`; nothing public dispatches to them yet. Gaussian fitting
+`Matrix` import and are checked against the frozen studies under
+`validation-studies/`. Additional nominal, joint and call support has small-case
+tests; those do not replace larger-scale qualification. Gaussian fitting
 is unaffected. The existing shared `.gt_d_stop()` helper remains in
 `discrete.R` and resolves at call time.
 
@@ -74,6 +77,36 @@ With `details = TRUE`, it returns `valid`, `nll`, `mode`, `eta`,
 existing diagnostic failure list; a non-converged solve's list records
 `inner_iterations`, `inner_line_search_failed` and `inner_factor_unavailable`.
 A malformed internal input raises an error.
+
+The sparse solver additionally handles rounded function values at a full
+Newton step. Its predicted decrease must be positive and the maximum absolute
+score must strictly decrease. The small plateau branch requires both the
+predicted decrease and absolute objective difference to be no larger than
+`32 * eps * max(1, abs(objective))`. Outside that branch, both quantities must
+be within `sqrt(eps) * max(1, abs(objective))`; the step also needs the
+approximate-Wolfe directional inequalities with delta `1e-4` and sigma `0.9`,
+and a candidate score that already meets the unchanged final mode tolerance.
+This limited safeguard follows the
+derivative comparison in [Hager and Zhang (2005), section 4](https://doi.org/10.1137/030601880);
+it does not implement their complete line search or inherit its convergence
+claims. The function-value window is a conservative heuristic safeguard, not a
+proven evaluation-error bound. Every successful mode still satisfies the
+original final score tolerance and both validity checks below. The dense
+search is unchanged; identical final requirements do not imply identical
+search trajectories.
+
+When a cold sparse solve, from zero modes, ends unavailable, the sparse
+evaluator retries that evaluation once from the last valid conditional mode it
+produced for the same fit. The cold solve always runs first and is unchanged,
+so every evaluation the cold solve completes is identical with or without the
+retry. The retry applies the same tolerances, iteration budget, line search,
+solve-validity and factor-validity rules, and a retry that also fails leaves
+the cold failure, with its specimen, as the recorded outcome. A rescued
+evaluation is a valid evaluation marked `inner_warm_started`, with its cold
+attempt's measurements retained, and the fit's evaluation record counts such
+rescues separately from invalid evaluations. The first evaluation of a fit,
+and any evaluation made before a valid mode exists, has no retry. The dense
+evaluator has no retry.
 
 Both mode solvers enforce the same two validity invariants (issues #14 and
 #46). The Newton step is checked against its own system by the shared

@@ -127,9 +127,11 @@ gt_plan <- function(fit, candidates, cost, currency, cost_date, study_items, tar
                     coefficient = "Erho2", outcome = NULL, kind = "outcome",
                     screening = c("point", "lower"), baseline = 1L, constraints = NULL,
                     scale = NULL, score = NULL, fixed = character(), level = 0.95,
-                    max_candidates = 10000L, cost_description = NULL) {
+                    max_candidates = 10000L, cost_description = NULL, integration = list()) {
   .gt_check_target(target)
-  .gt_check_coefficient(coefficient)
+  categorical <- is.character(coefficient) && length(coefficient) == 1L && !is.na(coefficient) &&
+    coefficient %in% c("observed_score", "category_vector", "decision_agreement")
+  if (!categorical) .gt_check_coefficient(coefficient)
   .gt_check_level(level)
   screening <- match.arg(screening)
   .gt_plan_text(currency, "currency")
@@ -144,6 +146,12 @@ gt_plan <- function(fit, candidates, cost, currency, cost_date, study_items, tar
   .gt_plan_integer(study_items, "study_items")
   .gt_plan_integer(max_candidates, "max_candidates")
   .gt_plan_integer(baseline, "baseline")
+  if (categorical)
+    return(.gt_plan_categorical(fit, candidates, cost, currency, cost_date, study_items, target,
+      coefficient, outcome, kind, screening, baseline, constraints, scale, score, fixed,
+      max_candidates, cost_description, integration))
+  if (!is.list(integration) || length(integration))
+    stop("integration applies only to categorical observed or decision targets.", call. = FALSE)
   if (inherits(fit, "gt_fit") && identical(.gt_batch_status(fit$design)$status, "modelled"))
     stop("gt_plan does not yet project modelled batch layouts. No Call component is dropped; use a separately declared layout-specific batch analysis.", call. = FALSE)
   context <- .gt_reliability_context(fit, scale)
@@ -259,6 +267,155 @@ gt_plan <- function(fit, candidates, cost, currency, cost_date, study_items, tar
     fit_diagnostics = gt_diagnostics(fit)), class = "gt_plan")
 }
 
+# Cost screening for explicitly defined categorical targets. No Gaussian
+# error-component decomposition or confidence bound is implied by these rows.
+.gt_plan_categorical <- function(fit, candidates, cost, currency, cost_date, study_items, target,
+                                 coefficient, outcome, kind, screening, baseline, constraints,
+                                 scale, score, fixed, max_candidates, cost_description, integration) {
+  if (!identical(screening, "point"))
+    stop("Categorical observed and decision planning supports point screening only; Monte Carlo SE is not a confidence bound.",
+         call. = FALSE)
+  if (!identical(kind, "outcome") || !is.null(score) || length(fixed))
+    stop("Categorical target planning requires one outcome and no composite score or fixed facets; declare category scores in integration.",
+         call. = FALSE)
+  estimand <- switch(coefficient, observed_score = "score", category_vector = "category_vector",
+                     decision_agreement = "decision")
+  required_scale <- if (estimand == "decision") "decision" else "observed"
+  if (!identical(scale, required_scale))
+    stop("This categorical planning target requires explicit scale = '", required_scale, "'.", call. = FALSE)
+  model <- .gt_discrete_sim_model(fit)
+  if (is.null(outcome) && length(model$outcomes) == 1L) outcome <- model$outcomes
+  if (!is.character(outcome) || length(outcome) != 1L || is.na(outcome) || !outcome %in% model$outcomes)
+    stop("Select exactly one fitted outcome for categorical cost screening.", call. = FALSE)
+  allowed <- c("scores", "n_items", "replications", "seed", "max_rows")
+  if (!is.list(integration) || (length(integration) &&
+      (is.null(names(integration)) || anyNA(names(integration)) || anyDuplicated(names(integration)) ||
+       any(!names(integration) %in% allowed))))
+    stop("integration must uniquely name only scores, n_items, replications, seed, and max_rows.", call. = FALSE)
+  if (is.null(integration$seed)) stop("Categorical cost planning requires an explicit integration seed.", call. = FALSE)
+  settings <- list(scores = NULL, n_items = if (is.null(model$call)) 200L else
+    model$counts[[model$design$object]], replications = 40L, seed = NULL, max_rows = 100000L)
+  for (name in names(integration)) settings[name] <- integration[name]
+  settings$n_items <- .gt_sim_integer(settings$n_items, "integration n_items", 2L)
+  settings$replications <- .gt_sim_integer(settings$replications, "integration replications", 2L, 10000L)
+  settings$seed <- .gt_sim_integer(settings$seed, "integration seed", 0L)
+  settings$max_rows <- .gt_sim_integer(settings$max_rows, "integration max_rows", 1L, 1000000L)
+  if (estimand == "score") .gt_categorical_scores(model, outcome, settings$scores) else
+    if (!is.null(settings$scores)) stop("integration scores applies only to observed_score.", call. = FALSE)
+  if (!is.null(model$call) && (study_items != model$counts[[model$design$object]] ||
+      settings$n_items != model$counts[[model$design$object]]))
+    stop("Categorical call planning retains the fitted item count and layout in both study_items and integration n_items.",
+         call. = FALSE)
+  observed <- model$counts[model$design$facets]
+  allocation <- .gt_plan_candidates(candidates, observed, max_candidates)
+  if (baseline > nrow(allocation)) stop("baseline must identify one candidate row.", call. = FALSE)
+  # Validate every allocation and total work before simulating any candidate.
+  integration_resources <- lapply(seq_len(nrow(allocation)), function(i) {
+    proposed <- .gt_discrete_sim_allocation(model, settings$n_items,
+      unlist(allocation[i, , drop = FALSE], use.names = TRUE), settings$max_rows)
+    .gt_categorical_target_resources(model, proposed, estimand, outcome, settings$replications)
+  })
+  panel_rows <- vapply(integration_resources, `[[`, numeric(1), "rows")
+  total_simulated_rows <- 2 * sum(panel_rows) * settings$replications
+  if (!is.finite(total_simulated_rows) || total_simulated_rows > 10000000)
+    stop("Categorical planning exceeds ten million generated rows across all candidate panel pairs.", call. = FALSE)
+  retained_bytes <- vapply(integration_resources, `[[`, numeric(1), "retained_bytes")
+  peak_bytes <- vapply(integration_resources, `[[`, numeric(1), "estimated_peak_bytes")
+  # All candidate results retain their documented moments. Budget their sum
+  # plus the largest extra workspace of an active integration before any run.
+  total_retained_bytes <- sum(retained_bytes)
+  estimated_peak_bytes <- total_retained_bytes + max(peak_bytes - retained_bytes)
+  if (!is.finite(estimated_peak_bytes) || estimated_peak_bytes > 512 * 1024^2)
+    stop("Categorical planning retained target results and active workspace exceed the 512 MiB limit.", call. = FALSE)
+  measurements <- apply(allocation, 1L, prod) * model$replicates
+  total_annotations <- measurements * study_items
+  if (any(!is.finite(total_annotations)) || any(total_annotations >= 2^53))
+    stop("Total annotations must be exactly representable integers below 2^53 for every candidate.", call. = FALSE)
+  projections <- lapply(seq_len(nrow(allocation)), function(i) {
+    counts <- unlist(allocation[i, , drop = FALSE], use.names = TRUE)
+    tryCatch(do.call(gt_categorical_target, c(list(fit = fit, target = estimand, outcome = outcome,
+      counts = counts), settings)), error = function(e) list(error = conditionMessage(e)))
+  })
+  tables <- lapply(projections, function(x) {
+    if (is.null(x$error)) return(as.data.frame(x))
+    data.frame(outcome = outcome, target = estimand, estimate = NA_real_, raw_estimate = NA_real_,
+      mc_se = NA_real_, signal_variance = NA_real_, total_variance = NA_real_, available = FALSE,
+      reason = x$error, decision_diversity = NA_real_, integration_replications = settings$replications,
+      integration_items = settings$n_items, parameter_uncertainty = FALSE,
+      batch_status = .gt_batch_status(fit$design)$status, stringsAsFactors = FALSE)
+  })
+  if (any(vapply(tables, nrow, integer(1)) != 1L))
+    stop("The categorical target must return one row for the selected outcome.", call. = FALSE)
+  all_results <- do.call(rbind, tables)
+  rownames(all_results) <- NULL
+  all_results$estimand <- all_results$target
+  all_results$target <- NULL
+  allocations <- allocation
+  names(allocations) <- paste0("allocation_", names(allocation))
+  results <- cbind(data.frame(design_id = seq_len(nrow(allocation))), allocations, all_results)
+  results$annotations_per_item <- measurements
+  results$study_items <- study_items
+  results$total_annotations <- total_annotations
+  input <- results[, c("design_id", names(allocations), "annotations_per_item", "study_items",
+                        "total_annotations"), drop = FALSE]
+  attr(input, "allocation_columns") <- stats::setNames(names(allocation), names(allocations))
+  cost_record <- .gt_plan_cost(cost, input, cost_description)
+  results$total_cost <- cost_record$total
+  results$currency <- currency
+  results$cost_date <- cost_date
+  for (name in names(cost_record$costs)) results[[paste0("cost_component_", name)]] <- cost_record$costs[[name]]
+  for (name in names(cost_record$resources)) results[[paste0("resource_", name)]] <- cost_record$resources[[name]]
+  constraint_record <- .gt_plan_constraints(constraints, results)
+  results$feasible <- constraint_record$feasible
+  results$constraint_reason <- constraint_record$reason
+  results$coefficient <- coefficient
+  results[[coefficient]] <- results$estimate
+  results$target <- target
+  results$screening <- "point"
+  results$screening_value <- results$estimate
+  results$screening_available <- results$available & is.finite(results$estimate)
+  results$screening_reason <- ifelse(results$screening_available, NA_character_, results$reason)
+  missing_reason <- !results$screening_available &
+    (is.na(results$screening_reason) | !nzchar(results$screening_reason))
+  results$screening_reason[missing_reason] <- "The projected categorical target is unavailable."
+  results$meets_target <- ifelse(results$screening_available, results$screening_value >= target, NA)
+  results$eligible <- results$feasible & results$meets_target
+  results$minimum_cost <- ifelse(is.na(results$eligible), NA, FALSE)
+  qualified <- which(results$eligible)
+  if (length(qualified)) results$minimum_cost[qualified] <-
+    results$total_cost[qualified] == min(results$total_cost[qualified])
+  results$pareto <- .gt_plan_pareto(results$total_cost,
+    ifelse(results$screening_available, results$screening_value, NA_real_), results$feasible)
+  results$cost_rank <- NA_integer_
+  feasible_rows <- which(results$feasible)
+  results$cost_rank[feasible_rows] <- rank(results$total_cost[feasible_rows], ties.method = "min")
+  results$baseline_id <- baseline
+  results$extra_cost <- results$total_cost - results$total_cost[baseline]
+  results$target_gain <- results$estimate - results$estimate[baseline]
+  structure(list(results = results, allocations = allocation, all_coefficients = all_results,
+    target_projections = projections, source_contributions = data.frame(), cost_breakdown = cost_record$costs,
+    resources = cost_record$resources, constraint_checks = constraint_record$checks,
+    baseline = results[baseline, , drop = FALSE],
+    provenance = list(currency = currency, cost_date = cost_date, cost_model = cost_record$provenance,
+      study_items = study_items, observed_counts = observed, replicates = model$replicates,
+      candidate_count = nrow(allocation), max_candidates = max_candidates,
+      candidate_source = if (is.data.frame(candidates)) "supplied_rows" else "cartesian_grid",
+      search_scope = "declared_candidates_only", pareto_scope = "feasible_candidates_with_available_screening_value",
+      screening = "point", target = target, coefficient = coefficient, outcome = outcome,
+      kind = "outcome", scale = required_scale, fixed_facets = character(),
+      integration = settings, total_simulated_rows = total_simulated_rows, max_total_simulated_rows = 10000000,
+      integration_resource_budget = list(retained_bytes = total_retained_bytes,
+        estimated_peak_bytes = estimated_peak_bytes, max_bytes = 512 * 1024^2),
+      uncertainty = "Monte Carlo SE is integration error at fitted parameters, not a confidence interval.",
+      baseline_id = baseline, batch = .gt_batch_status(fit$design),
+      interpretation = paste("Plug-in repeated-panel targets; fitted parameters and category definitions remain fixed.",
+        "The same seed is reused for candidates for reproducibility; no paired-comparison inference is provided.",
+        "Decision agreement measures stability, not discrimination or correctness.",
+        "Minimum-cost and Pareto flags use Monte Carlo point estimates, with no selection guarantee.",
+        "Modelled calls retain the fitted item membership and number of items.")),
+    fit_diagnostics = gt_diagnostics(fit)), class = "gt_plan")
+}
+
 as.data.frame.gt_plan <- function(x, row.names = NULL, optional = FALSE, ...) {
   result <- x$results
   if (!is.null(row.names)) rownames(result) <- row.names
@@ -280,6 +437,8 @@ print.gt_plan <- function(x, ..., digits = 4L, max_rows = 12L) {
   batch_note <- .gt_batch_status_text(x$provenance$batch)
   if (length(batch_note)) cat(batch_note, "\n")
   cat("Minimum cost and Pareto status are limited to the declared, feasible, evaluable candidates.\n")
-  cat("Study items scale cost; this D study does not estimate pilot precision or change evaluator identities.\n")
+  if (!is.null(x$provenance$integration))
+    cat("Categorical targets use plug-in simulation. Monte Carlo SE is integration error, not a confidence bound.\n")
+  cat("This D study does not estimate pilot precision or change evaluator identities.\n")
   invisible(x)
 }

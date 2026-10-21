@@ -1,15 +1,15 @@
 # Sparse conditional-mode solve and first-order Laplace evaluation.
 #
-# This is the dense solver's control flow carried out in sparse storage, at a
-# fixed parameter vector. It is deliberately a line-for-line twin of
-# .gt_d_dense_mode() rather than a second algorithm that reaches a similar
-# answer: Newton step, line search, descent condition, acceptance test,
-# iteration budget, final-mode recomputation and the relaxed final tolerance
-# all stay in their original order, because the dense file records that order
-# as a requirement and the frozen reference was produced by it.
+# The dense solver's Newton system is evaluated in sparse storage at a fixed
+# parameter vector. The final gradient tolerance, iteration budget and factor
+# validity checks are unchanged. A full Newton step can additionally pass a
+# bounded derivative check when rounded function values block an accurate
+# mode. Outside the small plateau window the candidate must already satisfy
+# the final score tolerance. Search-step acceptance does not certify convergence.
+# An evaluation whose cold solve from zero modes is unavailable may be retried
+# once from the evaluator's last valid mode; see .gt_d_sparse_evaluator().
 #
-# Only seven operations differ, and each is a call into the sparse algebra that
-# earlier steps already established:
+# Seven algebra operations differ, in addition to the search safeguard above:
 #
 #   dense                                sparse
 #   W %*% u                              sparse product, same W convention
@@ -23,9 +23,8 @@
 # The solve-validity check after the Newton step is the SAME function on both
 # sides, .gt_d_solve_check(), applied to the sparse H without densifying it;
 # only the final-factor probe solve differs, because it goes through the
-# factor object rather than a triangular matrix. The invariant, the bound and
-# the refusal are otherwise identical, so a sparse fit is refused at exactly
-# the points a dense fit would be refused.
+# factor object rather than a triangular matrix. Neither factor nor solve
+# invalidity can be rescued by the line search.
 #
 # The last line is the one to read twice. The dense value adds the log
 # determinant of the Cholesky factor, which is half the log determinant of the
@@ -36,15 +35,46 @@
 # against the reference's own Laplace identity rather than left to this
 # comment.
 #
-# Everything outside those six operations is shared code, not copied code: the
+# The response arithmetic is shared code, not copied code: the
 # likelihood, gradient and curvature all come from .gt_d_response_kernel(),
 # which no backend touches.
 #
-# Binary and ordinal responses are the supported envelope, as in the Hessian
-# assembly. Categorical blocks are refused here too, before any work is done,
-# so the refusal names the dense backend instead of surfacing from underneath.
+# Binary, ordinal, and nominal blocks use the same response kernel, with full
+# off-diagonal multinomial curvature retained by the sparse Hessian assembly.
 
-.gt_d_sparse_mode <- function(parameters, prep, backend, control, details = FALSE) {
+.gt_d_roundoff_descent <- function(objective, next_objective, descent, gradient, next_gradient,
+                                  step = NULL, mode_tolerance = NULL) {
+  if (any(!is.finite(c(objective, next_objective, descent, gradient, next_gradient)))) return(FALSE)
+  slack <- 32 * .Machine$double.eps * max(1, abs(objective))
+  if (descent <= 0 || length(next_gradient) != length(gradient) ||
+      max(abs(next_gradient)) >= max(abs(gradient))) return(FALSE)
+  if (descent <= slack && abs(next_objective - objective) <= slack) return(TRUE)
+  # Summed log probabilities can lose more than a few ulps even when the
+  # derivative still resolves the conditional minimum. Within a bounded
+  # function-evaluation allowance, use the approximate-Wolfe directional
+  # inequalities (Hager and Zhang, 2005, section 4, doi:10.1137/030601880).
+  # This is a limited full-step safeguard, not their complete line search.
+  # sqrt(eps) is a heuristic function-evaluation allowance, NOT an error bound
+  # or a score tolerance. It bounds both the predicted decrement and function
+  # difference. This wider branch requires an already stationary candidate
+  # under the unchanged final mode tolerance.
+  # Final stationarity, solve validity and factor validity are still required.
+  allowance <- sqrt(.Machine$double.eps) * max(1, abs(objective))
+  if (descent > allowance ||
+      !is.numeric(step) || length(step) != length(gradient) || any(!is.finite(step)) ||
+      !is.numeric(mode_tolerance) || length(mode_tolerance) != 1L ||
+      !is.finite(mode_tolerance) || mode_tolerance <= 0 ||
+      max(abs(next_gradient)) > mode_tolerance ||
+      abs(next_objective - objective) > allowance)
+    return(FALSE)
+  initial_slope <- -descent
+  next_slope <- -sum(next_gradient * step)
+  is.finite(next_slope) && next_slope >= 0.9 * initial_slope &&
+    next_slope <= (2 * 1e-4 - 1) * initial_slope
+}
+
+.gt_d_sparse_mode <- function(parameters, prep, backend, control, details = FALSE,
+                              start = NULL) {
   if (!inherits(backend, "gt_discrete_sparse_backend") ||
       !identical(c(backend$n, backend$q), c(prep$n, prep$q)))
     .gt_d_stop("Sparse mode inputs do not match the prepared response dimensions.")
@@ -61,15 +91,17 @@
       !is.numeric(control$inner_tol) || length(control$inner_tol) != 1L ||
       !is.finite(control$inner_tol) || control$inner_tol <= 0)
     .gt_d_stop("Invalid parameters or controls supplied to the sparse mode solver.")
-  families <- vapply(prep$blocks, `[[`, character(1), "family")
-  if (any(families == "categorical"))
-    .gt_d_stop("The sparse mode solver takes binary and ordinal responses; ",
-               "the dense backend takes categorical ones.")
   baseline <- .gt_d_baseline(parameters, prep)
-  u <- numeric(ncol(W))
+  # An optional start replaces the zero modes and nothing else: the same Newton
+  # system, line search, tolerances, budget and validity checks follow from it.
+  warm <- !is.null(start)
+  if (warm && (!is.numeric(start) || length(start) != ncol(W) || any(!is.finite(start))))
+    .gt_d_stop("A sparse mode start must give one finite value per random coordinate.")
+  u <- if (warm) as.numeric(start) else numeric(ncol(W))
   converged <- FALSE
   accepted <- TRUE
   last_gradient <- Inf
+  roundoff_steps <- 0L
   for (iter in seq_len(control$inner_maxit)) {
     eta <- baseline + matrix(as.numeric(W %*% u), prep$n, prep$q)
     response <- .gt_d_response_kernel(eta, parameters, prep)
@@ -109,8 +141,19 @@
       candidate <- u - multiplier * step
       next_eta <- baseline + matrix(as.numeric(W %*% candidate), prep$n, prep$q)
       next_response <- .gt_d_response_kernel(next_eta, parameters, prep)
-      if (next_response$valid && next_response$nll + sum(candidate^2) / 2 <=
-          objective - 1e-4 * multiplier * descent + 1e-12) {
+      armijo <- next_response$valid && next_response$nll + sum(candidate^2) / 2 <=
+        objective - 1e-4 * multiplier * descent + 1e-12
+      roundoff <- FALSE
+      if (!armijo && next_response$valid && multiplier == 1) {
+        next_objective <- next_response$nll + sum(candidate^2) / 2
+        # The alternative bounds the decrement and function discrepancy,
+        # rechecking the score without changing final stationarity tolerances.
+        next_gradient <- as.numeric(Matrix::crossprod(W, next_response$gradient)) + candidate
+        roundoff <- .gt_d_roundoff_descent(objective, next_objective, descent,
+                                          gradient, next_gradient, step, control$inner_tol * 10)
+      }
+      if (armijo || roundoff) {
+        if (roundoff) roundoff_steps <- roundoff_steps + 1L
         u <- as.vector(candidate)
         accepted <- TRUE
         break
@@ -131,6 +174,7 @@
   if (is.null(factorization) || !converged) return(if (details)
     list(valid = FALSE, inner_converged = converged, inner_gradient = last_gradient,
          inner_iterations = iter, inner_line_search_failed = !accepted,
+         inner_roundoff_steps = roundoff_steps,
          inner_factor_unavailable = is.null(factorization)) else 1e100)
   # The final factor feeds a log determinant rather than a solve, so the Newton
   # check above does not cover it. Validated with the same fixed probes the
@@ -146,10 +190,13 @@
   # Half the log determinant, matching sum(log(diag(R))) in the dense solver.
   value <- response$nll + sum(u^2) / 2 + .gt_d_sparse_logdet(factorization) / 2
   if (!details) return(value)
-  list(valid = TRUE, nll = value, mode = u, eta = eta,
+  answer <- list(valid = TRUE, nll = value, mode = u, eta = eta,
        conditional_nll = response$nll, inner_iterations = iter,
        inner_converged = converged, inner_gradient = last_gradient,
+       inner_roundoff_steps = roundoff_steps,
        random_dimension = length(u))
+  if (warm) answer$inner_warm_started <- TRUE
+  answer
 }
 
 # The sparse marginal evaluator, shaped to be substituted for .gt_d_laplace().
@@ -175,8 +222,15 @@
 # the dense path returns for an unevaluable point, and the caller's existing
 # acceptance rules decide. A backend that quietly handed a failed evaluation to
 # another implementation would make a rejection depend on which engine ran.
+#
+# A retry is not a fallback. When the cold solve from zero modes is
+# unavailable, the same sparse solve is attempted once more from the last valid
+# mode this evaluator produced, under the same rules; see the start argument of
+# .gt_d_sparse_mode(). The cold solve runs first and is unchanged, so every
+# evaluation it completes is identical with or without the retry.
 .gt_d_sparse_evaluator <- function() {
   context <- NULL
+  last_mode <- NULL
   function(parameters, prep, groups, setup, control, details = FALSE,
            factors_override = NULL) {
     if (is.null(context)) {
@@ -201,8 +255,22 @@
     factors <- if (is.null(factors_override))
       .gt_d_covariance_factors(parameters[-seq_len(fixed_length)], setup) else factors_override
     backend <- .gt_d_sparse_backend_from(context, factors)
-    answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details)
-    if (details && isTRUE(answer$valid))
+    answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE)
+    if (!isTRUE(answer$valid) && !is.null(last_mode) && length(last_mode) == ncol(backend$W)) {
+      # One retry from the last valid conditional mode of this fit, within the
+      # same backend and under the same tolerances, iteration budget, line
+      # search, solve-validity and factor-validity rules. A retry that also
+      # fails leaves the cold failure, and its specimen, as the recorded outcome.
+      retry <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE,
+                                 start = last_mode)
+      if (isTRUE(retry$valid)) {
+        retry$inner_cold_attempt <- .gt_d_failure_record(answer, list())
+        answer <- retry
+      }
+    }
+    if (isTRUE(answer$valid)) last_mode <<- answer$mode
+    if (!details) return(if (isTRUE(answer$valid)) answer$nll else 1e100)
+    if (isTRUE(answer$valid))
       answer <- append(answer, list(factors = factors), after = 2L)
     answer
   }

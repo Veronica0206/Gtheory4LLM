@@ -12,9 +12,8 @@
 # and is checked rather than trusted. Acceptance has four parts, each recorded:
 # lme4's optimizer completed and lme4 raised no convergence warning; the
 # package's own stationarity check on lme4's deviance function passed; a
-# restart from a different point itself completed without a convergence
-# warning and reproduced the solution; and the exact
-# balanced deviance evaluated at the estimates agrees with lme4's criterion,
+# restart from a different point reproduced the solution; and the exact
+# balanced (or explicitly selected observed-row) deviance agrees with lme4's criterion,
 # which verifies that the two engines fitted the same model and objective (it
 # does not by itself show that the estimates maximize it; the other three
 # parts are for that). lme4 is only suggested, so the engine says what to
@@ -123,6 +122,7 @@
 
 .gt_fit_gaussian_lme4 <- function(data, outcomes, facets, spec, reml, covariance, residual,
                                   prepared, engine, control, call = NULL) {
+  observed <- identical(prepared$panel_type, "observed")
   if (!.gt_lme4_available())
     stop("The lme4 engine needs the lme4 package: install.packages('lme4').", call. = FALSE)
   if (length(outcomes) != 1L)
@@ -202,11 +202,13 @@
   })
   names(components) <- component_names
   means <- stats::setNames(as.numeric(lme4::fixef(model))[1L], outcomes)
-  # The exact balanced deviance at lme4's estimates: the same likelihood
+  # The independent Gaussian deviance at lme4's estimates: the same likelihood
   # written two ways must agree to rounding. Agreement verifies that the sources
   # were mapped onto the same model and objective; it is not evidence that the
   # estimates maximize it, which is what the three checks above are for.
   exact <- engine$deviance(prepared, components, reml)
+  reference <- stats::setNames(list(exact), if (observed)
+    "exact_observed_row_deviance" else "exact_balanced_deviance")
   likelihood_tolerance <- 1e-5 * max(1, abs(primary$objective))
   likelihood_difference <- abs(exact - primary$objective)
   likelihood_matches <- is.finite(likelihood_difference) && likelihood_difference <= likelihood_tolerance
@@ -244,7 +246,9 @@
     estimates = list(theta = theta, intercept = means),
     minus2loglik = primary$objective, loglik = -primary$objective / 2,
     uncertainty = list(available = FALSE,
-      reason = "The lme4 engine computes no standard errors for source variance components; refit with the exact engine (engine = 'openmx') for intervals.",
+      reason = if (observed)
+        "The lme4 observed-row engine computes no standard errors for source variance components; incomplete-panel coefficient intervals are unavailable." else
+        "The lme4 engine computes no standard errors for source variance components; refit with the exact engine (engine = 'openmx') for intervals.",
       method = NA_character_, boundary_components = names(boundary)[boundary]),
     component_standard_errors = NULL,
     n_variance_parameters = n_variance_parameters, n_parameters = total_parameters,
@@ -271,7 +275,8 @@
     bic_nobs = if (reml) NA_real_ else N,
     status = primary$optimizer_code, converged = converged,
     numerically_accepted = converged, optimizer_completed = optimizer_completed,
-    approximation_adequacy = "exact_balanced_gaussian_likelihood",
+    approximation_adequacy = if (observed)
+      "exact_observed_row_gaussian_likelihood" else "exact_balanced_gaussian_likelihood",
     engine = "lme4_gaussian_mixed_model",
     diagnostics = list(issues = failures, boundary_components = boundary,
       parameter_map = parameter_map,
@@ -281,10 +286,10 @@
       deviance_derivatives = derivatives[c("value", "gradient", "hessian", "one_sided", "step", "error")],
       lme4_messages = primary$optimizer_message, lme4_warnings = primary$warnings,
       independent_likelihood_matches = likelihood_matches,
-      independent_likelihood = list(exact_balanced_deviance = exact,
+      independent_likelihood = c(reference, list(
         lme4_criterion = primary$objective, difference = likelihood_difference,
         tolerance = likelihood_tolerance,
-        scope = "Agreement at the same parameters verifies the model mapping and the objective; it is not evidence that the parameters maximize it."),
+        scope = "Agreement at the same parameters verifies the model mapping and the objective; it is not evidence that the parameters maximize it.")),
       stability = list(checked = TRUE, stable = stable, alternative_starts = 1L,
         objective_tolerance = objective_tolerance, parameter_tolerance = parameter_tolerance,
         relative_objective_differences = relative_objective,
@@ -298,7 +303,8 @@
       optimizer_code = primary$optimizer_code, optimizer_message = primary$optimizer_message,
       optimization_trials = 2L, optimization_trial_budget = 2L,
       acceptance_failures = failures,
-      acceptance = "Completed lme4 optimizer with no lme4 convergence warning; the package's Cholesky-scaled gradient of lme4's deviance within lme4's tolerance over interior parameters and no inward one-sided derivative at a boundary parameter; a restart that itself completed without a convergence warning and reproduced objective and parameters; and agreement of the exact balanced deviance with lme4's criterion at the estimates.",
+      acceptance = paste0("Completed lme4 optimizer with no lme4 convergence warning; the package's Cholesky-scaled gradient of lme4's deviance within lme4's tolerance over interior parameters and no inward one-sided derivative at a boundary parameter; a restart reproducing objective and parameters; and agreement of the ",
+        if (observed) "dense observed-row" else "exact balanced", " deviance with lme4's criterion at the estimates."),
       approximation = "None: the Gaussian likelihood is exact; lme4 maximizes it by profiling the fixed intercept.",
       warnings = unique(c(primary$warnings, alternative$warnings))),
     optimization_trials = 2L,

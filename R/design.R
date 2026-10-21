@@ -28,8 +28,8 @@
 # declaration depends on the data and the outcome family, so the note states
 # the rule and each fit states what it did.
 .GT_BATCH_NOTE <- paste("A batch declaration is audited by gt_preflight().",
-  "A Gaussian fit of equal fixed batches estimates one shared call effect;",
-  "any other fit treats items in one call as independent and says so.")
+  "Gaussian and discrete fits of supported equal fixed batches estimate a shared call effect;",
+  "unsupported layouts remain declared but unmodelled, with the reason recorded.")
 
 # The source a modelled batch adds to a fit: the items of one batch annotated
 # under one condition share it.

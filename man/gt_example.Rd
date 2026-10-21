@@ -20,7 +20,7 @@ gt_example(name = NULL, coding = c("native", "manuscript"),
 \code{data()}. The loader keeps the chosen outcome coding, its family
 specification, and source provenance together with the measurement table.
 
-Every set retains 21,600 measurement rows: 100 text objects by 4 evaluators, 3 prompts, 6 temperatures, and 3 seeds. Full tables exceed default dense discrete fitting limits; use a predeclared small panel or a future scalable backend for discrete examples.
+Every set retains 21,600 measurement rows: 100 text objects by 4 evaluators, 3 prompts, 6 temperatures, and 3 seeds. Full tables exceed default discrete observation and random-dimension limits. The sparse engine changes the matrix calculations without relaxing those guards or qualifying full-panel fits; use a predeclared small panel for bounded discrete examples.
 
 Available outcome sets are:
 \itemize{

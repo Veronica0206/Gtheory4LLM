@@ -1,15 +1,22 @@
 # Roadmap
 
 Release history and development priorities, with current implementation separated
-from release qualification. The source is **0.6.1**, four corrections to the 0.6.0 Model Interface
-release qualification. The published 0.5.0 archive remains unchanged. Source
+from release qualification. The source is **1.0.0.9000**, an unreleased development
+version. Historical archives and evidence remain unchanged. Source
 versioning does not assert GitHub publication or CRAN acceptance. Completed source changes
 are recorded in [NEWS.md](../NEWS.md), and source-identified run evidence belongs
 in [development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
 
 Numerical backend refactoring is reviewed separately from new statistical
-targets. The current planning additions reuse the existing fit and acceptance
-rules; they do not repair or replace the optimizer or expand sparse qualification.
+targets. The current development adds sparse categorical fitting, optional full
+observed information, incomplete univariate Gaussian fitting, categorical
+simulation, explicit repeated-panel targets and bounded planning. Implementation
+is not scale or statistical qualification. The current remaining gates are in
+[development status](DEVELOPMENT_STATUS.md#current-development-priorities).
+
+The roadmap below preserves the earlier staged plan. Its future-tense
+descriptions are historical planning context; use [limitations](LIMITATIONS.md)
+and the current help pages to determine the development version's actual scope.
 
 | Version or workstream | State and scope |
 |---|---|

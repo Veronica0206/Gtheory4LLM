@@ -98,14 +98,28 @@ expect(max(abs(as.matrix(.gt_d_sparse_hessian(negative, sparse_W, at$n)) -
                 diag(ncol(sparse_W)))) == 0,
        "fully negative curvature contributes nothing beyond the identity")
 
-# --- Categorical curvature is refused, not approximated -----------------------
-# Off-diagonal multinomial curvature is outside the supported sparse envelope
-# for 0.2. Refusing it explicitly is what keeps that envelope from widening by
-# accident as this file grows.
-categorical <- list(list(dims = c(1L, 2L), probability = matrix(0.3, at$n, 2L)))
-refusal <- outcome(.gt_d_sparse_hessian(categorical, sparse_W, at$n))
-expect(grepl("categorical", refusal), paste("categorical curvature is refused; it said:", refusal))
-expect(grepl("dense", refusal), "the refusal says where such a model is still handled")
+# --- Full nominal curvature against an observation-level dense oracle ---------
+nominal_W <- Matrix::Matrix(matrix(sin(seq_len(36)), 12L, 3L), sparse = TRUE)
+probability <- matrix(c(0.2, 0.3, 0.1, 0.7, 0.4, 0.2, 0.3, 0.2), 4L, 2L)
+categorical <- list(list(dims = c(1L, 3L), probability = probability),
+                    list(dims = 2L, diagonal = rep(0.2, 4L)))
+# Build C by observation, independently of the backend's cross-product loops.
+C <- matrix(0, 12L, 12L)
+for (i in seq_len(4L)) {
+  rows <- c(i, i + 8L)
+  C[rows, rows] <- diag(probability[i, ]) - tcrossprod(probability[i, ])
+  C[i + 4L, i + 4L] <- 0.2
+}
+oracle <- diag(3L) + crossprod(as.matrix(nominal_W), C %*% as.matrix(nominal_W))
+nominal_H <- .gt_d_sparse_hessian(categorical, nominal_W, 4L)
+expect(max(abs(as.matrix(nominal_H) - oracle)) < 1e-12,
+       "joint nominal and diagonal blocks match the independent full curvature oracle")
+expect(max(abs(C - diag(diag(C)))) > 0.01, "the oracle exercises nonzero off-diagonal curvature")
+bad_probabilities <- list(matrix(-0.1, 4L, 2L), matrix(0.8, 4L, 2L),
+                          matrix(NA_real_, 4L, 2L), matrix(0.2, 3L, 2L))
+for (p in bad_probabilities)
+  expect(!identical(outcome(.gt_d_sparse_hessian(list(list(dims = c(1L, 3L),
+    probability = p)), nominal_W, 4L)), "accepted"), "malformed nominal probabilities are refused")
 
 # --- Malformed input ----------------------------------------------------------
 malformed <- list(

@@ -16,8 +16,8 @@ gt_laplace_check(fit, method = c("auto", "quadrature", "importance"),
 \item{draws}{Importance-sampling draws, from 100 to one million.}
 \item{seed}{Integer seed for importance sampling, required there so that the check can be reproduced. The caller's random-number state is restored.}
 \item{max_dimension}{The largest random-effect dimension the check accepts. Importance sampling can have poor relative precision in large dimensions. Raising this cap or \code{draws} does not ensure accuracy; examine independent seeds and increasing budgets.}
-\item{max_evaluations}{The largest number of integrand evaluations the check will run. Quadrature in \code{d} dimensions needs \code{nodes} to the power \code{d} evaluations plus the same with five more nodes; importance sampling needs \code{draws}. Both this and \code{max_dimension} are applied before anything is allocated or solved.}
-\item{data}{The modelled data frame, needed only when the fit was stored without its data.}
+\item{max_evaluations}{The largest number of integrand evaluations the check will run. Quadrature in \code{d} dimensions needs \code{nodes} to the power \code{d} evaluations plus the same with five more nodes; importance sampling needs \code{draws}. Both this and \code{max_dimension} are applied before dense matrices are allocated or solved; the dense-memory budget described below also applies.}
+\item{data}{The modelled data frame, needed only when the fit was stored without its data. A fitted Call source is reconstructed from retained item-to-batch membership, so auxiliary call-ID and order columns are optional. The original items and complete fixed layout must be present. Supplied auxiliary call columns must agree with the retained layout.}
 \item{x}{A \code{gt_laplace_check} object.}
 \item{digits}{Significant digits for the printed likelihood values.}
 \item{...}{Further print arguments; currently unused.}
@@ -41,6 +41,7 @@ The returned numerical fields are:
 \item \code{stored_minus2loglik}: the objective retained by the fit.
 \item \code{recomputed_agrees}: whether the recomputed objective matches the stored value.
 \item \code{numerically_accepted}: the fit's numerical acceptance flag.
+\item \code{resources}: estimated bytes for dense reconstruction, integration workspace, their total, and the applied \code{max_dense_bytes} budget. These conservative estimates are not measured peak memory.
 \item \code{scope}: the qualifications on interpreting this comparison.
 }
 \code{print()} displays those qualifications and returns the object invisibly.}
@@ -51,6 +52,8 @@ Importance sampling instead uses \eqn{q(u) = 0.9\,\phi_H(u-\hat u) + 0.1\,\phi(u
 The difference estimates approximation error in the objective at fixed parameters. It is not a measure of bias in fitted estimates, which would need refitting under a different likelihood. A stable quadrature refinement is evidence of numerical stability, not an error bound. Finite importance-weight moments do not guarantee useful relative precision or calibrated finite-sample Monte Carlo intervals. The log-likelihood estimate has finite-sample Monte Carlo bias, its reported standard error is a delta-method estimate, and empirical ESS can miss poorly sampled regions. Examine independent seeds and increasing draw budgets, preferably against an independent numerical reference on a tractable model. Neither a larger budget nor a passed screen establishes adequacy on another fit. The versioned \file{validation-studies/laplace-refinement} record compares the defensive-mixture diagnostic with independent integration on a bounded binary fixture; it is not a general validation of all designs or outcome families.
 
 The comparison introduces its own linear algebra, and that is checked as the engines check theirs: the Cholesky factor at the mode must solve the package's fixed probe systems, every triangular solve that places an integration point is verified against its own system, and an integrand value the response kernel cannot evaluate is counted as unavailable rather than taken as zero. When any of these fails, the result says the refined estimate is unavailable and gives no number in its place.
+
+The diagnostic uses dense conditional algebra even when the fitted engine was sparse. Before allocating dense matrices, it applies the fit's discrete \code{max_dense_bytes} control to a conservative estimate of dense reconstruction plus importance-proposal or quadrature-grid workspace. A fit that is feasible with sparse algebra can therefore exceed the diagnostic's memory budget. The dimension, evaluation and draw limits remain in force; raising a memory budget does not improve approximation accuracy. Fixed-layout Call sources use the retained item membership and the same layout validator as fitting. An absent or inconsistent retained layout is refused rather than replaced by newly inferred batches.
 
 This function does not refit the model. Adaptive quadrature as a fitting method in \pkg{lme4} and \pkg{ordinal} is restricted to a single scalar random-effect term; it is not a direct substitute in those packages for a crossed multi-source fit. Other Monte Carlo likelihood methods exist for some crossed discrete models. A comparison must match the response family, link, covariance structure and estimand; this diagnostic does not replace such a refitted comparison.
 

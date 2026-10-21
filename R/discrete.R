@@ -4,7 +4,7 @@
 # richer Rd pages or drop the S3 methods registered in NAMESPACE.
 # Discrete G-theory likelihoods shared by package and source-based use.
 #
-# This is a deliberately bounded dense Laplace implementation. Random sources
+# Dense and sparse algebra share one bounded Laplace fitting policy. Random sources
 # are mutually independent, multivariate Gaussian random intercepts. Outcomes
 # are conditionally independent given those sources. Within a multinomial
 # outcome, its category indicators instead have the joint softmax likelihood.
@@ -82,12 +82,26 @@
   state$validity_retained <- 0L
   state$at_budget <- 0L
   state$retained <- list()
+  state$rescued <- 0L
+  state$retained_rescued <- list()
   observe <- function(parameters, value, phase, settings = control) {
     state$count <- state$count + 1L
     if (.gt_d_evaluation_usable(value)) {
       if (is.numeric(value$inner_iterations) && length(value$inner_iterations) == 1L &&
           value$inner_iterations >= settings$inner_maxit)
         state$at_budget <- state$at_budget + 1L
+      if (isTRUE(value$inner_warm_started)) {
+        # A sparse evaluation whose cold solve failed and whose retry from the
+        # fit's last valid mode succeeded. It is a valid evaluation, counted and
+        # described separately so that a fit which needed the retry says so.
+        # No specimen is written for it.
+        state$rescued <- state$rescued + 1L
+        if (length(state$retained_rescued) < limit)
+          state$retained_rescued[[length(state$retained_rescued) + 1L]] <-
+            list(evaluation = state$count, phase = phase, parameters = parameters,
+                 inner_iterations = value$inner_iterations,
+                 cold_attempt = value$inner_cold_attempt)
+      }
       return(value$nll)
     }
     state$invalid <- state$invalid + 1L
@@ -108,12 +122,14 @@
     valid_at_inner_budget = state$at_budget, inner_budget = control$inner_maxit,
     retained_invalid = state$retained, retention_limit = limit,
     validity_retention_limit = validity_limit,
+    warm_rescued = state$rescued, retained_rescued = state$retained_rescued,
     scope = paste("Every evaluation of the coarse or tightened objective made by the optimizer",
                   "and by the one tighter-tolerance re-evaluation of the primary fit;",
                   "final validation, stationarity and specimen evaluations are not counted.",
                   "Retained records carry the failed evaluation's own measurements.",
                   "A solve- or factor-validity event is retained beyond the ordinary limit,",
-                  "within its own."))
+                  "within its own. A sparse evaluation rescued by a retry from the last valid",
+                  "mode is a valid evaluation, counted and retained separately."))
   list(observe = observe, summary = summary)
 }
 
@@ -201,8 +217,10 @@
 }
 
 .gt_d_control <- function(control) {
-  defaults <- list(max_random_dimension = 200L, max_observations = 1200L,
+  defaults <- list(engine = "dense", max_random_dimension = 200L, max_observations = 1200L,
                    max_parameters = 80L, max_dense_bytes = 512 * 1024^2,
+                   max_sparse_bytes = 512 * 1024^2,
+                   check_hessian = FALSE, hessian_step = 1e-3, hessian_tolerance = 0.05,
                    maxit = 150L, inner_maxit = 60L,
                    inner_tol = 1e-7, reltol = 1e-7, start_sd = 0.4,
                    trace = 0L, fixed_covariance = NULL,
@@ -219,6 +237,11 @@
   unknown <- setdiff(names(control), names(defaults))
   if (length(unknown)) .gt_d_stop("Unknown discrete control: ", paste(unknown, collapse = ", "), ".")
   for (nm in names(control)) defaults[nm] <- control[nm]
+  if (!is.character(defaults$engine) || length(defaults$engine) != 1L ||
+      is.na(defaults$engine) || !defaults$engine %in% c("dense", "sparse"))
+    .gt_d_stop("discrete engine must be 'dense' or 'sparse'.")
+  if (!is.logical(defaults$check_hessian) || length(defaults$check_hessian) != 1L ||
+      is.na(defaults$check_hessian)) .gt_d_stop("check_hessian must be TRUE or FALSE.")
   for (nm in c("max_random_dimension", "max_observations", "max_parameters", "maxit", "inner_maxit")) {
     z <- defaults[[nm]]
     if (!is.numeric(z) || length(z) != 1L || !is.finite(z) || z < 1 || z != floor(z))
@@ -227,7 +250,7 @@
   for (nm in c("inner_tol", "reltol", "start_sd", "stationarity_tol",
                "validation_reltol", "validation_inner_tol",
                "stability_objective_tol", "stability_parameter_tol", "bound_tol",
-               "max_dense_bytes")) {
+               "max_dense_bytes", "max_sparse_bytes", "hessian_step", "hessian_tolerance")) {
     z <- defaults[[nm]]
     if (!is.numeric(z) || length(z) != 1L || !is.finite(z) || z <= 0)
       .gt_d_stop(nm, " must be a positive finite number.")
@@ -387,6 +410,18 @@
   key <- .gt_tuple_key(data, members)
   group <- match(key, unique(key))
   list(index = group, nlevels = max(group))
+}
+
+# A fixed-layout call is the combination of an item batch and a complete
+# facet condition. The batch map was validated against the original data,
+# including recorded call identifiers, before outcome-only preparation.
+.gt_d_call_group <- function(data, design, call) {
+  if (!isTRUE(call$modelled) || length(call$batch) != nrow(data) ||
+      anyNA(call$batch)) .gt_d_stop("A discrete call source needs a validated fixed batch layout.")
+  condition <- if (length(design$facets)) .gt_tuple_key(data, design$facets) else rep("1", nrow(data))
+  key <- paste(call$batch, condition, sep = ":")
+  group <- match(key, unique(key))
+  list(index = group, nlevels = as.integer(max(group)))
 }
 
 .gt_d_prepare <- function(data, outcomes, families) {
@@ -796,21 +831,26 @@
 # Mixed discrete families are supported; Gaussian-discrete combinations are
 # outside this engine. Missing outcomes and unobserved declared categories are
 # rejected in this first implementation. This engine has no REML estimator.
-# .laplace and .engine are private. No public entry point passes them, and
-# their defaults are the dense reference implementation, so the dense path is
-# byte-for-byte the path that existed before the seam was cut. They exist so a
-# qualified alternative marginal evaluator can be substituted without
+# .laplace and .engine remain private seams for validation. Public callers use
+# control$engine; the default remains the dense reference implementation.
+# Alternative marginal evaluators are substituted without
 # duplicating the outer numerical policy: optimizer, restarts, tight
 # validation, stationarity and acceptance must stay single-sourced, because two
 # copies of an acceptance rule diverge the moment either is touched.
 .gt_fit_discrete <- function(data, outcomes, design, families,
                              covariance = "unstructured", control = list(),
+                             call = NULL,
                              .laplace = .gt_d_laplace,
                              .engine = "dense_marginal_laplace") {
   if (!is.function(.laplace)) .gt_d_stop("The marginal evaluator must be a function.")
   if (!is.character(.engine) || length(.engine) != 1L || is.na(.engine) || !nzchar(.engine))
     .gt_d_stop("The engine label must be a single non-empty string.")
   control <- .gt_d_control(control)
+  if (missing(.laplace)) {
+    .laplace <- if (identical(control$engine, "sparse")) .gt_d_sparse_evaluator() else .gt_d_laplace
+    .engine <- paste0(control$engine, "_marginal_laplace")
+  }
+  sparse <- identical(.engine, "sparse_marginal_laplace")
   if (!is.data.frame(data) || nrow(data) > control$max_observations)
     .gt_d_stop("Discrete prototype exceeds max_observations (", control$max_observations,
                "); use a smaller validation design or explicitly revise the resource guard.")
@@ -821,6 +861,12 @@
   if (any(!unique(unlist(terms, use.names = FALSE)) %in% names(data)))
     .gt_d_stop("Design grouping columns are missing from data.")
   groups <- lapply(terms, function(members) .gt_d_group(data, members))
+  if (isTRUE(call$modelled)) {
+    if (.GT_CALL_TERM %in% names(groups))
+      .gt_d_stop("A source named ", .GT_CALL_TERM,
+        " cannot be combined with a modelled batch; rename that variable.")
+    groups[[.GT_CALL_TERM]] <- .gt_d_call_group(data, design, call)
+  }
   group_sizes <- vapply(groups, `[[`, integer(1), "nlevels")
   if (any(group_sizes < 2L)) .gt_d_stop("Every random source must contain at least two observed groups.")
   # An unrestricted observation-specific source confounds the identified
@@ -831,12 +877,12 @@
   if (random_dimension > control$max_random_dimension)
     .gt_d_stop("Discrete prototype requires ", random_dimension,
                " random-effect dimensions, exceeding max_random_dimension (",
-               control$max_random_dimension, "). This dense engine is for small validation designs.")
+               control$max_random_dimension, "). Raise this guard only for a qualified design.")
   # Refuse before allocating rather than after the allocation fails. The other
   # limits bound counts; this one bounds the dense algebra those counts imply,
   # and it is what protects a caller who raises them.
   dense <- .gt_d_dense_bytes(nrow(data), prep$q, random_dimension)
-  if (dense$total > control$max_dense_bytes)
+  if (!sparse && dense$total > control$max_dense_bytes)
     .gt_d_stop("This discrete model needs an estimated ",
       .gt_d_format_bytes(dense$total), " of dense working memory, above the configured ",
       "max_dense_bytes (", .gt_d_format_bytes(control$max_dense_bytes), "). ",
@@ -848,6 +894,13 @@
       "Laplace approximation accurate. Fit a scientifically justified smaller ",
       "design, reduce the number of jointly modelled outcomes, or use an ",
       "implementation with a sparse random-effects backend.")
+  sparse_memory <- if (sparse)
+    .gt_d_sparse_bytes(nrow(data), prep$q, random_dimension, length(groups)) else NULL
+  if (sparse && sparse_memory$total > control$max_sparse_bytes)
+    .gt_d_stop("This discrete model exceeds max_sparse_bytes (",
+      .gt_d_format_bytes(control$max_sparse_bytes), "); its conservative sparse working-memory ",
+      "estimate is ", .gt_d_format_bytes(sparse_memory$total), ". Raising a resource guard ",
+      "does not establish numerical acceptance or Laplace approximation accuracy.")
   setup <- .gt_d_covariance_setup(groups, prep$q, covariance, control, prep$dimensions)
   kernel_rank <- .gt_d_kernel_rank(groups)
   # A combination of individually repeated-group kernels can still equal I.
@@ -941,8 +994,6 @@
       }
     }
     alternative <- pmin(upper - 1e-6, pmax(lower + 1e-6, alternative))
-    # pmin()/pmax() take their names from the unnamed bounds; the start keeps
-    # the prepared coordinate names so a selected alternative solution does too.
     names(alternative) <- names(start)
     # Clipping extreme user starts can collapse otherwise distinct trials.
     # Keep a distinct first fixed-effect coordinate without using the RNG.
@@ -1163,6 +1214,7 @@
                        # so a fit produced through the private seam by another
                        # backend never describes itself as the dense engine.
                        marginal_backend = .engine,
+                       resource_estimate = if (sparse) sparse_memory else dense,
                        # Original-operation evidence for the evaluations the
                        # optimizer could not use; see .gt_d_evaluation_log().
                        evaluations = evaluations$summary(),
@@ -1173,6 +1225,8 @@
                        optimizer_code = fit$convergence,
                        optimizer_message = fit$message, inner_converged = final$inner_converged,
                        inner_gradient = final$inner_gradient, inner_iterations = final$inner_iterations,
+                       inner_roundoff_steps = final$inner_roundoff_steps,
+                       inner_warm_started = isTRUE(final$inner_warm_started),
                        random_dimension = random_dimension, parameter_count = length(start),
                        boundary_sources = boundary_sources, parameter_bounds = at_bound,
                        source_kernel_rank = kernel_rank,
@@ -1190,6 +1244,29 @@
   design <- .gt_design_validated(design, if (is.null(setup$fixed))
     "Observed grouping columns, repeated groups, and linear independence of source kernels plus observation identity; this is not proof of discrete-model identification." else
     "Observed grouping columns and repeated groups checked; all source covariances fixed, so covariance-estimation rank guards were not enforced.")
+  if (!is.null(call)) design$batch_model <- call[setdiff(names(call), c("batch", "slot"))]
+  if (isTRUE(call$modelled)) {
+    item_levels <- unique(data[[design$object]])
+    first_item_rows <- match(item_levels, data[[design$object]])
+    design$batch_model$item_levels <- item_levels
+    design$batch_model$item_batches <- unname(call$batch[first_item_rows])
+  }
+  information <- if (isTRUE(control$check_hessian))
+    .gt_d_information(fit$par, prep, groups, setup, validation_control, laplace = .laplace,
+      lower = lower, upper = upper, numerically_accepted = converged,
+      boundary_components = boundary_sources) else
+    list(available = FALSE,
+         reason = "Observed-information calculation was not requested; coefficients are point estimates only.",
+         method = NA_character_, boundary_components = boundary_sources)
+  diagnostics$uncertainty <- if (isTRUE(information$available)) information$method else information$reason
+  component_errors <- NULL
+  if (isTRUE(information$available)) {
+    diagonal <- information$entries$row == information$entries$column
+    entries <- information$entries[diagonal, , drop = FALSE]
+    component_errors <- data.frame(component = entries$component, trait = entries$row,
+      std_error = sqrt(pmax(0, diag(information$entry_covariance)[diagonal])),
+      at_boundary = entries$component %in% boundary_sources, stringsAsFactors = FALSE)
+  }
   list(engine = .gt_d_engine_label(.engine), estimator = "ML_Laplace", method = "ML_Laplace",
        means = means, coefficients = means, thresholds = thresholds,
        covariance_components = components, latent_residual_variances = residual,
@@ -1199,10 +1276,7 @@
        optimizer_completed = optimizer_completed, numerically_accepted = converged,
        approximation_adequacy = approximation_adequacy, diagnostics = diagnostics,
        conditional_eta = final$eta, conditional_probabilities = probabilities,
-       uncertainty = list(available = FALSE,
-         reason = paste("The dense first-order Laplace engine computes no observed information,",
-           "so its coefficients are point estimates only."),
-         method = NA_character_, boundary_components = boundary_sources),
+       uncertainty = information, component_standard_errors = component_errors,
        parameters = fit$par, starting_parameters = start, optimizer = fit, covariance = covariance,
        families = families, outcomes = outcomes, design = design, residual_structure = "fixed_by_link",
        control = control)

@@ -249,6 +249,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
   families <- resolved$families
   kinds <- vapply(families, `[[`, character(1), "family")
   gaussian <- all(kinds == "gaussian")
+  gaussian_observed <- gaussian && identical(control$gaussian$panel, "observed")
   if (any(kinds == "gaussian") && !gaussian)
     stop("Joint Gaussian-discrete outcomes are not supported by the current engines.", call. = FALSE)
 
@@ -294,12 +295,11 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
     if (f$family == "binary") 1L else length(f$levels) - 1L, integer(1)))
   add_check("repeated_source_groups", all(levels >= 2L),
             "Every retained source needs at least two observed groups.")
-  # Whether a fit of these data would model the declared batches. Only the
-  # exact Gaussian engine does, for equal fixed batches, and it then fits one
-  # source more than the design declares. A declared source of that name
-  # would collide with it, which fitting refuses and this reports.
-  call_model <- if (is.null(design$batch)) NULL else if (gaussian) .gt_batch_model(data, design) else
-    list(modelled = FALSE, reason = "the call effect is estimated for Gaussian outcomes only")
+  # Both Gaussian balanced and discrete engines can estimate a fixed-layout
+  # shared-call source. The observed-row Gaussian route explicitly excludes it.
+  call_model <- if (is.null(design$batch)) NULL else if (gaussian_observed)
+    list(modelled = FALSE, reason = "Observed-row Gaussian fitting does not support declared batches.") else
+    .gt_batch_model(data, design)
   call_modelled <- isTRUE(call_model$modelled)
   if (call_modelled) {
     add_check("call_source_name", !.GT_CALL_TERM %in% names(terms),
@@ -313,6 +313,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
   # batches are modelled, the call. Counts and dimensions below describe these.
   fitted <- c(names(terms), if (call_modelled) .GT_CALL_TERM)
   fitted_levels <- c(unname(levels), if (call_modelled) as.integer(call_model$calls))
+  if (!gaussian && call_modelled) groups[[.GT_CALL_TERM]] <- .gt_d_call_group(data, design, call_model)
   random_dimension <- sum(as.double(fitted_levels)) * q
   covariance_parameters <- numeric(length(fitted))
   names(covariance_parameters) <- fitted
@@ -343,42 +344,70 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       unstructured = q * (q + 1) / 2, pooled = 1)
     covariance_parameters[] <- vapply(types[fitted], parameter_count, numeric(1))
     residual_parameters <- parameter_count(residual)
-    add_check("complete_coded_panel", complete,
-              "Gaussian fitting requires the complete Cartesian product of observed coded levels.")
+    if (!gaussian_observed) add_check("complete_coded_panel", complete,
+      "Complete-panel Gaussian fitting requires the Cartesian product of observed coded levels.")
     add_check("one_row_per_cell", design$replicates == 1L,
               "The Gaussian backend currently supports one measurement per full cell.")
     # A modelled batch splits the object into a batch axis and a slot axis.
     axes <- length(variables) + call_modelled
-    add_check("factorial_strata_limit", axes <= 12L,
-              "The exact Gaussian backend supports at most 4096 strata (12 axes including the object, which a modelled batch counts twice).")
+    if (!gaussian_observed) add_check("factorial_strata_limit", axes <= 12L,
+      "The exact Gaussian backend supports at most 4096 strata (12 axes including the object, which a modelled batch counts twice).")
     limit <- control$gaussian$max_preparation_bytes
     if (is.null(limit)) limit <- 512 * 1024^2
     if (!is.numeric(limit) || length(limit) != 1L || !is.finite(limit) || limit <= 0)
       stop("max_preparation_bytes must be a positive finite number of bytes.", call. = FALSE)
-    bytes <- .gt_gaussian_preparation_bytes(expected_cells, q, axes)
+    bytes <- if (gaussian_observed) .gt_gaussian_observed_bytes(n, length(fitted)) else
+      .gt_gaussian_preparation_bytes(expected_cells, q, axes)
     add_check("preparation_resource_limit", bytes <= limit,
               "The Gaussian preparation estimate must fit the configured allocation limit.")
-    resources <- list(preparation_estimated_bytes = bytes, preparation_limit_bytes = limit,
+    if (gaussian_observed) {
+      row_limit <- control$gaussian$max_observed_rows
+      if (is.null(row_limit)) row_limit <- 1000L
+      add_check("observed_row_limit", n <= row_limit,
+        paste("Observed rows must not exceed max_observed_rows", row_limit))
+      add_check("observed_row_no_batches", is.null(design$batch),
+        "Observed-row Gaussian fitting does not support declared batches or shared-call effects.")
+      resources <- list(preparation_estimated_bytes = bytes, preparation_limit_bytes = limit,
+        max_observed_rows = row_limit,
+        scope = "Dense observed-row covariance and identification working arrays; excludes caller data and lme4 objects.")
+      if (all(checks$passed)) {
+        observed_error <- NULL
+        observed_setup <- tryCatch(.gt_gaussian_observed_prepare(resolved$data, outcomes,
+          checked, row_limit, limit), error = function(e) {
+            observed_error <<- conditionMessage(e)
+            NULL
+          })
+        add_check("observed_covariance_identification", !is.null(observed_setup),
+          if (is.null(observed_error))
+            "Source and residual kernels are independent after removing the fixed intercept." else observed_error)
+        kernel_check <- if (is.null(observed_setup)) "failed_observed_covariance_identification" else "checked"
+        if (!is.null(observed_setup)) resources$identification <- observed_setup$identification
+      } else kernel_check <- "skipped_after_structural_or_resource_failure"
+    } else resources <- list(preparation_estimated_bytes = bytes, preparation_limit_bytes = limit,
       factorial_strata = 2^axes,
-      scope = "Preparation working arrays only; excludes caller data and downstream OpenMx objects.")
+      scope = "Preparation working arrays only; excludes caller data and downstream fitting-engine objects.")
   } else {
     if (!is.null(residual)) stop("Do not specify a Gaussian residual covariance for discrete outcomes.", call. = FALSE)
     dc <- .gt_d_control(control$discrete)
     .gt_d_validate_covariance_request(covariance)
     covariance_parameters[] <- if (!is.null(dc$fixed_covariance)) 0 else
       if (covariance == "diagonal") q else q * (q + 1) / 2
-    add_check("repeated_observations_within_source", all(levels < n),
+    add_check("repeated_observations_within_source", all(fitted_levels < n),
               "Observation-specific random sources are unsupported for discrete outcomes.")
     add_check("observation_limit", n <= dc$max_observations,
               paste("Measurement rows must not exceed", dc$max_observations))
     add_check("random_dimension_limit", random_dimension <= dc$max_random_dimension,
-              paste("Dense random-effect dimensions must not exceed", dc$max_random_dimension))
+              paste("Random-effect dimensions must not exceed", dc$max_random_dimension))
     add_check("parameter_limit", location_parameters + sum(covariance_parameters) <= dc$max_parameters,
               paste("Free observation and covariance parameters must not exceed", dc$max_parameters))
-    dense <- .gt_d_dense_bytes(n, q, random_dimension)
-    add_check("dense_memory_limit", dense$total <= dc$max_dense_bytes,
-              paste("Estimated dense working memory", .gt_d_format_bytes(dense$total),
-                    "must not exceed max_dense_bytes", .gt_d_format_bytes(dc$max_dense_bytes)))
+    sparse <- identical(dc$engine, "sparse")
+    memory <- if (sparse) .gt_d_sparse_bytes(n, q, random_dimension, length(groups)) else
+      .gt_d_dense_bytes(n, q, random_dimension)
+    memory_limit <- if (sparse) dc$max_sparse_bytes else dc$max_dense_bytes
+    add_check(if (sparse) "sparse_memory_limit" else "dense_memory_limit", memory$total <= memory_limit,
+      paste("Estimated", if (sparse) "sparse" else "dense", "working memory",
+        .gt_d_format_bytes(memory$total), "must not exceed",
+        if (sparse) "max_sparse_bytes" else "max_dense_bytes", .gt_d_format_bytes(memory_limit)))
     # Reuse fitting's covariance/kernel checks only within its size limits.
     # No random-design matrix, Hessian, likelihood or optimizer is constructed.
     if (all(checks$passed)) {
@@ -403,10 +432,15 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
         kernel_check <- "checked"
       } else kernel_check <- if (is.null(setup)) "skipped_invalid_covariance" else "not_required_for_fixed_covariance"
     } else kernel_check <- "skipped_after_structural_or_resource_failure"
-    resources <- list(dense_matrix_bytes_lower_bound =
+    resources <- if (sparse) list(sparse_working_bytes_estimate = memory$total,
+      sparse_working_bytes_breakdown = memory[c("random_design", "conditional_hessian", "predictors", "multiplier")],
+      max_sparse_bytes = dc$max_sparse_bytes,
+      max_observations = dc$max_observations,
+      max_random_dimension = dc$max_random_dimension, max_parameters = dc$max_parameters,
+      scope = memory$scope) else list(dense_matrix_bytes_lower_bound =
       8 * (as.double(n) * q * random_dimension + random_dimension^2),
-      dense_working_bytes_estimate = dense$total,
-      dense_working_bytes_breakdown = dense[c("random_design", "conditional_hessian",
+      dense_working_bytes_estimate = memory$total,
+      dense_working_bytes_breakdown = memory[c("random_design", "conditional_hessian",
         "block_slices", "predictors", "multiplier")],
       max_dense_bytes = dc$max_dense_bytes,
       max_observations = dc$max_observations,
@@ -418,8 +452,10 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
     predictor_dimensions = q, random_dimension = as.double(fitted_levels) * q,
     covariance_parameters = unname(covariance_parameters), stringsAsFactors = FALSE)
   balanced <- complete && replicated
-  # A fit that models a call effect has no coefficients yet; see gt_reliability().
-  scales <- if (!balanced || !all(category_complete) || any(kinds == "categorical") || call_modelled) character() else
+  # Ordinary coefficients do not describe shared-call layouts; those require
+  # a separate supported batch-aware target.
+  scales <- if (!balanced || gaussian_observed || !all(category_complete) ||
+    any(kinds == "categorical") || call_modelled) character() else
     if (gaussian) "observed" else "latent"
   notes <- c("Preflight checks structure and configured size limits. It does not establish identification, approximation adequacy, fit acceptance, or scientific validity.",
     "A supported reliability scale is conditional on a numerically accepted fit and the stated averaging design.",
@@ -427,7 +463,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
   if (any(levels < 5L)) notes <- c(notes,
     "Some sources have fewer than five observed groups. This is a descriptive caution about limited information, not a rejection rule.")
   if (!balanced) notes <- c(notes,
-    "Analytic reliability and D studies require a complete balanced coded panel even when discrete fitting permits missing whole cells.")
+    "Ordinary analytic reliability requires a complete balanced coded panel. Observed-row Gaussian fits require a separate explicitly requested intended balanced D-study projection.")
   if (any(kinds == "categorical")) notes <- c(notes,
     "Unordered categorical outcomes have no implemented scalar G/Phi; category contrasts are not separate measured outcomes.")
   # The call is kept as a record of the request; nothing reads it back. Through
@@ -438,7 +474,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
   if ("data" %in% names(recorded_call) && !is.name(recorded_call$data))
     recorded_call$data <- as.name("<dropped>")
   report <- structure(list(call = recorded_call, outcomes = outcomes, families = families,
-    engine = if (!gaussian) "dense_joint_discrete_laplace" else
+    engine = if (!gaussian) paste0(dc$engine, "_joint_discrete_laplace") else
       if (gaussian_engine == "lme4") "lme4_gaussian_mixed_model" else "exact_balanced_gaussian",
     observations = n, observed_counts = counts, observed_cells = length(cell_counts),
     expected_cells = expected_cells, observed_replication = sort(unique(as.integer(cell_counts))),
@@ -451,7 +487,8 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       total = location_parameters + sum(covariance_parameters) + residual_parameters),
     checks = checks, fitting_feasible = all(checks$passed), resources = resources,
     kernel_check = kernel_check, supported_reliability_scales = scales,
-    scale_interpretation = if (call_modelled) "A fit of this design models a call effect; coefficients that account for which items share a call are not implemented yet." else
+    scale_interpretation = if (call_modelled)
+      "A fit of this design models a call effect; ordinary scalar coefficients do not account for its sharing layout. Use an explicitly supported batch-aware target." else
       if (length(scales) == 0L) "No implemented analytic scalar coefficient for this family/panel combination." else
       if (gaussian) "Reliability of observed Gaussian-score averages." else
         "Reliability of latent-response averages; not label proportions, majority votes, or ordinal-score averages.",
@@ -464,7 +501,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       source = if (call_modelled) .GT_CALL_TERM else NA_character_,
       covariance_parameters = if (call_modelled) covariance_parameters[[.GT_CALL_TERM]] else 0,
       scope = paste("Whether a fit of these data would estimate one shared call effect.",
-        "Only the exact Gaussian engine does, for the same batches in every condition, each at the declared size.",
+        "Balanced Gaussian and discrete engines support the same fixed batches in every condition, each at the declared size; observed-row Gaussian fitting does not.",
         "Positional patterns and differences between the levels of a facet are declared but not yet estimated."))
     report$batch_audit <- batch_audit
     report$notes <- c(report$notes, .GT_BATCH_NOTE)

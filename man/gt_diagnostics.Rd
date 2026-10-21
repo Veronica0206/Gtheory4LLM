@@ -24,12 +24,19 @@ was not modelled, and the declared options not yet estimated.
 
 The \code{stages} element summarises the numerical checks a fit passed through, so that a rejection names the stage responsible without the caller reading private optimizer records. Each stage reports \code{status}, a \code{reason} and supporting \code{measurements}. The status is one of \code{"passed"}, \code{"failed"}, \code{"not_assessed"} for a check that did not run or does not apply to this engine, or \code{"inconclusive"} for one that ran and neither clearly passed nor clearly failed. Absent evidence is reported as \code{"not_assessed"} and never as a pass. The summary is derived from evidence the fit already retained: it never refits, and it never changes an acceptance decision. In particular, optimizer completion reports what the optimizer reported; a retained attempt that never moved from its starting values is exposed through \code{max_abs_parameter_change} rather than by redefining completion. Shared diagnostic fields include:
 \itemize{
-\item \code{engine}, \code{optimizer}, \code{approximation}: the fitting engine, its optimizer, and the likelihood approximation. The engine is the exact balanced Gaussian engine, the lme4 Gaussian engine, or the dense discrete Laplace engine, each under its own label; the approximation is none for a Gaussian engine and first-order Laplace for a discrete one. They are recorded separately because choosing another optimizer is not choosing another engine, and neither changes the approximation.
+\item \code{engine}, \code{optimizer}, \code{approximation}: the fitting engine, its optimizer, and the likelihood approximation. The engine is the exact balanced Gaussian engine, the lme4 Gaussian engine, or the selected dense or sparse discrete Laplace engine, each under its own label; the approximation is none for a Gaussian engine and first-order Laplace for a discrete one. They are recorded separately because choosing another optimizer is not choosing another engine, and neither changes the approximation.
 \item \code{optimization_trials}: the recorded trial count.
 \item \code{selected_attempt}: the returned candidate's identifier.
 \item \code{acceptance_failures}: reasons for rejecting the returned fit.
 \item \code{stationarity}: the record of the independent stationarity check that decided acceptance, with its verdict, tolerance, and the scaled gradient it measured.
-\item \code{likelihood_agreement}: for the \pkg{lme4} engine, the exact balanced deviance evaluated at the estimates beside \pkg{lme4}'s criterion and their difference; \code{NULL} for engines that make no such comparison.
+\item \code{likelihood_agreement}: for the \pkg{lme4} engine, the independent
+Gaussian deviance at the estimates, the engine's criterion and their difference.
+The reference value is stored under the name for the fitted panel:
+\itemize{
+\item \code{exact_balanced_deviance}: complete-panel route.
+\item \code{exact_observed_row_deviance}: observed-row route.
+}
+The agreement record is \code{NULL} for engines that make no such comparison.
 \item \code{attempt_failures}: recorded trial errors or rejections.
 \item \code{boundary_sources}: zero or nearly singular covariance sources.
 \item \code{parameter_bounds}: artificial parameter-bound contacts.
@@ -49,16 +56,21 @@ earlier attempts. An empty attempt-failure table means no recorded
 trial reported an error or a rejection reason; it is not a statement about
 trials that were never run.
 
-\code{standard_errors_available} is \code{TRUE} only for a Gaussian fit whose
-numerically differentiated Hessian was computed and is positive definite. The
+\code{standard_errors_available} is \code{TRUE} only when the selected engine
+obtained a usable parameter covariance under its curvature policy. The
 OpenMx Gaussian engine forms the parameter covariance matrix as \code{2 * H^-1} for the
 \code{-2 log L} fit function and maps it to source covariance entries by the
 delta method; \code{fit$uncertainty} retains that matrix, the entry Jacobian,
 and the entry covariance matrix used by \code{gt_reliability()}. The lme4 engine
 returns source covariance estimates but does not compute their sampling
-covariance or source-variance standard errors. The discrete
-Laplace engine computes no observed information, so its standard errors are
-always unavailable and its coefficients remain point estimates. A component at
+covariance or source-variance standard errors. Optional discrete full observed
+information uses \code{H^-1} on the negative-log-likelihood scale, retaining
+nuisance intercepts and thresholds when extracting source-covariance
+uncertainty. It requires numerical acceptance, interior estimated components,
+stable finite differences, and positive-definite, sufficiently conditioned
+information. Otherwise the recorded reason explains why it is unavailable.
+Its asymptotic intervals remain conditional on first-order Laplace and do not
+establish finite-sample coverage. A component at
 a variance boundary is flagged in \code{component_standard_errors}: Wald theory
 does not apply there, and the reported number is not a usable standard error.
 

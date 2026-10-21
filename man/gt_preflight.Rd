@@ -38,7 +38,7 @@ gt_preflight(data, outcomes, design = NULL, family = gt_family("gaussian"),
 source and parameter totals, resource estimates, and interpretation notes.
 It also contains:
 \itemize{
-\item \code{engine}: the engine a fit of this request would use, under the label \code{gt_diagnostics()} reports: the exact balanced Gaussian engine, the lme4 engine when \code{control} selects it, or the dense discrete Laplace engine. With lme4 the checks also record whether lme4 is installed and whether the request is univariate.
+\item \code{engine}: the engine a fit of this request would use, under the label \code{gt_diagnostics()} reports: the exact balanced Gaussian engine, the lme4 engine when \code{control} selects it, or the selected dense or sparse discrete Laplace engine. With lme4 the checks also record whether lme4 is installed and whether the request is univariate.
 \item \code{sources}: a data frame describing the random sources a fit
 would estimate: the retained declared sources and, for a batch the fit would
 model, the call source. The parameter and dimension totals describe these.
@@ -49,12 +49,32 @@ it is a conceptual random-effect dimension, not the dimension of a dense matrix
 allocated by the exact factorial engine.
 \item \code{resources}: engine-specific allocation estimates and limits.
 
-For Gaussian requests, \code{resources$factorial_strata} is \eqn{2^a}, where
+For complete-panel Gaussian requests, \code{resources$factorial_strata} is \eqn{2^a}, where
 \eqn{a} counts the object and declared facet axes, plus one extra axis when
 the fit models batches. This describes the exact balanced representation;
 it is also reported for the lme4 route, whose estimates are checked against
-that exact deviance. It is absent for discrete requests, whose resource
-estimates instead concern dense random-effect calculations.
+that exact deviance. It is absent for observed-row Gaussian and discrete
+requests. Observed-row Gaussian resources include
+\code{preparation_estimated_bytes}, \code{preparation_limit_bytes} and
+\code{max_observed_rows}. When its bounded identification calculation passes,
+\code{resources$identification} records the rank, component count, normalized
+kernel eigenvalues, relative tolerance and scope.
+
+Dense discrete requests report these resource fields:
+\itemize{
+\item \code{dense_working_bytes_estimate}: estimated working bytes.
+\item \code{dense_working_bytes_breakdown}: estimate by operation.
+\item \code{dense_matrix_bytes_lower_bound}: matrix-storage lower bound.
+\item \code{max_dense_bytes}: requested dense memory limit.
+}
+Sparse discrete requests instead report:
+\itemize{
+\item \code{sparse_working_bytes_estimate}: estimated working bytes.
+\item \code{sparse_working_bytes_breakdown}: estimate by operation.
+\item \code{max_sparse_bytes}: requested sparse memory limit.
+}
+Both report observation, random-dimension and parameter limits. Only the
+selected engine's memory bound is applied.
 \item \code{panel_audit}: bounded panel diagnostics, described below.
 \item \code{outcome_profile}: a named list of descriptive outcome summaries,
 category counts, grouping coverage, and bounded no-variation examples.
@@ -240,9 +260,9 @@ Each random source has one predictor dimension per Gaussian, binary, or ordinal 
 
 The source table counts free variance/covariance parameters under the requested covariance structure. Fixed discrete source covariance matrices contribute zero free covariance parameters. Gaussian observation parameters are the profiled outcome means; discrete observation parameters are intercepts or ordinal thresholds. The total includes these observation parameters and the Gaussian residual covariance parameters. It is not a residual degrees-of-freedom count or an information-criterion definition.
 
-Gaussian checks require a complete coded Cartesian panel with one measurement per cell and resolve a full-cell source into the residual when appropriate. Discrete fitting can admit missing whole cells, but analytic reliability and D studies still require a complete balanced coded panel. Within configured size limits, preflight also applies the current discrete source-kernel checks. When an earlier structural or resource check fails, \code{kernel_check} explicitly reports that the kernel checks were skipped. Source counts then refer to the requested model if family-specific resolution failed.
+Default Gaussian checks require a complete coded Cartesian panel with one measurement per cell and resolve a full-cell source into the residual when appropriate. With \code{engine = "lme4", panel = "observed"}, missing whole cells are permitted for one Gaussian outcome, subject to the row and memory bounds. Within those bounds, preflight constructs source and residual covariance kernels and checks independence after removing the intercept. The check is limited to algebraic identification and does not assess the missingness mechanism. Batch declarations, replicated cells and joint outcomes are refused on that route. Discrete fitting can also admit missing whole cells. Ordinary analytic reliability still requires a complete balanced coded panel; the observed-row Gaussian route needs a separately requested intended balanced D-study projection. Within configured size limits, preflight applies the current discrete source-kernel checks, including the call kernel for an eligible fixed-layout batch. When an earlier structural or resource check fails, \code{kernel_check} explicitly reports that the kernel checks were skipped. Source counts refer to the requested model if family-specific resolution failed.
 
-The Gaussian allocation estimate covers preparation arrays only. The discrete byte count covers one dense random-design matrix and one random-effect Hessian only. Neither predicts peak memory or runtime. Fewer than five observed groups triggers a descriptive note, not a rejection rule. Starting values and optimizer-specific controls are validated by fitting.
+The Gaussian allocation estimate covers preparation arrays only, including dense covariance and identification working arrays on the observed-row route. The selected discrete estimate includes random-design, conditional-curvature and factorization arrays and a planning multiplier. The sparse estimate permits fully populated source covariance factors and complete factor fill. None predicts peak memory or runtime, and none establishes large-panel qualification. Fewer than five observed groups triggers a descriptive note, not a rejection rule. Starting values and optimizer-specific controls are validated by fitting. Optional discrete observed-information calculations occur after fitting, never in preflight.
 
 Passing preflight does not establish statistical identification, reliable estimation, numerical acceptance, or Laplace-approximation adequacy. Supported scales remain conditional on a numerically accepted fit: observed Gaussian scores, or explicitly requested latent binary/ordinal responses. Latent coefficients describe averages of latent responses, not majority-vote decisions or observed label proportions. No scalar nominal coefficient is implemented.
 }
@@ -257,10 +277,15 @@ report <- gt_preflight(d, "score", design)
 print(report)
 report$sources
 
-# Missing whole cells block Gaussian fitting and analytic reliability.
+# Missing whole cells block the default Gaussian route and ordinary reliability.
 incomplete <- gt_preflight(d[-1, ], "score", design)
 incomplete$checks[!incomplete$checks$passed, ]
 incomplete$panel_audit$missing_cells
 plot(incomplete)
 plot(report, type = "sources", max_sources = 5L)
+if (requireNamespace("lme4", quietly = TRUE)) {
+  observed <- gt_preflight(d[-1, ], "score", design,
+    control = gt_control(gaussian = list(engine = "lme4", panel = "observed")))
+  observed$checks
+}
 }

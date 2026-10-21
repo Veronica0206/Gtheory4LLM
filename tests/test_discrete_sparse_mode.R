@@ -291,8 +291,8 @@ for (case in cases) {
          paste(label, "still matches the dense marginal value"))
 }
 
-# --- Categorical is refused, not approximated ---------------------------------
-categorical <- list(key = "categorical_refusal",
+# --- Categorical retains full multinomial curvature ---------------------------
+categorical <- list(key = "categorical_full_curvature",
   data = local({
     set.seed(91)
     d <- expand.grid(item = seq_len(8), rater = seq_len(3))
@@ -307,16 +307,15 @@ categorical <- list(key = "categorical_refusal",
                 term_members = list(item = "item", rater = "rater")),
   covariance = "diagonal", offset = 0.1, scale = 1, control = list())
 at <- solve_both(categorical)
-said <- outcome(.gt_d_sparse_mode(at$parameters, at$prep, at$sparse_backend, at$control))
-expect(!identical(said, "accepted"), "the sparse mode solver refuses a categorical response")
-expect(grepl("categorical", said) && grepl("dense", said),
-       paste0("the categorical refusal names the dense backend; it said: ", said))
-# The dense solver takes exactly the case the refusal points at, so the
-# refusal describes a real alternative rather than an unimplemented one.
+sparse_categorical <- .gt_d_sparse_mode(at$parameters, at$prep, at$sparse_backend,
+                                        at$control, details = TRUE)
 dense_categorical <- .gt_d_dense_mode(at$parameters, at$prep, at$dense_backend,
                                       at$control, details = TRUE)
-expect(isTRUE(dense_categorical$valid),
-       "the dense backend does solve the categorical case the refusal names")
+expect(isTRUE(dense_categorical$valid) && isTRUE(sparse_categorical$valid),
+       "both backends solve the full categorical likelihood")
+expect(abs(dense_categorical$nll - sparse_categorical$nll) <= AGAINST_DENSE &&
+       max(abs(dense_categorical$mode - sparse_categorical$mode)) <= AGAINST_DENSE,
+       "the nominal conditional mode and marginal likelihood agree with dense")
 
 # --- Malformed input ----------------------------------------------------------
 at <- solve_both(cases[[1L]])
@@ -443,8 +442,8 @@ for (spec in list(list(tolerance = stopping_gradient / 100, converged = FALSE,
 # Each rule is required of the dense solver first. If the dense solver stops
 # containing one, this fails and says the pin is stale, rather than silently
 # becoming a check that nothing has to satisfy.
-dense_body <- paste(deparse(body(.gt_d_dense_mode)), collapse = " ")
-sparse_body <- paste(deparse(body(.gt_d_sparse_mode)), collapse = " ")
+dense_body <- gsub("[[:space:]]+", " ", paste(deparse(body(.gt_d_dense_mode)), collapse = " "))
+sparse_body <- gsub("[[:space:]]+", " ", paste(deparse(body(.gt_d_sparse_mode)), collapse = " "))
 for (construct in c("seq_len(30L)", "1e-04", "multiplier * descent", "multiplier <- 1",
                     "multiplier/2", "inner_tol * 10", "1e+100", "1e-12",
                     "sum(u^2)/2", "sum(candidate^2)/2")) {

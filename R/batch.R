@@ -203,6 +203,15 @@ print.gt_batch <- function(x, ...) {
   no <- function(reason) list(modelled = FALSE, reason = reason)
   if (!identical(as.integer(design$replicates), 1L))
     return(no("the design declares more than one row in a cell"))
+  # Fixed-layout call covariance requires each item under every coded condition
+  # exactly once. Gaussian preparation used to enforce this downstream; the
+  # categorical engine also admits incomplete panels, so check the call scope
+  # here before either engine or preflight can report it as modelled.
+  variables <- c(design$object, design$facets)
+  counts <- vapply(data[variables], function(x) length(unique(x)), integer(1))
+  if (as.double(nrow(data)) != prod(as.double(counts)) ||
+      anyDuplicated(.gt_tuple_key(data, variables)))
+    return(no("fixed call effects require a complete balanced panel with one row per cell"))
   conditions <- if (length(design$facets)) .gt_tuple_key(data, design$facets) else rep("1", nrow(data))
   if (is.null(batch$id)) {
     found <- .gt_batch_resolve(data, design)

@@ -3,7 +3,7 @@
 \alias{print.gt_fit}
 \alias{summary.gt_fit}
 \title{Fit Univariate or Joint Multivariate Generalizability Models}
-\description{Fits selected random-source covariance models using an exact balanced Gaussian likelihood or a dense first-order Laplace likelihood for discrete outcomes.}
+\description{Fits selected random-source covariance models using exact Gaussian likelihoods or dense and sparse first-order Laplace likelihoods for discrete outcomes.}
 \usage{
 gt_fit(data, outcomes, design = NULL, family = gt_family("gaussian"),
   estimator = NULL, covariance = "unstructured", residual = NULL,
@@ -28,9 +28,27 @@ gt_fit(data, outcomes, design = NULL, family = gt_family("gaussian"),
 \value{A \code{gt_fit} object whose class vector is \code{"gt_gaussian_fit"} or \code{"gt_discrete_fit"}, according to the engine, followed by \code{"gt_fit"}. It contains source covariance matrices, estimates, likelihood and parameter counts, the resolved design and observation families, modeled data, and numerical diagnostics. Gaussian objects retain prepared sufficient statistics and the fitted engine model (OpenMx or lme4), subject to the retention controls. The OpenMx path also records source-covariance uncertainty and a \code{component_standard_errors} table when its curvature checks permit them. The lme4 path returns estimated source covariance matrices but does not compute the sampling covariance of their estimates; source-variance standard errors and reliability-coefficient intervals are unavailable. Discrete objects include thresholds or category contrasts and conditional probabilities evaluated at the random-effect mode. \code{print()} returns the fit invisibly. \code{summary()} returns a \code{summary.gt_fit} list with estimates, a source-variance table carrying standard errors and a boundary flag where they are available, full covariance components, for a Gaussian fit the observed-score reliability at the fitted facet counts as a \code{gt_reliability} object in \code{reliability} where the fit allows one and otherwise the reason in \code{reliability_note}, and diagnostics. Its \link[=print.summary.gt_fit]{print method} displays a concise report of numerical acceptance, selected attempts, boundaries, and estimates.}
 \details{\strong{Formula interface.} \code{outcomes} may be a two-sided model formula, with the data frame given before or after it. \code{gt_fit(score ~ item * rater, data)} declares the outcome \code{score}, the object of measurement \code{item}, the facet \code{rater}, and the sources \code{item}, \code{rater} and \code{item:rater}. A joint fit of two outcomes is written \code{cbind(efficacy, safety) ~ item + rater}. Nothing in the formula is evaluated: it names columns and sources, and \code{fit$design$formula} records it. The resolved design is the object \code{gt_design(object, facets, random = ~ ...)} builds, so a formula fit and a design fit of the same sources are the same fit. Every fit, however declared, answers \code{formula()} and \code{update()}; see \code{\link{gt_fit_methods}}. The recorded \code{fit$call} names each argument, with the formula under \code{formula} and the data under \code{data} whichever order they were given in.
 
-\strong{Engines.} Gaussian outcomes are fitted by the exact balanced likelihood through OpenMx, or, with \code{gt_control(gaussian = list(engine = "lme4"))}, by lme4 as random intercepts for the same sources; the two are the same likelihood, and the lme4 fit is cross-checked against the exact deviance at its estimates. Discrete outcomes have one engine, the dense first-order Laplace likelihood; \code{\link{gt_laplace_check}} attempts a fixed-parameter numerical comparison with a refined marginal likelihood and reports diagnostic precision and usability; finite-sample accuracy is not guaranteed. \code{gt_diagnostics(fit)} records the engine, its optimizer and the approximation separately.
+\strong{Engines.} Gaussian outcomes use the exact balanced likelihood through
+OpenMx by default. Set \code{engine = "lme4"} in the Gaussian controls to fit
+the same sources as random intercepts through lme4. The criterion is
+cross-checked against the exact balanced deviance.
 
-The Gaussian backend requires a complete coded Cartesian panel with one observation per cell and at most 4096 factorial strata. A design that declares equal fixed batches with \code{\link{gt_batch}} adds one source, \code{Call}, shared by the items of a batch under one condition, and one factorial axis, because an item is then a batch-by-slot cell; see \code{\link{gt_batch}} for when a declaration is modelled. Implicit normalized Helmert contrasts avoid quadratic allocation along a large object axis. Gaussian ML profiles one fixed intercept per outcome; REML includes the unscaled-intercept constant D * log(N). Gaussian ML AIC counts covariance parameters and profiled means. Its generic BIC uses N response vectors; \code{ml_BIC_scalar_scores} explicitly provides the alternative N * D convention. \code{legacy_AIC} and \code{legacy_BIC} preserve the archive's variance-only parameter convention. For REML the fit's \code{AIC} and \code{BIC} elements are \code{NA}; \code{AIC()} and \code{BIC()} use the restricted likelihood with covariance parameters only, \code{BIC()} over N response vectors. The fit records the \code{AIC()} value, the \code{BIC()} value, and the alternative N * D scalar-score BIC under explicit names, in that order:
+Adding \code{panel = "observed"} to those controls opts into bounded univariate
+fitting on incomplete observed rows. This route is checked against an
+independent dense covariance likelihood; see \link{gaussian_observed}.
+
+The discrete controls default to \code{engine = "dense"}; use
+\code{engine = "sparse"} for sparse algebra. Both calculate the same first-order
+Laplace objective for binary, ordinal and nominal outcomes, separately or
+jointly, and use the same acceptance policy. Sparse algebra does not refine
+the likelihood approximation or certify large-panel performance.
+
+\code{\link{gt_laplace_check}} attempts a fixed-parameter numerical comparison
+with a refined marginal likelihood and reports diagnostic precision and
+usability; finite-sample accuracy is not guaranteed. The diagnostics record
+the engine, its optimizer and the approximation separately.
+
+The default Gaussian route requires a complete coded Cartesian panel with one observation per cell and at most 4096 factorial strata. A design that declares equal fixed batches with \code{\link{gt_batch}} adds one source, \code{Call}, shared by the items of a batch under one condition, and one factorial axis, because an item is then a batch-by-slot cell; see \code{\link{gt_batch}} for when a declaration is modelled. Implicit normalized Helmert contrasts avoid quadratic allocation along a large object axis. Gaussian ML profiles one fixed intercept per outcome; balanced REML includes the unscaled-intercept constant D * log(N). The observed-row option instead evaluates \eqn{\log|X'V^{-1}X|} on the retained rows, with an unscaled intercept, and refuses batch declarations. Gaussian ML AIC counts covariance parameters and profiled means. Its generic BIC uses N response vectors; \code{ml_BIC_scalar_scores} explicitly provides the alternative N * D convention. The exact balanced engine preserves the archive's variance-only parameter convention in \code{legacy_AIC} and \code{legacy_BIC}; these fields are unavailable on the lme4 route. For REML the fit's \code{AIC} and \code{BIC} elements are \code{NA}; \code{AIC()} and \code{BIC()} use the restricted likelihood with covariance parameters only, \code{BIC()} over N response vectors. The fit records the \code{AIC()} value, the \code{BIC()} value, and the alternative N * D scalar-score BIC under explicit names, in that order:
 \itemize{
 \item \code{reml_AIC_variance_parameters}
 \item \code{reml_BIC_response_vectors_variance_parameters}
@@ -39,12 +57,29 @@ The Gaussian backend requires a complete coded Cartesian panel with one observat
 
 Discrete models use binary links, ordinal thresholds, or unordered reference-category softmax contrasts. They do not estimate a free Gaussian observation residual. Probit latent residual variance is identified as 1; logit as pi^2 / 3. Unsupported observation-level sources, aliased free source kernels, missing categories, and resource-limit violations are rejected.
 
+Both discrete engines can append a \code{Call} source for an eligible fixed
+batch layout. Its grouping is the batch under the complete combination of
+instrumentation facets. The call source is included in random-dimension,
+covariance-parameter, memory and kernel-identification checks. This does not
+implement variable batch sizes, positional dependence or automatic reliability
+for a shared-call layout.
+
 Returned binary probabilities evaluate each tail directly, preserving small
 representable probabilities and the declared category order. These are
 conditional probabilities at the random-effect mode, not population-marginal
 probabilities.
 
 The OpenMx Gaussian engine also computes asymptotic Wald standard errors for source variance components. These use a numerical Hessian of the restricted or profile likelihood. These are large-sample quantities conditional on the declared model; they do not establish coverage in small designs and do not apply to a component resting on a variance boundary. \code{check_hessian = FALSE} disables them along with the other derivative diagnostics on that engine. The lme4 engine returns estimated source covariance matrices but does not compute their sampling covariance or source-variance standard errors.
+
+Discrete \code{check_hessian = TRUE} requests the full observed information
+of the Laplace negative log likelihood after acceptance. Nuisance intercepts
+and thresholds remain in the information matrix when covariance-parameter
+uncertainty is extracted. Step-size instability, unusable conditional modes,
+parameter bounds, covariance boundaries, or non-positive-definite information
+make Wald uncertainty unavailable with a recorded reason. When available,
+delta-method source-covariance errors and latent coefficient intervals are
+asymptotic and conditional on the Laplace approximation, with no finite-sample
+coverage claim. See \code{\link{gt_control}} for the defaults and limits.
 
 Numerical acceptance includes optimizer completion and independent stationarity, bound, and tighter-tolerance restart checks. First-order stationarity does not establish a global optimum. A numerically accepted Laplace fit still requires an assessment of approximation adequacy for the intended analysis. Reliability and decision studies reject fits that fail numerical acceptance.}
 \seealso{\code{\link{gt_design}}, \code{\link{gt_control}}, \code{\link{gt_diagnostics}}. The package installs a worked first discrete fit as \code{discrete-first.R}; the example below shows how to source it.}

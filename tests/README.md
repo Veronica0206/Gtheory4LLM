@@ -28,6 +28,10 @@ into subdirectories without silently removing them from the release gate.
 | `package-discrete-controls.R` | Discrete control surface and trial budgets |
 | `package-discrete-safety.R` | Discrete failure handling |
 | `package-discrete-backend.R` | Independent dense matrix, curvature and mode contracts |
+| `package-development.R` | Development API dispatch, fixed-zero information, categorical targets/planning, fixed call covariance and observed-row Gaussian projection |
+| `package-discrete-information.R` | Estimated interior binary/ordinal covariance and full nuisance-parameter information, with latent coefficient SEs checked against `clmm`; uses the shipped fixture in `tests/fixtures/` |
+| `package-sparse-estimated.R` | Estimated nominal and call covariance, positive and boundary components, dense likelihood parity and an independent `glmer` call reference |
+| `package-categorical-target-numerics.R` | Nonzero analytic binary-probit target and Monte Carlo precision oracles, shared-facet decision variation and nominal relabeling invariance |
 | `package-dense-memory-guard.R` | The dense working-memory guard |
 | `package-binary-probabilities.R` | Binary tail probabilities |
 | `package-stationarity-validity.R` | Rejection of invalid stationarity probes |
@@ -72,6 +76,9 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_sparse_hessian.R` | Sparse Hessian assembly reproduces the dense matrix and frozen targets |
 | `test_discrete_sparse_factor.R` | Sparse factor solves and log determinants match the frozen targets |
 | `test_discrete_sparse_mode.R` | Sparse conditional mode reproduces the dense solve and the frozen targets |
+| `test_discrete_sparse_warm_start.R` | A failed cold sparse solve is retried once from the fit's last valid mode; valid cold results are unchanged |
+| `test_discrete_sparse_roundoff.R` | Narrow/wider function-window conditions, independent quadratic derivatives, score-bound refusals and dense mode agreement |
+| `test_discrete_full_panel_roundoff.R` | Five fixed-parameter conditional solves from refused synthetic full-panel fits, checked with independent ordinal-probit arithmetic; no full-fit or scale qualification claim |
 | `test_discrete_sparse_validity.R` | Sparse solve-validity invariants: the dense rule on sparse storage, both refusal reasons, end-to-end containment, backend identity |
 | `test_specimen_replay.R` | `scripts/replay_specimen.R` reads specimens back and judges the stored factor and a fresh one separately, on both storage forms |
 | `test_discrete_fitted_smoke.R` | Frozen fitted smoke cases reproduce their dense class contract |
@@ -107,7 +114,7 @@ Installed-package tests need the package installed; do not mistake a globally
 installed older version for the source under review. The full source gate is
 `python3 scripts/run_validation.py --scope source`.
 
-The planning suites describe computation under source version 0.6.0.
+The current planning suites describe computation under development version 1.0.0.9000.
 Their small simulation runs exercise software contracts; they do not recommend
 a pilot size or establish confidence-interval coverage. Run the full source gate
 against the current source archive separately from the unchanged published

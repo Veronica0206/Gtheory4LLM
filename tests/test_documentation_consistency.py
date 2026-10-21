@@ -16,7 +16,7 @@ MAN = ROOT / "man"
 TOPIC_ALIASES = {
     "Gtheory4LLM-package", "Gtheory4LLM", "Gtheory4LLM-datasets", "gtheory_datasets",
     "gtheory_hate_speech", "gtheory_mental_health", "gtheory_drug_review",
-    "gt_fit_methods",
+    "gt_fit_methods", "gaussian_observed",
 }
 
 

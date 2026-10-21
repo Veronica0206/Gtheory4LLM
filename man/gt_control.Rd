@@ -27,7 +27,9 @@ None of these components is used to compute an estimate, a diagnostic decision, 
 
 \strong{Gaussian controls} and their defaults are:
 \itemize{
-\item \code{engine}: \code{"openmx"}, the exact balanced likelihood optimized through OpenMx. \code{"lme4"} fits the same random sources as random intercepts with \code{lme4::lmer()}, one outcome at a time, with the call source when a batch is modelled. An lme4 fit is accepted only when lme4's optimizer completes without any lme4 convergence warning; when the package's own stationarity check on lme4's deviance function passes, which computes lme4's Cholesky-scaled gradient statistic over the interior parameters against lme4's tolerance and requires that no parameter resting on its zero bound has a one-sided derivative pointing inward (a source variance of zero is a legitimate boundary estimate, so lme4's singular-fit message is suppressed and the boundary is judged by that derivative instead); when a restart from a different point itself completes without a convergence warning and reproduces objective and parameters; and when the exact balanced deviance evaluated at the estimates agrees with lme4's criterion, which verifies that both engines fitted the same model and objective. A verdict the statistic cannot support is a refusal, never an acceptance. It computes no standard errors, so coefficient intervals are unavailable, and the exact engine's settings \code{optimizer}, \code{max_iterations}, \code{tolerance}, \code{check_hessian}, \code{threads}, \code{extra_tries} and \code{start} are refused with it. lme4 is a suggested package.
+\item \code{engine}: \code{"openmx"}, the exact balanced likelihood optimized through OpenMx. \code{"lme4"} fits the same random sources as random intercepts with \code{lme4::lmer()}, one outcome at a time, with the call source when a balanced batch is modelled. An lme4 fit is accepted only when lme4's optimizer completes without any lme4 convergence warning; when the package's own stationarity check on lme4's deviance function passes, which computes lme4's Cholesky-scaled gradient statistic over the interior parameters against lme4's tolerance and requires that no parameter resting on its zero bound has a one-sided derivative pointing inward (a source variance of zero is a legitimate boundary estimate, so lme4's singular-fit message is suppressed and the boundary is judged by that derivative instead); when a restart from a different point reproduces objective and parameters; and when an independently calculated Gaussian deviance agrees with lme4's criterion. The reference is the factorial-contrast likelihood for \code{panel = "complete"} and the dense observed-row likelihood for \code{panel = "observed"}. This agreement verifies the model and objective, rather than establishing optimality. A verdict the statistic cannot support is a refusal, never an acceptance. It computes no standard errors, so coefficient intervals are unavailable, and the exact engine's settings \code{optimizer}, \code{max_iterations}, \code{tolerance}, \code{check_hessian}, \code{threads}, \code{extra_tries} and \code{start} are refused with it. lme4 is a suggested package.
+\item \code{panel}: \code{"complete"}. The explicit \code{"observed"} option requires \code{engine = "lme4"} and fits a univariate Gaussian outcome to observed rows when whole cells are absent. It does not fill cells or remove missing outcome values, and refuses within-cell replication, joint outcomes and batch declarations. Source and residual covariance kernels must remain linearly independent after removing the intercept. See \link{gaussian_observed} for the assumptions and distinction between fitting an incomplete panel and projecting to an intended balanced allocation.
+\item \code{max_observed_rows}: 1000, used only with \code{panel = "observed"}. This explicit bound limits the dense independent likelihood check. Raising it does not qualify larger designs statistically; the memory guard also applies.
 \item \code{optimizer}: CSOLNP.
 \item \code{max_iterations}: 3000.
 \item \code{tolerance}: 1e-12.
@@ -39,7 +41,13 @@ None of these components is used to compute an estimate, a diagnostic decision, 
 \item \code{start}: NULL (automatic moment-based covariance starts).
 \item \code{max_preparation_bytes}: 512 * 1024^2.
 }
-The allocation guard estimates preparation memory, excluding caller data and downstream OpenMx objects. An explicit retry seed preserves the caller's random-number state.
+The allocation guard estimates preparation memory. It excludes caller data
+and downstream engine objects. For observed-row panels, it includes dense
+covariance kernels, working matrices and the identification calculation after
+removing the intercept.
+
+An explicit retry seed preserves the caller's random-number state.
+
 Gaussian \code{start} accepts a complete named list of covariance matrices for
 all model sources, including \code{Residual}. Fully named matrix axes are matched
 independently to the outcome names; both unnamed axes use outcome order.
@@ -51,11 +59,18 @@ fix their fitted values.
 
 Discrete resource limits are:
 \itemize{
+\item \code{engine}: \code{"dense"}; \code{"sparse"} selects sparse random-design, conditional-curvature and factorization calculations for binary, ordinal and nominal outcomes, separately or jointly. Both calculate the same first-order Laplace objective and apply the same final numerical-acceptance requirements; their conditional-mode search paths can differ. This switch does not establish full-panel feasibility or approximation accuracy.
 \item \code{max_random_dimension}: 200.
 \item \code{max_observations}: 1200.
 \item \code{max_parameters}: 80.
 \item \code{max_dense_bytes}: 512 * 1024^2.
+\item \code{max_sparse_bytes}: 512 * 1024^2.
 }
+Only the selected engine's byte limit is applied. Observation, random-dimension
+and parameter limits apply to both engines. The sparse estimate allows fully
+populated source covariance factors and complete fill of the conditional
+Hessian and its factor. It remains a conservative planning estimate, excluding
+caller data and optimizer state, rather than a measurement or speed guarantee.
 Discrete optimizer controls are:
 \itemize{
 \item \code{maxit}: 150.
@@ -155,7 +170,7 @@ retains the attempt records instead. Invalid input still fails before fitting.
 Warnings captured during numerical attempts are retained in these diagnostics;
 user interrupts are not swallowed.
 
-\code{max_dense_bytes} bounds the dense algebra that the other discrete limits
+For \code{engine = "dense"}, \code{max_dense_bytes} bounds the dense algebra that the other discrete limits
 imply, and is checked before anything is allocated. The estimate covers the
 random-design matrix, the conditional Hessian and its factor, the slices of the
 design matrix that forming that Hessian materializes, the linear predictor and
@@ -167,7 +182,26 @@ message naming the observation count, the random dimension, and the size of the
 random-design matrix, rather than to certify that a permitted model is
 comfortable. \code{gt_preflight()} reports the same estimate and its breakdown
 under \code{$resources}. Raising this limit makes neither the dense algebra
-practical nor the approximation accurate.
+practical nor the approximation accurate. For \code{engine = "sparse"},
+\code{max_sparse_bytes} applies instead, with the sparse estimate just described.
+
+Optional discrete information controls are:
+\itemize{
+\item \code{check_hessian}: \code{FALSE}; \code{TRUE} requests observed information after numerical acceptance.
+\item \code{hessian_step}: \code{1e-3}, the finite-difference step multiplier in optimizer coordinates, scaled by \code{max(1, abs(parameter))}.
+\item \code{hessian_tolerance}: \code{0.05}, the maximum normalized disagreement between Hessians computed at the requested step and half that step.
+}
+The Hessian is for the full Laplace negative log likelihood, including nuisance
+intercepts and threshold coordinates together with covariance parameters.
+Source-covariance sampling uncertainty is obtained from the inverse of this
+full information matrix through the covariance-parameter Jacobian; nuisance
+parameters are not held fixed. Unusable conditional modes, parameter-bound
+contact, a source covariance near its boundary, unstable finite differences,
+or non-positive-definite information make Wald uncertainty unavailable.
+The reason is retained without changing an otherwise accepted point estimate.
+These are asymptotic intervals conditional on the first-order Laplace
+approximation. They do not establish approximation accuracy or finite-sample
+coverage; a dedicated simulation study is needed for those questions.
 
 Optimizer completion, numerical acceptance, and approximation adequacy are separate. Tighter numerical tolerances do not establish the adequacy of a first-order Laplace approximation.}
 \seealso{\code{\link{gt_diagnostics}}, \code{\link{gt_fit}}}

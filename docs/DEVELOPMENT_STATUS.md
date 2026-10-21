@@ -5,158 +5,33 @@ Version history is in [NEWS](../NEWS.md); implementation boundaries are in
 evidence and time-dependent statements. Current 0.6.0 identity and gates are
 recorded here and in [the detailed qualification record](#detailed-060-qualification-record).
 
-## 0.6.1 corrections
+## 1.0.0.9000 local development
 
-Source version 0.6.1 carries four corrections to the 0.6.0 interface release
-found in an independent review: the lme4 restart must itself complete without
-a convergence warning, `gt_laplace_check()` reads retained responses as the
-engine's encoding, alternative-start discrete solutions keep their parameter
-names, and the Laplace check refuses a comparison whose workspace estimate
-exceeds the dense budget. No engine, tolerance or estimate changes; the 0.6.0
-qualification records below apply to the 0.6.0 archive and are not rerun here.
+The development checkout adds public dense/sparse categorical fitting, eligible
+equal fixed-call effects, optional full observed information, and a bounded
+univariate observed-row Gaussian route through lme4. It also adds shared
+categorical simulation, explicitly named observed-score, category-vector and
+decision-agreement targets, cost screening for those targets, and binary/ordinal
+pilot precision planning. A separate categorical point-estimator pilot route
+includes nominal outcomes and eligible fixed calls, with all-attempt
+availability and conditional error summaries. The formula interface is retained. The help pages
+define each target, its guards and its unsupported combinations.
 
-## 0.6.0 current qualification checkpoint
+Focused synthetic reference tests and refusal tests accompany the new routes;
+they do not qualify a full native panel, establish Laplace accuracy or calibrate
+interval coverage. Default categorical row, dimension and parameter caps remain
+unchanged. The incomplete Gaussian route is univariate and projects to an
+explicit intended balanced allocation; it does not infer reliability of the
+observed irregular allocation. Nominal category-vector targets are supported,
+but an analytic nominal G/Phi or arbitrary numeric-score ratio is not.
 
-Qualification checkpoint: 2026-10-20 21:00 America/New_York
-(2026-10-21 01:00 UTC). Pending items describe that checkpoint; subsequent
-publication needs separate tag and delivery evidence. [PR #75](https://github.com/Veronica0206/Gtheory4LLM/pull/75)
-was integrated by protected fast-forward at
-`352468d11ee7d09d7b0fba3e97cdf167dd6a75e7`; no protection setting was relaxed.
-The prepared bundle adopts the integrated source's checked archive unchanged:
-`Gtheory4LLM_0.6.0.tar.gz`, 570,725 bytes, SHA-256
-`d9a592b7b40b73dab9b6d051b4abbe2eff5cf54b1a22d15c58c7ec1d46aef5bd`.
-The [manifest](../artifacts/manifest.json) is the bundle identity; its state
-alone does not establish delivered assets or CRAN submission.
+This is continued local development, not a 1.0 publication or final-archive
+qualification. Qualification gaps are listed under current priorities below.
+The historical checkpoints that follow retain their original source, archive,
+platform and run identities; their passing results do not apply to this
+development checkout.
 
-- [Ordinary R-devel](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861542):
-  selected archive, `--as-cran`, **0 errors, 0 warnings, 0 notes**, PDF manual
-  checked, all **33 packaged tests** passed. The same archive's noLD check
-  also reported **0 errors, 0 warnings, 0 notes**, with the PDF manual and
-  all 33 tests; its separate installed-test loop passed **33/33**. Reference
-  BLAS/LAPACK probes passed **80/80 at each** of setup, loaded dependencies,
-  and final stages. The independent evidence audit confirmed identical source,
-  size, and hash records and fingerprinted 368 retained files.
-- [Main full validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861801):
-  **32/32 stages**. [Main compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861768):
-  **20/20 stages each** on Windows, macOS, and minimum-R Ubuntu.
-- Local locked validation: **32/32 stages**, including selected-archive
-  installation/smoke. Its separately rebuilt source check reported **0 errors,
-  0 warnings, 0 notes**. Local remote incoming and external-clock checks were
-  disabled; hosted ordinary R-devel supplies remote incoming evidence. The
-  separate 66-page manual passed its overfull gate and visual review.
-
-Pending at this checkpoint: qualify and integrate bundle/publication metadata;
-finish sequential manuscript reproduction from the
-selected bytes and PDF review; verify immutable GitHub delivery. CRAN submission
-is a separate maintainer action and is not established by these records. The
-previous PR's synthetic-merge archive and earlier manuscript archives remain
-historical evidence, not substitutes for the selected archive's checks.
-
-Companion analyses use the qualified 0.6.0 archive. Future sparse
-categorical estimation, uncertainty, incomplete panels, observed/decision/vector
-targets, categorical calls, and planning require a separate development line,
-explicit statistical contracts, and qualification before each release. No new
-capability or 1.0.0 commitment is asserted here.
-
-## Detailed 0.6.0 qualification record
-
-Qualification checkpoint: 2026-10-20 21:00 America/New_York
-(2026-10-21 01:00 UTC). The selected bundle was prepared at this checkpoint.
-Pending items below describe that time; later publication requires separate
-tag, manifest, and delivery evidence. This document does not establish CRAN
-submission. The integrated source is
-`352468d11ee7d09d7b0fba3e97cdf167dd6a75e7`, preserved through the protected
-fast-forward of [PR #75](https://github.com/Veronica0206/Gtheory4LLM/pull/75).
-Branch protection was not relaxed.
-
-### Scope
-
-The Model Interface release adds formula-based fitting and preflight with an
-explicit object of measurement, consistent fit classes and model methods,
-an independently checked lme4 Gaussian engine, and `gt_laplace_check()` for
-fixed-parameter approximation comparisons. Its refinements add the defensive importance mixture and improve
-source/boundary diagnostic mapping, documentation, and runnable examples. The public workflow leads with the formula where
-the design grammar supports it; explicit design declarations remain available.
-See [NEWS](../NEWS.md) and [limitations](LIMITATIONS.md).
-
-Public sparse categorical fitting, categorical intervals, new categorical
-observed-score, decision and vector targets, incomplete-panel inference,
-categorical call effects, and expanded planning are future work. This release does not claim those capabilities or
-eliminate platform-sensitive numerical acceptance decisions. Companion analyses use the qualified 0.6.0 archive; later development requires
-separate qualification.
-
-### Selected bundle
-
-The archive was built with R 4.6.1 and adopted unchanged from the integrated
-source's checked candidate. Publication metadata must not rebuild it.
-
-| File | Bytes | SHA-256 |
-|---|---:|---|
-| `Gtheory4LLM_0.6.0.tar.gz` | 570,725 | `d9a592b7b40b73dab9b6d051b4abbe2eff5cf54b1a22d15c58c7ec1d46aef5bd` |
-| `Gtheory4LLM-manual.pdf` | 351,150 | `43d10fb565787bd1e985f11db341e554681b3b0e3a7eac417e4bfa18b0dc2cb9` |
-
-The separately built reference manual has 66 pages; its overfull-box gate and
-visual review passed. The [manifest](../artifacts/manifest.json) records the
-selected source, artifact identities, preparation/publication state, and
-checked-candidate provenance. The ordinary check report's SHA-256 is
-`7eebb80746c0daaec681cd4207c5d1fb81801f1c059d508f2b7f8b08da0846d2`.
-
-### Completed qualification
-
-- [Integrated-source candidate run](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861542):
-  ordinary Linux R-devel 4.7.0 (2026-10-18 r90707), `R CMD check --as-cran`,
-  **0 errors, 0 warnings, 0 notes** for the selected archive, including the
-  PDF manual and all **33 packaged tests**.
-- The same candidate run's Linux x86-64 noLD job, R-devel (2026-10-03 r90638)
-  on AMD EPYC 7763 with long-double support verified absent, checked the
-  **same archive bytes** using `R CMD check --no-stop-on-test-error`:
-  **0 errors, 0 warnings, 0 notes**, PDF manual and all **33 packaged tests**.
-  The separate installed-test loop passed **33/33**. Reference BLAS/LAPACK
-  probes at setup, after loading numerical dependencies, and after all tests
-  each completed **80 native solves with 0 invalid**. An independent audit
-  matched the ordinary/noLD source, size and hash records and fingerprinted
-  all **368 downloaded evidence files**. Native probes were audited from
-  retained records; the evidence audit did not rerun numerical operations.
-- [Integrated-source full validation](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861801):
-  **32/32 stages**, locked scope `all`, including independent OpenMx, lme4 and
-  ordinal comparisons and a staged-bundle artifact check.
-- [Integrated-source compatibility](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39521861768):
-  **20/20 stages on each** of Windows/R release, macOS/R release, and
-  Ubuntu 22.04/R 4.5.0. These source checks are not checks of one identical
-  archive across those platforms.
-- Local macOS arm64, R 4.5.3: full locked validation against the selected
-  staged manifest passed **32/32 stages**, including source checks, the manual
-  gate, and a fresh-library install/smoke of the selected archive. Its source
-  package check rebuilt a local archive and reported **0 errors, 0 warnings,
-  0 notes** under `--no-manual --as-cran`; the manual was checked separately.
-  Local remote incoming lookups (`_R_CHECK_CRAN_INCOMING_REMOTE_=false`) and
-  external system-clock checks (`_R_CHECK_SYSTEM_CLOCK_=false`) were disabled.
-  Hosted ordinary R-devel supplies the selected archive's remote incoming
-  check evidence. No external-clock verification is claimed.
-
-The earlier [PR candidate run](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/39511869200)
-qualified synthetic merge `9f7ff6239bfd7a2f7958869ce97f50cf2dcb6a92`, including
-noLD and 33/33 installed tests. Its 570,728-byte archive, SHA-256
-`5aa05e122d467657908595a78fd277ad33f1d31b85bbcd20dc9bf673dfc11ae3`, is
-historical PR evidence, not the selected release archive. Canceled duplicate
-push checks were rerun successfully before the protected fast-forward.
-
-### Gates still pending at this checkpoint
-
-1. Integrate the reviewed bundle/publication metadata through its own required
-   checks; verify the new tag and published manifest without moving the tag.
-2. Complete sequential macOS/Linux manuscript reproduction from this selected
-   archive, then review and synchronize the PDFs and records. Previous
-   manuscript runs remain separately identified historical evidence.
-3. Verify the complete draft's archive, manual and manifest bytes, publish, and
-   verify immutable delivery and release attestations.
-
-CRAN upload, maintainer confirmation, CRAN review, and CRAN acceptance are
-separate from these steps. No 0.6.0 CRAN submission or current reverse-dependency
-survey is established here. Historical release assets, tags, and records remain
-unchanged; later results must identify their own exact commit and bytes.
-
-## 0.6.0 interface and estimation scope
+## 0.6.0 Model Interface release preparation
 
 Source version 0.6.0 gives the interface the conventions of other R model
 objects, integrated through PR #73 and PR #74 on 2026-10-17 and 2026-10-18.
@@ -534,31 +409,31 @@ commit also do not establish that a later development checkout has passed.
 
 ### Current development priorities
 
-The development interface now adds bounded panel-audit examples,
-outcome-information profiles, tabular coefficient exports, supplied-grid target
-screening and base-R figures. Portable offline HTML reports collect model
-context, diagnostics and results while excluding observations and group labels. The installed synthetic workflow demonstrates them; the
-[visualization guide](VISUALIZATION.md) describes their scope. A separate
-[40-fit binary/ordinal pilot](../validation-studies/discrete-030-usability-pilot/README.md)
-records unstable rare-outcome recovery despite high numerical acceptance.
-These additions do not make the private sparse implementation public or
-complete the full native-panel qualification benchmark.
+Before a 1.0 release, the development capabilities need qualification beyond
+their bounded implementation tests:
 
-- Keep release/version prose and installation instructions consistent with the
-  published release and development checkout.
-- Maintain release-tag protection and update pinned Actions to supported
-  runtimes through a separate maintenance change.
-- Finish qualifying the private sparse discrete backend for 0.5.0 against
-  the release gates in [the roadmap](ROADMAP.md); 0.2.0 ships it only as a
-  private prototype. On the development line since 0.2.0 (see the top of
-  [NEWS.md](../NEWS.md)): the sparse solver enforces the dense validity
-  invariants, failed evaluations are recorded with their own evidence and can
-  be captured as specimens, calibration case K05 is corrected before any
-  calibration run, and the retained 2,400-row scale-risk specimen is
-  characterised as inner-budget non-convergence rather than a validity
-  defect. Still open, in order: the equivalence measurement layer,
-  calibration, the qualification runner, public backend selection with a
-  shared resource contract, and the full native-panel benchmark.
+- Measure dense/sparse equivalence and solver acceptance across binary,
+  ordinal, nominal, joint and call-effect designs, including boundary cases.
+  Qualify inner solves and the complete acceptance cost at scale before
+  claiming support for the full native panels. Historical accepted and refused
+  scale specimens remain evidence for their original runs, not a current pass.
+- Assess Laplace approximation error separately from numerical convergence,
+  and calibrate parameter recovery and optional information-based intervals
+  using the shared simulator. The existing
+  [40-fit binary/ordinal pilot](../validation-studies/discrete-030-usability-pilot/README.md)
+  preserves unstable rare-outcome recovery despite high numerical acceptance.
+- Check incomplete Gaussian recovery under declared missingness scenarios and
+  distinguish an intended balanced projection from reliability of an irregular
+  observed panel. Joint incomplete Gaussian fitting remains future work.
+- Qualify categorical targets and planning under varied category frequencies,
+  dependence and low-discrimination scenarios; assess Monte Carlo precision
+  separately from parameter uncertainty. Keep pilot refitting at a declared,
+  feasible scale. Their point-estimator pilot route is implemented; nominal
+  and call-effect pilot interval planning is not implemented.
+- Finish source and installed-package checks, documentation/examples, and
+  sequential macOS/Linux checks from one final archive. Preserve all historical
+  evidence and the separate release/publication gates. A development source
+  version is not evidence of publication, CI success or CRAN acceptance.
 
 ### Scientific scope
 
@@ -566,8 +441,13 @@ The package remains a research beta. Its statistical pilots are reproducible
 but small; they do not establish broad recovery or coverage guarantees. Their
 scope and limits are recorded in [validation scope](VALIDATION_SCOPE.md).
 
-The current implementation uses balanced coded panels and a dense small-model
-discrete engine. It does not implement discrete uncertainty, unbalanced-panel coefficients,
-joint Gaussian-discrete fitting, or scalar nominal reliability. The complete
-boundaries are in [limitations](LIMITATIONS.md). Repository governance and
-passing package checks do not expand that statistical scope.
+The current development implementation offers exact balanced Gaussian models,
+bounded univariate observed-row Gaussian likelihoods, and dense/sparse
+first-order Laplace models. Optional discrete intervals are conditional on
+accepted, stable interior information and retain the Laplace qualification.
+Observed-score, category-vector and decision targets are explicit simulation
+estimands with model parameters held fixed. Joint Gaussian-discrete fitting,
+joint incomplete Gaussian fitting, reliability of an irregular observed
+allocation, scalar nominal score ratios and variable-call models remain
+unsupported. The complete boundaries are in [limitations](LIMITATIONS.md).
+Repository governance and passing package checks do not expand that scope.

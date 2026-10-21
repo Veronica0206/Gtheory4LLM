@@ -158,7 +158,7 @@ without <- gt_fit(panel, "y", design,
 expect_error(gt_component_vcov(without), "Hessian diagnostics were disabled",
              "component covariance on a fit without Hessian diagnostics")
 
-# --- Discrete fits have no observed information ------------------------------
+# --- Discrete information is opt-in ------------------------------------------
 set.seed(4)
 discrete_panel <- expand.grid(rater = factor(1:6), item = factor(1:16))
 latent <- rnorm(16, sd = .8)[discrete_panel$item] + rnorm(6, sd = .4)[discrete_panel$rater]
@@ -205,8 +205,8 @@ for (fit in list(binary, ordinal)) {
          "a discrete log likelihood is labelled as a Laplace approximation")
   expect(isFALSE(attr(value, "REML")), "a discrete fit is not restricted")
   expect(identical(nobs(fit), nrow(discrete_panel)), "a discrete fit counts its rows")
-  expect_error(gt_component_vcov(fit), "no observed information",
-               "component covariance on a discrete fit")
+  expect_error(gt_component_vcov(fit), "not requested",
+               "component covariance on a discrete fit without requested information")
   expect_error(vcov(fit), "covariance of coef\\(\\) is not available",
                "vcov on a discrete fit")
 }

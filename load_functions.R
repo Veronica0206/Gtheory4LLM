@@ -4,13 +4,15 @@
 if (!length(.gt_loader_files)) stop("Load these functions with source('path/to/load_functions.R').")
 .gt_loader_root <- dirname(normalizePath(tail(.gt_loader_files, 1L)[[1L]], mustWork = TRUE))
 .gt_example_data_dir <- file.path(.gt_loader_root, "inst", "extdata")
-for (.gt_loader_name in c("design.R", "batch.R", "family.R", "gaussian_retry.R", "gaussian_engine.R", "gaussian.R",
-                          "gaussian_lme4.R",
+for (.gt_loader_name in c("design.R", "batch.R", "family.R", "gaussian_retry.R", "gaussian_engine.R",
+                          "gaussian_observed.R", "gaussian.R", "gaussian_lme4.R",
                           "discrete_response.R", "discrete_dense.R", "discrete_sparse.R",
-                          "discrete_mode.R", "discrete_sparse_mode.R", "discrete.R", "discrete_check.R",
+                          "discrete_mode.R", "discrete_sparse_mode.R", "discrete.R",
+                          "discrete_check.R", "discrete_information.R",
                           "preflight.R",
                           "diagnostics_stages.R", "fit.R", "methods.R",
                           "reliability.R", "batch_reliability.R", "planning.R", "simulation.R",
+                          "discrete_simulation.R", "categorical_targets.R",
                           "visualization.R", "report.R", "examples.R")) {
   .gt_loader_path <- file.path(.gt_loader_root, "R", .gt_loader_name)
   if (!file.exists(.gt_loader_path)) stop("Missing standalone implementation file: ", .gt_loader_name)

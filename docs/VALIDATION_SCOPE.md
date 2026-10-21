@@ -1,6 +1,22 @@
 # Validation scope
 
-This document separates implemented checks from the scientific validation still needed. It is about *evidence*: what has been checked, how, and what that does not establish. The catalogue of what the software does not do is [limitations](LIMITATIONS.md), and is not repeated here. It describes source version 0.6.0, including the study-planning functions. The published 0.4.1 archive is unchanged. Historical pilot results retain their recorded source versions and do not validate every subsequent addition. This is not a new test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
+This document separates implemented checks from the scientific validation still needed. The catalogue of unsupported combinations is [limitations](LIMITATIONS.md). Source version 1.0.0.9000 is unreleased development. Historical pilot results retain their recorded source versions and do not validate subsequent additions. This is not a test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
+
+## Development additions and their checks
+
+| Area | Independent or refusal checks | What they do not establish |
+|---|---|---|
+| Sparse categorical likelihood and calls | [Dense/sparse and independent glmer comparisons](../tests/test_discrete_sparse_joint_calls.R), [public selection and resource guards](../tests/test_discrete_sparse_public.R), [conditional-mode rounding and strict refusal](../tests/test_discrete_sparse_roundoff.R), [warm-start retry of failed cold solves](../tests/test_discrete_sparse_warm_start.R) | Full native-panel qualification, global optimality or approximation accuracy |
+| Observed-row Gaussian likelihood | [Direct covariance inverse/determinant and lme4 comparisons](../tests/test_gaussian_observed.R), [balanced projection algebra](../tests/test_gaussian_projection.R) | Joint incomplete fitting, nonignorable missingness correction or reliability of the irregular observed panel |
+| Discrete information | [Full nuisance-information and Jacobian checks](../tests/test_discrete_information.R), [independent clmm information and coefficient derivatives](../tests/test_discrete_information_reference.R), [public uncertainty contracts](../tests/test_information_public.R) | Repeated-sampling coverage or correction for Laplace approximation error |
+| Categorical targets and cost planning | [Analytic probit moments, whole-panel MC error and nominal relabeling](../tests/test_categorical_targets.R), [cost and candidate accounting](../tests/test_categorical_planning.R) | Predictive accuracy, decision discrimination, parameter confidence intervals or automatic integration precision |
+| Categorical simulation and pilots | [Shared effects, labels, RNG and calls](../tests/test_discrete_simulation.R), [latent pilot accounting](../tests/test_discrete_pilot.R), [independent point-target reference and all-attempt ledger](../tests/test_categorical_pilot_targets.R) | Broad recovery/coverage calibration, a guaranteed pilot size or qualification of full-panel refitting |
+
+New source and installed tests must pass on the actual proposed archive. Their
+presence here is not a passing-run claim. Scale studies, interval coverage and
+platform checks are separate qualification gates; historical successes cannot
+be transferred by version number. The catalogue below describes the checks
+already present before these additions and retains its original evidence scope.
 
 ## What the existing checks establish
 

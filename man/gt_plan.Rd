@@ -15,15 +15,17 @@ gt_plan(fit, candidates, cost, currency, cost_date, study_items, target,
         screening = c("point", "lower"), baseline = 1L,
         constraints = NULL, scale = NULL, score = NULL,
         fixed = character(), level = 0.95, max_candidates = 10000L,
-        cost_description = NULL)
+        cost_description = NULL, integration = list())
 
 \method{as.data.frame}{gt_plan}(x, row.names = NULL, optional = FALSE, ...)
 
 \method{print}{gt_plan}(x, ..., digits = 4L, max_rows = 12L)
 }
 \arguments{
-\item{fit}{An accepted \code{gt_fit} supporting analytic balanced reliability.
-Fits with a modelled \code{Call} component are refused by this planner.}
+\item{fit}{An accepted \code{gt_fit} supporting analytic balanced reliability,
+or a categorical fit supporting \code{\link{gt_categorical_target}} for an
+explicit observed or decision target. Modelled categorical calls retain their
+fitted item count and layout; analytic planning still refuses call effects.}
 \item{candidates}{A nonempty numeric data frame of instrumentation facet counts,
 or a named list of count vectors expanded to their full Cartesian product.
 Omitted facets retain their fitted counts. Counts must be positive integers
@@ -53,15 +55,25 @@ must already use that same currency. No exchange conversion is performed.}
 integer held constant across candidates. It multiplies annotations and costs;
 it does not change reliability coefficients or estimate pilot-study precision.}
 \item{target}{A number from zero to one for the selected coefficient.}
-\item{coefficient}{\code{"Erho2"} for relative comparisons or \code{"Phi"} for
-absolute decisions.}
+\item{coefficient}{The coefficient or repeated-panel target to screen:
+\itemize{
+\item \code{"Erho2"}: relative comparisons.
+\item \code{"Phi"}: absolute decisions.
+\item \code{"observed_score"}: categorical score target.
+\item \code{"category_vector"}: category-proportion target.
+\item \code{"decision_agreement"}: plurality-decision agreement.
+}
+The last three use \code{\link{gt_categorical_target}}. Its corresponding
+target names are \code{"score"}, \code{"category_vector"} and
+\code{"decision"}, respectively.}
 \item{outcome}{The outcome to screen. Required when multiple outcomes are
 reported.}
 \item{kind}{\code{"outcome"} or \code{"composite"}; a composite requires
-\code{score}.}
+\code{score}. Categorical target planning permits only \code{"outcome"}.}
 \item{screening}{\code{"point"} screens the projected point estimate.
 \code{"lower"} separately screens its available lower confidence bound at
-\code{level}. Missing bounds remain unavailable and do not pass the screen.}
+\code{level}. Missing bounds remain unavailable and do not pass the screen.
+Categorical observed and decision targets permit point screening only.}
 \item{baseline}{The one-based candidate row identifying the comparison protocol;
 default is row 1. Its complete allocation and cost are retained. The baseline
 can be infeasible: it remains a comparison, not a recommendation.}
@@ -78,6 +90,19 @@ retain its observed count; it is never selected or changed by the optimizer.}
 expansion; default 10,000. The caller defines the search bounds.}
 \item{cost_description}{Optional explanatory text recording the source and units
 of the cost model. Supply additional assumptions through the cost record.}
+\item{integration}{For categorical target planning only, a uniquely named list
+with an explicitly supplied \code{seed}; optional \code{n_items} (default 200),
+\code{replications} (default 40 independent panel pairs, range 2--10,000),
+\code{max_rows} (default 100,000 per panel, maximum 1,000,000), and \code{scores}.
+For a modelled call layout, \code{n_items} defaults to and must equal the fitted
+item count, as must \code{study_items}. Category scores follow
+\code{\link{gt_categorical_target}} and must be explicit for ordinal outcomes.
+Use \code{scale = "observed"} for score/vector targets or
+\code{scale = "decision"} for decision agreement. Composite \code{score}
+objects and fixed facets are not supported on this route. Every candidate
+facet count must be at least one. All candidates together are limited to
+ten million generated rows, counting both panels in every replication;
+this guard is checked before simulation begins.}
 \item{x}{A \code{gt_plan} object.}
 \item{row.names, optional}{Standard data-frame conversion arguments.}
 \item{...}{Reserved for S3 compatibility.}
@@ -116,20 +141,41 @@ cannot qualify even if the point estimate exceeds the target.
 the parent reliability calculation's model and any conditional boundary
 qualification. They are pointwise estimates of uncertainty, not simultaneous
 coverage guarantees after searching many designs and not future-panel prediction
-bounds. Discrete Laplace fits currently provide latent point coefficients only,
-so lower-bound screening retains their explicit unavailable-uncertainty reason.
+bounds. Discrete latent intervals require an available observed-information
+calculation; unavailable intervals keep their reason. For categorical observed
+and decision targets, \code{mc_se} measures numerical integration error at
+fixed fitted parameters. It is never substituted for parameter uncertainty,
+a lower confidence bound, or uncertainty after selecting a design.
 
-\strong{Batching boundary.} Fits with a modelled \code{Call} effect are explicitly
-refused until this planner supports layout-specific reliability. Request batching
-can enter a cost callback for a fit without a call effect, but doing so does not
-account for shared-call dependence. No source is dropped or silently reinterpreted.
+\strong{Batching boundary.} Analytic planning refuses modelled \code{Call}
+effects. Categorical target planning simulates the fitted equal fixed layout,
+retaining the item-to-batch membership and fitted item count while allowing
+new exchangeable facet levels. It does not optimize batch size, item grouping,
+or ordering effects. Request batching in a cost callback does not itself
+introduce shared-call dependence into a fit without a call source.
+
+\strong{Categorical targets.} The selected outcome and category scoring remain
+fixed across candidates; all dimensions of a joint fit are still simulated.
+The planner uses the same explicit seed for each candidate, which preserves
+duplicate allocations exactly. This does not supply paired-comparison
+inference between candidates. Minimum-cost and Pareto results rank Monte Carlo
+point estimates, so small changes can reflect integration error. Increase
+integration precision when that affects a decision. Decision agreement is
+repeatability of the declared vote rule, not discrimination or correctness;
+its decision-diversity diagnostic is retained beside agreement.
+Before integration starts, a 512 MiB estimated working-storage guard accounts
+for all retained candidate moment matrices plus the largest active integration
+workspace. The moments remain available in \code{target_projections}; the
+estimate is recorded as \code{integration_resource_budget} in \code{provenance}.
 
 \strong{Marginal explanations.} Changes are candidate minus baseline for cost
 and coefficients, and baseline minus candidate for relative/absolute error
 variance. Negative reductions therefore identify increased error. Per-source
 reductions add to their corresponding total error reductions. These are
 conditional projections, not causal effects, empirical accuracy, or a promise
-that future estimates will attain the target.
+that future estimates will attain the target. Categorical target planning
+reports \code{target_gain} relative to the baseline, without a Gaussian
+source-error decomposition or invented \eqn{G}/\eqn{\Phi} columns.
 }
 \value{
 A \code{gt_plan} list. \code{results} (also \code{as.data.frame(x)}) retains all
@@ -149,9 +195,17 @@ text. It also records the search scope, target, score, facet universe, interval
 qualifications, original fitted counts and selected baseline.
 \code{fit_diagnostics} retains the fitted numerical diagnostics.
 No request is executed and no provider price is queried.
+
+On the categorical route, \code{results} retains the target estimate,
+\code{mc_se}, availability and reason, raw ratio and target-specific moments
+or decision diversity. \code{target_projections} retains each underlying
+target object or its failure record; \code{source_contributions} is empty.
+Integration settings, aggregate simulation work, and the uncertainty
+interpretation are retained in \code{provenance}. Missing candidate targets
+remain in the table and cannot qualify for minimum cost or Pareto status.
 }
 \seealso{\code{\link{gt_reliability}}, \code{\link{gt_dstudy}},
-\code{\link{gt_dstudy_target}}}
+\code{\link{gt_dstudy_target}}, \code{\link{gt_categorical_target}}}
 \examples{
 # Small synthetic Gaussian example; no data or prices are downloaded.
 d <- expand.grid(item = 1:12, evaluator = 1:3)

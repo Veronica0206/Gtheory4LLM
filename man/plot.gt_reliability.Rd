@@ -34,9 +34,12 @@ On narrow devices, long labels are shortened with an ellipsis and a bracketed
 row number referring to \code{as.data.frame(x)}. Full outcome names remain in
 that table. Margins are restored after plotting.
 
-Discrete fits have point estimates only. Their latent-response coefficients
-do not describe observed label proportions or majority votes. Gaussian interval
-and boundary qualifications are described in \code{\link{gt_reliability}}.
+Discrete fits have intervals only when optional full observed information was
+requested and passed its acceptance, interior, step-stability and curvature
+checks. These asymptotic intervals are conditional on first-order Laplace;
+finite-sample coverage is not established. Latent-response coefficients do not
+describe observed label proportions or majority votes. Interval and boundary
+qualifications are described in \code{\link{gt_reliability}}.
 The plotting method uses base graphics; PDF and PNG devices can save the
 same figure without additional plotting dependencies.}
 \seealso{\code{\link{gt_reliability}}, \code{\link{gt_dstudy}},

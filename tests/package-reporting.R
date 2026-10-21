@@ -158,7 +158,7 @@ latent_table <- as.data.frame(latent)
 expect(all(latent_table$scale == "latent") && !any(latent_table$uncertainty_available) &&
          all(is.na(latent_table$Erho2_lower)) &&
          !any(latent_table$Erho2_interval_available) &&
-         all(grepl("point estimates only", latent_table$uncertainty_reason)),
+         all(grepl("not requested", latent_table$uncertainty_reason)),
        "latent exports keep missing intervals and an explicit reason")
 expect(nrow(gt_dstudy_target(latent, .8)) == 2L,
        "a single-outcome study infers its unambiguous outcome")

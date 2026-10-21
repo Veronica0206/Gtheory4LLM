@@ -34,12 +34,18 @@ print.gt_score <- function(x, ...) {
        cell_replication = panel$cell_replication)
 }
 
-.gt_reliability_context <- function(fit, scale) {
+.gt_reliability_context <- function(fit, scale, projection = NULL) {
   if (!inherits(fit, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
   if (!.gt_fit_usable(fit))
     stop("Reliability and D studies require a numerically converged fit. Inspect gt_diagnostics(fit) and resolve the fitting failure first.", call. = FALSE)
   types <- vapply(fit$families, `[[`, character(1), "family")
   gaussian <- all(types == "gaussian")
+  projected <- !is.null(projection)
+  if (projected && (!identical(projection, "balanced") || !gaussian ||
+      length(fit$outcomes) != 1L || !identical(fit$design$panel_type, "observed") ||
+      !isTRUE(fit$projection$required) ||
+      !identical(fit$projection$target, "intended_complete_balanced")))
+    stop("projection = 'balanced' requires a univariate observed-panel Gaussian fit.", call. = FALSE)
   if (is.null(scale)) {
     if (!gaussian) stop("For binary/ordinal fits, explicitly request scale='latent'; observed-score coefficients need a separate integration method.", call. = FALSE)
     scale <- "observed"
@@ -54,7 +60,7 @@ print.gt_score <- function(x, ...) {
   # summary recorded at fitting time and apply exactly the same two rules.
   dimensions <- c(fit$design$object, fit$design$facets)
   panel <- .gt_reliability_panel(fit, dimensions)
-  if (panel$rows != prod(panel$counts) * fit$design$replicates)
+  if (!projected && panel$rows != prod(panel$counts) * fit$design$replicates)
     stop("Analytic coefficients currently require a complete balanced coded panel; unbalanced allocations need separate D-study integration.", call. = FALSE)
   if (any(panel$cell_replication != fit$design$replicates))
     stop("Analytic coefficients require the declared equal within-cell replication.", call. = FALSE)
@@ -82,19 +88,17 @@ print.gt_score <- function(x, ...) {
     stop("Source covariance dimensions do not match the outcome dimensions.", call. = FALSE)
   list(components = components, counts = counts[fit$design$facets], scale = scale,
        gaussian = gaussian, replicates = fit$design$replicates,
+       projection = if (projected) fit$projection else NULL,
        uncertainty = .gt_coefficient_uncertainty_source(fit, gaussian))
 }
 
-# Only a fitted Gaussian source covariance carries a usable curvature-based
-# covariance matrix. A latent discrete scale additionally holds its residual
-# variance fixed by the link, which is not an estimated quantity at all.
+# A latent discrete scale holds its residual variance fixed by the link. Its
+# optional full-information covariance maps estimated sources only.
 .gt_coefficient_uncertainty_source <- function(fit, gaussian) {
   unavailable <- function(reason) list(available = FALSE, reason = reason,
     entries = NULL, entry_covariance = NULL, method = NA_character_,
     boundary_components = character(), restricted_to_interior = FALSE,
     fixed_components = character(), fixed_component_kinds = character())
-  if (!gaussian)
-    return(unavailable("Standard errors are not implemented for the discrete Laplace engine; its coefficients are point estimates only."))
   record <- fit$uncertainty
   if (!is.list(record) || !isTRUE(record$available))
     return(unavailable(if (is.list(record) && length(record$reason) && !is.na(record$reason))
@@ -310,14 +314,17 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
 
 # Evaluate balanced allocations using the analytic coefficient definitions
 gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character(),
-                      level = 0.95) {
+                      level = 0.95, projection = NULL) {
   .gt_check_level(level)
-  context <- .gt_reliability_context(fit, scale)
+  context <- .gt_reliability_context(fit, scale, projection)
   if (!is.data.frame(grid) || !nrow(grid) || !ncol(grid) || anyDuplicated(names(grid)) ||
       any(!names(grid) %in% names(context$counts)) ||
       !all(vapply(grid, is.numeric, logical(1))))
     stop("grid must be a nonempty numeric data frame of declared instrumentation facet counts.", call. = FALSE)
   values <- as.matrix(grid)
+  if (!is.null(projection) && (!setequal(names(grid), names(context$counts)) || length(fixed)))
+    stop("A balanced projection from an observed panel must supply every facet in grid and keep all facets random.",
+         call. = FALSE)
   if (any(!is.finite(values)) || any(values < 1 | values != floor(values)))
     stop("D-study counts must be positive finite integers.", call. = FALSE)
   allocation <- as.data.frame(as.list(context$counts), check.names = FALSE)[rep(1L, nrow(grid)), , drop = FALSE]
@@ -341,6 +348,7 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
   structure(list(allocations = allocation, results = results,
                  scale = context$scale, score = score, level = level,
                  fixed_facets = fixed, uncertainty = context$uncertainty,
+                 projection = context$projection,
                  measurements_per_object = apply(allocation, 1L, prod) * context$replicates,
                  extrapolated = apply(allocation, 1L, function(x) any(x > context$counts)),
                  batch = .gt_batch_status(fit$design),
@@ -393,6 +401,9 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
   # A column, not only an attribute: a CSV keeps the one and drops the other.
   batch <- .gt_batch_status_of(x)
   results$batch_status <- rep(batch$status, nrow(results))
+  results$projection_target <- if (is.null(x$projection)) NA_character_ else x$projection$target
+  results$projection_assumptions <- if (is.null(x$projection)) NA_character_ else
+    paste(x$projection$assumptions, collapse = "; ")
   rownames(results) <- row.names
   attr(results, "allocation_columns") <- stats::setNames(names(allocations), allocation_columns)
   attr(results, "fixed_facets") <- x$fixed_facets

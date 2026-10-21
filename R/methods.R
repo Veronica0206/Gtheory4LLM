@@ -7,7 +7,7 @@
 # These exist so that a fit behaves like other R model objects where that is
 # honest, and refuses where the package has no implemented extractor. Gaussian
 # source-covariance uncertainty is distinct from uncertainty in outcome means;
-# the discrete engine computes no observed information for either.
+# optional discrete information includes nuisance parameters on optimizer scales.
 
 .gt_require_fit <- function(object) {
   if (!inherits(object, "gt_fit")) stop("Expected a gt_fit object.", call. = FALSE)
@@ -161,7 +161,8 @@ coef.gt_fit <- function(object, ...) {
 # type = "components" gives the delta-method covariance of the unique source
 # covariance entries, labelled source[row,column]; this is what a coefficient
 # interval is built from. type = "parameters" gives the underlying free
-# optimizer-parameter covariance, 2 H^-1 on the -2 log likelihood scale.
+# optimizer-parameter covariance: 2 H^-1 for Gaussian -2 log likelihood,
+# H^-1 for the discrete negative log likelihood, including nuisance parameters.
 gt_component_vcov <- function(fit, type = c("components", "parameters"), ...) {
   .gt_require_fit(fit)
   type <- match.arg(type)
@@ -175,9 +176,22 @@ gt_component_vcov <- function(fit, type = c("components", "parameters"), ...) {
   value <- if (type == "components") record$entry_covariance else record$parameter_covariance
   if (!is.matrix(value))
     stop("This fit does not carry a ", type, " covariance matrix.", call. = FALSE)
+  if (type == "components" && is.null(dimnames(value))) {
+    entries <- record$entries
+    if (!is.data.frame(entries) || !all(c("component", "row", "column") %in% names(entries)) ||
+        nrow(entries) != nrow(value) || nrow(value) != ncol(value))
+      stop("The source-covariance uncertainty record has no matching entry labels.", call. = FALSE)
+    labels <- paste0(entries$component, "[", entries$row, ",", entries$column, "]")
+    dimnames(value) <- list(labels, labels)
+  }
   attr(value, "scope") <- if (type == "components")
-    "Unique source covariance entries." else "Free optimizer parameters."
+    "Unique source covariance entries." else if (.gt_is_gaussian(fit)) "Free optimizer parameters." else
+      "Free optimizer parameters, including nuisance intercept and threshold coordinates."
   attr(value, "method") <- record$method
+  if (!.gt_is_gaussian(fit)) {
+    attr(value, "approximation") <- record$approximation
+    attr(value, "hessian_scale") <- record$hessian_scale
+  }
   # Every fixed component is named; the zero subset is named separately so the
   # older attribute keeps meaning exactly what it says.
   kinds <- record$fixed_component_kinds
@@ -191,7 +205,8 @@ gt_component_vcov <- function(fit, type = c("components", "parameters"), ...) {
 #
 # Profiling Gaussian means does not prevent their uncertainty from being
 # estimated, but this package does not implement that extractor, including for
-# the lme4 engine. The discrete engine computes no observed information. Rather than return a
+# the lme4 engine. Optional discrete information is on optimizer coordinates,
+# not the natural threshold/contrast scale returned by coef(). Rather than return a
 # different matrix under a name that promises this one, this says so and points
 # at the function that does have a covariance matrix to give. Defining the
 # method at all is deliberate: without it, vcov() would reach vcov.default and
@@ -203,8 +218,8 @@ vcov.gt_fit <- function(object, ...) {
     if (.gt_is_gaussian(object))
     paste("This package computes source-covariance uncertainty where available,",
           "but has no implemented covariance extractor for the profiled outcome means.") else
-    paste("The dense first-order Laplace engine computes no observed information,",
-          "so its location parameters are point estimates only.")
+    paste("Optional discrete information is on optimizer coordinates;",
+          "a covariance extractor matching coef() on its location and threshold scales is not implemented.")
   stop("The sampling covariance of coef() is not available for a gt_fit: ", detail,
        " For the covariance of the estimated source covariances, which is what",
        " gt_reliability() propagates, use gt_component_vcov(fit).", call. = FALSE)

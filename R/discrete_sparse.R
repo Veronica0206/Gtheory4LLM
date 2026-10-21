@@ -1,11 +1,8 @@
-# Private sparse random-design construction.
+# Sparse design, conditional Hessian, and factor operations.
 #
-# This file adds a representation, not a backend. It builds the same random
-# coordinate system the dense implementation builds, in sparse storage, and
-# nothing else: no Hessian assembly, no factorization, no conditional-mode
-# solve, no optimizer involvement, no backend selection, and no public API.
-# Those are separate steps, and keeping them separate is what makes a moved
-# reference value attributable to coordinate construction alone.
+# These helpers implement the dense reference coordinate system in sparse
+# storage. Conditional modes live in discrete_sparse_mode.R; outer estimation,
+# public selection, and numerical acceptance remain in discrete.R.
 #
 # The coordinate convention is the dense one and must stay that way, because
 # the frozen fixed-parameter reference is expressed in it. Rows hold every
@@ -15,6 +12,26 @@
 # sum(nlevels) * q, including for sources whose covariance factor is entirely
 # zero: such a source keeps its columns and contributes no stored entries.
 # Dropping those columns would renumber every coordinate after them.
+
+# Conservative allocation planning before any sparse design is constructed.
+# W includes every possible covariance-factor entry. The Hessian and factor
+# allowance assumes complete fill: a sparse W does not guarantee a sparse
+# Cholesky factor. These are major-array estimates, not measured peak memory.
+.gt_d_sparse_bytes <- function(n, q, random_dimension, sources, multiplier = 2) {
+  n <- as.double(n)
+  q <- as.double(q)
+  dimension <- as.double(random_dimension)
+  entries <- n * q^2 * sources
+  design <- 3 * 16 * entries + 4 * (dimension + 1)
+  hessian <- 2 * 12 * dimension^2
+  predictors <- 4 * 8 * n * q
+  list(total = multiplier * (design + hessian + predictors),
+       random_design = design, conditional_hessian = hessian,
+       predictors = predictors, multiplier = multiplier,
+       scope = paste("Conservative major-array estimate with fully populated source factors",
+         "and complete Hessian/factor fill. Excludes caller data and optimizer state;",
+         "neither observed memory use nor an accuracy or speed guarantee."))
+}
 
 .gt_d_sparse_validate <- function(groups, factors, n, q) {
   dimensions <- c(n, q)
@@ -103,12 +120,9 @@
 # at a fixed parameter vector. No factorization, no mode solve, no fitting.
 #
 # Binary and ordinal blocks supply per-observation diagonal curvature and are
-# what this assembles. Categorical blocks carry full multinomial curvature
-# including off-diagonal terms, and are refused here rather than approximated
-# or quietly handled: the supported sparse envelope for 0.2 is binary and
-# ordinal, and an explicit refusal is the only way that stays true as this
-# file grows. The loop structure generalizes, so adding categorical later is a
-# change to this function rather than a change to its callers.
+# assembled here. Each nominal block contributes diag(p) - p p' for its K-1
+# contrasts at each observation. Off-diagonal terms are essential even when
+# random-source covariance is diagonal: they belong to the likelihood.
 .gt_d_sparse_hessian <- function(curvature, W, n) {
   if (!is.list(curvature) || !length(curvature))
     .gt_d_stop("Sparse Hessian assembly needs at least one response curvature block.")
@@ -119,30 +133,36 @@
   n <- as.integer(n)
   H <- Matrix::Diagonal(ncol(W))
   for (curv in curvature) {
-    if (is.null(curv$diagonal))
-      .gt_d_stop("The sparse backend supports binary and ordinal curvature only; ",
-                 "categorical blocks carry off-diagonal multinomial curvature and remain ",
-                 "on the dense backend until they are separately qualified.")
     # Checked before as.integer() rather than after. A fractional dimension
     # would be truncated to a neighbouring one, and a negative dimension builds
     # negative row indices, which R reads as exclusion: the assembly then
     # succeeds against a different part of the design and returns a plausible
     # wrong answer rather than failing.
-    if (!is.numeric(curv$dims) || length(curv$dims) != 1L || !is.finite(curv$dims) ||
-        curv$dims < 1 || curv$dims != floor(curv$dims))
-      .gt_d_stop("A diagonal curvature block must name one latent dimension.")
-    if (!is.numeric(curv$diagonal) || length(curv$diagonal) != n ||
-        any(!is.finite(curv$diagonal)))
-      .gt_d_stop("A diagonal curvature block must give one finite value per observation.")
-    dimension <- as.integer(curv$dims)
-    row <- (dimension - 1L) * n + seq_len(n)
-    if (max(row) > nrow(W))
+    if (!is.numeric(curv$dims) || !length(curv$dims) || any(!is.finite(curv$dims)) ||
+        any(curv$dims < 1 | curv$dims != floor(curv$dims)) || anyDuplicated(curv$dims))
+      .gt_d_stop("A curvature block must name distinct positive integer latent dimensions.")
+    dimensions <- as.integer(curv$dims)
+    if (max(dimensions) * n > nrow(W))
       .gt_d_stop("A curvature block names a latent dimension outside the random design.")
-    A <- W[row, , drop = FALSE]
-    # pmax(0, .) matches the dense clamp. Negative curvature would make the
-    # conditional problem non-convex, and the dense implementation already
-    # refuses to propagate it; the sparse path must not differ on that.
-    H <- H + Matrix::crossprod(A, A * pmax(0, curv$diagonal))
+    if (!is.null(curv$diagonal)) {
+      if (length(dimensions) != 1L || !is.numeric(curv$diagonal) ||
+          length(curv$diagonal) != n || any(!is.finite(curv$diagonal)))
+        .gt_d_stop("A diagonal curvature block must give one finite value per observation and one dimension.")
+      A <- W[(dimensions - 1L) * n + seq_len(n), , drop = FALSE]
+      H <- H + Matrix::crossprod(A, A * pmax(0, curv$diagonal))
+    } else {
+      probability <- curv$probability
+      if (!is.matrix(probability) || !is.numeric(probability) ||
+          !identical(dim(probability), c(n, length(dimensions))) ||
+          any(!is.finite(probability)) || any(probability < 0 | probability > 1) ||
+          any(rowSums(probability) > 1 + 16 * .Machine$double.eps))
+        .gt_d_stop("Nominal curvature needs finite contrast probabilities with row sums at most one.")
+      slices <- lapply(dimensions, function(d) W[(d - 1L) * n + seq_len(n), , drop = FALSE])
+      for (a in seq_along(dimensions)) for (b in seq_along(dimensions)) {
+        weight <- as.integer(a == b) * probability[, a] - probability[, a] * probability[, b]
+        H <- H + Matrix::crossprod(slices[[a]], slices[[b]] * weight)
+      }
+    }
   }
   # Symmetrized the same way rather than assumed symmetric: the accumulation is
   # symmetric in exact arithmetic and only nearly so in floating point, and the

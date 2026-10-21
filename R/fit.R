@@ -49,8 +49,9 @@ gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian")
     if (!identical(estimator, "ML_Laplace"))
       stop("Discrete fitting currently uses ML_Laplace; Gaussian REML does not apply.", call. = FALSE)
     if (!is.null(residual)) stop("Do not specify a Gaussian residual covariance for discrete outcomes.", call. = FALSE)
+    call <- if (is.null(design$batch)) NULL else .gt_batch_model(data, design)
     result <- .gt_fit_discrete(resolved$data, outcomes, design, families,
-                               covariance = covariance, control = control$discrete)
+                               covariance = covariance, control = control$discrete, call = call)
     if (isFALSE(result$converged))
       warning("Discrete fit did not converge under numerical acceptance checks. Inspect gt_diagnostics(fit); coefficients and D studies are unavailable until the fit is numerically accepted.", call. = FALSE)
   }
@@ -71,12 +72,6 @@ gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian")
   result$family <- families
   result$outcomes <- outcomes
   if (is.null(result$design)) result$design <- design
-  # The Gaussian engine records what it did with a declared batch. No other
-  # engine models one, and that is recorded for this fit whatever state the
-  # design arrived with.
-  if (!is.null(design$batch) && !all(kinds == "gaussian"))
-    result$design$batch_model <- list(modelled = FALSE,
-      reason = "the call effect is estimated for Gaussian outcomes only")
   result$estimator <- estimator
   result$data <- resolved$data
   result$call <- .gt_recorded_call(match.call(), arguments)

@@ -145,6 +145,10 @@
     # counted separately by fits that record them and omitted otherwise.
     if (!is.null(evaluations$validity_events))
       measurements$validity_events <- .gt_stage_number(evaluations$validity_events)
+    # Sparse evaluations whose failed cold solve was rescued by a retry from
+    # the last valid mode; recorded by fits that count them, omitted otherwise.
+    if (!is.null(evaluations$warm_rescued))
+      measurements$warm_rescued_evaluations <- .gt_stage_number(evaluations$warm_rescued)
   }
   if (is.null(converged))
     return(.gt_stage("not_assessed", "No conditional mode was recorded for this fit.",

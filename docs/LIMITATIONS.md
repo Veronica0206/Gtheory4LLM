@@ -16,37 +16,50 @@ scientifically sufficient. Those are separate questions with separate evidence.
 
 ## Designs and data
 
-- **Balanced coded panel required.** Gaussian fitting, `gt_reliability()` and
-  `gt_dstudy()` all require a complete Cartesian panel of the coded object and
-  facet levels, with exactly the declared number of observations per full cell.
-  Missing cells are never dropped, filled or aggregated.
+- **Default balanced coded panel.** The default Gaussian route and ordinary
+  analytic coefficients require a complete Cartesian panel of the coded object
+  and facet levels, with exactly the declared observations per full cell.
+  Missing cells are never filled or aggregated to satisfy that requirement.
+  An explicit univariate observed-row Gaussian route and an intended balanced
+  D-study projection have the separate scope described below.
 - **Nested facets are parent-scoped codes, not globally unique labels.** A
   nested child is declared through a within-parent code so the coded panel stays
   complete; see `help("gt_design")` for the worked contrast between the two
   labelings. Physical nesting with disjoint globally unique child labels is
-  outside this preparation backend.
-- **Unbalanced designs are not supported for inference.** The Gaussian
-  likelihood requires a complete balanced panel. The discrete Laplace
-  likelihood fits a panel with missing whole cells at the declared replication,
-  but reliability and D studies require a complete balanced panel in either
-  case; there is no unbalanced reliability or D-study formula. Relabeling or
-  padding data to satisfy the balance guard changes the study, not the
-  software.
+  outside the balanced preparation backend. The observed-row Gaussian route
+  forms kernels from the supplied grouping terms without inferring physical
+  nesting or relabeling the data.
+- **Incomplete panels have bounded support.** Explicit
+  `gt_control(gaussian = list(engine = "lme4", panel = "observed"))` fits
+  univariate Gaussian panels with missing whole cells, one row per observed
+  cell and no batch declaration. It checks covariance-kernel identification and
+  an independent observed-row ML/REML likelihood. Missingness must be ignorable
+  for that specified model; joint incomplete Gaussian inference is unsupported.
+  The discrete likelihood also permits missing whole cells with declared equal
+  replication. Neither route defines analytic reliability of the irregular
+  observed allocation. The Gaussian route can explicitly project to an intended
+  complete balanced allocation; categorical simulation targets can generate a
+  complete future allocation. No original outcomes are imputed.
 - **Within-cell replication** is declared through `replicates`, but the Gaussian
   backend currently fits one observation per full cell only.
 - **Design size.** The exact Gaussian backend allows at most 12 factorial axes
   (the object plus 11 facets), which is 4096 strata.
-- **Batches.** A batch declared with `gt_batch()` is modelled only by a
-  Gaussian fit of equal fixed batches: the same batches in every condition,
+- **Batches.** Eligible Gaussian and dense/sparse categorical fits model
+  equal fixed batches: the same batches in every condition,
   each at the declared size, one row in a cell. That fit estimates one shared
   call effect, the source `Call`. The ordinary coefficient API refuses this
-  model. `gt_batch_reliability()` and `gt_batch_dstudy()` instead provide
+  model. For Gaussian fits, `gt_batch_reliability()` and `gt_batch_dstudy()` provide
   point projections for item-score, named contrast and aggregate targets
   conditional on its fixed layout. They do not provide estimation intervals,
   fixed-facet projections or effects of regrouping or changing batch size.
-  `sequential`, `neighbor` and `by` are recorded and not estimated; the new batch
-  projection functions refuse these additional unmodelled patterns. Every other declaration, including every binary, ordinal and
-  unordered outcome, is recorded and audited, not modelled: coefficients and
+  For categorical fits, `gt_categorical_target()` simulates repeated panels
+  under the fitted item grouping and size, with new call effects. Its target
+  and integration error differ from analytic G/Phi and parameter intervals.
+  The observed-row Gaussian route refuses batch declarations.
+  `sequential`, `neighbor` and `by` are recorded and not estimated; batch
+  projection and categorical simulation functions refuse these additional
+  unmodelled patterns. Unsupported batch layouts are recorded and audited,
+  not modelled: coefficients and
   their intervals then treat items annotated in one call as independent, and
   every output carries the status `declared_not_modelled`. A modelled call
   effect describes the batches as they were composed, at the batch size used;
@@ -62,6 +75,12 @@ scientifically sufficient. Those are separate questions with separate evidence.
 ## Gaussian models
 
 - Exact balanced ML/REML for univariate and jointly multivariate outcomes.
+- The lme4 route supplies no source-component covariance or coefficient
+  intervals. Its observed-row option defaults to at most 1,000 rows and a
+  512 MiB preparation budget for the independent dense likelihood. Structural
+  checks refuse duplicate cells, aliased covariance kernels, batches and
+  jointly multivariate outcomes; increasing a resource budget changes none of
+  these contracts.
 - Standard errors are asymptotic Wald quantities from the restricted (REML) or
   profile (ML) likelihood Hessian, with delta-method coefficient intervals on
   the logit scale. They describe estimation uncertainty under the fitted model
@@ -78,35 +97,50 @@ scientifically sufficient. Those are separate questions with separate evidence.
   the same fixed-effects structure and never an ML value. The fit's own `AIC`
   and `BIC` elements are `NA` for REML; the restricted-likelihood criteria are
   recorded under explicit names; see `help("gt_fit")`.
-- **No uncertainty for the location parameters.** Outcome means are profiled out
-  of the likelihood rather than fitted as free parameters, so `vcov()` has
-  nothing to return and says so. `gt_component_vcov()` gives the covariance that
-  does exist, of the estimated source covariances.
+- **No location-parameter covariance extractor.** Gaussian outcome means are
+  profiled out and their sampling covariance is not currently computed by
+  `vcov()`. `gt_component_vcov()` extracts the available covariance of source
+  components; it does not stand in for the different `coef()` estimand.
 - Numeric binary data fitted as Gaussian is an observed-score model, not a
   binary model.
 
 ## Discrete models
 
-- The discrete engine is a **dense, first-order Laplace prototype for small
-  models**. Defaults cap it at 1,200 rows, 200 random-effect dimensions and 80
-  parameters. Raising a limit does not make the approximation valid or the
-  dense algebra practical; the six native 21,600-row panels exceed these limits
-  by more than an order of magnitude.
+- The discrete engines use **the same first-order Laplace approximation** with
+  dense or sparse algebra. Dense is the default; select sparse with
+  `gt_control(discrete = list(engine = "sparse"))`. Both support univariate and
+  joint binary, ordinal and nominal outcomes, subject to the same numerical
+  acceptance rules. Defaults remain 1,200 rows, 200 random-effect dimensions
+  and 80 parameters, plus the selected engine's 512 MiB memory guard. Sparse
+  memory estimates conservatively allow full conditional-Hessian and Cholesky
+  fill. Raising limits does not qualify full-panel solver performance or
+  approximation accuracy; the native 21,600-row panels exceed the default caps.
 - `approximation_adequacy` stays `not_assessed_first_order_laplace` for any fit
   with random variation. Numerical acceptance is not integration accuracy.
   `gt_laplace_check()` compares the Laplace objective of one fitted model
   with a refined numerical estimate at the same parameters; it does not change
   this label, does not refit, and says nothing about bias in the estimates.
-- **No discrete uncertainty.** The engine computes no observed information.
-  Discrete coefficients are point estimates; standard errors, confidence
-  intervals, bootstrap and jackknife are not implemented. `NA` means unavailable,
-  never zero uncertainty.
+- **Discrete uncertainty is optional and conditional.** Request
+  `check_hessian = TRUE` in discrete controls to compute numerical observed
+  information over nuisance intercepts/thresholds and covariance parameters.
+  The full negative-log-likelihood Hessian is inverted before propagating
+  covariance uncertainty. Availability requires numerical acceptance, interior
+  estimated covariance components, positive definite information and agreement
+  between finite-difference steps. Boundaries, unstable curvature or failed
+  conditional modes leave uncertainty unavailable with a recorded reason.
+  Components supplied as fixed have no estimated uncertainty; intervals then
+  condition on those values. Available latent coefficient intervals inherit
+  first-order Laplace error and have unestablished finite-sample coverage.
+  The default does not compute information. Bootstrap and jackknife intervals
+  are not implemented; `NA` means unavailable, never zero uncertainty.
 - Binary and ordinal reliability is defined on an **averaged latent response**.
   It is not the reliability of observed proportions, majority votes, category
   agreement, or ordinal score averages, and must be requested explicitly with
   `scale = "latent"`.
-- **Unordered categorical outcomes have no implemented scalar G/Phi.** Category
-  contrasts are not separate measured outcomes.
+- **Unordered categorical outcomes have no implemented analytic scalar G/Phi
+  or numeric-score ratio.** Category contrasts are not separate measured
+  outcomes. The separate `category_vector` target uses category proportions
+  and is invariant to category relabeling; it is not a default scalar G/Phi.
 - At one observation per cell the object-by-all-facets source is not identified
   for a discrete outcome. It is never dropped silently; declare the reduced
   model with `full_cell = FALSE` or an explicit `random =` specification.
@@ -123,12 +157,20 @@ scientifically sufficient. Those are separate questions with separate evidence.
 
 - Joint Gaussian **and** discrete outcomes in one fit.
 - REML for discrete outcomes.
-- Observed-score reliability for discrete outcomes.
+- Joint incomplete Gaussian fitting and analytic reliability of an irregular
+  observed allocation.
+- Fixed-facet categorical simulation targets, arbitrary decision rules and
+  nominal numeric-score ratios. Binary/ordinal observed-score, category-vector
+  and plurality-decision targets instead require explicit assumptions; none is
+  inferred by requesting latent G/Phi.
 - Joint optimization of modelled shared-call dependence, request grouping and
-  monetary costs; the cost planner currently accepts ordinary reliability models
-  without a modelled `Call` source.
-- Sensitivity analysis for variance-component uncertainty in extrapolated
-  allocations: D studies hold the fitted source covariances fixed.
+  monetary costs. Categorical target cost planning may preserve the fitted
+  fixed-call layout, but does not optimize batch size or regrouping. Analytic
+  reliability cost planning still refuses modelled `Call` sources.
+- Automatic sensitivity analysis for changing source covariances as an
+  allocation changes. Analytic intervals can propagate available estimation
+  uncertainty; they do not model a different facet population or covariance
+  structure in the future protocol.
 
 ## Decision studies
 
@@ -137,7 +179,21 @@ scientifically sufficient. Those are separate questions with separate evidence.
   over.
 - Extrapolating beyond the fitted counts holds the fitted source covariances
   fixed and assumes the same facet populations remain appropriate. The result is
-  a point projection under those assumptions.
+  a projection under those assumptions; available analytic intervals describe
+  estimation uncertainty, not whether those extrapolation assumptions hold.
+- For an observed-row Gaussian fit, `gt_dstudy(projection = "balanced")`
+  requires every intended facet count and all facets random. This projects
+  coefficients for that complete future allocation, not the incomplete fitted
+  panel. The lme4 route supplies no coefficient intervals.
+- Categorical simulation targets pair future panels sharing only the object
+  main effects and redrawing instrument, interaction and eligible call effects.
+  The score and category-vector ratios are absolute repeated-panel targets;
+  they are not relative G coefficients. Ordinal score values must be specified.
+  Plurality decisions use independent uniform tie-breaking and report decision
+  diversity: a constant label has perfect agreement but no discrimination.
+  Targets and their Monte Carlo errors hold fitted parameters fixed. They are
+  not chance-corrected agreement, parameter confidence intervals or evidence of
+  annotation accuracy.
 
 ## Study planning and data retention
 
@@ -152,11 +208,30 @@ scientifically sufficient. Those are separate questions with separate evidence.
   They are not simultaneous bounds after searching many allocations or prediction
   guarantees for a future annotation panel. Unavailable intervals cannot pass
   the lower-bound screen. Boundary qualifications remain attached to results.
-- `gt_simulate()` and `gt_pilot_plan()` initially support balanced Gaussian
-  panels without a batch declaration, with one outcome vector per cell and all
-  instrumentation facets random. Pilot fitting requires at least two levels on
-  each axis. `target_counts` may specify a different final protocol, including a
-  facet count of one, held constant across pilot candidates.
+  Categorical observed and decision target planning permits point screening
+  only. Its Monte Carlo standard errors cannot be used as parameter confidence
+  bounds; integration precision is a separate planning requirement.
+- `gt_simulate()` supports balanced Gaussian panels without batches and
+  univariate or joint categorical panels, including eligible fixed-call layouts.
+  It preserves fitted families, thresholds and covariance structures. All
+  instrumentation facets are sampled afresh. Generated rows and estimated
+  workspace have explicit caps; simulation does not refit or assess coverage.
+- The interval-width route of `gt_pilot_plan()` supports Gaussian and binary/ordinal outcomes, including
+  joint outcomes, without a batch declaration. It refuses nominal and
+  call-effect pilot precision. Binary/ordinal precision uses latent coefficients
+  and requires optional usable information for intervals. Pilot fitting needs
+  at least two levels on each axis. `target_counts` can specify a different
+  final protocol, including a facet count of one, held constant across pilot
+  candidates. The total generated rows and attempted refits are bounded; these
+  are pilot-scale scenarios, not qualification of a full-panel refitting campaign.
+- Categorical point-target pilots also support nominal and eligible fixed-call
+  models. They compare available estimates with one independently integrated
+  scenario reference. Bias/RMSE condition on target availability and the
+  recorded reference; empirical variability includes inner integration noise.
+  Reference MC error is reported separately. They supply no parameter
+  intervals or coverage, and refuse an interval-width criterion. The target
+  protocol is fixed across pilots; fixed-call membership and object count
+  cannot change. Combined reference, pilot and inner simulation work is bounded.
 - Pilot precision summaries depend on a fitted or explicitly supplied parameter
   scenario. They do not account automatically for parameter uncertainty, prove
   interval coverage, provide bootstrap confidence intervals, or select a
@@ -169,8 +244,9 @@ scientifically sufficient. Those are separate questions with separate evidence.
   portable `gt_report()` and HTML output exclude the labels. An old fit without
   the recorded layout must be refitted for batch projections.
 
-These planning capabilities are included in source version 0.6.0. Their
-implementation and statistical limitations are described above. Source
+These additional capabilities are in local development source version
+1.0.0.9000. Their implementation and statistical limitations are described
+above; full-scale and interval-coverage qualification remain open. Source
 versioning does not establish final-archive qualification, GitHub publication
 or CRAN acceptance; see [development status](DEVELOPMENT_STATUS.md) for the
 corresponding evidence.

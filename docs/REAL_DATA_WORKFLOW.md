@@ -45,9 +45,10 @@ if (!is.null(result$decision_study)) {
 }
 ```
 
-A full native binary/ordinal fit-and-report tutorial remains dependent on
-the sparse backend's public selection and qualification gates. The current
-example does not dispatch to private sparse code or report a full-panel fit.
+A full native binary/ordinal fit-and-report tutorial still requires
+large-panel qualification. The development version provides public sparse
+selection through `gt_control(discrete = list(engine = "sparse"))`; this
+historically recorded example retains its dense request and size guards.
 
 Category proportions describe recorded annotation rows, which are repeated measurements on the same items. They are not accuracy estimates or independent-text prevalences. The modeling tables omit original reference labels and raw text. Their preprocessing retains the source study's defaults for omitted items in successfully parsed batches; a complete table does not prove that every API response contained a usable annotation.
 
@@ -97,7 +98,7 @@ All six panels pass the complete/balanced description, but all six fitting reque
 1. At one observation per full cell, the requested observation-level random source is unsupported by the discrete engine. Source resolution fails; reported dimensions then describe the **requested model**, not a fitted model. No source is removed by this tutorial.
 2. The full panels exceed the default 1,200-observation and 200-random-dimension limits. Joint requests also exceed the 80-parameter limit, and all six exceed the default `max_dense_bytes` working-memory limit, which is checked before anything is allocated. The byte estimate in the table above covers only one dense design matrix and one random-effect Hessian; `$resources$dense_working_bytes_estimate` adds the temporaries that forming the Hessian materializes and a planning multiplier, and is the figure the guard compares. Neither is peak memory or a runtime prediction. Kernel checks are explicitly skipped after these earlier failures.
 
-Raising a size limit does not resolve the unsupported source or provide a scalable implementation. Removing the full-cell term, other interactions, or outcomes changes the model. Such changes require a substantive design or outcome rationale. A smaller study must have a defensible sampling/conditioning rule and enough replication for its intended sources; selecting a subset because it yields a passing fit is not such a rule. Fitting the intended full native models remains backend work.
+Raising a size limit does not resolve the unsupported source or qualify the requested model at scale. Removing the full-cell term, other interactions, or outcomes changes the model. Such changes require a substantive design or outcome rationale. A smaller study must have a defensible sampling/conditioning rule and enough replication for its intended sources; selecting a subset because it yields a passing fit is not such a rule. Public sparse selection addresses storage, while acceptance and approximation adequacy still need evidence for each intended full native model.
 
 ## Respond to failures without changing the question silently
 
@@ -109,7 +110,7 @@ Raising a size limit does not resolve the unsupported source or provide a scalab
 | Discrete full-cell source | `discrete_full_cell` fails source resolution | Reconsider the intended source structure/replication or use a supporting method. `full_cell = FALSE` is an explicit model change, not an automatic repair. |
 | Disabled restart checks | An optimizer-completed fit is numerically rejected | Retain the diagnostics; coefficients are blocked. Re-enable the required checks. |
 | Other numerical rejection | The script retains fits, errors, warnings, and acceptance failures | Inspect the specific failed check. For the same model, assess admissible starts, optimizer choice, and iteration budgets without loosening acceptance criteria to obtain a result. |
-| Accepted discrete fit with `NA` SE/CI | The synthetic coefficient is a point estimate | Do not interpret `NA` as zero uncertainty. Discrete intervals are not implemented. |
+| Accepted discrete fit with `NA` SE/CI | This example requests a point estimate | Do not interpret `NA` as zero uncertainty. Development fits can request `check_hessian = TRUE`; unstable or boundary information remains unavailable. |
 | Accepted first-order Laplace fit | `approximation_adequacy` remains `not_assessed_first_order_laplace` | Numerical acceptance does not establish integration accuracy or repeated-sampling performance; consult the separate validation studies. |
 
 The binary fixture has 8 items and 12 exchangeable repetitions with an explicitly item-only random-intercept model. Omitting an occasion effect is an assumption of this separate illustration, not a reduction of the LLM design. It is a hand-constructed diagnostic example and supports no empirical recovery or coverage claim.

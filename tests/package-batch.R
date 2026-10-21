@@ -1,6 +1,6 @@
 # Installed checks for batch declarations: what may be declared, how inferred
-# and recorded calls are audited against the data, that a Gaussian fit of equal
-# fixed batches estimates one shared call effect, that any other declaration
+# and recorded calls are audited against the data, that supported fits of equal
+# fixed batches estimate one shared call effect, that unsupported layouts
 # changes no estimate, and that every output says which of the two happened.
 library(Gtheory4LLM)
 expect <- function(condition, label) if (!isTRUE(condition)) stop("FAILED: ", label)
@@ -49,8 +49,8 @@ declared <- gt_design("item", c("evaluator", "prompt"), batch = gt_batch(20, by 
 expect(identical(declared$batch$size, 20L) && identical(declared$terms, bare$terms) &&
          identical(declared$term_members, bare$term_members),
        "a declaration is carried by the design and changes no source term")
-expect(any(grepl("A Gaussian fit of equal fixed batches estimates one shared call effect", declared$notes, fixed = TRUE)) &&
-         any(grepl("any other fit treats items in one call as independent", declared$notes, fixed = TRUE)),
+expect(any(grepl("Gaussian and discrete fits of supported equal fixed batches", declared$notes, fixed = TRUE)) &&
+         any(grepl("unsupported layouts remain declared but unmodelled", declared$notes, fixed = TRUE)),
        "a declaring design states when a fit uses the declaration")
 expect_error(gt_design("item", "evaluator", batch = list(size = 20)), "created by gt_batch()",
              "only a gt_batch object is accepted")
@@ -283,7 +283,7 @@ expect(identical(fit_batch$covariance_components, fit_plain$covariance_component
          identical(fit_batch$minus2loglik, fit_plain$minus2loglik) &&
          identical(gt_reliability(fit_batch)$per_trait, gt_reliability(fit_plain)$per_trait),
        "a batch that cannot be modelled changes no component, likelihood or coefficient")
-expect(any(grepl("any other fit treats items in one call as independent", gt_diagnostics(fit_batch)$notes, fixed = TRUE)) &&
+expect(any(grepl("unsupported layouts remain declared but unmodelled", gt_diagnostics(fit_batch)$notes, fixed = TRUE)) &&
          !any(grepl("batch", gt_diagnostics(fit_plain)$notes, fixed = TRUE)),
        "a fit from a declaring design carries the note; one without does not")
 expect(identical(fit_batch$design$batch$sequential, 2L) && identical(fit_batch$design$batch$neighbor, 3L),
@@ -504,12 +504,12 @@ for (case in list(list("flag", gt_family("binary")), list("grade", gt_family("or
   reused <- suppressWarnings(gt_fit(small, case[[1L]], gaussian_first$design, family = case[[2L]]))
   fresh <- suppressWarnings(gt_fit(small, case[[1L]], small_design, family = case[[2L]]))
   expect(identical(gt_diagnostics(reused)$batch, gt_diagnostics(fresh)$batch) &&
-           identical(gt_diagnostics(reused)$batch$status, "declared_not_modelled") &&
+           identical(gt_diagnostics(reused)$batch$status, "modelled") &&
            identical(names(reused$covariance_components), names(fresh$covariance_components)) &&
-           !"Call" %in% names(reused$covariance_components) &&
-           identical(gt_report(reused)$random_sources, c("item", "rater")) &&
+           "Call" %in% names(reused$covariance_components) &&
+           identical(gt_report(reused)$random_sources, c("item", "rater", "Call")) &&
            identical(reused$covariance_components, fresh$covariance_components),
-         paste("a", case[[1L]], "fit that reuses a Gaussian fit's design is not labelled as modelling the batches"))
+         paste("a", case[[1L]], "fit that reuses a Gaussian fit's design models the same calls as a fresh design"))
   back <- gt_fit(small, "score", reused$design, control = control)
   expect(identical(gt_diagnostics(back)$batch$status, "modelled") &&
            identical(back$covariance_components, gaussian_first$covariance_components),
@@ -555,9 +555,8 @@ expect(identical(dim(joint_calls$covariance_components$Call), c(2L, 2L)) &&
 # --- every outcome type, one outcome or several ---------------------------------
 # The declaration and its audit belong to the design, not to an outcome family:
 # binary, ordinal and unordered outcomes, alone or jointly, get the same audit
-# as a continuous one. Only what a fit would do with it differs: the call
-# effect is estimated for continuous outcomes, and a declaration changes no
-# discrete estimate.
+# as a continuous one. Eligible fixed layouts now append a Call covariance
+# source for each family; unsupported layouts still keep their explicit status.
 set.seed(808)
 k <- expand.grid(item = 1:20, rater = 1:4)
 signal <- rnorm(20)[k$item]
@@ -581,9 +580,11 @@ for (label in names(cases)) {
   audited <- gt_preflight(k, outcomes, with_batch, family)$batch_audit
   expect(identical(described(audited), described(reference)) && identical(audited$batches, 2L) && audited$calls == 8,
          paste("the audit is the same for", label, "outcomes as for a continuous one"))
-  expect(!audited$model$modelled &&
-           identical(audited$model$reason, "the call effect is estimated for Gaussian outcomes only"),
-         paste("preflight says a", label, "fit will not model the batches, and why"))
+  q <- if (label %in% c("categorical", "joint")) 2L else 1L
+  expect(audited$model$modelled && is.na(audited$model$reason) &&
+           identical(audited$model$source, "Call") &&
+           audited$model$covariance_parameters == q * (q + 1) / 2,
+         paste("preflight includes the fixed-layout call covariance for", label))
 }
 two_scores <- k; two_scores$second <- signal + rnorm(nrow(k))
 joint_audit <- gt_preflight(two_scores, c("score", "second"), gt_design("item", "rater", batch = calls),
@@ -595,15 +596,14 @@ for (label in c("binary", "ordinal", "joint")) {
   outcomes <- cases[[label]][[1L]]; family <- cases[[label]][[2L]]
   plain_fit <- suppressWarnings(gt_fit(k, outcomes, without_batch, family))
   batch_fit <- suppressWarnings(gt_fit(k, outcomes, with_batch, family))
-  expect(identical(batch_fit$covariance_components, plain_fit$covariance_components) &&
-           identical(batch_fit$minus2loglik, plain_fit$minus2loglik) &&
-           identical(batch_fit$numerically_accepted, plain_fit$numerically_accepted),
-         paste("declaring a batch changes no", label, "estimate or acceptance decision"))
-  expect(any(grepl("any other fit treats items in one call as independent", gt_diagnostics(batch_fit)$notes, fixed = TRUE)) &&
-           identical(gt_diagnostics(batch_fit)$batch$status, "declared_not_modelled") &&
-           identical(gt_diagnostics(batch_fit)$batch$reason, "the call effect is estimated for Gaussian outcomes only") &&
+  expect(setequal(names(batch_fit$covariance_components), c(names(plain_fit$covariance_components), "Call")) &&
+           identical(dim(batch_fit$covariance_components$Call), rep(length(outcomes), 2L)) &&
+           is.finite(batch_fit$minus2loglik) &&
+           isTRUE(batch_fit$design$batch_model$modelled),
+         paste("declaring a batch adds a retained shared-call covariance for", label))
+  expect(identical(gt_diagnostics(batch_fit)$batch$status, "modelled") &&
            identical(gt_diagnostics(plain_fit)$batch$status, "not_declared") &&
-           any(grepl("but not modelled", capture.output(print(batch_fit)), fixed = TRUE)),
-         paste("a", label, "fit from a declaring design carries the note and the status"))
+           !any(grepl("but not modelled", capture.output(print(batch_fit)), fixed = TRUE)),
+         paste("a", label, "fit from an eligible declaring design reports its modelled call source"))
 }
-cat("PASS: batch declarations are validated, carried, audited, modelled where the exact engine can, and reported by every output.\n")
+cat("PASS: batch declarations are validated, carried, audited, modelled for supported fixed layouts, and reported by every output.\n")

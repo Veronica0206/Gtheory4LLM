@@ -65,10 +65,27 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  # platform-specific disagreement is exactly what it must not
                  # have. Running it only on Linux would leave that untested.
                  "test_discrete_fitted_sparse.R",
-                 "test_gaussian_lme4_restart.R",
-                 "test_laplace_check_retained_data.R",
-                 "test_discrete_attempt_names.R",
-                 "test_laplace_check_resources.R"}
+                 # Public development routes need the same portability
+                 # evidence as their conditional-solve building blocks.
+                 "test_discrete_sparse_public.R",
+                 "test_discrete_sparse_joint_calls.R",
+                 "test_discrete_sparse_roundoff.R",
+                 "test_discrete_full_panel_roundoff.R",
+                 "test_discrete_information.R",
+                 "test_discrete_information_reference.R",
+                 "test_information_public.R",
+                 "test_gaussian_observed.R",
+                 "test_gaussian_projection.R",
+                 "test_preflight_development.R",
+                 "test_discrete_simulation.R",
+                 "test_discrete_pilot.R",
+                 "test_categorical_pilot_targets.R",
+                 "test_categorical_resources.R",
+                 "test_laplace_check_development.R",
+                 "test_batch_complete_scope.R",
+                 "test_categorical_targets.R",
+                 "test_categorical_planning.R",
+                 "test_discrete_sparse_warm_start.R"}
 
 
 MANUAL_TOOLS = ("pdflatex", "makeindex")

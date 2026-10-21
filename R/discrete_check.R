@@ -96,9 +96,69 @@
 
 .GT_LAPLACE_PRIOR_WEIGHT <- 0.1
 
-# Conservative workspace estimate for the diagnostic: the dense reconstruction
-# of the fitted model plus the quadrature grid or the importance-draw matrix.
-# Major arrays only, doubled for working copies; not a measured peak.
+# Reconstruct the fitted Call source from retained item membership, not the
+# current row order or an auxiliary call column that retention may have dropped.
+# The shared batch validator still decides whether this layout is supported.
+.gt_laplace_call_group <- function(data, design, components) {
+  model <- design$batch_model
+  if (!isTRUE(model$modelled)) {
+    # Without a modelled batch, Call can be an ordinary declared column/source.
+    # Only an additional virtual Call component requires retained batch layout.
+    if (.GT_CALL_TERM %in% names(components) && !.GT_CALL_TERM %in% design$terms)
+      stop("The fitted Call covariance has no retained modelled layout.", call. = FALSE)
+    return(NULL)
+  }
+  items <- model$item_levels
+  membership <- model$item_batches
+  if (is.null(design$batch) || !is.atomic(items) || !length(items) ||
+      !is.null(dim(items)) || anyNA(items) || anyDuplicated(items) ||
+      (is.numeric(items) && any(!is.finite(items))) ||
+      !is.atomic(membership) || length(membership) != length(items) || anyNA(membership))
+    stop("The fitted Call source needs its retained item-to-batch layout.", call. = FALSE)
+  keys <- .gt_batch_item_keys(items)
+  index <- match(.gt_batch_item_keys(data[[design$object]]), keys)
+  if (anyDuplicated(keys) || anyNA(index) || length(unique(index)) != length(items))
+    stop("The supplied items do not match the fitted Call layout.", call. = FALSE)
+  membership <- match(membership, unique(membership))
+  if (!identical(as.integer(max(membership)), as.integer(model$batches)) ||
+      !identical(as.integer(model$size), as.integer(design$batch$size)) ||
+      any(tabulate(membership) != design$batch$size))
+    stop("The retained Call membership does not match its equal batch size.", call. = FALSE)
+  # Supply a stable order to the validator even for originally recorded calls.
+  # Within-batch order has no effect on the fitted equal-coupling Call source.
+  rebuilt <- data[c(design$object, design$facets)]
+  order_column <- ".gt_laplace_call_order"
+  while (order_column %in% names(rebuilt)) order_column <- paste0(".", order_column)
+  item_order <- order(order(membership, seq_along(membership)))
+  rebuilt[[order_column]] <- item_order[index]
+  declaration <- design
+  declaration$batch$id <- NULL
+  declaration$batch$order <- order_column
+  call <- .gt_batch_model(rebuilt, declaration)
+  if (!isTRUE(call$modelled))
+    stop("The fitted Call layout cannot be reconstructed: ", call$reason, ".", call. = FALSE)
+  group <- .gt_d_call_group(rebuilt, declaration, call)
+  # If supplied auxiliary columns describe a layout, do not silently discard
+  # a contradiction. Missing auxiliary columns are allowed by data retention.
+  supplied <- (!is.null(design$batch$id) && design$batch$id %in% names(data)) ||
+    (is.null(design$batch$id) && !is.null(design$batch$order) && design$batch$order %in% names(data))
+  if (supplied) {
+    declaration <- design
+    if (!is.null(declaration$batch$id) && !is.null(declaration$batch$order) &&
+        !declaration$batch$order %in% names(data)) declaration$batch$order <- NULL
+    recorded <- .gt_batch_model(data, declaration)
+    if (!isTRUE(recorded$modelled))
+      stop("The supplied Call layout is unsupported: ", recorded$reason, ".", call. = FALSE)
+    recorded_group <- .gt_d_call_group(data, declaration, recorded)
+    if (!identical(group$index, recorded_group$index))
+      stop("The supplied call columns disagree with the fitted Call layout.", call. = FALSE)
+  }
+  group
+}
+
+# The diagnostic always uses dense conditional algebra, including for a sparse
+# fitted model. Budget the dense reconstruction and integration workspace before
+# building covariance factors, a dense design/Hessian, or a proposal/grid matrix.
 .gt_laplace_resources <- function(n, q, dimension, method, nodes, draws) {
   dense <- .gt_d_dense_bytes(n, q, dimension)
   integration <- if (method == "importance") {
@@ -137,23 +197,19 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
   if (!all(columns %in% names(data)))
     stop("data must contain the fitted object, facet and outcome columns.", call. = FALSE)
   # The same preparation the fit ran, from the same declarations, so that the
-  # parameters are read in the coordinates they were estimated in. The retained
-  # frame is the engine's own prepared input: each outcome is already encoded
-  # by the fit's resolved families (binary as 0/1 integers, ordinal and nominal
-  # as factors over the declared levels). Re-resolving it would read those
-  # encodings as new user data and, for a binary outcome with labels other
-  # than "0"/"1", refuse the fit's own responses. Data supplied by the caller
-  # is new data and still passes the strict resolver.
-  resolved <- if (retained) list(data = data[columns], families = fit$families) else
-    .gt_resolve_families(data[columns], outcomes, fit$families)
+  # parameters are read in the coordinates they were estimated in.
+  call_group <- .gt_laplace_call_group(data, design, fit$covariance_components)
+  resolved <- .gt_resolve_families(data[columns], outcomes, fit$families)
   data <- resolved$data
   prep <- .gt_d_prepare(data, outcomes, resolved$families)
   groups <- lapply(design$term_members, function(members) .gt_d_group(data, members))
+  if (!is.null(call_group)) groups[[.GT_CALL_TERM]] <- call_group
   # Limits are applied before anything dense is allocated or solved.
-  dimension <- as.integer(sum(vapply(groups, `[[`, integer(1), "nlevels")) * prep$q)
+  dimension <- sum(vapply(groups, `[[`, integer(1), "nlevels")) * as.double(prep$q)
   if (dimension > max_dimension)
     stop("The random-effect dimension (", dimension, ") exceeds max_dimension (", max_dimension,
          "). Raise max_dimension only with draws to match; the comparison is a Monte Carlo estimate there.", call. = FALSE)
+  dimension <- as.integer(dimension)
   if (method == "auto") method <- if (dimension <= 3L) "quadrature" else "importance"
   if (method == "quadrature" && dimension > 4L)
     stop("Quadrature is limited to four random-effect dimensions (", nodes, "^", dimension,
@@ -165,15 +221,13 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
   if (method == "importance" && is.null(seed))
     stop("Importance sampling needs a seed so that the comparison can be reproduced.", call. = FALSE)
   dcontrol <- .gt_d_control(fit$control$discrete)
-  # The whole workspace this diagnostic allocates, judged against the fit's
-  # dense budget before any dense object or draw matrix is built. The
-  # dimension and evaluation limits above bound counts; this bounds bytes.
   resources <- .gt_laplace_resources(prep$n, prep$q, dimension, method, nodes, draws)
   resources$max_dense_bytes <- dcontrol$max_dense_bytes
   if (!is.finite(resources$total) || resources$total > dcontrol$max_dense_bytes)
     stop("The Laplace check needs an estimated ", .gt_d_format_bytes(resources$total),
       " of dense reconstruction and integration workspace, exceeding max_dense_bytes (",
-      .gt_d_format_bytes(dcontrol$max_dense_bytes), ").", call. = FALSE)
+      .gt_d_format_bytes(dcontrol$max_dense_bytes),
+      "). Sparse fitting does not remove this diagnostic's dense memory requirement.", call. = FALSE)
   setup <- .gt_d_covariance_setup(groups, prep$q, fit$covariance, dcontrol, prep$dimensions)
   if (length(parameters) != length(prep$start) + length(setup$start))
     stop("The fitted parameters do not match this data and design.", call. = FALSE)

@@ -1,8 +1,9 @@
 # Gtheory4LLM: Generalizability Theory for LLM Subjective Tasks
 
-Gtheory4LLM provides exact balanced Gaussian generalizability-theory models and
-a bounded experimental Laplace engine for small discrete G-theory models used in
-LLM annotation and evaluation studies. Specify which evaluator, prompt, and
+Gtheory4LLM provides exact balanced Gaussian generalizability-theory models,
+a bounded univariate Gaussian route for missing cells, and dense or sparse
+first-order Laplace models for categorical outcomes in LLM annotation and
+evaluation studies. Specify which evaluator, prompt, and
 repeated-run sources matter for your study, fit their variation, and compare
 projected reliability across alternative numbers of evaluators and prompts.
 
@@ -14,13 +15,28 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Source version: **0.6.1**.
+Source version: **1.0.0.9000**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
 These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
+
+## Development toward 1.0
+
+This local development version adds sparse categorical estimation and fixed
+call effects, optional information-based uncertainty, incomplete univariate
+Gaussian panels, shared categorical simulation, and explicitly named observed,
+decision and category-vector targets. Cost planning can screen those simulated
+targets. Pilot planning assesses latent binary/ordinal interval precision or
+point-estimator behavior for the observed, vector and decision targets.
+The formula interface and historical release artifacts are retained.
+
+These bounded implementations are not a released or fully qualified 1.0 package.
+Full-panel solver performance, approximation accuracy, interval coverage and
+cross-platform release qualification remain separate work; see
+[development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
 
 ## Install
 
@@ -56,7 +72,7 @@ library(Gtheory4LLM)
 The repository keeps checksummed release files in [`artifacts/`](https://github.com/Veronica0206/Gtheory4LLM/tree/main/artifacts).
 A 0.4.0 bundle, `Gtheory4LLM_0.4.0.tar.gz`, was prepared and tagged but never published; 0.4.1 supersedes it.
 To install this source version, run `R CMD build .`, then
-`R CMD INSTALL Gtheory4LLM_0.6.1.tar.gz`, the archive it creates.
+`R CMD INSTALL Gtheory4LLM_1.0.0.9000.tar.gz`, the archive it creates.
 For the exact checked release archive, use the versioned GitHub release and
 verify its accompanying manifest. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
@@ -119,9 +135,12 @@ logLik(fit); AIC(fit); gt_component_vcov(fit)
 ```
 
 These are asymptotic Wald quantities conditional on the declared model and
-allocation. A source resting on a variance boundary has no Wald standard error,
-and the discrete Laplace engine computes no observed information at all. What
-those intervals do and do not cover is stated once in
+allocation. A source resting on a variance boundary has no Wald standard error.
+For discrete fits, `gt_control(discrete = list(check_hessian = TRUE))` requests
+full observed information in nuisance and covariance parameters; intervals are
+available only when the accepted fit also passes the information and boundary
+checks. They remain conditional on the Laplace approximation, with coverage
+unestablished. What those intervals do and do not cover is stated once in
 [docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md).
 
 ### Fixed facets
@@ -202,12 +221,21 @@ of all three additions. Its monetary amounts are illustrative user inputs.
   baseline. It screens a point estimate or, separately, an available lower
   confidence bound. Missing bounds stay unavailable. It does not choose evaluator
   identities or change a facet from random to fixed to improve a result.
-- `gt_simulate()` and `gt_pilot_plan()` draw and refit balanced Gaussian pilot
-  panels under a fitted or explicit parameter scenario. Pilot item/facet counts
+  Categorical observed and decision targets use point screening and report
+  Monte Carlo integration error separately from parameter uncertainty.
+- `gt_simulate()` draws Gaussian or categorical panels under a fitted or
+  explicit parameter scenario. `gt_pilot_plan()` refits bounded Gaussian or
+  binary/ordinal pilots, including joint outcomes, to assess interval precision
+  for observed Gaussian or latent binary/ordinal coefficients. Pilot item/facet counts
   may vary while `target_counts` holds the eventual annotation protocol constant.
   The planner records every attempt, refusal and unavailable interval, with
   Monte Carlo errors and conditional interval-width summaries. This evaluates
   model-based precision, not calibrated coverage or guaranteed study adequacy.
+  For categorical observed-score, category-vector or decision targets, a
+  separate point-estimator route reports acceptance, target availability,
+  bias and RMSE against an independently integrated scenario reference. It
+  includes nominal outcomes and eligible fixed calls, retains every failed
+  attempt, and reports reference and inner integration errors separately.
 
 For example, after fitting an accepted model without a shared-call source:
 
@@ -221,12 +249,15 @@ plan <- gt_plan(fit,
 subset(as.data.frame(plan), minimum_cost %in% TRUE)
 ```
 
-The cost planner uses ordinary reliability and therefore refuses modelled `Call`
-fits. Use the separate batch projection functions for their declared targets.
+The analytic cost-planning route refuses modelled `Call` fits. The categorical
+target route supports the fitted equal fixed-call layout, with unchanged item
+count and group membership; it does not optimize batch size or regroup items.
+Use the separate batch projection functions for Gaussian call targets.
 Supplying request costs for an independent-item model does not account for
 shared-call error, and adding human-review costs does not itself model a benefit
-from review. Pilot simulation currently supports Gaussian models without any
-batch declaration. See the function manuals for the remaining scope and limits.
+from review. Pilot interval-width planning refuses batch declarations and
+nominal outcomes; their point-target route supplies no parameter intervals
+or coverage. See the function manuals for the remaining scope and limits.
 
 A new shared-call fit retains compact item-to-batch labels even with
 `retain = list(data = FALSE)`: the layout is necessary for named comparisons.
@@ -248,12 +279,12 @@ the requested and resolved sources, dimensions, replication, resource limits,
 and downstream operations before optimization; it does not certify statistical
 identification or successful fitting.
 
-| Outcome | Fitting | Supported G/Phi and D studies |
+| Outcome | Fitting | Coefficients and explicit projection targets |
 |---|---|---|
-| Gaussian | Exact balanced ML/REML, univariate or joint multivariate | Observed-score coefficients and explicitly weighted composites |
-| Binary | Bernoulli probit/logit, univariate or joint | Explicitly requested latent-response coefficients |
-| Ordinal | Cumulative probit/logit, univariate or joint | Explicitly requested latent-response coefficients |
-| Unordered categorical | Reference-category multinomial softmax, univariate or joint | No scalar coefficient implemented |
+| Gaussian | Exact balanced ML/REML, univariate or joint; bounded observed-row ML/REML for incomplete univariate panels | Observed-score G/Phi and explicit composites; incomplete fits require an intended balanced projection |
+| Binary | Dense or sparse Bernoulli probit/logit, univariate or joint | Latent G/Phi; separate observed-score, category-vector and decision targets |
+| Ordinal | Dense or sparse cumulative probit/logit, univariate or joint | Latent G/Phi; separate declared-score, category-vector and decision targets |
+| Unordered categorical | Dense or sparse reference-category multinomial softmax, univariate or joint | Category-vector and decision targets; no analytic scalar G/Phi or arbitrary numeric-score ratio |
 
 `gt_family()` records category order and reference categories explicitly, beyond
 the distribution and link in a base R family object. Named lists match these
@@ -268,7 +299,22 @@ calculations at the lme4 estimates. These checks do not prove global
 optimality. This alternative does not supply source-variance standard errors
 or coefficient intervals.
 
-Discrete fits use a first-order Laplace likelihood; an integrated external
+To fit missing whole cells in a univariate Gaussian panel, explicitly select
+`gt_control(gaussian = list(engine = "lme4", panel = "observed"))`.
+The route checks an independent dense observed-row ML/REML likelihood and
+covariance-kernel identification, with a default limit of 1,000 observed rows
+and a preparation-memory guard. It fills no cells and assumes missingness is
+ignorable for the specified covariance model. Ordinary reliability of that
+incomplete allocation remains unavailable. `gt_dstudy(..., projection = "balanced")`
+instead requires every intended facet count and projects to that complete
+future allocation with all facets random; no coefficient intervals are supplied.
+
+Discrete fits use a first-order Laplace likelihood. Select sparse algebra with
+`gt_control(discrete = list(engine = "sparse"))`; dense remains the default.
+Both routes support binary, ordinal and nominal outcomes, joint categorical
+models and eligible equal fixed-call layouts. Shared row, dimension and parameter
+guards still apply, alongside the selected engine's memory guard. Sparse algebra
+does not by itself qualify a large model or improve the approximation. An integrated external
 engine adapter for these outcomes is not implemented. `gt_laplace_check(fit)`
 compares its objective at the fitted parameters with numerical quadrature or
 importance sampling. The latter uses a defensive mixture of 90% Laplace
@@ -283,6 +329,18 @@ random effects remain Gaussian. Gaussian assumptions therefore remain part of
 the model. Latent binary/ordinal reliability concerns an averaged latent
 response, not observed proportions, majority votes, or category agreement.
 Joint Gaussian-discrete models are not implemented.
+
+`gt_categorical_target()` defines those other targets explicitly using paired
+future panels that share object effects and redraw instrumentation effects.
+Its score target is the absolute repeated-panel variance ratio; ordinal scores
+must be declared. Its category-vector target uses category proportions and is
+invariant to relabeling unordered categories. Decision agreement uses plurality
+votes with uniform tie-breaking and reports decision diversity: a constant label
+can have perfect agreement and no discrimination. These targets hold fitted
+parameters fixed and report simulation error, not parameter confidence intervals.
+They require no model refits. `gt_plan()` can compare them using
+`coefficient = "observed_score"`, `"category_vector"` or `"decision_agreement"`,
+with an explicit scale and seeded integration controls; see `help("gt_plan")`.
 
 Traditional method-of-moments (MoM) G theory already accommodates random
 effects and crossed/nested designs. The package's contribution is the common
@@ -326,11 +384,12 @@ candidates and their reasons. `summary(fit)` reports acceptance, selected
 attempt, boundary status, and approximation status without printing model
 internals or observations; detailed records remain available.
 
-Two limits decide whether a model can be fitted at all. The Gaussian engine
-requires a complete balanced coded panel, as do `gt_reliability()` and
-`gt_dstudy()`. The dense discrete backend is bounded by row, dimension,
-parameter, and working-memory limits, and refuses before allocating rather than
-after allocation fails. `gt_preflight()` reports both before any optimization.
+The default Gaussian route and ordinary analytic coefficients require a complete
+balanced coded panel. The explicitly selected observed-row Gaussian route and
+intended balanced projection have separate guards described above. Both discrete
+engines are bounded by row, dimension, parameter and working-memory limits;
+sparse requests use the sparse memory budget rather than the dense budget.
+`gt_preflight()` reports these structural and resource checks before optimization.
 
 **Every limitation is listed once, in
 [docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md)** — what the designs, the Gaussian

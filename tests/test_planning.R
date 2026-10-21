@@ -138,7 +138,8 @@ latent$families <- list(y = gt_family("binary", "probit", c("no", "yes")))
 latent$covariance_components$Residual <- NULL
 latent_plan <- plan(candidates = grid, cost = price, object = latent, scale = "latent", screening = "lower")
 stopifnot(all(is.na(latent_plan$results$meets_target)),
-          all(grepl("point estimates only", latent_plan$results$screening_reason)))
+          all(!latent_plan$results$uncertainty_available),
+          all(grepl("No parameter covariance", latent_plan$results$screening_reason)))
 undefined <- fit
 undefined$covariance_components <- lapply(undefined$covariance_components, function(x) x * 0)
 unknown <- plan(candidates = grid, cost = price, object = undefined)
