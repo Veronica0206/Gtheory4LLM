@@ -474,6 +474,36 @@ class PublicContentsTests(unittest.TestCase):
         self.assertIn("home-directory", reasons)
         self.assertEqual(audit.commits_checked, 3)
 
+    @unittest.skipUnless(shutil.which("git"), "Git is required for history fixtures")
+    def test_history_covers_only_commits_reachable_from_the_current_commit(self):
+        # A full-history CI checkout fetches every branch. Material committed on
+        # an unrelated branch is that branch's problem: it must not fail the
+        # audit of a commit that does not reach it, and it must still fail the
+        # audit of the branch that does.
+        git = self.git
+        git("init", "--quiet")
+        git("add", ".")
+        git("commit", "--quiet", "-m", "Clean initial package")
+        clean = git("rev-parse", "--abbrev-ref", "HEAD").stdout.decode().strip()
+        git("checkout", "--quiet", "-b", "unrelated-work")
+        self.write(Path("companion") / "draft.tex")
+        self.write("README.md", "/" + "Users" + "/example/private-project/\n")
+        git("add", ".")
+        git("commit", "--quiet", "-m", "Add temporary material on another branch")
+        git("checkout", "--quiet", clean)
+        self.assertFalse(self.check().findings)
+        audit = module.PublicAudit(self.root, "synthetic")
+        audit.history()
+        self.assertFalse(audit.findings, audit.findings)
+        self.assertEqual(audit.commits_checked, 1)
+        git("checkout", "--quiet", "unrelated-work")
+        unrelated = module.PublicAudit(self.root, "synthetic")
+        unrelated.history()
+        reasons = " ".join(item["reason"] for item in unrelated.findings)
+        self.assertIn("Private research", reasons)
+        self.assertIn("home-directory", reasons)
+        self.assertEqual(unrelated.commits_checked, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

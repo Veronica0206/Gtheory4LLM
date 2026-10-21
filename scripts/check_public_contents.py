@@ -438,7 +438,11 @@ class PublicAudit:
             raise ValueError("External Git object stores are not inspected.")
         if Path(self.git("rev-parse", "--show-toplevel").decode().strip()).resolve() != self.root:
             raise ValueError("Git repository root does not match the requested directory.")
-        commits = self.git("rev-list", "--all").decode().splitlines()
+        # The audited history is what the audited commit publishes: every
+        # commit reachable from HEAD. A full-history CI checkout also fetches
+        # every other branch of the repository; those belong to their own
+        # pull requests and must not fail or pass this one.
+        commits = self.git("rev-list", "HEAD").decode().splitlines()
         if not commits or len(commits) > MAX_COMMITS:
             raise ValueError("History must contain at least one commit and stay within the inspection limit.")
         checked_paths = set()
@@ -499,7 +503,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--working-tree", action="store_true", help="Inspect all working files, including ignored/untracked files.")
-    parser.add_argument("--history", action="store_true", help="Inspect every reachable Git tree; either approved public data kind is allowed in historical snapshots.")
+    parser.add_argument("--history", action="store_true", help="Inspect every Git tree reachable from the current commit; either approved public data kind is allowed in historical snapshots.")
     parser.add_argument("--expected-data-kind", choices=PUBLIC_DATA_KINDS, required=True,
                         help="Required provenance kind for current files and release archives. History permits either approved public kind.")
     parser.add_argument("--output", type=Path, help="Optional JSON evidence file; otherwise print JSON.")
