@@ -16,7 +16,11 @@ def sanitize(value, work):
     if isinstance(value, dict): return {key: sanitize(item, work) for key, item in value.items()}
     if isinstance(value, list): return [sanitize(item, work) for item in value]
     if isinstance(value, str):
-        for path, label in ((ROOT, "<source>"), (work, "<validation>"), (Path.home(), "<home>")):
+        # Longest path first: a validation directory inside the checkout, or a
+        # checkout inside the home directory, must receive its own label
+        # before a parent prefix is replaced.
+        for path, label in sorted(((ROOT, "<source>"), (work, "<validation>"), (Path.home(), "<home>")),
+                                  key=lambda item: -len(str(item[0]))):
             value = value.replace(str(path), label).replace(str(path).replace("\\", "/"), label)
     return value
 

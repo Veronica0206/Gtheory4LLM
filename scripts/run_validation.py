@@ -198,6 +198,41 @@ def commands(root: Path, rscript: str, lock: dict, allow_version_drift: bool,
     return result
 
 
+def select_release_manifest(root: Path, destination: Path) -> Path:
+    """The manifest CI validates against, selected the same way CI selects it.
+
+    A development or matching source version keeps the retained manifest; a
+    frozen release version whose retained manifest records an earlier release
+    gets a rehearsal bundle built outside the checkout. Identity checks stay on.
+    """
+    scripts = str(root / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    from stage_validation_bundle import select_manifest
+    return select_manifest(root, destination)
+
+
+def default_release_manifest(explicit: Path | None, root: Path, needed: bool):
+    """Resolve the manifest for a run: the explicit one, a staged one, or none.
+
+    Returns the manifest path and an object that keeps any staging directory
+    alive for the duration of the run.
+    """
+    if explicit is not None or not needed:
+        return explicit, None
+    staging = tempfile.TemporaryDirectory(prefix="gtheory-validation-bundle-")
+    try:
+        selected = select_release_manifest(root, Path(staging.name))
+    except Exception:
+        staging.cleanup()
+        raise
+    if Path(staging.name).resolve() not in selected.resolve().parents:
+        # The retained manifest was selected; nothing was staged.
+        staging.cleanup()
+        return selected, None
+    return selected, staging
+
+
 def launch(command: list[str], *, environment: dict, timeout: int):
     # Windows Rscript can crash on multiline/complex -e arguments before R
     # starts. Run generated code from a closed UTF-8 file on every platform.
@@ -234,6 +269,14 @@ def main(argv: list[str] | None = None) -> int:
     if options.compact and not compatibility:
         parser.error("--compact requires --compatibility")
     lock = json.loads((ROOT / "renv.lock").read_text())
+    # The documented single entry point stages the manifest CI stages when
+    # none is supplied, so a frozen checkout follows the same procedure as a
+    # development or published one without bypassing the identity checks.
+    try:
+        options.release_manifest, staging = default_release_manifest(
+            options.release_manifest, ROOT, needed=not options.list and not options.preflight_only)
+    except (ValueError, subprocess.CalledProcessError) as error:
+        parser.error("release manifest staging failed: " + str(error))
     try:
         plan = commands(ROOT, options.rscript, lock, compatibility, options.scope, options.compact, options.as_cran,
                         options.release_manifest, options.cran_requested_maintenance)
@@ -257,6 +300,8 @@ def main(argv: list[str] | None = None) -> int:
     mode = "preflight_only" if options.preflight_only else "compatibility" if compatibility else "locked"
     report = {"started_utc": datetime.now(timezone.utc).isoformat(), "mode": mode,
               "scope": options.scope, "compact": options.compact, "as_cran": options.as_cran,
+              "release_manifest": None if options.release_manifest is None else str(options.release_manifest),
+              "release_manifest_staged": staging is not None,
               "required_independent_comparisons": list(REQUIRED), "stages": []}
     if options.cran_requested_maintenance is not None:
         report["cran_requested_maintenance"] = options.cran_requested_maintenance.strip()

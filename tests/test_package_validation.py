@@ -244,6 +244,15 @@ class PackageValidationTests(unittest.TestCase):
         self.assertNotIn(str(Path.home()), text)
         self.assertEqual(report["workspace"], "<validation>")
 
+    def test_a_validation_directory_inside_the_checkout_keeps_its_own_label(self):
+        # A nested work directory must not be reported as a file under <source>.
+        work = ROOT / "gtheory-nested-validation-example"
+        report = CHECK.sanitize({"workspace": str(work), "log": str(work / "check.log"),
+                                 "source": str(ROOT / "DESCRIPTION")}, work)
+        self.assertEqual(report["workspace"], "<validation>")
+        self.assertEqual(report["log"], "<validation>/check.log")
+        self.assertEqual(report["source"], "<source>/DESCRIPTION")
+
 
 if __name__ == "__main__":
     unittest.main()

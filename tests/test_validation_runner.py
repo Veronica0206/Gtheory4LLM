@@ -16,6 +16,37 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class ValidationRunnerTests(unittest.TestCase):
+    def test_the_entry_point_stages_a_manifest_only_when_none_is_supplied_and_a_run_needs_one(self):
+        explicit = Path("/explicit/manifest.json")
+        with patch.object(RUNNER, "select_release_manifest") as select:
+            self.assertEqual(RUNNER.default_release_manifest(explicit, ROOT, needed=True), (explicit, None))
+            self.assertEqual(RUNNER.default_release_manifest(None, ROOT, needed=False), (None, None))
+            select.assert_not_called()
+            # A rehearsal bundle staged inside the destination keeps its directory alive.
+            select.side_effect = lambda root, destination: destination / "manifest.json"
+            manifest, staging = RUNNER.default_release_manifest(None, ROOT, needed=True)
+        self.assertIsNotNone(staging)
+        self.assertEqual(manifest, Path(staging.name) / "manifest.json")
+        select.assert_called_once()
+        root, destination = select.call_args.args
+        self.assertEqual(root, ROOT)
+        self.assertEqual(destination, Path(staging.name))
+        self.assertTrue(Path(staging.name).is_dir())
+        self.assertNotIn(ROOT, Path(staging.name).parents)
+        staging.cleanup()
+        self.assertFalse(Path(staging.name).exists())
+        # The retained manifest, selected for a development or matching version, stages nothing.
+        with patch.object(RUNNER, "select_release_manifest", return_value=ROOT / "artifacts/manifest.json") as select:
+            manifest, staging = RUNNER.default_release_manifest(None, ROOT, needed=True)
+        self.assertEqual(manifest, ROOT / "artifacts/manifest.json")
+        self.assertIsNone(staging)
+        self.assertFalse(Path(select.call_args.args[1]).exists())
+
+    def test_a_failed_staging_releases_its_directory(self):
+        with patch.object(RUNNER, "select_release_manifest", side_effect=ValueError("no bundle")):
+            with self.assertRaises(ValueError):
+                RUNNER.default_release_manifest(None, ROOT, needed=True)
+
     def test_maintenance_request_is_explicitly_propagated_only_to_source_package_check(self):
         reason = "CRAN requested noLD correction before 2026-10-26"
         lock = {"R": {"Version": "4.5.3"}, "Packages": {}}
@@ -124,6 +155,7 @@ class ValidationRunnerTests(unittest.TestCase):
             output = Path(directory) / "report.json"
             with patch.object(RUNNER.shutil, "which", return_value="Rscript"), \
                  patch.object(RUNNER, "commands", return_value=[("first", ["first"]), ("second", ["second"])]), \
+                 patch.object(RUNNER, "default_release_manifest", return_value=(None, None)), \
                  patch.object(RUNNER.subprocess, "run") as run:
                 run.return_value.returncode = 9
                 status = RUNNER.main(["--output", str(output)])

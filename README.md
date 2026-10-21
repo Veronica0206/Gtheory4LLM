@@ -469,6 +469,15 @@ separately:
 python3 scripts/run_validation.py --scope all --as-cran
 ```
 
+The entry point selects the release manifest the same way the hosted
+workflows do: a development or published source version keeps the retained
+manifest, and a frozen, not yet tagged release version whose retained manifest
+still records the previous release gets a rehearsal bundle built outside the
+checkout, so the command works on such a checkout without bypassing the
+identity checks. A version that is already tagged cannot be rebuilt as a
+rehearsal; validate it against its own bundle with `--release-manifest PATH`,
+or after its bundle commit has been merged.
+
 See [validation instructions](https://github.com/Veronica0206/Gtheory4LLM/blob/main/scripts/VALIDATION.md) for the locked environment,
 minimum-R and Windows/macOS checks, source-only checks, and retained evidence.
 The numerical suite includes independent dense Gaussian likelihoods,
