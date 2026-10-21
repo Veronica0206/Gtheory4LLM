@@ -301,16 +301,21 @@ is a separate decision about generalization.
 |---|---|
 | Gaussian | Observed continuous-score averages. |
 | Binary or ordinal | Explicit `scale = "latent"` after an accepted fit. This describes latent-response averages, not majority votes, label proportions, or observed ordinal-score averages. |
-| Unordered categorical | No implemented default scalar G/Phi. A scientific score or category-probability estimand is needed. |
+| Unordered categorical | No analytic scalar G/Phi. Category-vector and plurality-decision targets come from `gt_categorical_target()`. |
 
 Declare category order and references explicitly. Do not recode binary, ordinal,
 or nominal labels as the continuous quality score used above. Discrete fitting
-uses a bounded dense Laplace engine with Gaussian latent random effects;
-`gt_preflight()` reports its current limits, and changing the link does not
-remove the random-effects distribution assumption. That engine reports point
-estimates only: it computes no standard errors. Analytic reliability and D
+uses a first-order Laplace engine with Gaussian latent random effects, with
+dense algebra by default and sparse algebra on request through
+`gt_control(discrete = list(engine = "sparse"))`; `gt_preflight()` reports the
+selected engine's limits, and changing the link does not remove the
+random-effects distribution assumption. Discrete fits report point estimates
+unless `check_hessian = TRUE` requests observed information; intervals are then
+available only for an accepted fit with interior estimated components, and they
+remain conditional on the Laplace approximation. Analytic reliability and D
 studies require complete balanced coded panels even when discrete fitting admits
-missing whole cells.
+missing whole cells; observed-score, category-vector and decision targets are
+separate simulated targets from `gt_categorical_target()`.
 
 At one observation per object-by-facets cell, a discrete fit cannot identify the
 full-cell source that the default design requests. Declare the same design

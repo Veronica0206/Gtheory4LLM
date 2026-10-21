@@ -223,11 +223,17 @@
 # acceptance rules decide. A backend that quietly handed a failed evaluation to
 # another implementation would make a rejection depend on which engine ran.
 #
-# A retry is not a fallback. When the cold solve from zero modes is
-# unavailable, the same sparse solve is attempted once more from the last valid
-# mode this evaluator produced, under the same rules; see the start argument of
-# .gt_d_sparse_mode(). The cold solve runs first and is unchanged, so every
-# evaluation it completes is identical with or without the retry.
+# A retry is not a fallback. When the cold solve from zero modes ends as a
+# classified convergence failure, the same sparse solve is attempted once more
+# from the last valid mode this evaluator produced, under the same rules; see
+# the start argument of .gt_d_sparse_mode(). The cold solve runs first and is
+# unchanged, so every evaluation it completes is identical with or without the
+# retry. The two validity invariants are never rescued: a cold solve that
+# failed one is not retried, and a retry that fails one is the recorded outcome.
+.gt_d_retry_eligible <- function(value)
+  is.list(value) && !isTRUE(value$valid) && is.null(value$reason) &&
+    isFALSE(value$inner_converged) && !isTRUE(value$inner_factor_unavailable)
+
 .gt_d_sparse_evaluator <- function() {
   context <- NULL
   last_mode <- NULL
@@ -256,14 +262,19 @@
       .gt_d_covariance_factors(parameters[-seq_len(fixed_length)], setup) else factors_override
     backend <- .gt_d_sparse_backend_from(context, factors)
     answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE)
-    if (!isTRUE(answer$valid) && !is.null(last_mode) && length(last_mode) == ncol(backend$W)) {
+    if (.gt_d_retry_eligible(answer) && !is.null(last_mode) &&
+        length(last_mode) == ncol(backend$W)) {
       # One retry from the last valid conditional mode of this fit, within the
       # same backend and under the same tolerances, iteration budget, line
-      # search, solve-validity and factor-validity rules. A retry that also
-      # fails leaves the cold failure, and its specimen, as the recorded outcome.
+      # search, solve-validity and factor-validity rules. Only a classified
+      # convergence failure with an available factor reaches here. A retry
+      # that fails a solve- or factor-validity invariant is itself the
+      # recorded outcome, with its specimen; a retry that merely does not
+      # converge leaves the cold failure as the recorded outcome.
       retry <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE,
                                  start = last_mode)
-      if (isTRUE(retry$valid)) {
+      if (isTRUE(retry$valid) || .gt_d_validity_event(retry)) {
+        retry$inner_warm_started <- TRUE
         retry$inner_cold_attempt <- .gt_d_failure_record(answer, list())
         answer <- retry
       }

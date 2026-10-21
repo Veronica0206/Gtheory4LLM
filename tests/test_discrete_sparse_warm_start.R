@@ -118,4 +118,82 @@ again <- evaluate(.gt_d_sparse_evaluator())
 expect(identical(again$nll, cold$nll) && identical(again$mode, cold$mode) &&
          identical(again$inner_iterations, cold$inner_iterations),
        "fresh cold evaluations are deterministic and unaffected by the retry")
-cat("PASS: a failed cold sparse solve is retried once from the last valid mode; cold results are unchanged.\n")
+
+# --- Validity invariants are never rescued or discarded -----------------------
+# Mocked solver outcomes exercise the evaluator's retry rule directly; the real
+# solver is restored afterwards. A cold solve that failed a solve- or
+# factor-validity check is not retried; a retry that fails one is the recorded
+# outcome; unavailable factors and invalid responses are not retried either.
+real_sparse_mode <- .gt_d_sparse_mode
+calls <- 0L
+mock <- function(cold_result, warm_result) {
+  calls <<- 0L
+  .gt_d_sparse_mode <<- function(parameters, prep, backend, control, details = FALSE,
+                                 start = NULL) {
+    calls <<- calls + 1L
+    if (is.null(start)) cold_result else warm_result
+  }
+}
+primed <- function() {
+  .gt_d_sparse_mode <<- real_sparse_mode
+  e <- .gt_d_sparse_evaluator()
+  expect(isTRUE(evaluate(e)$valid), "the priming evaluation is valid")
+  e
+}
+convergence_failure <- list(valid = FALSE, inner_converged = FALSE, inner_gradient = 1e-3,
+  inner_iterations = 60L, inner_line_search_failed = TRUE, inner_roundoff_steps = 0L,
+  inner_factor_unavailable = FALSE)
+solve_invalid <- list(valid = FALSE, reason = "sparse_newton_solve_invalid",
+  inner_iterations = 2L)
+factor_invalid <- list(valid = FALSE, reason = "sparse_final_factor_invalid",
+  inner_converged = TRUE, inner_gradient = 1e-9, inner_iterations = 3L, probe_index = 1L)
+tryCatch({
+  e <- primed()
+  mock(solve_invalid, cold)
+  got <- evaluate(e)
+  expect(calls == 1L && !isTRUE(got$valid) && identical(got$reason, "sparse_newton_solve_invalid") &&
+           is.null(got$inner_warm_started),
+         "a cold solve-validity failure is never retried, even with a valid warm result on offer")
+  rec <- .gt_d_evaluation_log(control, prep)
+  expect(identical(rec$observe(parameters, got, "coarse"), 1e100) &&
+           rec$summary()$validity_events == 1L && rec$summary()$warm_rescued == 0L,
+         "the cold solve-validity event is counted as such")
+  e <- primed()
+  mock(convergence_failure, factor_invalid)
+  got <- evaluate(e)
+  expect(calls == 2L && !isTRUE(got$valid) && identical(got$reason, "sparse_final_factor_invalid") &&
+           isTRUE(got$inner_warm_started) && isFALSE(got$inner_cold_attempt$inner_converged),
+         "a retry that fails the factor-validity check is the recorded outcome, marked warm, with its cold attempt")
+  rec <- .gt_d_evaluation_log(control, prep)
+  rec$observe(parameters, got, "coarse")
+  s <- rec$summary()
+  expect(s$invalid == 1L && s$validity_events == 1L && s$warm_rescued == 0L &&
+           isTRUE(s$retained_invalid[[1L]]$inner_warm_started) &&
+           isFALSE(s$retained_invalid[[1L]]$inner_cold_attempt$inner_converged),
+         "the record counts the retry's validity event and keeps both attempts")
+  e <- primed()
+  mock(convergence_failure, convergence_failure)
+  got <- evaluate(e)
+  expect(calls == 2L && !isTRUE(got$valid) && is.null(got$reason) && is.null(got$inner_warm_started),
+         "a retry that merely does not converge leaves the cold failure as the outcome")
+  e <- primed()
+  mock(convergence_failure, cold)
+  got <- evaluate(e)
+  expect(calls == 2L && isTRUE(got$valid) && isTRUE(got$inner_warm_started),
+         "a classified convergence failure with a valid retry is rescued")
+  e <- primed()
+  mock(list(valid = FALSE), cold)
+  got <- evaluate(e)
+  expect(calls == 1L && !isTRUE(got$valid), "an unavailable cold factor is not retried")
+  e <- primed()
+  mock(list(valid = FALSE, inner_iterations = 4L), cold)
+  got <- evaluate(e)
+  expect(calls == 1L && !isTRUE(got$valid), "an invalid cold response is not retried")
+  e <- primed()
+  mock(list(valid = FALSE, inner_converged = TRUE, inner_gradient = 1e-9, inner_iterations = 5L,
+            inner_line_search_failed = FALSE, inner_factor_unavailable = TRUE), cold)
+  got <- evaluate(e)
+  expect(calls == 1L && !isTRUE(got$valid), "a converged mode without a final factor is not retried")
+}, finally = .gt_d_sparse_mode <<- real_sparse_mode)
+expect(identical(.gt_d_sparse_mode, real_sparse_mode), "the real solver is restored")
+cat("PASS: a failed cold sparse solve is retried once from the last valid mode; cold results are unchanged; validity invariants are never rescued or discarded.\n")

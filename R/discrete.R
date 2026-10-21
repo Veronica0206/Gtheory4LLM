@@ -145,7 +145,7 @@
 .gt_d_failure_record <- function(value, record) {
   fields <- c("reason", "inner_converged", "inner_gradient", "inner_iterations",
               "inner_line_search_failed", "inner_factor_unavailable",
-              .GT_D_SOLVE_DETAIL, "probe_index")
+              .GT_D_SOLVE_DETAIL, "probe_index", "inner_warm_started", "inner_cold_attempt")
   if (is.list(value)) for (field in fields) if (!is.null(value[[field]]))
     record[[field]] <- value[[field]]
   if (is.null(record$reason)) record$reason <- NA_character_

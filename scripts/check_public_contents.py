@@ -76,6 +76,11 @@ PUBLIC_DIRECTORIES = {
 # These are independently generated simulation/integration records, never raw
 # research panels. Keep the exception narrow; private-path scanning still runs.
 STUDY_CSV_FILES = {
+    # The one CSV that ships inside the archive's tests/ directory: a frozen
+    # synthetic fixture for the installed information tests, approved by exact
+    # path. A neighbouring file in tests/fixtures/ is not admitted by this.
+    "tests/fixtures/discrete-information-panels.csv"
+} | {
     "validation-studies/discrete-laplace/" + name for name in (
         "scenarios.csv", "results.csv", "summary.csv", "generated-data.csv",
         "source-hashes.csv")

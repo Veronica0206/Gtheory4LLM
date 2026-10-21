@@ -111,7 +111,7 @@ gt_example_results <- local({
                                           levels = c("low", "mid", "high")),
                        control = discrete_control)
     # These are latent-response G/Phi. Observed binary-proportion or ordinal-
-    # score reliability requires integration and is not implemented yet.
+    # score reliability is a separate simulated target; see gt_categorical_target().
     # Numerical rejection is an inspectable result, not permission to calculate
     # coefficients. This example preserves the original data/model regardless
     # of whether the new independent acceptance checks pass.

@@ -12,7 +12,8 @@
 # and is checked rather than trusted. Acceptance has four parts, each recorded:
 # lme4's optimizer completed and lme4 raised no convergence warning; the
 # package's own stationarity check on lme4's deviance function passed; a
-# restart from a different point reproduced the solution; and the exact
+# restart from a different point itself completed without a convergence
+# warning and reproduced the solution; and the exact
 # balanced (or explicitly selected observed-row) deviance agrees with lme4's criterion,
 # which verifies that the two engines fitted the same model and objective (it
 # does not by itself show that the estimates maximize it; the other three
@@ -303,7 +304,7 @@
       optimizer_code = primary$optimizer_code, optimizer_message = primary$optimizer_message,
       optimization_trials = 2L, optimization_trial_budget = 2L,
       acceptance_failures = failures,
-      acceptance = paste0("Completed lme4 optimizer with no lme4 convergence warning; the package's Cholesky-scaled gradient of lme4's deviance within lme4's tolerance over interior parameters and no inward one-sided derivative at a boundary parameter; a restart reproducing objective and parameters; and agreement of the ",
+      acceptance = paste0("Completed lme4 optimizer with no lme4 convergence warning; the package's Cholesky-scaled gradient of lme4's deviance within lme4's tolerance over interior parameters and no inward one-sided derivative at a boundary parameter; a restart that itself completed without a convergence warning and reproduced objective and parameters; and agreement of the ",
         if (observed) "dense observed-row" else "exact balanced", " deviance with lme4's criterion at the estimates."),
       approximation = "None: the Gaussian likelihood is exact; lme4 maximizes it by profiling the fixed intercept.",
       warnings = unique(c(primary$warnings, alternative$warnings))),

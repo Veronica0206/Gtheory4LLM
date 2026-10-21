@@ -46,9 +46,17 @@ release evidence while adding the following bounded capabilities:
   intervals or interval-width criterion.
 
 - The sparse evaluator retries an evaluation whose cold conditional-mode solve
-  fails, once, from the fit's last valid mode, under unchanged tolerances,
-  budgets and validity checks. Cold solves that succeed are unchanged. Rescued
-  evaluations are marked and counted in the fit's evaluation record.
+  ends as a classified convergence failure, once, from the fit's last valid
+  mode, under unchanged tolerances, budgets and validity checks. A cold solve
+  that failed a solve- or factor-validity invariant is never retried, and a
+  retry that fails one is the recorded outcome. Cold solves that succeed are
+  unchanged. Rescued evaluations are marked and counted in the fit's
+  evaluation record.
+
+- The lme4 engine's restart check now also requires the restart itself to
+  complete with optimizer code 0 and no lme4 convergence warning; agreement
+  with an incomplete or warned restart no longer counts as reproduction. The
+  stability record names the restart's completion and warnings.
 
 Focused reference and refusal tests accompany these routes. This is not a
 released or fully qualified 1.0 package: full-panel solver qualification,

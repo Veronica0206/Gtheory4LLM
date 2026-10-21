@@ -95,18 +95,23 @@ original final score tolerance and both validity checks below. The dense
 search is unchanged; identical final requirements do not imply identical
 search trajectories.
 
-When a cold sparse solve, from zero modes, ends unavailable, the sparse
-evaluator retries that evaluation once from the last valid conditional mode it
-produced for the same fit. The cold solve always runs first and is unchanged,
-so every evaluation the cold solve completes is identical with or without the
-retry. The retry applies the same tolerances, iteration budget, line search,
-solve-validity and factor-validity rules, and a retry that also fails leaves
-the cold failure, with its specimen, as the recorded outcome. A rescued
-evaluation is a valid evaluation marked `inner_warm_started`, with its cold
-attempt's measurements retained, and the fit's evaluation record counts such
-rescues separately from invalid evaluations. The first evaluation of a fit,
-and any evaluation made before a valid mode exists, has no retry. The dense
-evaluator has no retry.
+When a cold sparse solve, from zero modes, ends as a classified convergence
+failure (not converged within the iteration budget or the line search, with an
+available factor and no validity reason), the sparse evaluator retries that
+evaluation once from the last valid conditional mode it produced for the same
+fit. The cold solve always runs first and is unchanged, so every evaluation the
+cold solve completes is identical with or without the retry. The retry applies
+the same tolerances, iteration budget, line search, solve-validity and
+factor-validity rules. The two validity invariants below are never rescued: a
+cold solve that failed one is not retried, and a retry that fails one is itself
+the recorded outcome, marked `inner_warm_started`, with its specimen and its
+cold attempt's measurements. A retry that merely does not converge leaves the
+cold failure as the recorded outcome. Invalid responses and unavailable
+factors are not retried. A rescued evaluation is a valid evaluation marked
+`inner_warm_started`, with its cold attempt's measurements retained, and the
+fit's evaluation record counts such rescues separately from invalid
+evaluations. The first evaluation of a fit, and any evaluation made before a
+valid mode exists, has no retry. The dense evaluator has no retry.
 
 Both mode solvers enforce the same two validity invariants (issues #14 and
 #46). The Newton step is checked against its own system by the shared
@@ -139,8 +144,9 @@ scalar joint conditional objective, including multinomial cross-curvature. It
 also checks malformed inputs, retained zero columns, deterministic zero-start
 modes, and truncated-solver rejection.
 
-This is a dense implementation boundary for subsequent sparse work. It does not
-establish sparse equivalence, automatic differentiation, warm starts, large-panel
-feasibility, or broader statistical validity. The observation preparation and
-covariance routines can be extracted later without coupling that mechanical
-move to a new sparse algorithm.
+This section describes the dense implementation boundary. The sparse routes,
+the rounded-plateau search safeguard and the warm-start retry are specified
+above and covered by the tests named there for the cases they list. Nothing in
+this document establishes automatic differentiation, large-panel feasibility,
+or broader statistical validity; full native-panel qualification and
+approximation accuracy remain separate gates.

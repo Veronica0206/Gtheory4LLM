@@ -81,6 +81,16 @@ class PublicContentsTests(unittest.TestCase):
         self.assertNotIn("validation-studies/discrete-sparse-fitted-smoke/sparse-results.csv",
                          module.STUDY_CSV_FILES)
 
+    def test_the_shipped_installed_test_fixture_is_declared_not_incidental(self):
+        # The one CSV inside the archive's tests/ directory is a synthetic
+        # fixture approved by exact path; a neighbouring file must still fail.
+        self.assertIn("tests/fixtures/discrete-information-panels.csv", module.STUDY_CSV_FILES)
+        self.assertNotIn("tests/fixtures/other-panels.csv", module.STUDY_CSV_FILES)
+        self.write("tests/fixtures/discrete-information-panels.csv", "panel,item,rater,y\n1,1,1,0\n")
+        self.assertFalse(self.check().findings)
+        self.write("tests/fixtures/other-panels.csv", "panel,item,rater,y\n1,1,1,0\n")
+        self.assertTrue(any("declared synthetic" in x["reason"] for x in self.check().findings))
+
     def test_laplace_refinement_csvs_have_an_exact_finite_allowlist(self):
         prefix = "validation-studies/laplace-refinement/"
         expected = {prefix + "results-20261018/" + name for name in (

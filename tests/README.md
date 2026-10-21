@@ -63,9 +63,6 @@ into subdirectories without silently removing them from the release gate.
 | `test_simulation.R` | Independent nested multivariate generation moments, scenario guards, fixed-protocol refit precision, deterministic replay, failure ledgers and Monte Carlo denominators |
 | `test_gaussian_retry.R` | The retry controller, with the optimizer injected |
 | `test_gaussian_lme4_restart.R` | The lme4 restart rule: a restart counts only when it completes without a convergence warning and reproduces the solution |
-| `test_laplace_check_retained_data.R` | `gt_laplace_check()` reads a fit's retained encoded responses as the encoding they are; new data still passes the strict resolver |
-| `test_discrete_attempt_names.R` | Every discrete attempt, including alternative starts and the selected solution, keeps its parameter names; a warm-start refit from them is accepted |
-| `test_laplace_check_resources.R` | `gt_laplace_check()` refuses, before allocation, a comparison whose workspace estimate exceeds the dense budget |
 | `test_discrete.R` | Probability and derivative identities, glmer/clmm comparisons |
 | `test_discrete_acceptance.R` | Boundary, restart and stationarity acceptance |
 | `test_interface.R` | Dispatch and reliability against dense aggregation |
