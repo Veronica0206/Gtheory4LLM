@@ -199,7 +199,14 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
   # The same preparation the fit ran, from the same declarations, so that the
   # parameters are read in the coordinates they were estimated in.
   call_group <- .gt_laplace_call_group(data, design, fit$covariance_components)
-  resolved <- .gt_resolve_families(data[columns], outcomes, fit$families)
+  # The retained frame is the engine's own prepared input: each outcome is
+  # already encoded by the fit's resolved families (binary as 0/1 integers,
+  # ordinal and nominal as factors over the declared levels). Re-resolving it
+  # would read those encodings as new user data and, for a binary outcome with
+  # labels other than "0"/"1", refuse the fit's own responses. Data supplied by
+  # the caller is new data and still passes the strict resolver.
+  resolved <- if (retained) list(data = data[columns], families = fit$families) else
+    .gt_resolve_families(data[columns], outcomes, fit$families)
   data <- resolved$data
   prep <- .gt_d_prepare(data, outcomes, resolved$families)
   groups <- lapply(design$term_members, function(members) .gt_d_group(data, members))

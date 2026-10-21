@@ -74,6 +74,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_sparse_factor.R` | Sparse factor solves and log determinants match the frozen targets |
 | `test_discrete_sparse_mode.R` | Sparse conditional mode reproduces the dense solve and the frozen targets |
 | `test_discrete_sparse_warm_start.R` | A failed cold sparse solve is retried once from the fit's last valid mode; valid cold results are unchanged |
+| `test_laplace_check_retained_data.R` | `gt_laplace_check()` reads a fit's retained encoded responses as the encoding they are; new data still passes the strict resolver |
 | `test_discrete_sparse_roundoff.R` | Narrow/wider function-window conditions, independent quadratic derivatives, score-bound refusals and dense mode agreement |
 | `test_discrete_full_panel_roundoff.R` | Five fixed-parameter conditional solves from refused synthetic full-panel fits, checked with independent ordinal-probit arithmetic; no full-fit or scale qualification claim |
 | `test_discrete_sparse_validity.R` | Sparse solve-validity invariants: the dense rule on sparse storage, both refusal reasons, end-to-end containment, backend identity |

@@ -63,6 +63,12 @@ release evidence while adding the following bounded capabilities:
   The shipped example scripts and help examples read acceptance and attempt
   records through `gt_diagnostics()` rather than fit fields.
 
+- `gt_laplace_check()` no longer re-resolves a fit's retained data as new user
+  data. A binary outcome fitted with labels other than `"0"`/`"1"` is retained
+  as 0/1 integers, and the diagnostic refused those encodings; it now reads the
+  retained frame as the engine's prepared input. Data supplied through `data =`
+  is still validated as new data.
+
 Focused reference and refusal tests accompany these routes. This is not a
 released or fully qualified 1.0 package: full-panel solver qualification,
 approximation assessment, recovery and coverage studies, and final

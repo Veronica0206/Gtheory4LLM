@@ -149,6 +149,8 @@ expect(any(grepl("defensive-mixture importance sampling", importance_printed, fi
        "the importance print describes its proposal and finite-sample limitations")
 
 # --- Retained labeled binary responses are read as the fit's own encoding ------
+# A binary outcome fitted with labels other than "0"/"1" is retained as 0/1
+# integers; the check must not re-resolve that frame as new user data.
 labeled <- b
 labeled$y <- factor(ifelse(b$y == 1L, "yes", "no"), levels = c("no", "yes"))
 labeled_fit <- gt_fit(labeled, "y", item_only, gt_family("binary", "logit", levels = c("no", "yes")),
