@@ -1,0 +1,2 @@
+K01: latent G/Phi not observed (the public interface requires at least one facet)
+K03: latent G/Phi not observed (Analytic coefficients currently require a complete balanced coded panel; unbalanced allocations need separate D-study integration.)

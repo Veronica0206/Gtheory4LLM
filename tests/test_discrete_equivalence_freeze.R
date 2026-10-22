@@ -497,9 +497,41 @@ ok(EQ_REFERENCE_SETTINGS[["lme4::glmer"]]$nAGQ > 1L,
 ok(EQ_REFERENCE_SETTINGS[["ordinal::clmm"]]$nAGQ > 1L,
    "the clmm reference uses quadrature rather than its Laplace default")
 
+# ---- the calibrated tolerance table ----------------------------------------------
+# Calibration has run (CALIBRATION.md). The table it produced is frozen here as
+# data: every calibrated quantity has a value, no value is the observed maximum
+# itself, and the inherited limits are carried unchanged. Qualification remains
+# blocked below until the judging implementation arrives in its own change.
+TOLERANCES <- file.path(STUDY, "tolerances.csv")
+ok(file.exists(TOLERANCES), "the calibrated tolerance table exists")
+tolerances <- read.csv(TOLERANCES, stringsAsFactors = FALSE)
+for (column in c("quantity", "rule_form", "tolerance", "basis", "observed_maximum", "margin",
+                 "dimension_range", "observations"))
+  ok(column %in% names(tolerances), paste0("the tolerance table declares ", column))
+ok(all(EQ_CALIBRATED_QUANTITIES %in% tolerances$quantity),
+   "every calibrated quantity has a tolerance")
+ok(all(EQ_INHERITED_PARITY %in% tolerances$quantity),
+   "the inherited fixed-parameter parity limits are carried in the table")
+ok(!anyDuplicated(tolerances$quantity), "each quantity appears once")
+ok(all(is.finite(tolerances$tolerance) & tolerances$tolerance > 0),
+   "every tolerance is a positive finite number")
+calibrated <- tolerances[tolerances$basis == "calibrated", ]
+ok(identical(sort(calibrated$quantity), sort(EQ_CALIBRATED_QUANTITIES)),
+   "exactly the calibrated quantities are marked calibrated")
+ok(all(calibrated$tolerance >= pmax(100 * calibrated$observed_maximum, 64 * .Machine$double.eps)),
+   "no calibrated tolerance is the observed maximum: each is at least one hundred times it")
+inherited <- tolerances[tolerances$basis == "inherited", ]
+for (quantity in EQ_INHERITED_PARITY)
+  ok(identical(inherited$tolerance[inherited$quantity == quantity], 1e-10),
+     paste0("the inherited 1e-10 parity limit for ", quantity, " is unchanged"))
+ok(identical(inherited$tolerance[inherited$quantity == "fitted_objective_relative"], 1e-6) &&
+     identical(inherited$tolerance[inherited$quantity == "fitted_parameter_distance"], 0.02),
+   "the inherited fitted-agreement limits are carried unchanged")
+ok(all(inherited$observed_maximum[is.finite(inherited$observed_maximum)] <=
+         inherited$tolerance[is.finite(inherited$observed_maximum)]),
+   "calibration never required widening an inherited limit")
+
 # ---- execution remains blocked --------------------------------------------------
-ok(!file.exists(file.path(STUDY, "tolerances.csv")),
-   "no tolerance table exists yet, so no qualification case may be scored")
 runner <- paste(readLines(file.path(STUDY, "run-equivalence.R"), warn = FALSE), collapse = "\n")
 ok(grepl("Refusing to run", runner, fixed = TRUE),
    "the launcher refuses to execute without a frozen tolerance table")
@@ -608,8 +640,29 @@ if (!is.null(reconstruction_map)) {
 }
 ok(!file.exists(file.path(STUDY, "results.csv")),
    "the freeze contains no qualification results")
-ok(!file.exists(file.path(STUDY, "calibration-results.csv")),
-   "the freeze contains no calibration results")
+
+# ---- the calibration record ---------------------------------------------------------
+# Non-scoring observations on the six calibration cases, at the three frozen
+# points, in both backends, produced by calibrate.R before any qualification
+# case runs. The record must cover exactly the frozen calibration set.
+CALIBRATION <- file.path(STUDY, "calibration")
+observations <- read.csv(file.path(CALIBRATION, "observations.csv"), stringsAsFactors = FALSE)
+ok(identical(sort(unique(observations$case)), sort(EQ_CALIBRATION$case)),
+   "the calibration record covers exactly the six calibration cases")
+ok(identical(sort(unique(observations$point[observations$stage == 3L])), sort(EQ_FIXED_POINT_LABELS)),
+   "stage 3 was observed at the three frozen points")
+ok(all(setdiff(EQ_CALIBRATED_QUANTITIES, "latent_g_phi") %in% observations$quantity),
+   "every calibrated fixed-parameter and equivariance quantity was observed")
+ok(all(is.finite(observations$difference)), "every recorded difference is finite")
+validity <- read.csv(file.path(CALIBRATION, "validity.csv"), stringsAsFactors = FALSE)
+ok(identical(sort(unique(validity$backend)), c("dense", "sparse")),
+   "stage 1 witnesses were recorded for both backends")
+ok(!any(validity$r1_event), "no calibration observation was a backend numerical-validity event")
+fits <- read.csv(file.path(CALIBRATION, "fits.csv"), stringsAsFactors = FALSE)
+ok(identical(sort(fits$case), sort(EQ_CALIBRATION$case)),
+   "the fitted comparison covers the six calibration cases")
+ok(sum(is.finite(fits$Erho2_difference)) >= 4L,
+   "latent G and Phi were observed on the crossed calibration cases")
 schema <- readLines(file.path(STUDY, "results-schema.csv"), warn = FALSE)
 ok(identical(length(schema), 1L), "the result schema is a header only")
 for (column in c("row_kind", "stage", "quantity", "disposition", "approximation_reference",
@@ -622,5 +675,6 @@ for (column in c("row_kind", "stage", "quantity", "disposition", "approximation_
 if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence study freeze verified: source pinning, no RNG, matrix shape and ",
     "coverage, calibration disjointness, parent-scoped nesting, frozen numerical ",
-    "choices, fixture digests and dimensions, degeneracy guard, and blocked execution.\n",
+    "choices, fixture digests and dimensions, degeneracy guard, the calibrated ",
+    "tolerance table and record, and blocked execution.\n",
     sep = "")

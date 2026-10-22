@@ -1,0 +1,13 @@
+quantity,rule_form,tolerance,basis,observed_maximum,margin,dimension_range,observations,note
+predictor,symmetric_relative,1e-13,calibrated,0.0,inf,14-188,18,
+mode_score,absolute,1e-13,calibrated,0.0,inf,14-188,18,
+hessian,symmetric_relative,1e-13,calibrated,0.0,inf,14-188,18,
+conditional_mode,symmetric_relative,1e-13,calibrated,2.98464793248925e-16,335.04789262229,14-188,18,
+log_determinant,"absolute, c * random_dimension * eps",1000.0,calibrated,7.105427357601e-14,587.5,14-188,18,observed max of |difference|/(d*eps) = 1.702; proposed c = 1000 gives 4.15e-11 at d = 187
+latent_g_phi,absolute,0.01,calibrated,6.49244451912667e-05,154.025189904051,17-34,8,
+equivariance,symmetric_relative,1e-12,calibrated,1.33098156136464e-15,751.325209174732,14-188,184,
+marginal_negative_log_likelihood,absolute,1e-10,inherited,5.6843418860808e-14,1759.2186044416,14-188,18,inherited 1e-10 parity contract (#3 / #30); not recalibrated
+conditional_objective,absolute,1e-10,inherited,0.0,inf,14-188,18,inherited 1e-10 parity contract (#3 / #30); not recalibrated
+fitted_objective_relative,relative,1e-06,inherited,3.96976025940849e-10,2519.043807821795,14-188,6,inherited fitted objective relative agreement; not recalibrated
+fitted_parameter_distance,scaled distance,0.02,inherited,0.000709180687907083,28.20155757346343,14-188,6,inherited fitted parameter distance; not recalibrated
+solve_validity,32 * random_dimension * eps,32,inherited,nan,nan,,,"inherited solve-validity invariant (#34), the stage 1 bound; the value is the constant c"

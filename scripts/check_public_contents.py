@@ -104,7 +104,9 @@ STUDY_CSV_FILES = {
     # directory prefix would admit whatever later appears there, which is
     # exactly what a freeze is supposed to prevent.
     f"validation-studies/discrete-sparse-equivalence/{name}" for name in (
-        "fixture-digests.csv", "source-hashes.csv", "results-schema.csv")
+        "fixture-digests.csv", "source-hashes.csv", "results-schema.csv", "tolerances.csv",
+        "calibration/observations.csv", "calibration/validity.csv", "calibration/fits.csv",
+        "calibration/calibration-table.csv")
 } | {
     "validation-studies/discrete-recovery/results/" + name for name in (
         "config.csv", "source-files.csv", "replicates.csv", "summary.csv")
