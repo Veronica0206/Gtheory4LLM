@@ -284,7 +284,7 @@ identification or successful fitting.
 | Gaussian | Exact balanced ML/REML, univariate or joint; bounded observed-row ML/REML for incomplete univariate panels | Observed-score G/Phi and explicit composites; incomplete fits require an intended balanced projection |
 | Binary | Dense or sparse Bernoulli probit/logit, univariate or joint | Latent G/Phi; separate observed-score, category-vector and decision targets |
 | Ordinal | Dense or sparse cumulative probit/logit, univariate or joint | Latent G/Phi; separate declared-score, category-vector and decision targets |
-| Unordered categorical | Dense or sparse reference-category multinomial softmax, univariate or joint | Category-vector and decision targets; no analytic scalar G/Phi or arbitrary numeric-score ratio |
+| Unordered categorical | Dense or sparse reference-category multinomial softmax, univariate or joint; unstructured, exchangeable or diagonal covariance | Latent G/Phi as the mean and range of the generalized eigenvalues over the category contrasts, invariant to the reference category (exchangeable or unstructured covariance); separate category-vector and decision targets; no arbitrary numeric-score ratio |
 
 `gt_family()` records category order and reference categories explicitly, beyond
 the distribution and link in a base R family object. Named lists match these

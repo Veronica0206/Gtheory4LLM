@@ -85,6 +85,28 @@ release evidence while adding the following bounded capabilities:
   The shipped example scripts and help examples read acceptance and attempt
   records through `gt_diagnostics()` rather than fit fields.
 
+- Nominal (unordered categorical) outcomes have latent G and Phi.
+  `gt_reliability()` and `gt_dstudy()` report the mean of the generalized
+  eigenvalues of the universe covariance relative to universe plus error on
+  the K - 1 category contrasts, with `Erho2_min`, `Erho2_max`, `Phi_min` and
+  `Phi_max` giving their range and `latent_dimensions` the contrast count;
+  the residual is `(pi^2/6)(I + 11')`, so two categories give the binary logit
+  coefficient. Generalized eigenvalues are invariant to any change of the
+  contrast basis, so the coefficients do not depend on the reference category;
+  on a synthetic panel fitted under three references they agree to the
+  optimizer's tolerance while a trace ratio moves by 0.005. The delta-method
+  interval of the mean uses the observed information and matches a
+  finite-difference gradient. A diagonal covariance on the contrasts is a
+  different model for each reference, so its coefficient is refused, as is a
+  weighted composite with a nominal outcome.
+- `covariance = "exchangeable"` for discrete fits with a nominal outcome:
+  each source gives every category its own random utility with one variance,
+  `sigma^2 (I + 11')` on the contrasts, one parameter per source and outcome
+  instead of K(K - 1)/2, in exact-zero-capable variance coordinates; binary and
+  ordinal outcomes in the same fit keep one variance each, and outcomes are
+  independent within a source. Both engines, the stationarity check, the
+  observed information, preflight and the Laplace check support it.
+
 - `gt_laplace_check()` no longer re-resolves a fit's retained data as new user
   data. A binary outcome fitted with labels other than `"0"`/`"1"` is retained
   as 0/1 integers, and the diagnostic refused those encodings; it now reads the

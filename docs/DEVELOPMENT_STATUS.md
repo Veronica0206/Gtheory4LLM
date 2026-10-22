@@ -22,8 +22,10 @@ they do not qualify a full native panel, establish Laplace accuracy or calibrate
 interval coverage. Default categorical row, dimension and parameter caps remain
 unchanged. The incomplete Gaussian route is univariate and projects to an
 explicit intended balanced allocation; it does not infer reliability of the
-observed irregular allocation. Nominal category-vector targets are supported,
-but an analytic nominal G/Phi or arbitrary numeric-score ratio is not.
+observed irregular allocation. Nominal outcomes have latent G/Phi as the mean
+and range of the generalized eigenvalues over their category contrasts, with a
+category-exchangeable covariance; an arbitrary numeric-score ratio is not
+supported.
 
 This is continued local development, not a 1.0 publication or final-archive
 qualification. Qualification gaps are listed under current priorities below.

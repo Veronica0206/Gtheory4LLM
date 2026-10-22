@@ -362,7 +362,9 @@ summary.gt_fit <- function(object, ...) {
       NULL
     })
   } else if (any(kinds == "categorical")) {
-    reliability_note <- "Unordered categorical outcomes have no default scalar coefficient."
+    reliability_note <- paste("Request gt_reliability(fit, scale = \"latent\"); a nominal outcome's",
+      "coefficients are the mean and range of its generalized eigenvalues and need",
+      "covariance = \"exchangeable\" or \"unstructured\".")
   } else {
     reliability_note <- "Request gt_reliability(fit, scale = \"latent\") for identified latent-response coefficients."
   }

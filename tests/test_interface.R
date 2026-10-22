@@ -171,10 +171,10 @@ invisible(check_reliability(discrete, counts, score, scale = "latent", dense_com
 expect_error(gt_reliability(discrete), "explicitly request scale='latent'")
 expect_error(gt_reliability(discrete, scale = "observed"), "identified latent")
 nominal <- discrete; nominal$families$trait.B <- gt_family("categorical", levels = c("x", "y", "z"))
-expect_error(gt_reliability(nominal, scale = "latent"), "no default scalar")
+expect_error(gt_reliability(nominal, scale = "latent"), "contrast dimensions")
 bad_panel <- fit; bad_panel$data <- rbind(data[-1, ], data[2, ])
 expect_error(gt_reliability(bad_panel), "equal within-cell replication")
-cat("PASS: binary/ordinal latent scale uses link-specific residuals; categorical scalar and incomplete-panel coefficients are rejected.\n")
+cat("PASS: binary/ordinal latent scale uses link-specific residuals; inconsistent nominal and incomplete-panel coefficients are rejected.\n")
 
 # Only two small real fits are needed to exercise exported Gaussian dispatch.
 set.seed(5481L)

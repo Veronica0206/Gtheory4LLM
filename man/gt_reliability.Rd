@@ -27,7 +27,7 @@ gt_reliability(fit, scale = NULL, score = NULL, design = NULL, counts = NULL,
 always preserved without syntactic name repair.}
 \item{...}{Reserved for additional print or data-frame arguments.}
 }
-\value{A \code{gt_reliability} list containing per-outcome \code{Erho2} and \code{Phi} with their standard errors and interval bounds, optional composite coefficients, universe/relative-error/absolute-error covariance matrices, the role each source played in the decomposition, coefficient scale, allocation, fixed facets, extrapolation flag, the uncertainty record, and fit diagnostics. Standard errors and bounds are \code{NA} whenever the fit carries no usable parameter covariance matrix. Printing shows a concise coefficient table, omits all-missing interval columns, and returns the complete object invisibly.}
+\value{A \code{gt_reliability} list containing per-outcome \code{Erho2} and \code{Phi} with their standard errors and interval bounds, optional composite coefficients, for a fit with a nominal outcome the number of contrast dimensions and the smallest and largest generalized eigenvalue of each coefficient (see Details), universe, relative-error and absolute-error covariance matrices on the latent dimensions, the role each source played in the decomposition, coefficient scale, allocation, fixed facets, extrapolation flag, the uncertainty record, and fit diagnostics. Standard errors and bounds are \code{NA} whenever the fit carries no usable parameter covariance matrix. Printing shows a concise coefficient table, omits all-missing interval columns, and returns the complete object invisibly.}
 \details{\strong{Tabular export.} \code{as.data.frame()} returns an ordinary
 data frame with one row per outcome and an additional row for a requested
 weighted composite. \code{design_id} is 1 for this single allocation.
@@ -116,15 +116,41 @@ They describe the average latent response under the declared measurement
 design, not binary proportions, majority-vote labels, or observed ordinal
 scores. Use \code{\link{gt_categorical_target}} for explicitly defined
 observed-score, category-vector or decision-agreement targets; its simulation
-errors are not parameter confidence intervals. Analytic scalar G/Phi and a
-numeric-score ratio for unordered labels are not implemented. Ordinary
+errors are not parameter confidence intervals.
+
+A nominal (unordered categorical) outcome with K categories has K - 1 latent
+contrast dimensions against its reference category. Its coefficients are the
+generalized eigenvalues of the universe-score covariance relative to the
+universe-plus-error covariance on those dimensions. \code{Erho2} and
+\code{Phi} report their mean. The range of the relative coefficient is in the
+columns \code{Erho2_min} and \code{Erho2_max}, the range of the absolute
+coefficient in the columns \code{Phi_min} and \code{Phi_max}, and the number
+of contrasts, K - 1, in the column \code{latent_dimensions}. The residual is the Gumbel noise of the K category utilities,
+\eqn{(\pi^2/6)(I + 11')} on the contrasts. Generalized eigenvalues do not
+change under any invertible change of the contrast basis, so these coefficients
+do not depend on the reference category or on how categories are labelled; the
+largest is the reliability of the best linear composite of the contrasts (Joe
+and Woodward, 1976), and with two categories the coefficient is the binary
+logit one. This requires a covariance model that is itself unchanged by a
+change of reference: \code{covariance = "exchangeable"} or
+\code{"unstructured"}. A diagonal covariance on the contrasts is a different
+model for each reference category, so its coefficient is refused. Under the
+exchangeable structure every eigenvalue coincides. Interval bounds are given
+for the mean only, from the observed information by the delta method. A
+weighted composite including a nominal outcome is refused, since a nominal
+outcome has no numeric score; other outcomes in the same fit keep their own
+coefficients, and the range columns repeat a single-dimension outcome's
+coefficient. Ordinary
 coefficients for an incomplete allocation remain unavailable. An observed-row
 Gaussian fit can instead use \code{\link{gt_dstudy}} with
 \code{projection = "balanced"} to declare a complete future allocation;
 this is a separate target and requires every facet count. Instrumentation
 facets are averaged as random sources unless \code{fixed} names them; the
 function never infers a fixed-facet score universe on its own.}
-\references{Brennan, R. L. (2001). \emph{Generalizability Theory}. Springer. \doi{10.1007/978-1-4757-3456-0}}
+\references{Brennan, R. L. (2001). \emph{Generalizability Theory}. Springer. \doi{10.1007/978-1-4757-3456-0}
+
+Joe, G. W., and Woodward, J. A. (1976). Some developments in multivariate
+generalizability. \emph{Psychometrika}, 41, 205--217.}
 \seealso{\code{\link{gt_score}}, \code{\link{gt_dstudy}},
 \code{\link{gt_categorical_target}}, \code{\link{gaussian_observed}}}
 \examples{

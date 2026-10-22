@@ -391,7 +391,8 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
     dc <- .gt_d_control(control$discrete)
     .gt_d_validate_covariance_request(covariance)
     covariance_parameters[] <- if (!is.null(dc$fixed_covariance)) 0 else
-      if (covariance == "diagonal") q else q * (q + 1) / 2
+      if (covariance == "diagonal") q else
+      if (covariance == "exchangeable") length(outcomes) else q * (q + 1) / 2
     add_check("repeated_observations_within_source", all(fitted_levels < n),
               "Observation-specific random sources are unsupported for discrete outcomes.")
     add_check("observation_limit", n <= dc$max_observations,
@@ -414,7 +415,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       setup_error <- NULL
       setup <- tryCatch({
         prep <- .gt_d_prepare(resolved$data, outcomes, families)
-        .gt_d_covariance_setup(groups, prep$q, covariance, dc, prep$dimensions)
+        .gt_d_covariance_setup(groups, prep$q, covariance, dc, prep$dimensions, prep$blocks)
       }, error = function(e) {
         setup_error <<- conditionMessage(e)
         NULL
@@ -465,7 +466,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
   if (!balanced) notes <- c(notes,
     "Ordinary analytic reliability requires a complete balanced coded panel. Observed-row Gaussian fits require a separate explicitly requested intended balanced D-study projection.")
   if (any(kinds == "categorical")) notes <- c(notes,
-    "Unordered categorical outcomes have no implemented scalar G/Phi; category contrasts are not separate measured outcomes.")
+    "Nominal outcomes have latent coefficients only with covariance = 'exchangeable' or 'unstructured'; category contrasts are not separate measured outcomes.")
   # The call is kept as a record of the request; nothing reads it back. Through
   # do.call(), or with the data written inline, its data argument is the data
   # frame itself, unused columns included. Only a plain object name is kept;

@@ -92,7 +92,9 @@ all cross-outcome covariance parameters. Explicit \code{"variance"} and
 admit exact zeros; an explicit \code{"variance"} request with joint unstructured
 covariance is rejected rather than removing covariances. The variance upper
 bound is \code{exp(10)}, matching the largest diagonal variance allowed by the
-log-Cholesky bounds. \code{start_sd}
+log-Cholesky bounds. The exchangeable covariance for nominal outcomes always
+uses direct variance coordinates; \code{"log_cholesky"} is refused with it.
+\code{start_sd}
 still denotes a starting standard deviation and must be positive.
 
 Discrete \code{start} is a finite, uniquely named numeric vector of optimizer

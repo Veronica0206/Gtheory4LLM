@@ -59,7 +59,11 @@
     L <- factors[[s]]
     for (k in seq_len(setup$per)) {
       parameter <- offset + (s - 1L) * setup$per + k
-      if (identical(setup$parameterization, "variance")) {
+      if (identical(setup$parameterization, "exchangeable")) {
+        derivative <- matrix(0, q, q)
+        d <- setup$blocks[[k]]$dims
+        derivative[d, d] <- setup$blocks[[k]]$shape
+      } else if (identical(setup$parameterization, "variance")) {
         derivative <- matrix(0, q, q)
         derivative[k, k] <- 1
       } else {

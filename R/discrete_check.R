@@ -235,7 +235,7 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
       " of dense reconstruction and integration workspace, exceeding max_dense_bytes (",
       .gt_d_format_bytes(dcontrol$max_dense_bytes),
       "). Sparse fitting does not remove this diagnostic's dense memory requirement.", call. = FALSE)
-  setup <- .gt_d_covariance_setup(groups, prep$q, fit$covariance, dcontrol, prep$dimensions)
+  setup <- .gt_d_covariance_setup(groups, prep$q, fit$covariance, dcontrol, prep$dimensions, prep$blocks)
   if (length(parameters) != length(prep$start) + length(setup$start))
     stop("The fitted parameters do not match this data and design.", call. = FALSE)
   factors <- .gt_d_covariance_factors(parameters[-seq_len(length(prep$start))], setup)

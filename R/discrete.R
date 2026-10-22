@@ -576,15 +576,60 @@
 # so that a request it permits is a request that fitting also permits.
 .gt_d_validate_covariance_request <- function(covariance) {
   if (!is.character(covariance) || length(covariance) != 1L || is.na(covariance) ||
-      !covariance %in% c("diagonal", "unstructured"))
-    .gt_d_stop("Discrete covariance must be a single 'diagonal' or 'unstructured'; ",
+      !covariance %in% c("diagonal", "unstructured", "exchangeable"))
+    .gt_d_stop("Discrete covariance must be a single 'diagonal', 'unstructured' or 'exchangeable'; ",
                "per-source overrides are a Gaussian option.")
   invisible(covariance)
 }
 
-.gt_d_covariance_setup <- function(groups, q, covariance, control, dimensions) {
+# The category-exchangeable structure for nominal outcomes. Each source gives
+# every category of a nominal outcome its own random utility, independently and
+# with one variance; on the K - 1 contrasts against the reference category that
+# is sigma^2 (I + 11'), closed under any change of reference category or
+# relabelling of categories. Binary and ordinal outcomes in the same fit keep
+# one variance on their single latent dimension, and outcomes are independent of
+# one another within a source. One variance parameter per source and outcome,
+# in exact-zero-capable variance coordinates.
+.gt_d_exchangeable_blocks <- function(blocks, q) {
+  if (is.null(blocks) || !is.list(blocks) || !length(blocks))
+    .gt_d_stop("The exchangeable covariance needs the prepared outcome blocks.")
+  if (!any(vapply(blocks, function(b) identical(b$family, "categorical"), logical(1))))
+    .gt_d_stop("covariance = 'exchangeable' is defined for nominal (categorical) outcomes; ",
+               "use 'diagonal' for binary and ordinal outcomes.")
+  dims <- unlist(lapply(blocks, `[[`, "dims"), use.names = FALSE)
+  if (!identical(sort(as.integer(dims)), seq_len(q)))
+    .gt_d_stop("The outcome blocks do not partition the latent dimensions.")
+  lapply(blocks, function(b) {
+    m <- length(b$dims)
+    shape <- if (identical(b$family, "categorical")) diag(m) + matrix(1, m, m) else diag(1, m)
+    list(outcome = b$outcome, family = b$family, dims = as.integer(b$dims),
+         shape = shape, root = t(chol(shape)))
+  })
+}
+
+.gt_d_covariance_setup <- function(groups, q, covariance, control, dimensions, blocks = NULL) {
   .gt_d_validate_covariance_request(covariance)
   fixed <- control$fixed_covariance
+  if (identical(covariance, "exchangeable")) {
+    if (!is.null(fixed))
+      .gt_d_stop("fixed_covariance is not combined with covariance = 'exchangeable'; ",
+                 "supply fixed matrices with covariance = 'unstructured'.")
+    if (!control$covariance_parameterization %in% c("auto", "variance"))
+      .gt_d_stop("The exchangeable covariance uses variance coordinates; ",
+                 "covariance_parameterization must be 'auto' or 'variance'.")
+    structure <- .gt_d_exchangeable_blocks(blocks, q)
+    start <- rep(control$start_sd^2, length(groups) * length(structure))
+    if (any(!is.finite(start)) || any(start > exp(10)))
+      .gt_d_stop("start_sd exceeds the variance parameterization's upper bound.")
+    names(start) <- unlist(lapply(names(groups), function(s)
+      vapply(structure, function(b) if (identical(b$family, "categorical"))
+        paste0(s, "::exchangeable[", b$outcome, "]") else
+        paste0(s, "::variance[", dimensions[b$dims], "]"), character(1))), use.names = FALSE)
+    return(list(fixed = NULL, start = start, lower = rep(0, length(start)),
+      upper = rep(exp(10), length(start)), blocks = structure,
+      diagpos = rep(TRUE, length(structure)), per = length(structure), q = q,
+      sources = names(groups), parameterization = "exchangeable"))
+  }
   if (!is.null(fixed)) {
     if (!is.list(fixed) || is.null(names(fixed)) || anyDuplicated(names(fixed)) ||
         !setequal(names(fixed), names(groups)))
@@ -651,7 +696,7 @@
   if (!is.null(setup$fixed)) return(setup$fixed)
   setNames(lapply(seq_along(setup$sources), function(s) {
     x <- parameters[(s - 1L) * setup$per + seq_len(setup$per)]
-    if (identical(setup$parameterization, "variance")) {
+    if (setup$parameterization %in% c("variance", "exchangeable")) {
       if (any(!is.finite(x)))
         .gt_d_stop("Direct variance parameters must be finite.")
       # Zero is this parameterization's natural domain boundary, and a bounded
@@ -667,7 +712,12 @@
       x[setup$diagpos] <- exp(x[setup$diagpos])
     }
     L <- matrix(0, setup$q, setup$q)
-    L[setup$positions] <- x
+    if (identical(setup$parameterization, "exchangeable")) {
+      for (k in seq_along(setup$blocks)) {
+        d <- setup$blocks[[k]]$dims
+        L[d, d] <- x[[k]] * setup$blocks[[k]]$root
+      }
+    } else L[setup$positions] <- x
     L
   }), setup$sources)
 }
@@ -813,6 +863,31 @@
         names(final$factors)[[s]], " ", direction,
         " (step ", format(step, scientific = TRUE), ")"))
     }
+    if (identical(setup$parameterization, "exchangeable")) {
+      # The feasible directions are the blocks' variances: S moves along its
+      # block shape, sigma^2 (I + 11') for a nominal outcome, and only forward
+      # from zero. The score of each variance and its KKT projection follow the
+      # diagonal case with that one direction per block.
+      blocks <- setup$blocks
+      derivative <- function(step) vapply(seq_along(blocks), function(k) {
+        direction <- matrix(0, prep$q, prep$q)
+        d <- blocks[[k]]$dims
+        direction[d, d] <- step * blocks[[k]]$shape
+        (evaluate(direction, paste("exchangeable block", blocks[[k]]$outcome), step) - base) / step
+      }, numeric(1))
+      difference <- refine(derivative, h, scale / normalization, order = 1L)
+      g <- difference$score
+      variance <- vapply(blocks, function(b) S[b$dims[[1L]], b$dims[[1L]]] / b$shape[1L, 1L], numeric(1))
+      normalized_variance <- variance / scale
+      normalized_g <- g * scale / normalization
+      name <- names(final$factors)[[s]]
+      projected[[name]] <- normalized_variance - pmax(0, normalized_variance - normalized_g)
+      cov_gradients[[name]] <- stats::setNames(g, vapply(blocks, `[[`, character(1), "outcome"))
+      cov_disagreement <- c(cov_disagreement, difference$disagreement)
+      cov_steps[[name]] <- difference$step
+      cov_refinements[[name]] <- difference$refinements
+      next
+    }
     derivative <- function(step) {
       G <- matrix(0, prep$q, prep$q)
       for (a in seq_len(prep$q)) {
@@ -954,7 +1029,7 @@
       .gt_d_format_bytes(control$max_sparse_bytes), "); its conservative sparse working-memory ",
       "estimate is ", .gt_d_format_bytes(sparse_memory$total), ". Raising a resource guard ",
       "does not establish numerical acceptance or Laplace approximation accuracy.")
-  setup <- .gt_d_covariance_setup(groups, prep$q, covariance, control, prep$dimensions)
+  setup <- .gt_d_covariance_setup(groups, prep$q, covariance, control, prep$dimensions, prep$blocks)
   kernel_rank <- .gt_d_kernel_rank(groups)
   # A combination of individually repeated-group kernels can still equal I.
   # For probit responses, that permits rescaling the total latent covariance
@@ -1074,7 +1149,7 @@
       alternative[cov_index] <- setup$start
       diagonal <- rep(setup$diagpos, length(groups))
       multiplier <- if (attempt %% 2L) 1.8 * tier else .55 / tier
-      if (identical(setup$parameterization, "variance")) {
+      if (setup$parameterization %in% c("variance", "exchangeable")) {
         alternative[cov_index] <- alternative[cov_index] * multiplier^2
       } else {
         alternative[cov_index[diagonal]] <- alternative[cov_index[diagonal]] + log(multiplier)
@@ -1260,7 +1335,7 @@
   }
   names(probabilities) <- outcomes
   natural_lower <- rep(FALSE, length(start))
-  if (identical(setup$parameterization, "variance"))
+  if (setup$parameterization %in% c("variance", "exchangeable"))
     natural_lower[length(prep$start) + seq_along(setup$start)] <- TRUE
   at_bound <- names(start)[(!natural_lower & fit$par - lower < control$bound_tol) |
                             (upper - fit$par < control$bound_tol)]

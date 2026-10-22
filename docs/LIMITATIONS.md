@@ -137,17 +137,24 @@ scientifically sufficient. Those are separate questions with separate evidence.
   It is not the reliability of observed proportions, majority votes, category
   agreement, or ordinal score averages, and must be requested explicitly with
   `scale = "latent"`.
-- **Unordered categorical outcomes have no implemented analytic scalar G/Phi
-  or numeric-score ratio.** Category contrasts are not separate measured
-  outcomes. The separate `category_vector` target uses category proportions
-  and is invariant to category relabeling; it is not a default scalar G/Phi.
+- **Nominal (unordered categorical) reliability is a latent coefficient on the
+  category contrasts.** It is the mean of the generalized eigenvalues of the
+  universe covariance relative to universe plus error on the K - 1 contrasts,
+  reported with their range; it does not depend on the reference category,
+  but only under `covariance = "exchangeable"` or `"unstructured"`, and is
+  refused under a diagonal covariance on the contrasts, which is a different
+  model for each reference. It is not the reliability of observed labels or
+  of category proportions, has no numeric-score composite, and inherits the
+  first-order Laplace approximation. The separate `category_vector` target
+  uses observed category proportions and is invariant to category relabeling.
 - At one observation per cell the object-by-all-facets source is not identified
   for a discrete outcome. It is never dropped silently; declare the reduced
   model with `full_cell = FALSE` or an explicit `random =` specification.
 - General singular unstructured source covariances are not implemented.
   `covariance_parameterization = "auto"` uses exact-zero-capable variance
   coordinates for univariate or diagonal models and log-Cholesky coordinates for
-  joint unstructured models.
+  joint unstructured models. The exchangeable nominal covariance uses variance
+  coordinates and keeps outcomes independent within each source.
 - Rejected fits cannot produce coefficients. `gt_reliability()` and
   `gt_dstudy()` require `gt_diagnostics(fit)$numerically_accepted`, and there is
   deliberately no override argument.

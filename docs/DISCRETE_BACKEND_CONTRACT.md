@@ -18,7 +18,13 @@ is unaffected. The existing shared `.gt_d_stop()` helper remains in
 observations, `q` latent dimensions, and one block per outcome. Each block owns
 its observation codes, family/link, latent-dimension indices, and fixed-parameter
 indices. Outcome preparation and covariance parameterization remain in
-`discrete.R`.
+`discrete.R`. Three source-covariance structures are supported: unstructured
+(log-Cholesky coordinates), diagonal (variance or log-Cholesky coordinates),
+and, for fits with a nominal outcome, exchangeable: each source contributes
+`sigma^2 (I + 11')` on a nominal outcome's contrasts and one variance on each
+binary or ordinal dimension, block-diagonal across outcomes, in variance
+coordinates. Its stationarity check and observed-information map use one
+feasible direction per block, the block's shape.
 
 Predictors are `n` by `q` matrices. Gradients use R's column-major order: all
 observations for the first latent dimension, followed by all observations for

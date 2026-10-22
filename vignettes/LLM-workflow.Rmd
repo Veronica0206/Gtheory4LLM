@@ -301,7 +301,7 @@ is a separate decision about generalization.
 |---|---|
 | Gaussian | Observed continuous-score averages. |
 | Binary or ordinal | Explicit `scale = "latent"` after an accepted fit. This describes latent-response averages, not majority votes, label proportions, or observed ordinal-score averages. |
-| Unordered categorical | No analytic scalar G/Phi. Category-vector and plurality-decision targets come from `gt_categorical_target()`. |
+| Unordered categorical | Explicit `scale = "latent"` with `covariance = "exchangeable"` or `"unstructured"`: the mean of the generalized eigenvalues over the category contrasts, with their range, invariant to the reference category. Category-vector and plurality-decision targets come from `gt_categorical_target()`. |
 
 Declare category order and references explicitly. Do not recode binary, ordinal,
 or nominal labels as the continuous quality score used above. Discrete fitting

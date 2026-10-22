@@ -19,7 +19,7 @@ gt_dstudy_target(x, target, coefficient = "Erho2", outcome = NULL,
 \arguments{
 \item{fit}{A numerically accepted \code{gt_fit} with a complete balanced coded panel.}
 \item{grid}{A nonempty data frame of positive integer facet counts. Columns name declared facets; omitted facets retain their fitted counts.}
-\item{scale}{\code{"observed"} for Gaussian outcomes or explicitly \code{"latent"} for binary/ordinal outcomes.}
+\item{scale}{\code{"observed"} for Gaussian outcomes or explicitly \code{"latent"} for binary, ordinal and nominal outcomes; see \code{\link{gt_reliability}} for the nominal coefficients.}
 \item{score}{Optional composite weights created by \code{gt_score()}.}
 \item{fixed}{Instrumentation facets treated as fixed, as in \code{gt_reliability()}. A fixed facet may not appear in \code{grid}: its universe is exactly its observed levels.}
 \item{level}{Confidence level for the reported coefficient intervals.}

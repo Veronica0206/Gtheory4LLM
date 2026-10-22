@@ -51,10 +51,13 @@ print.gt_score <- function(x, ...) {
     scale <- "observed"
   }
   if (!is.character(scale) || length(scale) != 1L || is.na(scale)) stop("Specify one coefficient scale.", call. = FALSE)
-  if (any(types == "categorical"))
-    stop("Unordered categorical outcomes have no default scalar G/Phi. Define a substantive score or category-probability estimand before computing reliability; this is not implemented yet.", call. = FALSE)
   if ((gaussian && scale != "observed") || (!gaussian && scale != "latent"))
-    stop("This implementation supports observed Gaussian coefficients and identified latent binary/ordinal coefficients only.", call. = FALSE)
+    stop("This implementation supports observed Gaussian coefficients and identified latent binary, ordinal and nominal coefficients only.", call. = FALSE)
+  layout <- .gt_reliability_layout(fit, types)
+  if (any(types == "categorical") && identical(fit$covariance, "diagonal"))
+    stop("A diagonal covariance on a nominal outcome's category contrasts is a different model ",
+         "for each reference category, so its coefficient is not defined. Refit with ",
+         "covariance = \"exchangeable\" or \"unstructured\".", call. = FALSE)
   # Check the retained data when it is present, so a panel edited after fitting
   # is still caught. When the caller asked not to keep it, fall back to the
   # summary recorded at fitting time and apply exactly the same two rules.
@@ -72,12 +75,7 @@ print.gt_score <- function(x, ...) {
     stop("Analytic coefficients require the declared equal within-cell replication.", call. = FALSE)
   counts <- panel$counts
   components <- fit$covariance_components
-  if (!gaussian) {
-    latent_variance <- vapply(fit$families, function(f)
-      if (f$link == "probit") 1 else pi^2 / 3, numeric(1))
-    components$Residual <- diag(latent_variance, nrow = length(latent_variance))
-    dimnames(components$Residual) <- list(fit$outcomes, fit$outcomes)
-  }
+  if (!gaussian) components$Residual <- layout$residual
   # A call effect is shared by the items of one call and by no others, so its
   # part in relative error depends on which items share calls. The weights
   # below know nothing of that and would count it as error common to every
@@ -88,14 +86,59 @@ print.gt_score <- function(x, ...) {
          "gt_reliability()/gt_dstudy() coefficients do not account for shared calls.", call. = FALSE)
   expected <- c(fit$design$terms, "Residual")
   if (!all(expected %in% names(components))) stop("Missing fitted covariance components.", call. = FALSE)
+  q <- length(layout$dimensions)
   if (any(vapply(components[expected], function(x)
-    !is.matrix(x) || !identical(dim(x), c(length(fit$outcomes), length(fit$outcomes))) ||
-      any(!is.finite(x)), logical(1))))
+    !is.matrix(x) || !identical(dim(x), c(q, q)) || any(!is.finite(x)), logical(1))))
     stop("Source covariance dimensions do not match the outcome dimensions.", call. = FALSE)
   list(components = components, counts = counts[fit$design$facets], scale = scale,
        gaussian = gaussian, replicates = fit$design$replicates,
+       dimensions = layout$dimensions, outcome_dimensions = layout$outcome_dimensions,
+       nominal = layout$nominal,
        projection = if (projected) fit$projection else NULL,
        uncertainty = .gt_coefficient_uncertainty_source(fit, gaussian))
+}
+
+# Latent dimensions per outcome and the residual covariance the links fix. A
+# Gaussian or binary or ordinal outcome has one dimension, named after the
+# outcome. A nominal outcome with K categories has K - 1 contrast dimensions
+# against its reference category; its residual is the Gumbel noise of the K
+# category utilities on those contrasts, (pi^2 / 6)(I + 11'). Probit residuals
+# are 1 and logit residuals pi^2 / 3, which is the K = 2 case of the nominal
+# form.
+.gt_reliability_layout <- function(fit, types) {
+  one_each <- function() list(dimensions = fit$outcomes,
+    outcome_dimensions = stats::setNames(as.list(seq_along(fit$outcomes)), fit$outcomes),
+    nominal = stats::setNames(rep(FALSE, length(fit$outcomes)), fit$outcomes))
+  if (all(types == "gaussian")) return(c(one_each(), list(residual = NULL)))
+  map <- fit$link_dimensions
+  if (is.null(map)) {
+    if (any(types == "categorical"))
+      stop("This fit does not record its nominal outcome's contrast dimensions; refit it.", call. = FALSE)
+    layout <- one_each()
+  } else {
+    layout <- list(dimensions = as.character(map$dimension),
+      outcome_dimensions = stats::setNames(lapply(fit$outcomes, function(o) which(map$outcome == o)),
+                                           fit$outcomes),
+      nominal = stats::setNames(types == "categorical", fit$outcomes))
+  }
+  for (j in seq_along(fit$outcomes)) {
+    width <- length(layout$outcome_dimensions[[j]])
+    family <- fit$families[[j]]
+    expected <- if (identical(family$family, "categorical")) length(family$levels) - 1L else 1L
+    if (!identical(width, as.integer(expected)))
+      stop("The fit's latent dimensions do not match outcome '", fit$outcomes[[j]],
+           "': ", width, " recorded, ", expected, " expected from its categories.", call. = FALSE)
+  }
+  q <- length(layout$dimensions)
+  residual <- matrix(0, q, q, dimnames = list(layout$dimensions, layout$dimensions))
+  for (j in seq_along(fit$outcomes)) {
+    d <- layout$outcome_dimensions[[j]]
+    family <- fit$families[[j]]
+    residual[d, d] <- if (identical(family$family, "categorical"))
+      (pi^2 / 6) * (diag(length(d)) + matrix(1, length(d), length(d))) else
+      if (identical(family$link, "probit")) 1 else pi^2 / 3
+  }
+  c(layout, list(residual = residual))
 }
 
 # A latent discrete scale holds its residual variance fixed by the link. Its
@@ -222,8 +265,9 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
   total <- universe + error
   if (!isTRUE(record$available) || !is.finite(total) || total <= 0) return(NA_real_)
   entries <- record$entries
-  row_position <- match(entries$row, fit$outcomes)
-  column_position <- match(entries$column, fit$outcomes)
+  labels <- if (is.null(context$dimensions)) fit$outcomes else context$dimensions
+  row_position <- match(entries$row, labels)
+  column_position <- match(entries$column, labels)
   if (anyNA(row_position) || anyNA(column_position)) return(NA_real_)
   sources <- names(universe_weights)
   if (any(!entries$component %in% sources)) return(NA_real_)
@@ -231,6 +275,52 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
                  universe * error_weights[entries$component]) / total^2
   multiplier <- ifelse(row_position == column_position, 1, 2)
   gradient <- as.numeric(per_source) * weight[row_position] * weight[column_position] * multiplier
+  variance <- drop(crossprod(gradient, record$entry_covariance %*% gradient))
+  if (!is.finite(variance) || variance < 0) return(NA_real_)
+  sqrt(variance)
+}
+
+# A nominal outcome's coefficients: the generalized eigenvalues of its universe
+# covariance U relative to U + E on its K - 1 contrast dimensions, reported as
+# their mean, smallest and largest. Generalized eigenvalues are unchanged by any
+# invertible change of the contrast basis, so the coefficients do not depend on
+# the reference category or on how the categories are labelled; the largest is
+# the reliability of the best linear composite of the contrasts (Joe and
+# Woodward, 1976). With one contrast this is the binary ratio.
+.gt_nominal_eigenvalues <- function(universe, error) {
+  total <- universe + error
+  if (any(!is.finite(total)) || min(eigen(total, symmetric = TRUE, only.values = TRUE)$values) <= 0)
+    return(rep(NA_real_, nrow(universe)))
+  values <- Re(eigen(solve(total, universe), only.values = TRUE)$values)
+  sort(pmin(1, pmax(0, values)), decreasing = TRUE)
+}
+
+# Delta-method standard error of the mean generalized eigenvalue,
+# tr(T^-1 U) / m with T = U + E. For a source s entering U with weight u_s and
+# E with weight e_s, d tr(T^-1 U) = tr(A_s dS) with
+# A_s = u_s T^-1 - (u_s + e_s) T^-1 U T^-1; an off-diagonal entry counts twice.
+.gt_nominal_standard_error <- function(context, dims, universe, error,
+                                       universe_weights, error_weights) {
+  record <- context$uncertainty
+  if (!isTRUE(record$available)) return(NA_real_)
+  total <- universe + error
+  inverse <- tryCatch(solve(total), error = function(e) NULL)
+  if (is.null(inverse) || any(!is.finite(inverse))) return(NA_real_)
+  entries <- record$entries
+  sources <- names(universe_weights)
+  if (any(!entries$component %in% sources)) return(NA_real_)
+  labels <- context$dimensions[dims]
+  middle <- inverse %*% universe %*% inverse
+  m <- length(dims)
+  gradient <- vapply(seq_len(nrow(entries)), function(r) {
+    a <- match(entries$row[[r]], labels)
+    b <- match(entries$column[[r]], labels)
+    if (is.na(a) || is.na(b)) return(0)
+    source <- entries$component[[r]]
+    A <- universe_weights[[source]] * inverse -
+      (universe_weights[[source]] + error_weights[[source]]) * middle
+    (if (a == b) A[a, a] else A[a, b] + A[b, a]) / m
+  }, numeric(1))
   variance <- drop(crossprod(gradient, record$entry_covariance %*% gradient))
   if (!is.finite(variance) || variance < 0) return(NA_real_)
   sqrt(variance)
@@ -272,26 +362,58 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
     interval <- .gt_coefficient_interval(value, standard_error, level)
     c(value = value, se = standard_error, lower = interval$lower, upper = interval$upper)
   }
+  outcome_dimensions <- if (is.null(context$outcome_dimensions))
+    stats::setNames(as.list(seq_along(fit$outcomes)), fit$outcomes) else context$outcome_dimensions
+  q <- nrow(universe)
   unit <- function(j) {
-    w <- numeric(length(fit$outcomes))
-    w[[j]] <- 1
+    w <- numeric(q)
+    w[[outcome_dimensions[[j]]]] <- 1
     w
   }
-  relative_rows <- vapply(seq_along(fit$outcomes),
-    function(j) coefficient(unit(j), relative, weights$relative), numeric(4L))
-  absolute_rows <- vapply(seq_along(fit$outcomes),
-    function(j) coefficient(unit(j), absolute, weights$absolute), numeric(4L))
+  nominal_coefficient <- function(j, error_matrix, error_weights) {
+    d <- outcome_dimensions[[j]]
+    U <- universe[d, d, drop = FALSE]
+    E <- error_matrix[d, d, drop = FALSE]
+    values <- .gt_nominal_eigenvalues(U, E)
+    value <- mean(values)
+    standard_error <- .gt_nominal_standard_error(context, d, U, E, weights$universe, error_weights)
+    interval <- .gt_coefficient_interval(value, standard_error, level)
+    c(value = value, se = standard_error, lower = interval$lower, upper = interval$upper,
+      min = min(values), max = max(values))
+  }
+  single <- function(row) c(row, min = row[["value"]], max = row[["value"]])
+  nominal <- vapply(outcome_dimensions, length, integer(1)) > 1L
+  relative_rows <- vapply(seq_along(fit$outcomes), function(j) if (nominal[[j]])
+    nominal_coefficient(j, relative, weights$relative) else
+    single(coefficient(unit(j), relative, weights$relative)), numeric(6L))
+  absolute_rows <- vapply(seq_along(fit$outcomes), function(j) if (nominal[[j]])
+    nominal_coefficient(j, absolute, weights$absolute) else
+    single(coefficient(unit(j), absolute, weights$absolute)), numeric(6L))
   per_trait <- data.frame(outcome = fit$outcomes,
     Erho2 = relative_rows["value", ], Erho2_se = relative_rows["se", ],
     Erho2_lower = relative_rows["lower", ], Erho2_upper = relative_rows["upper", ],
     Phi = absolute_rows["value", ], Phi_se = absolute_rows["se", ],
     Phi_lower = absolute_rows["lower", ], Phi_upper = absolute_rows["upper", ],
     stringsAsFactors = FALSE)
+  # The range of the generalized eigenvalues is reported only where an outcome
+  # has more than one latent dimension, so other results keep their columns.
+  if (any(nominal)) {
+    per_trait$latent_dimensions <- vapply(outcome_dimensions, length, integer(1))
+    per_trait$Erho2_min <- relative_rows["min", ]
+    per_trait$Erho2_max <- relative_rows["max", ]
+    per_trait$Phi_min <- absolute_rows["min", ]
+    per_trait$Phi_max <- absolute_rows["max", ]
+  }
   composite <- NULL
   if (!is.null(score)) {
+    if (any(nominal))
+      stop("A weighted composite needs a numeric score for every outcome, and a nominal outcome ",
+           "has none. Report the nominal outcome's own coefficients, or define a category ",
+           "target with gt_categorical_target().", call. = FALSE)
     if (!inherits(score, "gt_score") || !setequal(names(score$weights), fit$outcomes))
       stop("score must explicitly weight every outcome exactly once.", call. = FALSE)
-    w <- as.numeric(score$weights[fit$outcomes])
+    w <- numeric(q)
+    for (j in seq_along(fit$outcomes)) w[[outcome_dimensions[[j]]]] <- score$weights[[fit$outcomes[[j]]]]
     relative_composite <- coefficient(w, relative, weights$relative)
     absolute_composite <- coefficient(w, absolute, weights$absolute)
     composite <- data.frame(
@@ -313,6 +435,7 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
        model = if (length(fixed)) "mixed (Brennan 2001): object-by-fixed-facet variance enters the universe score" else
          "fully random facets",
        interpretation = if (context$gaussian) "Gaussian observed-score coefficient" else
+         if (any(nominal)) "Identified latent-response coefficients; for a nominal outcome the mean of the generalized eigenvalues over its category contrasts, with their range; not reliability of observed proportions or category labels" else
          "Identified latent-response coefficient; not reliability of binary proportions or ordinal observed scores",
        batch = .gt_batch_status(fit$design),
        fit_diagnostics = gt_diagnostics(fit)), class = "gt_reliability")
@@ -551,6 +674,9 @@ print.gt_reliability <- function(x, ..., digits = 4L, max_rows = 12L) {
     print(.gt_drop_empty_columns(x$composite), row.names = FALSE, digits = digits)
   }
   cat("Erho2: relative comparisons; Phi: absolute decisions.\n")
+  if (!is.null(x$per_trait$latent_dimensions))
+    cat("Nominal outcomes: mean of the generalized eigenvalues over the category contrasts;",
+        "_min and _max give their range.\n")
   .gt_print_uncertainty_note(x)
   if (identical(x$scale, "latent")) cat("Latent-response coefficients; not observed-score reliability.\n")
   if (isTRUE(x$extrapolated)) cat("Allocation exceeds fitted counts; source covariances are held fixed.\n")
