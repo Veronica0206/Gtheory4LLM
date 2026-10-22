@@ -106,6 +106,12 @@ release evidence while adding the following bounded capabilities:
   ordinal outcomes in the same fit keep one variance each, and outcomes are
   independent within a source. Both engines, the stationarity check, the
   observed information, preflight and the Laplace check support it.
+- Sparse nominal fits no longer stop when rounding lifts a row of contrast
+  probabilities a few dozen ulps above one, which happens where the reference
+  category's probability is near zero. The sparse Hessian guard allowed 16
+  ulps and stopped the evaluation while the dense assembly accepted the same
+  rows; it now allows `sqrt(.Machine$double.eps)` and still refuses inputs that
+  are not probabilities.
 
 - `gt_laplace_check()` no longer re-resolves a fit's retained data as new user
   data. A binary outcome fitted with labels other than `"0"`/`"1"` is retained

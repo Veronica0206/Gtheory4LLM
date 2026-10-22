@@ -121,6 +121,39 @@ for (p in bad_probabilities)
   expect(!identical(outcome(.gt_d_sparse_hessian(list(list(dims = c(1L, 3L),
     probability = p)), nominal_W, 4L)), "accepted"), "malformed nominal probabilities are refused")
 
+# --- Rounding in kernel-built probabilities ------------------------------------
+# The response kernel forms contrast probabilities as exp(eta - log denominator).
+# Where the reference probability is near zero, rounding lifts a row sum a few
+# dozen ulps above one: 60 on the drug-review efficacy panel, where a guard
+# allowing 16 stopped every sparse nominal fit while the dense assembly went on.
+# Those rows are probabilities and must assemble as the dense oracle does; a row
+# that misses one by far more than rounding is still refused.
+source(file.path("R", "discrete_response.R"))
+nominal_oracle <- function(probability, W) {
+  rows <- nrow(probability)
+  C <- matrix(0, 3L * rows, 3L * rows)
+  for (i in seq_len(rows)) {
+    index <- c(i, i + rows)
+    C[index, index] <- diag(probability[i, ]) - tcrossprod(probability[i, ])
+  }
+  diag(ncol(W)) + crossprod(as.matrix(W), C %*% as.matrix(W))
+}
+crafted <- matrix(c(0.75, 0.25 + 40 * .Machine$double.eps), 4L, 2L, byrow = TRUE)
+expect(all(rowSums(crafted) - 1 > 16 * .Machine$double.eps),
+       "the crafted rows sit above the old sixteen-ulp allowance")
+eta <- rbind(c(35, 35 - log(0.9566803 / 0.04331965)), c(120, 117), c(400, 396.9), c(-3, 2))
+kernel <- .gt_d_response_kernel(eta, numeric(0), list(n = 4L, q = 2L,
+  blocks = list(list(family = "categorical", dims = 1:2, y = c(1L, 2L, 3L, 3L)))))
+expect(isTRUE(kernel$valid), "the kernel evaluates the large linear predictors")
+for (case in list(crafted = crafted, kernel = kernel$curvature[[1L]]$probability)) {
+  H <- .gt_d_sparse_hessian(list(list(dims = 1:2, probability = case)), nominal_W, 4L)
+  expect(max(abs(as.matrix(H) - nominal_oracle(case, nominal_W))) < 1e-12,
+         "rows rounded above one assemble as the dense oracle does")
+}
+far <- matrix(c(0.5, 0.5 + 1e-6), 4L, 2L, byrow = TRUE)
+expect(!identical(outcome(.gt_d_sparse_hessian(list(list(dims = 1:2, probability = far)),
+  nominal_W, 4L)), "accepted"), "a row 1e-6 above one is still refused")
+
 # --- Malformed input ----------------------------------------------------------
 malformed <- list(
   no_blocks = function() .gt_d_sparse_hessian(list(), sparse_W, at$n),

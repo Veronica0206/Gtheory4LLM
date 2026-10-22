@@ -152,10 +152,20 @@
       H <- H + Matrix::crossprod(A, A * pmax(0, curv$diagonal))
     } else {
       probability <- curv$probability
+      # The response kernel forms each contrast probability as
+      # exp(eta - log denominator). The log denominator carries an absolute
+      # rounding error of about eps * |eta|, so where the reference category's
+      # probability is near zero a row can sum, or a single entry can rise, a
+      # few dozen ulps above one: 60 ulps on the drug-review efficacy panel at
+      # |eta| near 35. The dense assembly accepts those rows. This check exists
+      # to refuse inputs that are not probabilities at all, which miss by orders
+      # of magnitude more, so it allows sqrt(eps) above one rather than a fixed
+      # count of ulps that a large linear predictor exceeds.
+      above_one <- 1 + sqrt(.Machine$double.eps)
       if (!is.matrix(probability) || !is.numeric(probability) ||
           !identical(dim(probability), c(n, length(dimensions))) ||
-          any(!is.finite(probability)) || any(probability < 0 | probability > 1) ||
-          any(rowSums(probability) > 1 + 16 * .Machine$double.eps))
+          any(!is.finite(probability)) || any(probability < 0 | probability > above_one) ||
+          any(rowSums(probability) > above_one))
         .gt_d_stop("Nominal curvature needs finite contrast probabilities with row sums at most one.")
       slices <- lapply(dimensions, function(d) W[(d - 1L) * n + seq_len(n), , drop = FALSE])
       for (a in seq_along(dimensions)) for (b in seq_along(dimensions)) {
