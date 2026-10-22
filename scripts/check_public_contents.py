@@ -446,6 +446,13 @@ class PublicAudit:
             raise ValueError("External Git object stores are not inspected.")
         if Path(self.git("rev-parse", "--show-toplevel").decode().strip()).resolve() != self.root:
             raise ValueError("Git repository root does not match the requested directory.")
+        # A shallow clone holds only part of the history reachable from HEAD.
+        # Auditing it would report a pass for commits that were never fetched,
+        # so incomplete history is refused rather than marked complete.
+        if self.git("rev-parse", "--is-shallow-repository").decode().strip() == "true":
+            raise ValueError("History audit requires the complete history reachable from HEAD, "
+                             "but this repository is shallow. Fetch the full history "
+                             "(git fetch --unshallow) and rerun the audit.")
         # The audited history is what the audited commit publishes: every
         # commit reachable from HEAD. A full-history CI checkout also fetches
         # every other branch of the repository; those belong to their own

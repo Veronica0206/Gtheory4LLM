@@ -4,7 +4,9 @@ import importlib.util
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
+import shutil
 import sys
 import subprocess
 import tempfile
@@ -75,7 +77,7 @@ class CRANReadinessTests(unittest.TestCase):
                     "* checking Rd files ... OK\n* DONE\nStatus: OK\n"):
             self.assertFalse(CHECK.manual_checked(log))
 
-    def run_candidate_check(self, log, reason=None):
+    def run_candidate_check(self, log, reason=None, rscript=None):
         self.manifest["expected_data_kind"] = "public_llm_annotations"
         self.save_manifest()
         output = self.root / f"checked-{len(list(self.root.glob('checked-*')))}"
@@ -104,12 +106,15 @@ class CRANReadinessTests(unittest.TestCase):
         argv = ["cran_readiness.py", "check", "--require-devel", "--candidate-dir", str(self.root), "--output-dir", str(output)]
         if reason is not None:
             argv += ["--cran-requested-maintenance", reason]
+        if rscript is not None:
+            argv += ["--rscript", rscript]
         with patch.object(CHECK, "ROOT", self.root / "source"), patch.object(CHECK, "clean_commit", return_value=self.commit), \
                 patch.object(CHECK, "PublicAudit") as audit, patch.object(CHECK.subprocess, "run", side_effect=fake_run), \
                 patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
             audit.return_value.findings = []
             audit.return_value.report.return_value = {"passed": True}
             status = CHECK.main()
+            self.audit_constructions = list(audit.call_args_list)
         self.assertEqual(sum("CMD" in command for command in commands), 1)
         report = json.loads((output / "check_validation.json").read_text())
         self.assertFalse(report["submission_performed"])
@@ -138,6 +143,67 @@ class CRANReadinessTests(unittest.TestCase):
         self.assertEqual(report["cran_requested_maintenance"], reason)
         self.assertEqual(report["r_cmd_check"]["notes"], 1)
         self.assertEqual(report["r_cmd_check"]["note_exceptions"][0]["reason"], reason)
+
+    def competing_interpreter_on_path(self):
+        """A harmless Rscript first on PATH that must never be the audit's interpreter."""
+        stub_dir = self.root / "competing-bin"
+        stub_dir.mkdir()
+        stub = stub_dir / "Rscript"
+        stub.write_text("#!/bin/sh\nexit 77\n")
+        stub.chmod(0o755)
+        patcher = patch.dict(os.environ, {"PATH": str(stub_dir)})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return stub
+
+    def test_the_candidate_check_audits_with_the_selected_interpreter(self):
+        stub = self.competing_interpreter_on_path()
+        if os.name != "nt":
+            self.assertEqual(Path(shutil.which("Rscript")).resolve(), stub.resolve())
+        status, _ = self.run_candidate_check(
+            "* checking PDF version of manual ... OK\n* checking tests ... OK\n* DONE\nStatus: OK\n",
+            rscript="/resolved/Rscript")
+        self.assertEqual(status, 0)
+        self.assertEqual(len(self.audit_constructions), 1)
+        for construction in self.audit_constructions:
+            self.assertEqual(construction.kwargs.get("rscript"), "/resolved/Rscript")
+
+    def test_the_candidate_build_audits_with_the_selected_interpreter(self):
+        # Both build-time audits, source-and-history and built-archive, must
+        # inspect serialized resources with the interpreter the caller selected,
+        # not with whichever Rscript happens to be first on PATH.
+        stub = self.competing_interpreter_on_path()
+        output = self.root / "built"
+        commands = []
+
+        def fake_run(command, **kwargs):
+            commands.append(command)
+            if Path(command[-1]).name == "runtime.R":
+                stdout = "/opt/R-release/bin\n4.5.3\n\nR version 4.5.3\n"
+            elif command[1:3] == ["CMD", "build"]:
+                self.assertEqual(command[0], str(Path("/opt/R-release/bin") / ("R.exe" if os.name == "nt" else "R")))
+                (Path(kwargs["cwd"]) / "Example_0.0.1.tar.gz").write_bytes(b"built archive fixture")
+                stdout = "* building 'Example_0.0.1.tar.gz'\n"
+            else:
+                self.assertEqual(command[0], "/resolved/Rscript")
+                stdout = "verified\n"
+            return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+        argv = ["cran_readiness.py", "build", "--output-dir", str(output), "--rscript", "/resolved/Rscript"]
+        with patch.object(CHECK, "ROOT", self.root / "source"), patch.object(CHECK, "clean_commit", return_value=self.commit), \
+                patch.object(CHECK, "PublicAudit") as audit, patch.object(CHECK.subprocess, "run", side_effect=fake_run), \
+                patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
+            audit.return_value.findings = []
+            audit.return_value.report.return_value = {"passed": True}
+            status = CHECK.main()
+            constructions = list(audit.call_args_list)
+        self.assertEqual(status, 0)
+        self.assertEqual(len(constructions), 2)
+        for construction in constructions:
+            self.assertEqual(construction.kwargs.get("rscript"), "/resolved/Rscript")
+        self.assertTrue(all(str(stub) not in command for command in commands))
+        manifest = json.loads((output / "candidate.json").read_text())
+        self.assertEqual((manifest["package"], manifest["version"]), ("Example", "0.0.1"))
 
 
 class IncomingNoteTests(unittest.TestCase):

@@ -193,10 +193,12 @@ per engine, `summary()` carries the Gaussian reliability at the fitted counts,
 prints as a description. Two pieces of new estimation code arrive with their
 own acceptance and availability rules: the lme4 Gaussian engine, accepted only
 when lme4's optimizer completes without a convergence warning, the package's
-stationarity check on lme4's deviance function passes, a restart that itself
-completes without a convergence warning reproduces the solution, and the exact
-balanced deviance agrees with lme4's criterion at the
-estimates; and `gt_laplace_check()`, which compares a discrete fit's Laplace
+stationarity check on lme4's deviance function passes, a restart from a
+different point reproduces the solution, and the exact balanced deviance
+agrees with lme4's criterion at the estimates (the published 0.6.0 archive
+checks only that the restart reproduces the solution; the requirement that the
+restart itself complete with optimizer code 0 and no convergence warning is the
+0.6.1 correction recorded above); and `gt_laplace_check()`, which compares a discrete fit's Laplace
 objective with a refined numerical estimate and reports when that estimate is
 unavailable or unusable. The exact Gaussian fitting engine, the dense Laplace
 fitting engine and their numerical acceptance rules are unchanged from 0.5.0.

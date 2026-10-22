@@ -1,9 +1,11 @@
 """Test orchestration contracts without rerunning numerical fits recursively."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -15,9 +17,36 @@ RUNNER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RUNNER)
 
 
+def external_temporary_base() -> Path:
+    """A writable temporary base outside the checkout.
+
+    The ambient base is used when it already lies outside the checkout. When
+    TMPDIR points inside the checkout, a supported invocation environment, the
+    system locations are tried instead, so a test that must allocate outside
+    the checkout does so by choice rather than by assumption.
+    """
+    candidates = [Path(tempfile.gettempdir())]
+    candidates += [Path(x) for x in ("/tmp", "/var/tmp")]
+    candidates.append(Path.home())
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if ROOT in resolved.parents or resolved == ROOT or not resolved.is_dir():
+            continue
+        try:
+            with tempfile.TemporaryDirectory(dir=str(resolved)):
+                return resolved
+        except OSError:
+            continue
+    raise RuntimeError("No writable temporary base outside the checkout was found.")
+
+
 class ValidationRunnerTests(unittest.TestCase):
     def test_the_entry_point_stages_a_manifest_only_when_none_is_supplied_and_a_run_needs_one(self):
         explicit = Path("/explicit/manifest.json")
+        # The rehearsal staging below is synthetic, so this test chooses where
+        # it is allocated: outside the checkout, whatever the ambient base is.
+        self.addCleanup(setattr, tempfile, "tempdir", tempfile.tempdir)
+        tempfile.tempdir = str(external_temporary_base())
         with patch.object(RUNNER, "select_release_manifest") as select, \
                 patch.object(RUNNER, "retained_manifest_applies", return_value=False):
             self.assertEqual(RUNNER.default_release_manifest(explicit, ROOT, needed=True), (explicit, None))
@@ -39,6 +68,24 @@ class ValidationRunnerTests(unittest.TestCase):
         self.assertNotIn(ROOT, Path(staging.name).parents)
         staging.cleanup()
         self.assertFalse(Path(staging.name).exists())
+
+    def test_the_staging_test_passes_with_the_temporary_base_inside_the_checkout(self):
+        # The real interpreter, the real test module and a temporary base that
+        # lies inside the checkout: the environment under which the Python
+        # stage of the source gate used to fail. The probe directory exists for
+        # the duration of the run so that the nested base is genuinely used.
+        probe = ROOT / ".gtheory-nested-temporary-base-probe"
+        probe.mkdir(exist_ok=False)
+        self.addCleanup(shutil.rmtree, probe, True)
+        environment = {key: value for key, value in os.environ.items() if key not in ("TMPDIR", "TMP", "TEMP")}
+        environment.update({"TMPDIR": str(probe), "TMP": str(probe), "TEMP": str(probe)})
+        target = ("tests.test_validation_runner.ValidationRunnerTests."
+                  "test_the_entry_point_stages_a_manifest_only_when_none_is_supplied_and_a_run_needs_one")
+        completed = subprocess.run([sys.executable, "-m", "unittest", target], cwd=ROOT, env=environment,
+                                   capture_output=True, text=True, timeout=300)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("OK", completed.stderr)
+        self.assertFalse(list(probe.iterdir()), "nothing may be left behind inside the checkout")
 
     def test_a_retained_manifest_allocates_no_staging_directory(self):
         # Whether anything must be built is decided first, so a development or

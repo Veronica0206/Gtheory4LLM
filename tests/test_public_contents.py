@@ -530,6 +530,34 @@ class PublicContentsTests(unittest.TestCase):
         self.assertIn("home-directory", reasons)
         self.assertEqual(unrelated.commits_checked, 2)
 
+    @unittest.skipUnless(shutil.which("git"), "Git is required for history fixtures")
+    def test_history_refuses_a_shallow_clone_instead_of_reporting_a_partial_pass(self):
+        # A depth-one clone of a clean tip does not contain the ancestor that
+        # carried private material. Auditing it would inspect one commit and
+        # report zero findings; the audit must refuse instead of passing.
+        git = self.git
+        git("init", "--quiet")
+        git("add", ".")
+        git("commit", "--quiet", "-m", "Clean initial package")
+        self.write(Path("companion") / "draft.tex")
+        git("add", ".")
+        git("commit", "--quiet", "-m", "Add temporary material")
+        git("rm", "--quiet", str(Path("companion") / "draft.tex"))
+        git("commit", "--quiet", "-m", "Remove temporary material")
+        complete = module.PublicAudit(self.root, "synthetic")
+        complete.history()
+        self.assertEqual(complete.commits_checked, 3)
+        self.assertIn("Private research", " ".join(item["reason"] for item in complete.findings))
+        with tempfile.TemporaryDirectory() as directory:
+            shallow = Path(directory) / "shallow"
+            subprocess.run(["git", "clone", "--quiet", "--depth", "1", self.root.as_uri(), str(shallow)],
+                           check=True, capture_output=True)
+            audit = module.PublicAudit(shallow, "synthetic")
+            with self.assertRaisesRegex(ValueError, "shallow"):
+                audit.history()
+            self.assertEqual(audit.commits_checked, 0)
+            self.assertFalse(audit.findings)
+
 
 if __name__ == "__main__":
     unittest.main()

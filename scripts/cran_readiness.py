@@ -119,7 +119,7 @@ def main() -> int:
         if args.mode == "build":
             if info[2] not in ("", "Patched"):
                 raise ValueError("Build the source candidate with released or patched R, not R-devel.")
-            audit = PublicAudit(ROOT, args.expected_data_kind)
+            audit = PublicAudit(ROOT, args.expected_data_kind, rscript=args.rscript)
             audit.working_tree()
             audit.history()
             (work / "public_source_audit.json").write_text(json.dumps(portable(audit.report()), indent=2) + "\n")
@@ -132,7 +132,7 @@ def main() -> int:
                 raise ValueError("Build must produce exactly one source tarball.")
             archive = archives[0]
             package, version = archive.name.removesuffix(".tar.gz").rsplit("_", 1)
-            public_archive = PublicAudit(ROOT, args.expected_data_kind)
+            public_archive = PublicAudit(ROOT, args.expected_data_kind, rscript=args.rscript)
             public_archive.inspect_archive(archive.read_bytes(), archive.name)
             (work / "public_archive_audit.json").write_text(json.dumps(portable(public_archive.report()), indent=2) + "\n")
             if public_archive.findings:
@@ -157,7 +157,7 @@ def main() -> int:
             archive = work / incoming.name
             shutil.copyfile(incoming, archive)
             shutil.copyfile(args.candidate_dir / "candidate.json", work / "candidate.json")
-            public_archive = PublicAudit(ROOT, args.expected_data_kind)
+            public_archive = PublicAudit(ROOT, args.expected_data_kind, rscript=args.rscript)
             public_archive.inspect_archive(archive.read_bytes(), archive.name)
             (work / "public_archive_audit.json").write_text(json.dumps(portable(public_archive.report()), indent=2) + "\n")
             if public_archive.findings:
