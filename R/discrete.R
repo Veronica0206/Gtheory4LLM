@@ -367,7 +367,11 @@
 # step ndeps, each side clipped to its bound with the step used on that side.
 # Supplying it therefore leaves the evaluation sequence, every value and the
 # optimizer's path unchanged; tests/test_discrete_sparse_warm_policy.R checks
-# that. What it adds is the role: objective() here is told the evaluations are
+# that. A coarse attempt rerun after a collapsed first step (coarse_attempt in
+# the fit) runs at a parameter scale, where optim would difference in scaled
+# coordinates; this rule still differences in the original ones with the same
+# steps, so the two agree to rounding.
+# What it adds is the role: objective() here is told the evaluations are
 # probes, so a warm-started sparse evaluator seeds all of them from the mode at
 # the point whose gradient they form.
 .gt_d_numerical_gradient <- function(objective, ndeps, lower, upper) {
@@ -1122,10 +1126,46 @@
   }
   optimizer_control <- list(maxit = control$maxit,
     factr = control$reltol / .Machine$double.eps, trace = control$trace)
-  begin_attempt()
-  primary_fit <- .gt_d_optimize(start, objective, lower, upper,
-                                optimizer_control, "primary", optimizer = control$optimizer,
-                                gradient = coarse_gradient)
+  # L-BFGS-B begins from an identity Hessian, and every discrete coordinate has
+  # two finite bounds, so its first trial point is the start minus the raw
+  # gradient. The objective sums over rows and so does its gradient: on the
+  # 21,600-row drug-review panel an ordinal fit's first trial point put the item
+  # variance near 4,000, every conditional solve there failed, and the line
+  # search ended the attempt at its start after three evaluations. A coarse
+  # attempt that ends where it began after an invalid evaluation has collapsed
+  # this way. It is run again from the same start at a uniform parameter scale
+  # of 1/sqrt(rows), which makes the first step the per-row gradient; later
+  # steps take their scale from the curvature the optimizer observes, and the
+  # objective is not rescaled, so the relative-reduction rule is unchanged. An
+  # attempt that moved is never rerun, so no path that did not collapse
+  # changes. Scaling every attempt instead changes every path, and on a frozen
+  # smoke case it left a tight attempt starting within 1e-8 of the optimum with
+  # no representable decrease, so its line search ended abnormally. The
+  # collapsed run is kept in the attempt's record.
+  coarse_attempt <- function(at, label) {
+    invalid_before <- evaluations$summary()$invalid
+    begin_attempt()
+    result <- .gt_d_optimize(at, objective, lower, upper, optimizer_control, label,
+                             optimizer = control$optimizer, gradient = coarse_gradient)
+    invalid <- evaluations$summary()$invalid - invalid_before
+    moved <- max(c(0, abs(result$par - at) / pmax(1, abs(at))))
+    if (!explicit_roles || invalid == 0L || moved > 1e-8) return(result)
+    collapsed <- result$attempt
+    scaled_control <- optimizer_control
+    scaled_control$parscale <- rep(1 / sqrt(prep$n), length(at))
+    begin_attempt()
+    result <- .gt_d_optimize(at, objective, lower, upper, scaled_control, label,
+                             optimizer = control$optimizer, gradient = coarse_gradient)
+    result$attempt$first_step_rescue <- list(
+      invalid_evaluations = invalid, parameter_scale = 1 / sqrt(prep$n),
+      collapsed_objective = collapsed$objective,
+      collapsed_optimizer_code = collapsed$optimizer_code,
+      collapsed_optimizer_message = collapsed$optimizer_message,
+      collapsed_counts = collapsed$raw_result$counts,
+      collapsed_elapsed_seconds = collapsed$elapsed_seconds)
+    result
+  }
+  primary_fit <- coarse_attempt(start, "primary")
   attempts <- list(primary_fit$attempt)
   coarse_candidates <- list(primary_fit)
   # Optimizer completion alone is insufficient. Refine with a tighter inner
@@ -1193,10 +1233,7 @@
         if (!duplicate_start(alternative)) break
       }
     }
-    begin_attempt()
-    alternative_primary <- .gt_d_optimize(alternative, objective, lower, upper,
-      optimizer_control, paste0("alternative_", attempt), optimizer = control$optimizer,
-      gradient = coarse_gradient)
+    alternative_primary <- coarse_attempt(alternative, paste0("alternative_", attempt))
     attempts[[length(attempts) + 1L]] <- alternative_primary$attempt
     coarse_candidates[[length(coarse_candidates) + 1L]] <- alternative_primary
     alternatives[[attempt]] <- optimize_tight(alternative_primary$par,

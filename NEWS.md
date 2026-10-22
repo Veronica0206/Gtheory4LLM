@@ -140,6 +140,18 @@ release evidence while adding the following bounded capabilities:
   the latent-scale guidance names nominal outcomes. The retained profiling
   harness's README says to create the lock's parent directory when the harness
   is copied outside the checkout.
+- A coarse L-BFGS-B attempt whose first step collapses is rerun at the
+  per-row scale. Every discrete coordinate has two finite bounds, so
+  L-BFGS-B's first trial point is the start minus the raw gradient, a sum over
+  rows: on the 21,600-row drug-review panel the default ordinal fits of
+  efficacy, safety and burden put the item variance near 4,000, every
+  conditional solve there failed, and the primary attempt stopped at its start
+  after three evaluations, so the fits were refused. A coarse attempt that ends
+  where it began after an invalid evaluation is now run again from the same
+  start at a uniform parameter scale of `1/sqrt(rows)`, which makes the first
+  step the per-row gradient; the collapsed run is kept in the attempt's
+  `first_step_rescue` record. Attempts that move are never rerun, so no other
+  path changes. Tight attempts and `nlminb` are not scaled.
 - Sparse nominal fits no longer stop when rounding lifts a row of contrast
   probabilities a few dozen ulps above one, which happens where the reference
   category's probability is near zero. The sparse Hessian guard allowed 16

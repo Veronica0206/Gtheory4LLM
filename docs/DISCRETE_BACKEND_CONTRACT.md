@@ -126,8 +126,11 @@ solves warm, and the fit names each evaluation's role rather than leaving the
 evaluator to infer it. The fit supplies the finite-difference gradient itself
 (`.gt_d_numerical_gradient()`), written out from `optim()`'s own rule: central
 differences with the same steps, each side clipped to its bound with the step
-it used. Supplying it leaves the optimizer's evaluations, values and path
-unchanged. The optimizer's function evaluations carry the role `warm`: they
+it used. At unit parameter scale, supplying it leaves the optimizer's
+evaluations, values and path unchanged; a coarse attempt rerun after a
+collapsed first step (below) runs at a parameter scale, where the explicit
+rule, differencing in the original coordinates, agrees with `optim()`'s scaled
+one to rounding. The optimizer's function evaluations carry the role `warm`: they
 start from the attempt's centre mode and become the new centre, whatever
 coordinates moved. The gradient's probes carry the role `warm_probe`: they
 start from the centre mode and never replace it, and because L-BFGS-B
@@ -144,6 +147,24 @@ optimizer whose finite differences are internal to it (`nlminb` and injected
 optimizers), where no role can be named. The classified-failure retry from the
 last valid mode, which predates warm starts, still applies to those cold
 solves.
+
+L-BFGS-B begins from an identity Hessian, and every discrete coordinate has
+two finite bounds, so its first trial point is the start minus the raw
+gradient, which is a sum over rows. On the 21,600-row drug-review panel that
+put an ordinal fit's item variance near 4,000; every conditional solve there
+failed and the attempt stopped at its start after three evaluations. A coarse
+attempt (the primary or an alternative start) that ends where it began, within
+1e-8 relative, after an invalid evaluation has collapsed this way. It is run
+again from the same start at a uniform parameter scale of `1/sqrt(rows)`
+(`optim()`'s `parscale`), which makes the first step the per-row gradient.
+Later steps take their scale from the curvature the optimizer observes, and the
+objective is not rescaled, so the relative-reduction rule (`factr`) is
+unchanged. The rerun keeps the attempt's label; the collapsed run is recorded
+in its `first_step_rescue` entry. An attempt that moved is never rerun, so no
+path that did not collapse changes. Scaling every attempt was rejected: it
+changes every path, and on a frozen smoke case it left a tight attempt starting
+within 1e-8 of the optimum with no representable decrease, so its line search
+ended abnormally. Tight attempts and `nlminb` attempts are not scaled.
 
 A warm solve that stops short of the mode without a validity event is not the
 recorded outcome: the cold solve from zero modes runs in its place, with the

@@ -80,6 +80,9 @@ Discrete optimizer controls are:
 \item \code{start_sd}: 0.4.
 \item \code{trace}: 0.
 \item \code{optimizer}: \code{"L-BFGS-B"}; alternatively \code{"nlminb"}.
+  A coarse L-BFGS-B attempt that stops at its start after an invalid
+  evaluation is rerun at a parameter scale of one over the square root of the
+  number of rows, so its first step is the per-row gradient.
 \item \code{start}: NULL (automatic response and covariance starts).
 \item \code{covariance_parameterization}: \code{"auto"}.
 }
