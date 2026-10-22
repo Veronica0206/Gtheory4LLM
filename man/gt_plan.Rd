@@ -184,7 +184,14 @@ constraint status/reasons, target status, minimum-cost and Pareto indicators,
 cost rank among feasible rows, and baseline cost/error/coefficient changes.
 
 \code{source_contributions} reports universe, relative-error and absolute-error
-contributions and the error reductions per source. The input allocations and
+contributions and the error reductions per source. For a nominal outcome the
+scalar decomposition is unavailable. Its coefficient is the mean generalized
+eigenvalue over its contrast dimensions, which has no single variance
+decomposition, so its source contributions are \code{NA}, as are its
+\code{universe_variance} column, its \code{relative_error} column and its
+\code{absolute_error} column; the \code{decomposition} entry of
+\code{provenance} says so. Allocations are still screened and costed on the
+nominal coefficient. The input allocations and
 full coefficient tables remain in \code{allocations} and \code{all_coefficients}.
 Cost and resource records remain in \code{cost_breakdown} and \code{resources}.
 The \code{constraint_checks} element preserves every check. The \code{baseline}

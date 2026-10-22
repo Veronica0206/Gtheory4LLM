@@ -326,8 +326,8 @@ size are diagnostics, and the comparison does not estimate parameter bias.
 
 Discrete observations follow their chosen response distributions; their latent
 random effects remain Gaussian. Gaussian assumptions therefore remain part of
-the model. Latent binary/ordinal reliability concerns an averaged latent
-response, not observed proportions, majority votes, or category agreement.
+the model. Latent binary, ordinal or nominal reliability concerns an averaged
+latent response, not observed proportions, majority votes, or category agreement.
 Joint Gaussian-discrete models are not implemented.
 
 `gt_categorical_target()` defines those other targets explicitly using paired

@@ -13,7 +13,7 @@ gt_reliability(fit, scale = NULL, score = NULL, design = NULL, counts = NULL,
 }
 \arguments{
 \item{fit}{A numerically accepted \code{gt_fit} with a complete balanced coded panel.}
-\item{scale}{\code{"observed"} for Gaussian outcomes (default); explicitly request \code{"latent"} for binary/ordinal outcomes.}
+\item{scale}{\code{"observed"} for Gaussian outcomes (default); explicitly request \code{"latent"} for binary, ordinal and nominal outcomes.}
 \item{score}{Optional \code{gt_score} weights. Per-outcome results are always returned.}
 \item{counts}{Optional named positive integer instrumentation counts overriding the fitted allocation. Unspecified counts retain their fitted values.}
 \item{design}{Compatibility alias for \code{counts}. Supply only one of these arguments.}

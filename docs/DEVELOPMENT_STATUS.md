@@ -603,6 +603,6 @@ accepted, stable interior information and retain the Laplace qualification.
 Observed-score, category-vector and decision targets are explicit simulation
 estimands with model parameters held fixed. Joint Gaussian-discrete fitting,
 joint incomplete Gaussian fitting, reliability of an irregular observed
-allocation, scalar nominal score ratios and variable-call models remain
+allocation, observed-score ratios for unordered labels (which have no score) and variable-call models remain
 unsupported. The complete boundaries are in [limitations](LIMITATIONS.md).
 Repository governance and passing package checks do not expand that scope.

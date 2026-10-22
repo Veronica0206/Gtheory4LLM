@@ -122,6 +122,24 @@ release evidence while adding the following bounded capabilities:
   likelihood falls by 1.0e-5, no variance moves by more than 0.14%, and rater
   joins item among the boundary sources. Its stored baseline was recaptured
   for that case only.
+- `gt_plan()` works on fits with nominal outcomes. It built one weight per
+  outcome while the covariance matrices are indexed by latent dimension, so a
+  three-category nominal outcome (two contrast dimensions) made every plan fail
+  with non-conformable arguments, including a plan for the binary outcome of a
+  joint nominal-and-binary fit. Weights now follow the fit's latent dimensions.
+  A nominal outcome is screened and costed on its mean generalized-eigenvalue
+  coefficient; its scalar universe and error variances and source
+  contributions are `NA`, and `provenance$decomposition` says why.
+- `gt_simulate()` and the categorical pilots refuse covariance overrides that
+  break an exchangeable fit's structure. A nominal block must be
+  `sigma^2 (I + 11')` and outcomes stay independent within a source; unequal
+  diagonals, equal diagonals without the off-diagonal term, and covariance
+  across outcomes were previously accepted and simulated under the fit's
+  `"exchangeable"` label.
+- Help and guides no longer say that no scalar nominal coefficient exists, and
+  the latent-scale guidance names nominal outcomes. The retained profiling
+  harness's README says to create the lock's parent directory when the harness
+  is copied outside the checkout.
 - Sparse nominal fits no longer stop when rounding lifts a row of contrast
   probabilities a few dozen ulps above one, which happens where the reference
   category's probability is near zero. The sparse Hessian guard allowed 16

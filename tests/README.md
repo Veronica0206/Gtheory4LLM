@@ -73,6 +73,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_sparse_hessian.R` | Sparse Hessian assembly reproduces the dense matrix and frozen targets |
 | `test_discrete_sparse_factor.R` | Sparse factor solves and log determinants match the frozen targets |
 | `test_discrete_sparse_mode.R` | Sparse conditional mode reproduces the dense solve and the frozen targets |
+| `test_nominal_planning.R` | `gt_plan()` on nominal and joint nominal-and-binary fits: weights on latent dimensions, nominal plans screened on the coefficient `gt_dstudy()` reports with the scalar decomposition unavailable, and the binary outcome's decomposition reproducing its coefficient |
 | `test_nominal_reliability.R` | Nominal latent coefficients: invariance to the reference category, the binary reduction, the exchangeable closed form and delta-method error, refusals of diagonal fits and composites, a D study, and a joint nominal-and-binary fit that factorizes |
 | `test_discrete_sparse_warm_start.R` | A failed cold sparse solve is retried once from the fit's last valid mode; valid cold results are unchanged |
 | `test_discrete_cholesky.R` | Cholesky coordinates for unstructured covariance: the 'auto' choice and bounds, exact zeros, the observed-information map against differences, and a rank-one rater panel fitted to an exactly singular accepted matrix at an objective no worse than log-Cholesky's |

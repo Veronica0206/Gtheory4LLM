@@ -99,6 +99,11 @@
       !setequal(names(components), sources))
     stop("components must name every fitted discrete source, without a Gaussian Residual.", call. = FALSE)
   .gt_d_validate_covariance_request(fit$covariance)
+  # The exchangeable structure is checked against the shapes the fit itself
+  # uses: each nominal block sigma^2 (I + 11'), a binary or ordinal dimension any
+  # variance, and no covariance between outcomes within a source.
+  exchangeable <- if (identical(fit$covariance, "exchangeable"))
+    .gt_d_exchangeable_blocks(unname(blocks), q)
   roots <- stats::setNames(vector("list", length(sources)), sources)
   components <- components[sources]
   for (source in sources) {
@@ -117,6 +122,20 @@
       stop("Simulation covariance must be symmetric: ", source, ".", call. = FALSE)
     if (fit$covariance == "diagonal" && any(abs(value[row(value) != col(value)]) > tolerance))
       stop("Simulation covariance must preserve the fitted diagonal structure.", call. = FALSE)
+    if (!is.null(exchangeable)) {
+      across <- value
+      for (b in exchangeable) across[b$dims, b$dims] <- 0
+      if (any(abs(across) > tolerance))
+        stop("Simulation covariance must preserve the fitted exchangeable structure: outcomes are ",
+             "independent within source ", source, ".", call. = FALSE)
+      for (b in exchangeable) if (identical(b$family, "categorical")) {
+        block <- value[b$dims, b$dims, drop = FALSE]
+        variance <- mean(diag(block)) / 2
+        if (max(abs(block - variance * b$shape)) > tolerance)
+          stop("Simulation covariance must preserve the fitted exchangeable structure: the nominal ",
+               "block of '", b$outcome, "' for source ", source, " must be sigma^2 (I + 11').", call. = FALSE)
+      }
+    }
     decomposition <- eigen((value + t(value)) / 2, symmetric = TRUE)
     if (any(!is.finite(decomposition$values)) || min(decomposition$values) < -tolerance)
       stop("Simulation covariance must be positive semidefinite: ", source, ".", call. = FALSE)

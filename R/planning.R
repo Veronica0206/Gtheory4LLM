@@ -219,9 +219,24 @@ gt_plan <- function(fit, candidates, cost, currency, cost_date, study_items, tar
   results$cost_rank <- NA_integer_
   feasible_rows <- which(results$feasible)
   results$cost_rank[feasible_rows] <- rank(results$total_cost[feasible_rows], ties.method = "min")
-  weight <- if (kind == "composite") as.numeric(score$weights[fit$outcomes]) else
-    as.numeric(fit$outcomes == unique(results$outcome))
-  quadratic <- function(matrix) drop(crossprod(weight, matrix %*% weight))
+  # Weights live on the fit's latent dimensions, which are not its outcomes once
+  # a nominal outcome spans its K - 1 contrast dimensions. A Gaussian, binary or
+  # ordinal outcome, or a composite of them, weights its own dimension. A nominal
+  # outcome's coefficient is the mean generalized eigenvalue over its contrasts,
+  # which has no single universe or error variance, so the scalar decomposition
+  # is reported as unavailable for it rather than computed for one contrast.
+  dimensions <- context$outcome_dimensions
+  nominal <- context$nominal
+  weight <- numeric(length(context$dimensions))
+  selected <- if (kind == "composite") fit$outcomes[as.numeric(score$weights[fit$outcomes]) != 0] else
+    unique(results$outcome)
+  decomposable <- !any(nominal[selected])
+  if (decomposable) for (o in selected)
+    weight[dimensions[[o]]] <- if (kind == "composite") as.numeric(score$weights[[o]]) else 1
+  decomposition <- if (decomposable) "scalar universe and error variances of the selected target" else
+    paste("unavailable: a nominal outcome's coefficient is the mean generalized eigenvalue over its",
+          "contrast dimensions, which has no single universe or error variance")
+  quadratic <- function(matrix) if (decomposable) drop(crossprod(weight, matrix %*% weight)) else NA_real_
   results$universe_variance <- vapply(coefficients, function(x) quadratic(x$universe_covariance), numeric(1))
   results$relative_error <- vapply(coefficients, function(x) quadratic(x$relative_error_covariance), numeric(1))
   results$absolute_error <- vapply(coefficients, function(x) quadratic(x$absolute_error_covariance), numeric(1))
@@ -257,6 +272,7 @@ gt_plan <- function(fit, candidates, cost, currency, cost_date, study_items, tar
       screening = screening, target = target, coefficient = coefficient,
       outcome = unique(results$outcome), kind = kind, scale = context$scale,
       fixed_facets = fixed, score = score, interval_level = level, uncertainty = context$uncertainty,
+      decomposition = decomposition,
       baseline_id = baseline, batch = .gt_batch_status(fit$design),
       interpretation = paste("Source covariances, outcome scale, identities and facet universe are held fixed.",
         "Facet counts represent exchangeable draws under that same model; evaluator identities are not optimized.",

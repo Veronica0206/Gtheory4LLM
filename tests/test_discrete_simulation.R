@@ -176,6 +176,27 @@ bad <- fixture
 bad$covariance_components$item[1, 1] <- -1
 expect_error(gt_simulate(bad, 4, seed = 1), "positive semidefinite")
 expect_error(gt_simulate(fixture, 4, seed = 1, components = list(item = matrix4())), "every fitted")
+
+# An exchangeable fit's overrides keep its structure: each nominal block is
+# sigma^2 (I + 11'), a binary or ordinal dimension takes any variance, and
+# outcomes are independent within a source. Unequal or equal diagonals without
+# the off-diagonal term, and covariance across outcomes, are refused.
+exchangeable <- fixture
+exchangeable$covariance <- "exchangeable"
+block <- function(binary = .4, ordinal = .2, nominal = .3) {
+  m <- matrix4(); m["binary", "binary"] <- binary; m["ordinal", "ordinal"] <- ordinal
+  m[3:4, 3:4] <- nominal * (diag(2) + 1); m
+}
+with_nominal <- function(value) { m <- block(); m[3:4, 3:4] <- value; m }
+accepted <- gt_simulate(exchangeable, 4, seed = 1, components = list(item = block(), rater = block(0, 0, 0)))
+stopifnot(inherits(accepted, "data.frame") || is.list(accepted))
+expect_error(gt_simulate(exchangeable, 4, seed = 1,
+  components = list(item = with_nominal(diag(c(.2, 1.7))), rater = block())), "sigma^2 (I + 11')")
+expect_error(gt_simulate(exchangeable, 4, seed = 1,
+  components = list(item = with_nominal(diag(c(.6, .6))), rater = block())), "sigma^2 (I + 11')")
+across <- block(); across["binary", "nominal:red"] <- across["nominal:red", "binary"] <- .1
+expect_error(gt_simulate(exchangeable, 4, seed = 1, components = list(item = across, rater = block())),
+  "independent within source item")
 expect_error(gt_simulate(fixture, 4, seed = 1, means = c(binary = 0, ordinal = 1,
   "nominal:red" = 0, "nominal:green" = 0)), "intercepts must remain zero")
 stopifnot(nrow(gt_simulate(fixture, 4, c(rater = 1), seed = 1)) == 4L)

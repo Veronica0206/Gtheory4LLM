@@ -16,8 +16,21 @@ and agreements are exact.
 | `agreement.R`, `agreement.csv` | warm against cold objective agreement at 18 parameter vectors and two tolerances (36 rows) | `agreement.R` |
 | `profile.R`, `profile-synthetic.txt`, `profile-native.txt` | one cold and one warm evaluation, the components of a Newton step, and the fixed-pattern assembly prototype | `profile.R synthetic`, `profile.R native` |
 
-The harness writes a lock beside its own directory; copy `harness/` outside the
-checkout to run it, with `--source` pointing at the checkout.
+The harness takes an exclusive lock by creating
+`scale-qualification-20261021/.running.lock` beside the directory that holds
+it, and does not create that parent itself; a second launch while the lock
+exists is refused. To run it, copy `harness/` outside the checkout, create the
+sibling `scale-qualification-20261021` directory, and point `--source` at the
+checkout, for example:
+
+```bash
+mkdir -p /tmp/profile/harness /tmp/profile/scale-qualification-20261021
+cp harness/run.py harness/run.R /tmp/profile/harness/
+python3 /tmp/profile/harness/run.py --source /path/to/checkout --output /tmp/profile/run --optimizer L-BFGS-B
+```
+
+The harness files themselves stay byte-identical to the ones the
+`*-started.json` records hash.
 
 ## Where the time goes (before)
 

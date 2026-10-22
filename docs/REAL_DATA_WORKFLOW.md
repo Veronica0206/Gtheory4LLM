@@ -76,7 +76,7 @@ The script sources the checkout's functions locally. For these standalone snippe
 
 The `mental_health_7L` and `mental_health_3L` variants are numeric working scores, not established clinical severity scales. Replacing the nominal response with either score changes the scientific question; it is not a workaround for a blocked categorical model. The six native outcome sets above are alternative views of three datasets, not six independent datasets.
 
-Binary/ordinal G and Phi, when supported by an accepted fit, concern averages of **latent responses**. They do not directly answer the reliability of majority votes or observed label proportions. No scalar categorical G/Phi is implemented. Define the intended decision before choosing a coefficient or planning the number of evaluators and prompts.
+Binary, ordinal and nominal G and Phi, when supported by an accepted fit, concern averages of **latent responses**. They do not directly answer the reliability of majority votes or observed label proportions. A nominal outcome's G and Phi are the mean and range of the generalized eigenvalues over its category contrasts, under exchangeable or unstructured covariance; observed-score ratios for unordered labels are not defined, because the labels have no score. Define the intended decision before choosing a coefficient or planning the number of evaluators and prompts.
 
 ## What the actual full-panel preflight reports
 
