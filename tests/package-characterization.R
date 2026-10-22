@@ -335,14 +335,14 @@ BASELINE <- list(
     Erho2 = c(grade = 0.85914166560527017),
     Phi = c(grade = 0.85013841330763384)),
   discrete_categorical = list(
-    minus2loglik = 200.98073819767097,
-    variances = c("item.topic::b_vs_a" = 1.4145610733496314, "item.topic::c_vs_a" = 1.0764268371450318, 
-      "rater.topic::b_vs_a" = 0.043628750345263048, "rater.topic::c_vs_a" = 0.20238347453536687
+    minus2loglik = 200.98072776883453,
+    variances = c("item.topic::b_vs_a" = 1.4145284445751869, "item.topic::c_vs_a" = 1.0764051330258559, 
+      "rater.topic::b_vs_a" = 0.043565786508633721, "rater.topic::c_vs_a" = 0.20229848909373169
       ),
     numerically_accepted = TRUE,
     optimizer_completed = TRUE,
     acceptance_failures = character(0),
-    boundary_sources = "item",
+    boundary_sources = c("item", "rater"),
     terms = c("item", "rater")),
   discrete_rejected = list(
     minus2loglik = 147.44722690283956,

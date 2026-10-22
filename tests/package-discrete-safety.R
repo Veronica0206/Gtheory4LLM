@@ -189,10 +189,10 @@ expect_error(gt_fit(d, c("y", "z"), design, gt_family("binary", "logit"),
     covariance_parameterization = "variance", maxit = 300L, alternative_starts = 2L))),
   "univariate or diagonal")
 # The resolved default must not silently convert that unstructured request:
-# 'auto' selects log-Cholesky coordinates and keeps every covariance parameter.
+# 'auto' selects Cholesky coordinates and keeps every covariance parameter.
 auto_joint <- gt_fit(d, c("y", "z"), design, gt_family("binary", "logit"),
                      covariance = "unstructured", control = control)
-stopifnot(identical(auto_joint$diagnostics$covariance_parameterization, "log_cholesky"),
+stopifnot(identical(auto_joint$diagnostics$covariance_parameterization, "cholesky"),
           identical(auto_joint$diagnostics$covariance_parameterization_requested, "auto"),
           length(auto_joint$diagnostics$starting_parameters) == 5L)
 expect_error(gt_fit(d, "y", design, gt_family("binary"),

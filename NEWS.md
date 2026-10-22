@@ -106,6 +106,22 @@ release evidence while adding the following bounded capabilities:
   ordinal outcomes in the same fit keep one variance each, and outcomes are
   independent within a source. Both engines, the stationarity check, the
   observed information, preflight and the Laplace check support it.
+- Joint unstructured discrete fits default to Cholesky coordinates: the
+  entries of each source's lower-triangular factor, with a nonnegative
+  diagonal that can reach zero. Log-Cholesky coordinates can only approach a
+  singular source matrix, and near one the other directions become
+  ill-conditioned and the optimizer stalls short of stationarity; joint fits of
+  the bundled panels whose evaluator and prompt covariances are singular were
+  refused that way. A zero factor diagonal is a natural boundary, recorded with
+  the zero-variance parameters, not an artificial bound contact. The
+  stationarity check, restart comparison and boundary-interval policy already
+  work on covariance matrices and are unchanged. `"log_cholesky"` remains
+  available; the paths of joint unstructured fits under `"auto"` change.
+  The characterization case `discrete_categorical`, one three-category nominal
+  outcome, now reaches its rater covariance's singular boundary: -2 log
+  likelihood falls by 1.0e-5, no variance moves by more than 0.14%, and rater
+  joins item among the boundary sources. Its stored baseline was recaptured
+  for that case only.
 - Sparse nominal fits no longer stop when rounding lifts a row of contrast
   probabilities a few dozen ulps above one, which happens where the reference
   category's probability is near zero. The sparse Hessian guard allowed 16

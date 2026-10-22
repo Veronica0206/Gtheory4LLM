@@ -69,7 +69,9 @@
       } else {
         direction <- matrix(0, q, q)
         ij <- setup$positions[k, ]
-        direction[ij[[1L]], ij[[2L]]] <- if (setup$diagpos[[k]])
+        # A log-Cholesky diagonal is a log, so its factor entry moves by itself;
+        # every Cholesky coordinate is the factor entry.
+        direction[ij[[1L]], ij[[2L]]] <- if (setup$diagpos[[k]] && identical(setup$parameterization, "log_cholesky"))
           L[ij[[1L]], ij[[2L]]] else 1
         derivative <- direction %*% t(L) + L %*% t(direction)
       }

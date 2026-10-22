@@ -150,10 +150,12 @@ scientifically sufficient. Those are separate questions with separate evidence.
 - At one observation per cell the object-by-all-facets source is not identified
   for a discrete outcome. It is never dropped silently; declare the reduced
   model with `full_cell = FALSE` or an explicit `random =` specification.
-- General singular unstructured source covariances are not implemented.
-  `covariance_parameterization = "auto"` uses exact-zero-capable variance
-  coordinates for univariate or diagonal models and log-Cholesky coordinates for
-  joint unstructured models. The exchangeable nominal covariance uses variance
+- `covariance_parameterization = "auto"` uses exact-zero-capable variance
+  coordinates for univariate or diagonal models and Cholesky coordinates, whose
+  nonnegative factor diagonal can reach zero, for joint unstructured models, so
+  a singular source covariance is represented exactly. Explicit log-Cholesky
+  coordinates can only approach one. Boundary estimates carry no Wald
+  intervals. The exchangeable nominal covariance uses variance
   coordinates and keeps outcomes independent within each source.
 - Rejected fits cannot produce coefficients. `gt_reliability()` and
   `gt_dstudy()` require `gt_diagnostics(fit)$numerically_accepted`, and there is

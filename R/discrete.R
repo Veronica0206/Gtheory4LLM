@@ -283,8 +283,8 @@
   if (!is.character(defaults$covariance_parameterization) ||
       length(defaults$covariance_parameterization) != 1L ||
       is.na(defaults$covariance_parameterization) ||
-      !defaults$covariance_parameterization %in% c("auto", "log_cholesky", "variance"))
-    .gt_d_stop("covariance_parameterization must be 'auto', 'log_cholesky', or 'variance'.")
+      !defaults$covariance_parameterization %in% c("auto", "cholesky", "log_cholesky", "variance"))
+    .gt_d_stop("covariance_parameterization must be 'auto', 'cholesky', 'log_cholesky', or 'variance'.")
   if (!is.character(defaults$optimizer) || length(defaults$optimizer) != 1L ||
       is.na(defaults$optimizer) || !defaults$optimizer %in% c("L-BFGS-B", "nlminb"))
     .gt_d_stop("discrete optimizer must be 'L-BFGS-B' or 'nlminb'.")
@@ -661,12 +661,18 @@
   }
   # Resolve coordinates without changing the requested covariance model.
   # Joint unstructured models retain all cross-outcome covariance parameters.
+  # They default to Cholesky coordinates, the entries of the lower-triangular
+  # factor with a nonnegative diagonal, which reach a singular source matrix
+  # exactly: a zero diagonal entry is a natural boundary, as zero is for direct
+  # variances. Log-Cholesky coordinates can only approach that boundary; near
+  # it the remaining directions become ill-conditioned and the optimizer stalls
+  # short of stationarity. They remain available by explicit request.
   parameterization <- control$covariance_parameterization
   if (identical(parameterization, "auto"))
-    parameterization <- if (q == 1L || covariance == "diagonal") "variance" else "log_cholesky"
+    parameterization <- if (q == 1L || covariance == "diagonal") "variance" else "cholesky"
   if (identical(parameterization, "variance")) {
     if (q > 1L && covariance != "diagonal")
-      .gt_d_stop("The variance parameterization requires a univariate or diagonal covariance model; unstructured joint covariance still uses log_cholesky.")
+      .gt_d_stop("The variance parameterization requires a univariate or diagonal covariance model; unstructured joint covariance uses cholesky or log_cholesky coordinates.")
     start <- rep(control$start_sd^2, length(groups) * q)
     if (any(!is.finite(start)) || any(start > exp(10)))
       .gt_d_stop("start_sd exceeds the variance parameterization's upper bound.")
@@ -682,14 +688,20 @@
     which(lower.tri(matrix(0, q, q), diag = TRUE), arr.ind = TRUE)
   diagpos <- positions[, 1L] == positions[, 2L]
   per <- nrow(positions)
-  start <- rep(ifelse(diagpos, log(control$start_sd), 0), length(groups))
-  lower <- rep(ifelse(diagpos, -10, -10), length(groups))
-  upper <- rep(ifelse(diagpos, 5, 10), length(groups))
+  # The same factor bounds in both coordinates: a diagonal factor entry at most
+  # exp(5), off-diagonal entries within 10 of zero. Cholesky diagonals start at
+  # start_sd and may reach zero; log-Cholesky diagonals are logs.
+  cholesky <- identical(parameterization, "cholesky")
+  if (cholesky && (!is.finite(control$start_sd) || control$start_sd > exp(5)))
+    .gt_d_stop("start_sd exceeds the Cholesky parameterization's upper bound.")
+  start <- rep(ifelse(diagpos, if (cholesky) control$start_sd else log(control$start_sd), 0), length(groups))
+  lower <- rep(ifelse(diagpos, if (cholesky) 0 else -10, -10), length(groups))
+  upper <- rep(ifelse(diagpos, if (cholesky) exp(5) else 5, 10), length(groups))
   names(start) <- unlist(lapply(names(groups), function(s)
     paste0(s, "::chol[", dimensions[positions[, 1L]], ",", dimensions[positions[, 2L]], "]")), use.names = FALSE)
   list(fixed = NULL, start = start, lower = lower, upper = upper,
        positions = positions, diagpos = diagpos, per = per, q = q, sources = names(groups),
-       parameterization = "log_cholesky")
+       parameterization = if (cholesky) "cholesky" else "log_cholesky")
 }
 
 .gt_d_covariance_factors <- function(parameters, setup) {
@@ -708,6 +720,15 @@
       if (any(x < -tolerance))
         .gt_d_stop("Direct variance parameters must be finite and nonnegative.")
       x <- sqrt(pmax(x, 0))
+    } else if (identical(setup$parameterization, "cholesky")) {
+      # A zero diagonal entry is the natural boundary; the same rounding
+      # projection as for direct variances applies to it.
+      if (any(!is.finite(x)))
+        .gt_d_stop("Cholesky parameters must be finite.")
+      tolerance <- 1e-10 * max(1, max(abs(x)))
+      if (any(x[setup$diagpos] < -tolerance))
+        .gt_d_stop("Cholesky diagonal parameters must be finite and nonnegative.")
+      x[setup$diagpos] <- pmax(x[setup$diagpos], 0)
     } else {
       x[setup$diagpos] <- exp(x[setup$diagpos])
     }
@@ -1151,6 +1172,9 @@
       multiplier <- if (attempt %% 2L) 1.8 * tier else .55 / tier
       if (setup$parameterization %in% c("variance", "exchangeable")) {
         alternative[cov_index] <- alternative[cov_index] * multiplier^2
+      } else if (identical(setup$parameterization, "cholesky")) {
+        alternative[cov_index[diagonal]] <- alternative[cov_index[diagonal]] * multiplier
+        alternative[cov_index[!diagonal]] <- .1 * tier * (-1)^attempt
       } else {
         alternative[cov_index[diagonal]] <- alternative[cov_index[diagonal]] + log(multiplier)
         alternative[cov_index[!diagonal]] <- .1 * tier * (-1)^attempt
@@ -1337,6 +1361,8 @@
   natural_lower <- rep(FALSE, length(start))
   if (setup$parameterization %in% c("variance", "exchangeable"))
     natural_lower[length(prep$start) + seq_along(setup$start)] <- TRUE
+  if (identical(setup$parameterization, "cholesky"))
+    natural_lower[length(prep$start) + seq_along(setup$start)] <- rep(setup$diagpos, length(groups))
   at_bound <- names(start)[(!natural_lower & fit$par - lower < control$bound_tol) |
                             (upper - fit$par < control$bound_tol)]
   zero_variances <- names(start)[natural_lower & fit$par == 0]

@@ -19,7 +19,9 @@ observations, `q` latent dimensions, and one block per outcome. Each block owns
 its observation codes, family/link, latent-dimension indices, and fixed-parameter
 indices. Outcome preparation and covariance parameterization remain in
 `discrete.R`. Three source-covariance structures are supported: unstructured
-(log-Cholesky coordinates), diagonal (variance or log-Cholesky coordinates),
+(Cholesky coordinates with a nonnegative diagonal by default, so a singular
+source matrix is reached exactly; log-Cholesky on request), diagonal (variance,
+Cholesky or log-Cholesky coordinates),
 and, for fits with a nominal outcome, exchangeable: each source contributes
 `sigma^2 (I + 11')` on a nominal outcome's contrasts and one variance on each
 binary or ordinal dimension, block-diagonal across outcomes, in variance

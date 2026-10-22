@@ -86,14 +86,18 @@ Discrete optimizer controls are:
 The default \code{"auto"} uses direct nonnegative variance coordinates for
 univariate models and for joint models whose \code{covariance} is
 \code{"diagonal"}.
-Joint models with unstructured covariance use \code{"log_cholesky"}, retaining
-all cross-outcome covariance parameters. Explicit \code{"variance"} and
-\code{"log_cholesky"} selections remain available. Direct variance coordinates
-admit exact zeros; an explicit \code{"variance"} request with joint unstructured
-covariance is rejected rather than removing covariances. The variance upper
-bound is \code{exp(10)}, matching the largest diagonal variance allowed by the
-log-Cholesky bounds. The exchangeable covariance for nominal outcomes always
-uses direct variance coordinates; \code{"log_cholesky"} is refused with it.
+Joint models with unstructured covariance use \code{"cholesky"}: the entries
+of each source's lower-triangular factor, whose nonnegative diagonal can reach
+zero, so a singular source matrix is represented exactly. All cross-outcome
+covariance parameters are retained. Explicit \code{"variance"},
+\code{"cholesky"} and \code{"log_cholesky"} selections remain available;
+log-Cholesky coordinates can only approach a singular matrix. Direct variance
+coordinates admit exact zeros; an explicit \code{"variance"} request with joint
+unstructured covariance is rejected rather than removing covariances. The
+variance upper bound is \code{exp(10)}, matching the largest diagonal variance
+allowed by the Cholesky and log-Cholesky bounds, a diagonal factor entry of at
+most \code{exp(5)}. The exchangeable covariance for nominal outcomes always uses
+direct variance coordinates; the Cholesky choices are refused with it.
 \code{start_sd}
 still denotes a starting standard deviation and must be positive.
 
@@ -107,7 +111,8 @@ produce ambiguous parameter names are rejected. The fitted
 same model, with unchanged family links, category coding, covariance structure,
 and covariance parameterization. These are optimizer coordinates: ordinal
 threshold parameters contain the first threshold followed by log positive gaps;
-log-Cholesky diagonal parameters are log standard deviations; direct-variance
+Cholesky parameters are factor entries; log-Cholesky diagonal parameters are
+log standard deviations; direct-variance
 parameters are variances. Actual and automatic initial vectors are retained in
 the diagnostics, and \code{fit$starting_parameters} records the primary start.
 Alternative starts perturb fixed-effect coordinates from the primary start and
@@ -132,7 +137,8 @@ rejection on contact. This mode does not establish approximation accuracy or
 sampling properties for boundary estimates.
 The diagnostics field \code{covariance_parameterization_requested} records the
 control selection; \code{covariance_parameterization} records the resolved
-coordinates (\code{"variance"}, \code{"log_cholesky"}, or \code{"fixed"}).
+coordinates (\code{"variance"}, \code{"cholesky"}, \code{"log_cholesky"},
+\code{"exchangeable"} or \code{"fixed"}).
 
 Discrete numerical-acceptance controls are:
 \itemize{
