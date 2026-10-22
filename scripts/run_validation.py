@@ -86,7 +86,7 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  "test_batch_complete_scope.R",
                  "test_categorical_targets.R",
                  "test_categorical_planning.R",
-                 "test_discrete_sparse_warm_start.R",
+                 "test_discrete_sparse_warm_start.R", "test_discrete_sparse_warm_policy.R",
                  "test_laplace_check_retained_data.R",
                  "test_discrete_attempt_names.R",
                  "test_laplace_check_resources.R"}

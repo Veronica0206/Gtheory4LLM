@@ -74,6 +74,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_sparse_factor.R` | Sparse factor solves and log determinants match the frozen targets |
 | `test_discrete_sparse_mode.R` | Sparse conditional mode reproduces the dense solve and the frozen targets |
 | `test_discrete_sparse_warm_start.R` | A failed cold sparse solve is retried once from the fit's last valid mode; valid cold results are unchanged |
+| `test_discrete_sparse_warm_policy.R` | Within an optimizer attempt, sparse solves start from the attempt's centre mode: cold first solve, finite-difference probes share the centre, reset per attempt, short warm solves fall back to cold, and the fit's final evaluation is cold |
 | `test_laplace_check_retained_data.R` | `gt_laplace_check()` reads a fit's retained encoded responses as the encoding they are; new data still passes the strict resolver |
 | `test_discrete_attempt_names.R` | Every discrete attempt, including alternative starts and the selected solution, keeps its parameter names; a warm-start refit from them is accepted |
 | `test_laplace_check_resources.R` | `gt_laplace_check()` refuses, before allocation, a comparison whose workspace estimate exceeds the dense budget |

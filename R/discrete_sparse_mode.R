@@ -114,7 +114,7 @@
     # Cholesky factor as an invalid evaluation and returns, and .gt_d_sparse_factor()
     # signals that condition by stopping. Letting the stop escape would turn a
     # value the dense path reports into an error the sparse path raises.
-    factorization <- tryCatch(.gt_d_sparse_factor(H), error = function(e) NULL)
+    factorization <- tryCatch(.gt_d_sparse_factor(H, counts = FALSE), error = function(e) NULL)
     if (is.null(factorization)) return(if (details) list(valid = FALSE) else 1e100)
     step <- .gt_d_sparse_solve(factorization, gradient)
     # The same invariant, at the same point, as the dense solver: checked
@@ -169,7 +169,7 @@
   last_gradient <- max(abs(as.numeric(Matrix::crossprod(W, response$gradient)) + u))
   converged <- is.finite(last_gradient) && last_gradient <= control$inner_tol * 10
   H <- .gt_d_sparse_hessian(response$curvature, W, prep$n)
-  factorization <- tryCatch(.gt_d_sparse_factor(H), error = function(e) NULL)
+  factorization <- tryCatch(.gt_d_sparse_factor(H, counts = FALSE), error = function(e) NULL)
   # As in the dense solver: how a non-converged solve stopped is recorded.
   if (is.null(factorization) || !converged) return(if (details)
     list(valid = FALSE, inner_converged = converged, inner_gradient = last_gradient,
@@ -234,10 +234,31 @@
   is.list(value) && !isTRUE(value$valid) && is.null(value$reason) &&
     isFALSE(value$inner_converged) && !isTRUE(value$inner_factor_unavailable)
 
+# Warm starts within an optimizer attempt.
+#
+# The conditional objective is strictly concave in the random effects for
+# every supported family, so its mode is unique and a starting point changes
+# only the path to it, never the point. When the caller sets
+# control$inner_start to "warm", an evaluation starts from the mode of the
+# attempt's current centre: the last evaluation that moved more than one
+# coordinate. An evaluation that differs from the centre in exactly one
+# coordinate is a finite-difference probe; both probes of a coordinate start
+# from the same centre mode and neither replaces it, so a gradient is never
+# formed from two solves seeded differently. The fit resets this state before
+# every optimizer attempt, so restarts stay independent, and it leaves
+# inner_start unset for the final checks, the stationarity probes and the
+# information step, which therefore remain cold solves from zero modes.
+#
+# A warm solve that stops short of the mode without a validity event is not
+# the recorded outcome: the cold solve from zero modes runs in its place, so
+# no evaluation ends worse than it would have ended before warm starts
+# existed. The two validity invariants are never rescued in either direction.
 .gt_d_sparse_evaluator <- function() {
   context <- NULL
   last_mode <- NULL
-  function(parameters, prep, groups, setup, control, details = FALSE,
+  centre_parameters <- NULL
+  centre_mode <- NULL
+  evaluate <- function(parameters, prep, groups, setup, control, details = FALSE,
            factors_override = NULL) {
     if (is.null(context)) {
       context <<- .gt_d_sparse_context(groups, prep$n, prep$q)
@@ -261,8 +282,22 @@
     factors <- if (is.null(factors_override))
       .gt_d_covariance_factors(parameters[-seq_len(fixed_length)], setup) else factors_override
     backend <- .gt_d_sparse_backend_from(context, factors)
-    answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE)
-    if (.gt_d_retry_eligible(answer) && !is.null(last_mode) &&
+    warm_requested <- identical(control$inner_start, "warm")
+    warm <- warm_requested && !is.null(centre_mode) && length(centre_mode) == ncol(backend$W)
+    probe <- !is.null(centre_parameters) && length(centre_parameters) == length(parameters) &&
+      sum(parameters != centre_parameters) == 1L
+    if (warm) {
+      answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE,
+                                  start = centre_mode)
+      if (!isTRUE(answer$valid) && is.null(answer$reason)) {
+        cold <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE)
+        cold$inner_warm_attempt <- .gt_d_failure_record(answer, list())
+        answer <- cold
+      }
+    } else {
+      answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE)
+    }
+    if (!warm && .gt_d_retry_eligible(answer) && !is.null(last_mode) &&
         length(last_mode) == ncol(backend$W)) {
       # One retry from the last valid conditional mode of this fit, within the
       # same backend and under the same tolerances, iteration budget, line
@@ -279,10 +314,25 @@
         answer <- retry
       }
     }
-    if (isTRUE(answer$valid)) last_mode <<- answer$mode
+    if (isTRUE(answer$valid)) {
+      last_mode <<- answer$mode
+      if (warm_requested && !probe) {
+        centre_parameters <<- parameters
+        centre_mode <<- answer$mode
+      }
+    }
     if (!details) return(if (isTRUE(answer$valid)) answer$nll else 1e100)
     if (isTRUE(answer$valid))
       answer <- append(answer, list(factors = factors), after = 2L)
     answer
   }
+  # Called by the fit before every optimizer attempt: the attempt's first solve
+  # is cold, and nothing from an earlier attempt seeds it.
+  attr(evaluate, "reset") <- function() {
+    last_mode <<- NULL
+    centre_parameters <<- NULL
+    centre_mode <<- NULL
+    invisible(NULL)
+  }
+  evaluate
 }

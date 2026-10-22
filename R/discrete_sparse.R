@@ -182,7 +182,7 @@
 # factor would return a plausible vector in the wrong order. And the log
 # determinant must come from the factor, never from densifying it, because
 # densifying restores exactly the allocation the sparse path exists to avoid.
-.gt_d_sparse_factor <- function(H, permute = TRUE) {
+.gt_d_sparse_factor <- function(H, permute = TRUE, counts = TRUE) {
   if (!methods::is(H, "sparseMatrix"))
     .gt_d_stop("Sparse factorization needs a sparse conditional Hessian.")
   if (nrow(H) != ncol(H)) .gt_d_stop("A conditional Hessian must be square.")
@@ -193,15 +193,20 @@
                      error = function(e) NULL)
   if (is.null(factor))
     .gt_d_stop("The conditional Hessian is not positive definite; it has no Cholesky factor.")
-  structure(list(factor = factor, dimension = as.integer(nrow(H)), permuted = permute,
-                 # Fill is counted on the sparse factor, not a dense copy of it,
-                 # and against the triangle it corresponds to. Comparing a
-                 # triangular factor with a symmetric matrix stored in both
-                 # triangles reports a reduction where there is fill.
-                 factor_entries = as.integer(Matrix::nnzero(methods::as(factor, "CsparseMatrix"))),
-                 hessian_entries = as.integer(Matrix::nnzero(H)),
-                 hessian_triangle_entries =
-                   as.integer(Matrix::nnzero(Matrix::tril(Matrix::forceSymmetric(H))))),
+  # Fill is counted on the sparse factor, not a dense copy of it, and against
+  # the triangle it corresponds to. Comparing a triangular factor with a
+  # symmetric matrix stored in both triangles reports a reduction where there
+  # is fill. The counts are diagnostic: converting the factor and extracting
+  # the triangle cost about a tenth of a Newton step, so the mode solver asks
+  # for them only where they are read, never on every step of a fit.
+  fill <- if (isTRUE(counts)) list(
+    factor_entries = as.integer(Matrix::nnzero(methods::as(factor, "CsparseMatrix"))),
+    hessian_entries = as.integer(Matrix::nnzero(H)),
+    hessian_triangle_entries =
+      as.integer(Matrix::nnzero(Matrix::tril(Matrix::forceSymmetric(H))))) else
+    list(factor_entries = NA_integer_, hessian_entries = NA_integer_,
+         hessian_triangle_entries = NA_integer_)
+  structure(c(list(factor = factor, dimension = as.integer(nrow(H)), permuted = permute), fill),
             class = "gt_discrete_sparse_factor")
 }
 

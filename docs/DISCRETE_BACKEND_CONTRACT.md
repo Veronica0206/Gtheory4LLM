@@ -113,6 +113,33 @@ fit's evaluation record counts such rescues separately from invalid
 evaluations. The first evaluation of a fit, and any evaluation made before a
 valid mode exists, has no retry. The dense evaluator has no retry.
 
+Within an optimizer attempt the sparse evaluator also starts each conditional
+solve warm, when the fit requests it by setting `inner_start = "warm"` on the
+control it passes for that attempt. The start is the attempt's centre mode:
+the mode of the last evaluation that moved more than one coordinate. The
+conditional objective is strictly concave in the random effects for every
+supported family, so the mode is unique and a start changes only the path to
+it. The two finite-difference probes of a coordinate (evaluations that differ
+from the centre in exactly one coordinate) start from the same centre mode and
+neither replaces it, so no gradient is formed from two solves seeded
+differently. The fit resets the evaluator before every attempt, so each
+attempt's first solve is cold and no attempt is seeded by another; the final
+checks, the stationarity probes and the information step are made without the
+request and remain cold solves from zero modes. A warm solve that stops short
+of the mode without a validity event is not the recorded outcome: the cold
+solve from zero modes runs in its place, with the warm attempt's measurements
+retained as `inner_warm_attempt`, so no evaluation ends worse than before warm
+starts existed. The validity invariants are never rescued in either direction.
+The fit's evaluation record counts `warm_started` evaluations and
+`cold_fallbacks`. Warm and cold objectives agree to the precision the inner
+tolerance leaves unresolved: within 3e-9 at the coarse tolerance and 2e-10 at
+the validation tolerance on the frozen calibration points and the 21,600-row
+synthetic panel, and 1.5e-7 (coarse) against 4e-12 (validation) at the native
+21,600-row panel's starting values, whose 9,507 random effects make the
+log-determinant term correspondingly more sensitive. The mode solver does not
+compute the factor's fill counts on its Newton steps; `.gt_d_sparse_factor()`
+computes them only when asked.
+
 Both mode solvers enforce the same two validity invariants (issues #14 and
 #46). The Newton step is checked against its own system by the shared
 backward-error rule `.gt_d_solve_check()`, at the bound

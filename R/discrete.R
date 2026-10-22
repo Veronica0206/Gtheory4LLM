@@ -84,13 +84,23 @@
   state$retained <- list()
   state$rescued <- 0L
   state$retained_rescued <- list()
+  state$warm_started <- 0L
+  state$cold_fallbacks <- 0L
   observe <- function(parameters, value, phase, settings = control) {
     state$count <- state$count + 1L
     if (.gt_d_evaluation_usable(value)) {
       if (is.numeric(value$inner_iterations) && length(value$inner_iterations) == 1L &&
           value$inner_iterations >= settings$inner_maxit)
         state$at_budget <- state$at_budget + 1L
-      if (isTRUE(value$inner_warm_started)) {
+      # A warm start within an optimizer attempt is an ordinary valid
+      # evaluation; it is counted so a fit says how many of its solves began
+      # from an earlier mode. A cold fallback is a warm solve that stopped short
+      # and was replaced by the cold solve from zero modes.
+      if (isTRUE(value$inner_warm_started) && is.null(value$inner_cold_attempt))
+        state$warm_started <- state$warm_started + 1L
+      if (!is.null(value$inner_warm_attempt))
+        state$cold_fallbacks <- state$cold_fallbacks + 1L
+      if (isTRUE(value$inner_warm_started) && !is.null(value$inner_cold_attempt)) {
         # A sparse evaluation whose cold solve failed and whose retry from the
         # fit's last valid mode succeeded. It is a valid evaluation, counted and
         # described separately so that a fit which needed the retry says so.
@@ -123,13 +133,17 @@
     retained_invalid = state$retained, retention_limit = limit,
     validity_retention_limit = validity_limit,
     warm_rescued = state$rescued, retained_rescued = state$retained_rescued,
+    warm_started = state$warm_started, cold_fallbacks = state$cold_fallbacks,
     scope = paste("Every evaluation of the coarse or tightened objective made by the optimizer",
                   "and by the one tighter-tolerance re-evaluation of the primary fit;",
                   "final validation, stationarity and specimen evaluations are not counted.",
                   "Retained records carry the failed evaluation's own measurements.",
                   "A solve- or factor-validity event is retained beyond the ordinary limit,",
                   "within its own. A sparse evaluation rescued by a retry from the last valid",
-                  "mode is a valid evaluation, counted and retained separately."))
+                  "mode is a valid evaluation, counted and retained separately. A sparse",
+                  "evaluation that began from the attempt's centre mode is counted as warm",
+                  "started; one whose warm solve stopped short and was replaced by the cold",
+                  "solve is counted as a cold fallback."))
   list(observe = observe, summary = summary)
 }
 
@@ -938,8 +952,16 @@
   # scalar by the log, so an evaluation that fails is described by its own
   # record; see .gt_d_evaluation_log(). The arithmetic is unchanged.
   evaluations <- .gt_d_evaluation_log(control, prep)
+  # Optimizer attempts may start each conditional solve from the attempt's
+  # centre mode (see .gt_d_sparse_evaluator); every other evaluation of the
+  # fit keeps the control without that request and solves cold from zero
+  # modes. The dense evaluator ignores the request.
+  warm_control <- control
+  warm_control$inner_start <- "warm"
+  reset_evaluator <- attr(.laplace, "reset")
+  begin_attempt <- function() if (is.function(reset_evaluator)) reset_evaluator()
   objective <- function(par)
-    evaluations$observe(par, .laplace(par, prep, groups, setup, control, details = TRUE), "coarse")
+    evaluations$observe(par, .laplace(par, prep, groups, setup, warm_control, details = TRUE), "coarse")
   # The start is evaluated once and its record read directly. There is no
   # replay: see .gt_d_start_failure_detail. The refusal stands on the evidence
   # of the evaluation that refused.
@@ -952,6 +974,7 @@
   }
   optimizer_control <- list(maxit = control$maxit,
     factr = control$reltol / .Machine$double.eps, trace = control$trace)
+  begin_attempt()
   primary_fit <- .gt_d_optimize(start, objective, lower, upper,
                                 optimizer_control, "primary", optimizer = control$optimizer)
   attempts <- list(primary_fit$attempt)
@@ -965,8 +988,14 @@
   tight_objective <- function(par)
     evaluations$observe(par, .laplace(par, prep, groups, setup, validation_control, details = TRUE),
                         "tight", settings = validation_control)
+  tight_warm_control <- validation_control
+  tight_warm_control$inner_start <- "warm"
+  tight_attempt_objective <- function(par)
+    evaluations$observe(par, .laplace(par, prep, groups, setup, tight_warm_control, details = TRUE),
+                        "tight", settings = validation_control)
   optimize_tight <- function(at, label) {
-    result <- .gt_d_optimize(at, tight_objective, lower, upper,
+    begin_attempt()
+    result <- .gt_d_optimize(at, tight_attempt_objective, lower, upper,
       list(maxit = control$maxit,
         factr = validation_control$reltol / .Machine$double.eps,
         pgtol = 1e-7, ndeps = rep(1e-4, length(start)), trace = control$trace), label,
@@ -1006,6 +1035,7 @@
         if (!duplicate_start(alternative)) break
       }
     }
+    begin_attempt()
     alternative_primary <- .gt_d_optimize(alternative, objective, lower, upper,
       optimizer_control, paste0("alternative_", attempt), optimizer = control$optimizer)
     attempts[[length(attempts) + 1L]] <- alternative_primary$attempt

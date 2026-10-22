@@ -1,0 +1,304 @@
+{
+  "status": "rejected",
+  "error": null,
+  "warnings": "Discrete fit did not converge under numerical acceptance checks. Inspect gt_diagnostics(fit); coefficients and D studies are unavailable until the fit is numerically accepted.",
+  "elapsed_seconds": 34.414999999999999,
+  "optimizer": "nlminb",
+  "declared_control": {
+    "gaussian": [],
+    "discrete": {
+      "engine": "sparse",
+      "optimizer": "nlminb",
+      "max_observations": 21600,
+      "max_random_dimension": 819,
+      "check_hessian": true
+    },
+    "retain": [true, true, true, true]
+  },
+  "engine": "sparse_joint_discrete_laplace",
+  "accepted": false,
+  "diagnostics": {
+    "converged": false,
+    "optimizer_completed": false,
+    "numerically_accepted": false,
+    "approximation_adequacy": "not_assessed_first_order_laplace",
+    "acceptance_failures": ["optimizer_incomplete", "restart_or_tolerance_stability_failed"],
+    "outer_stationarity": {
+      "stationary_within_tolerance": true,
+      "fixed_effect_score": [-0.0068748219443174703, 0.023229064633293699],
+      "covariance_gradients": {
+        "evaluator": [
+          [-0.0091799302026629448]
+        ],
+        "item": [
+          [-0.0046157583710737526]
+        ],
+        "prompt": [
+          [46.610435165348463]
+        ],
+        "evaluator:prompt": [
+          [-0.0024251130525954068]
+        ],
+        "item:evaluator": [
+          [0.0090280809672549367]
+        ],
+        "item:prompt": [
+          [-0.053179210226517171]
+        ]
+      },
+      "covariance_projected_scores": {
+        "evaluator": -6.2461513530231993e-05,
+        "item": -3.140625773645489e-05,
+        "prompt": 0,
+        "evaluator:prompt": -1.65008042983944e-05,
+        "item:evaluator": 6.1428310350830628e-05,
+        "item:prompt": -0.00036183869438657923
+      },
+      "fixed_effect_scaled_norm": 0.00015805376542694555,
+      "covariance_scaled_norm": 0.00036183869438657923,
+      "finite_difference_disagreement": 0.00041606428645424531,
+      "finite_difference_refinement": {
+        "max_refinements": 6,
+        "fixed_steps": [0.0001, 0.0001],
+        "fixed_refinements": [0, 0],
+        "covariance_steps": [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001],
+        "covariance_refinements": [0, 0, 0, 0, 0, 0],
+        "method": "Richardson extrapolation with bounded step halving; unchanged raw coarse/fine disagreement gate."
+      },
+      "tolerance": 0.001,
+      "scaling": "Fixed scores divided by sqrt(number of rows); source covariance PSD projection after scaling by max(1, largest source variance), with scores divided by sqrt(number of rows).",
+      "interpretation": "Independent local first-order Laplace-objective stationarity only; not global optimality, identification, or integration accuracy.",
+      "warnings": []
+    },
+    "stability": {
+      "checked": true,
+      "stable": false,
+      "primary_optimizer_code": 0,
+      "primary_objective_at_tighter_tolerance": 17270.73203519639,
+      "primary_tight_evaluation_error": null,
+      "tight_objectives": [17270.732033889657, 17270.732071053939],
+      "optimizer_codes": [1, 1],
+      "tight_parameters": [
+        [-0.6039072734496036, 0.25356994034903541, 0.17824493361931387, 0.89737103701472754, 0, 0.056175289637703796, 0.28065609140108311, 0.17499999771588337],
+        [-0.60383386714482779, 0.25356308704484337, 0.17865666374805012, 0.89872688082682628, 0, 0.056213682489627527, 0.28067079664618, 0.17499087056099816]
+      ],
+      "relative_objective_differences": [0, 2.1518648860947192e-09],
+      "scaled_parameter_differences": [0, 0.0013558438120985228],
+      "objective_tolerance": 9.9999999999999995e-07,
+      "parameter_tolerance": 0.02,
+      "alternative_starts": 1,
+      "validation_inner_tol": 1.0000000000000001e-09,
+      "validation_reltol": 1e-10,
+      "inner_tol": 9.9999999999999995e-08,
+      "inner_maxit": 60
+    },
+    "attempts": [
+      {
+        "label": "primary",
+        "start": [-0.38057515673862846, -0.22219643949589055, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003],
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 11.728000000000002,
+        "optimizer_code": 0,
+        "optimizer_message": "relative convergence (4)",
+        "result_available": true,
+        "parameters": [-0.60390587592866884, 0.25355355244929889, 0.17824468257225304, 0.89737282879004499, 0, 0.056174787648526556, 0.28066300817653606, 0.17499304423610842],
+        "objective": 17270.732035207613,
+        "optimizer": "nlminb",
+        "optimizer_control": {
+          "iter.max": 150,
+          "eval.max": 1500,
+          "rel.tol": 9.9999999999999995e-08,
+          "trace": 0
+        },
+        "raw_result": {
+          "par": [-0.60390587592866884, 0.25355355244929889, 0.17824468257225304, 0.89737282879004499, 0, 0.056174787648526556, 0.28066300817653606, 0.17499304423610842],
+          "objective": 17270.732035207613,
+          "convergence": 0,
+          "iterations": 32,
+          "evaluations": [51, 326],
+          "message": "relative convergence (4)"
+        }
+      },
+      {
+        "label": "primary_tight",
+        "start": [-0.60390587592866884, 0.25355355244929889, 0.17824468257225304, 0.89737282879004499, 0, 0.056174787648526556, 0.28066300817653606, 0.17499304423610842],
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 3.8260000000000005,
+        "optimizer_code": 1,
+        "optimizer_message": "false convergence (8)",
+        "result_available": true,
+        "parameters": [-0.6039072734496036, 0.25356994034903541, 0.17824493361931387, 0.89737103701472754, 0, 0.056175289637703796, 0.28065609140108311, 0.17499999771588337],
+        "objective": 17270.732033889657,
+        "optimizer": "nlminb",
+        "optimizer_control": {
+          "iter.max": 150,
+          "eval.max": 1500,
+          "rel.tol": 1e-10,
+          "trace": 0
+        },
+        "raw_result": {
+          "par": [-0.6039072734496036, 0.25356994034903541, 0.17824493361931387, 0.89737103701472754, 0, 0.056175289637703796, 0.28065609140108311, 0.17499999771588337],
+          "objective": 17270.732033889657,
+          "convergence": 1,
+          "iterations": 7,
+          "evaluations": [31, 96],
+          "message": "false convergence (8)"
+        }
+      },
+      {
+        "label": "alternative_1",
+        "start": [-0.23057515673862847, -0.37219643949589054, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008],
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 13.311,
+        "optimizer_code": 0,
+        "optimizer_message": "relative convergence (4)",
+        "result_available": true,
+        "parameters": [-0.60383574042777599, 0.25359509651631962, 0.1786586184891911, 0.89873469981660381, 0, 0.056222438100969954, 0.2806771902873933, 0.17496602892054475],
+        "objective": 17270.732076647386,
+        "optimizer": "nlminb",
+        "optimizer_control": {
+          "iter.max": 150,
+          "eval.max": 1500,
+          "rel.tol": 9.9999999999999995e-08,
+          "trace": 0
+        },
+        "raw_result": {
+          "par": [-0.60383574042777599, 0.25359509651631962, 0.1786586184891911, 0.89873469981660381, 0, 0.056222438100969954, 0.2806771902873933, 0.17496602892054475],
+          "objective": 17270.732076647386,
+          "convergence": 0,
+          "iterations": 36,
+          "evaluations": [60, 341],
+          "message": "relative convergence (4)"
+        }
+      },
+      {
+        "label": "alternative_1_tight",
+        "start": [-0.60383574042777599, 0.25359509651631962, 0.1786586184891911, 0.89873469981660381, 0, 0.056222438100969954, 0.2806771902873933, 0.17496602892054475],
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 2.5159999999999982,
+        "optimizer_code": 1,
+        "optimizer_message": "false convergence (8)",
+        "result_available": true,
+        "parameters": [-0.60383386714482779, 0.25356308704484337, 0.17865666374805012, 0.89872688082682628, 0, 0.056213682489627527, 0.28067079664618, 0.17499087056099816],
+        "objective": 17270.732071053939,
+        "optimizer": "nlminb",
+        "optimizer_control": {
+          "iter.max": 150,
+          "eval.max": 1500,
+          "rel.tol": 1e-10,
+          "trace": 0
+        },
+        "raw_result": {
+          "par": [-0.60383386714482779, 0.25356308704484337, 0.17865666374805012, 0.89872688082682628, 0, 0.056213682489627527, 0.28067079664618, 0.17499087056099816],
+          "objective": 17270.732071053939,
+          "convergence": 1,
+          "iterations": 4,
+          "evaluations": [29, 50],
+          "message": "false convergence (8)"
+        }
+      }
+    ],
+    "final_checks": [
+      {
+        "label": "tight_candidate_1",
+        "valid": true,
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 0.082000000000000739,
+        "failure": null
+      }
+    ],
+    "selected_attempt": "primary_tight",
+    "optimizer": "nlminb",
+    "optimizer_fixed_across_attempts": true,
+    "optimization_trials": 4,
+    "optimization_trial_budget": 4,
+    "starting_parameters": [-0.38057515673862846, -0.22219643949589055, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003],
+    "automatic_starting_parameters": [-0.38057515673862846, -0.22219643949589055, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003],
+    "supplied_start_parameters": null,
+    "tight_final_mode": true,
+    "marginal_backend": "sparse_marginal_laplace",
+    "resource_estimate": {
+      "total": 46027088,
+      "random_design": 6224080,
+      "conditional_hessian": 16098264,
+      "predictors": 691200,
+      "multiplier": 2,
+      "scope": "Conservative major-array estimate with fully populated source factors and complete Hessian/factor fill. Excludes caller data and optimizer state; neither observed memory use nor an accuracy or speed guarantee."
+    },
+    "evaluations": {
+      "count": 989,
+      "invalid": 0,
+      "validity_events": 0,
+      "valid_at_inner_budget": 0,
+      "inner_budget": 60,
+      "retained_invalid": [],
+      "retention_limit": 8,
+      "validity_retention_limit": 8,
+      "warm_rescued": 0,
+      "retained_rescued": [],
+      "warm_started": 984,
+      "cold_fallbacks": 0,
+      "scope": "Every evaluation of the coarse or tightened objective made by the optimizer and by the one tighter-tolerance re-evaluation of the primary fit; final validation, stationarity and specimen evaluations are not counted. Retained records carry the failed evaluation's own measurements. A solve- or factor-validity event is retained beyond the ordinary limit, within its own. A sparse evaluation rescued by a retry from the last valid mode is a valid evaluation, counted and retained separately. A sparse evaluation that began from the attempt's centre mode is counted as warm started; one whose warm solve stopped short and was replaced by the cold solve is counted as a cold fallback."
+    },
+    "covariance_parameterization": "variance",
+    "covariance_parameterization_requested": "auto",
+    "zero_variance_parameters": "prompt::variance[y]",
+    "acceptance": "Completed optimizer, tight conditional mode, independent fixed-effect and covariance-scale stationarity, stable tight restarts, and no artificial-bound contact. Approximation adequacy is separate.",
+    "optimizer_code": 1,
+    "optimizer_message": "false convergence (8)",
+    "inner_converged": true,
+    "inner_gradient": 6.6502359175046877e-14,
+    "inner_iterations": 9,
+    "inner_roundoff_steps": 1,
+    "inner_warm_started": false,
+    "random_dimension": 819,
+    "parameter_count": 8,
+    "boundary_sources": "prompt",
+    "parameter_bounds": [],
+    "source_kernel_rank": {
+      "rank": 6,
+      "n_sources": 6,
+      "smallest_normalized_eigenvalue": 0.35771558193518055
+    },
+    "source_residual_kernel_rank": {
+      "rank": 7,
+      "n_kernels": 7,
+      "n_random_sources": 6,
+      "includes_observation_identity": true,
+      "smallest_normalized_eigenvalue": 0.3550192315363615
+    },
+    "source_covariances_estimated": true,
+    "observation_scale_guard": "Random-source kernels and observation identity must be linearly independent; necessary safeguard, not proof of identification.",
+    "approximation": "First-order Laplace marginal ML; accuracy is not established for sparse groups or large annotation panels.",
+    "conditional_independence": true,
+    "uncertainty": "Observed information requires a numerically accepted fit."
+  },
+  "variances": {
+    "evaluator": [
+      [0.1782449336193139]
+    ],
+    "item": [
+      [0.89737103701472765]
+    ],
+    "prompt": [
+      [0]
+    ],
+    "evaluator:prompt": [
+      [0.056175289637703796]
+    ],
+    "item:evaluator": [
+      [0.28065609140108316]
+    ],
+    "item:prompt": [
+      [0.17499999771588334]
+    ]
+  },
+  "latent_reliability": null,
+  "same_objective_external_comparison": "pending",
+  "scope": "One fixed synthetic dataset; numerical acceptance is not parameter recovery, interval coverage, or Laplace accuracy."
+}

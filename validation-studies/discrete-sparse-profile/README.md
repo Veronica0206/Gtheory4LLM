@@ -18,6 +18,7 @@ here:
 | `profile-medium.sh` | wrapper that adds external peak RSS |
 | `replay-scale-risk.R` | replays the scale-risk specimen's failed evaluations through both backends with their own records |
 | `budget-experiment.R` | measures, on the scale-risk specimen, what a larger inner budget and a warm start each recover; the measurement #5 is conditional on |
+| `warm-start-20261022/` | measurements before and after warm starts within an optimizer attempt (per-evaluation profile on the synthetic and native panels, candidates measured and not adopted, agreement at 18 parameter vectors, the synthetic 21,600-row fits before and after) |
 
 Reproduce everything, including the headline memory figures, with:
 

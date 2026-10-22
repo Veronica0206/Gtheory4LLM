@@ -144,22 +144,22 @@ ok(identical(scalar, 1e100), "the scalar form returns the penalty, never a value
 # assumed.
 honest_factor <- .gt_d_sparse_factor
 factor_calls <- 0L
-.gt_d_sparse_factor <- function(H, permute = TRUE) {
+.gt_d_sparse_factor <- function(H, permute = TRUE, counts = TRUE) {
   factor_calls <<- factor_calls + 1L
-  honest_factor(H, permute)
+  honest_factor(H, permute, counts)
 }
 invisible(.gt_d_sparse_mode(at$parameters, at$prep, at$sparse_backend, at$control, details = TRUE))
 final_call <- factor_calls
 ok(final_call >= 2L, "the honest solve factorizes at least twice, so the last one is distinct")
 factor_calls <- 0L
-.gt_d_sparse_factor <- function(H, permute = TRUE) {
+.gt_d_sparse_factor <- function(H, permute = TRUE, counts = TRUE) {
   factor_calls <<- factor_calls + 1L
   if (factor_calls == final_call) {
     other <- H
     other[1L, 1L] <- other[1L, 1L] * 1.09
-    return(honest_factor(other, permute))
+    return(honest_factor(other, permute, counts))
   }
-  honest_factor(H, permute)
+  honest_factor(H, permute, counts)
 }
 last <- .gt_d_sparse_mode(at$parameters, at$prep, at$sparse_backend, at$control, details = TRUE)
 .gt_d_sparse_factor <- honest_factor
@@ -201,14 +201,14 @@ ok(is.list(control_fit$diagnostics$evaluations) &&
      control_fit$diagnostics$evaluations$count > 0L,
    "a sparse-backed fit records its evaluation log")
 factor_calls <- 0L
-.gt_d_sparse_factor <- function(H, permute = TRUE) {
+.gt_d_sparse_factor <- function(H, permute = TRUE, counts = TRUE) {
   factor_calls <<- factor_calls + 1L
   if (factor_calls > 2L) {
     other <- H
     other[1L, 1L] <- other[1L, 1L] * 1.09
-    return(honest_factor(other, permute))
+    return(honest_factor(other, permute, counts))
   }
-  honest_factor(H, permute)
+  honest_factor(H, permute, counts)
 }
 corrupted <- tryCatch(.gt_fit_discrete(d, "y", design, family, control = list(maxit = 60L),
                                        .laplace = .gt_d_sparse_evaluator(),
