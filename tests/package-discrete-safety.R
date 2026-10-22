@@ -211,9 +211,10 @@ make_local_fit <- function() {
   env
 }
 local <- make_local_fit()
-local$.gt_d_optimize <- function(at, objective, lower, upper, optimizer_control, label, optimizer = "L-BFGS-B") {
+local$.gt_d_optimize <- function(at, objective, lower, upper, optimizer_control, label, optimizer = "L-BFGS-B",
+                                 gradient = NULL) {
   optimizer <- if (grepl("alternative", label)) broken else stats::optim
-  optimize(at, objective, lower, upper, optimizer_control, label, optimizer)
+  optimize(at, objective, lower, upper, optimizer_control, label, optimizer, gradient = gradient)
 }
 failed_restart <- suppressWarnings(local$gt_fit(d, "y", design,
   gt_family("binary", "logit"), control = control))
@@ -227,9 +228,10 @@ expect_error(gt_reliability(failed_restart, scale = "latent"), "numerically conv
 expect_error(gt_dstudy(failed_restart, data.frame(occasion = 12), scale = "latent"), "numerically converged")
 
 local <- make_local_fit()
-local$.gt_d_optimize <- function(at, objective, lower, upper, optimizer_control, label, optimizer = "L-BFGS-B") {
+local$.gt_d_optimize <- function(at, objective, lower, upper, optimizer_control, label, optimizer = "L-BFGS-B",
+                                 gradient = NULL) {
   optimizer <- if (grepl("tight", label)) broken else stats::optim
-  optimize(at, objective, lower, upper, optimizer_control, label, optimizer)
+  optimize(at, objective, lower, upper, optimizer_control, label, optimizer, gradient = gradient)
 }
 primary_retained <- suppressWarnings(local$gt_fit(d, "y", design,
   gt_family("binary", "logit"), control = control))
@@ -239,9 +241,10 @@ stopifnot(!primary_retained$numerically_accepted, is.finite(primary_retained$min
 # and every tight optimizer attempt fail. Both alternatives are re-evaluated;
 # neither an inspectable estimate nor a tight conditional mode licenses G/Phi.
 local <- make_local_fit()
-local$.gt_d_optimize <- function(at, objective, lower, upper, optimizer_control, label, optimizer = "L-BFGS-B") {
+local$.gt_d_optimize <- function(at, objective, lower, upper, optimizer_control, label, optimizer = "L-BFGS-B",
+                                 gradient = NULL) {
   optimizer <- if (label == "primary" || grepl("tight", label)) broken else stats::optim
-  optimize(at, objective, lower, upper, optimizer_control, label, optimizer)
+  optimize(at, objective, lower, upper, optimizer_control, label, optimizer, gradient = gradient)
 }
 alternative_retained <- suppressWarnings(local$gt_fit(d, "y", design,
   gt_family("binary", "logit"), control = control))
@@ -271,8 +274,9 @@ stopifnot(!failed_diagnostic$numerically_accepted, is.finite(failed_diagnostic$m
 expect_error(gt_reliability(failed_diagnostic, scale = "latent"), "numerically converged")
 
 local <- make_local_fit()
-local$.gt_d_optimize <- function(at, objective, lower, upper, optimizer_control, label, optimizer = "L-BFGS-B")
-  optimize(at, objective, lower, upper, optimizer_control, label, broken)
+local$.gt_d_optimize <- function(at, objective, lower, upper, optimizer_control, label, optimizer = "L-BFGS-B",
+                                 gradient = NULL)
+  optimize(at, objective, lower, upper, optimizer_control, label, broken, gradient = gradient)
 no_fit <- tryCatch(local$gt_fit(d, "y", design, gt_family("binary", "logit"), control = control),
                    error = identity)
 stopifnot(inherits(no_fit, "gt_discrete_numerical_failure"), length(no_fit$attempts) > 0L)

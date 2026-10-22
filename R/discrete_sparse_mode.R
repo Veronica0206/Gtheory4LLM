@@ -238,28 +238,40 @@
 #
 # The conditional objective is strictly concave in the random effects for
 # every supported family, so its mode is unique and a starting point changes
-# only the path to it, never the point. When the caller sets
-# control$inner_start to "warm", an evaluation starts from the mode of the
-# attempt's current centre: the last evaluation that moved more than one
-# coordinate. An evaluation that differs from the centre in exactly one
-# coordinate is a finite-difference probe; both probes of a coordinate start
-# from the same centre mode and neither replaces it, so a gradient is never
-# formed from two solves seeded differently. The fit resets this state before
-# every optimizer attempt, so restarts stay independent, and it leaves
-# inner_start unset for the final checks, the stationarity probes and the
-# information step, which therefore remain cold solves from zero modes.
+# only the path to it, never the point. The fit names each evaluation's role
+# through control$inner_start; nothing here infers a role from the parameters:
+#
+#   "warm"        an optimizer's function evaluation. It starts from the
+#                 attempt's centre mode and becomes the new centre.
+#   "warm_probe"  one finite-difference probe of the fit's explicit gradient
+#                 (.gt_d_numerical_gradient). It starts from the centre mode
+#                 and never replaces it, so every probe of one gradient starts
+#                 from the same mode: L-BFGS-B evaluates the function at a
+#                 point immediately before that point's gradient.
+#   unset         a cold solve from zero modes: the final checks, the
+#                 stationarity probes, the information step, and every
+#                 evaluation of an optimizer whose finite differences are
+#                 internal to it (nlminb, injected optimizers).
+#
+# The fit resets this state before every optimizer attempt, so each attempt's
+# first solve is cold and no attempt is seeded by another.
 #
 # A warm solve that stops short of the mode without a validity event is not
-# the recorded outcome: the cold solve from zero modes runs in its place, so
-# no evaluation ends worse than it would have ended before warm starts
-# existed. The two validity invariants are never rescued in either direction.
+# the recorded outcome: the cold solve from zero modes runs in its place, with
+# the warm attempt retained as inner_warm_attempt. A cold solve, whether the
+# first solve or that fallback, that ends as a classified convergence failure
+# is then retried once from the last valid mode, as before warm starts
+# existed, unless that mode is the seed the warm solve already tried. Given the
+# same last valid mode, an evaluation therefore tries everything the cold path
+# with its retry would have tried. A probe completed by that retry is seeded
+# from the last valid mode rather than the centre; it is recorded as rescued.
+# The two validity invariants are never rescued in either direction.
 .gt_d_sparse_evaluator <- function() {
   context <- NULL
   last_mode <- NULL
-  centre_parameters <- NULL
   centre_mode <- NULL
   evaluate <- function(parameters, prep, groups, setup, control, details = FALSE,
-           factors_override = NULL) {
+                       factors_override = NULL) {
     if (is.null(context)) {
       context <<- .gt_d_sparse_context(groups, prep$n, prep$q)
     } else if (!identical(context$groups, groups) ||
@@ -282,23 +294,27 @@
     factors <- if (is.null(factors_override))
       .gt_d_covariance_factors(parameters[-seq_len(fixed_length)], setup) else factors_override
     backend <- .gt_d_sparse_backend_from(context, factors)
-    warm_requested <- identical(control$inner_start, "warm")
-    warm <- warm_requested && !is.null(centre_mode) && length(centre_mode) == ncol(backend$W)
-    probe <- !is.null(centre_parameters) && length(centre_parameters) == length(parameters) &&
-      sum(parameters != centre_parameters) == 1L
-    if (warm) {
+    role <- control$inner_start
+    if (!is.null(role) && (!is.character(role) || length(role) != 1L ||
+                           !role %in% c("warm", "warm_probe")))
+      .gt_d_stop("inner_start must be 'warm' or 'warm_probe' when supplied.")
+    warm_requested <- !is.null(role)
+    probe <- identical(role, "warm_probe")
+    seed <- if (warm_requested && !is.null(centre_mode) &&
+                length(centre_mode) == ncol(backend$W)) centre_mode else NULL
+    if (!is.null(seed)) {
       answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE,
-                                  start = centre_mode)
+                                  start = seed)
       if (!isTRUE(answer$valid) && is.null(answer$reason)) {
-        cold <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE)
-        cold$inner_warm_attempt <- .gt_d_failure_record(answer, list())
-        answer <- cold
+        warm_attempt <- .gt_d_failure_record(answer, list())
+        answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE)
+        answer$inner_warm_attempt <- warm_attempt
       }
     } else {
       answer <- .gt_d_sparse_mode(parameters, prep, backend, control, details = TRUE)
     }
-    if (!warm && .gt_d_retry_eligible(answer) && !is.null(last_mode) &&
-        length(last_mode) == ncol(backend$W)) {
+    if (.gt_d_retry_eligible(answer) && !is.null(last_mode) &&
+        length(last_mode) == ncol(backend$W) && !identical(last_mode, seed)) {
       # One retry from the last valid conditional mode of this fit, within the
       # same backend and under the same tolerances, iteration budget, line
       # search, solve-validity and factor-validity rules. Only a classified
@@ -311,15 +327,14 @@
       if (isTRUE(retry$valid) || .gt_d_validity_event(retry)) {
         retry$inner_warm_started <- TRUE
         retry$inner_cold_attempt <- .gt_d_failure_record(answer, list())
+        if (!is.null(answer$inner_warm_attempt))
+          retry$inner_warm_attempt <- answer$inner_warm_attempt
         answer <- retry
       }
     }
     if (isTRUE(answer$valid)) {
       last_mode <<- answer$mode
-      if (warm_requested && !probe) {
-        centre_parameters <<- parameters
-        centre_mode <<- answer$mode
-      }
+      if (warm_requested && !probe) centre_mode <<- answer$mode
     }
     if (!details) return(if (isTRUE(answer$valid)) answer$nll else 1e100)
     if (isTRUE(answer$valid))
@@ -330,7 +345,6 @@
   # is cold, and nothing from an earlier attempt seeds it.
   attr(evaluate, "reset") <- function() {
     last_mode <<- NULL
-    centre_parameters <<- NULL
     centre_mode <<- NULL
     invisible(NULL)
   }

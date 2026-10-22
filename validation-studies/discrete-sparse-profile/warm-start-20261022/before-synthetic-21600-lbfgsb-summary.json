@@ -1,0 +1,332 @@
+{
+  "status": "accepted",
+  "error": null,
+  "warnings": [],
+  "elapsed_seconds": 291.80100000000004,
+  "optimizer": "L-BFGS-B",
+  "declared_control": {
+    "gaussian": [],
+    "discrete": {
+      "engine": "sparse",
+      "optimizer": "L-BFGS-B",
+      "max_observations": 21600,
+      "max_random_dimension": 819,
+      "check_hessian": true
+    },
+    "retain": [true, true, true, true]
+  },
+  "engine": "sparse_joint_discrete_laplace",
+  "accepted": true,
+  "diagnostics": {
+    "converged": true,
+    "optimizer_completed": true,
+    "numerically_accepted": true,
+    "approximation_adequacy": "not_assessed_first_order_laplace",
+    "acceptance_failures": null,
+    "outer_stationarity": {
+      "stationary_within_tolerance": true,
+      "fixed_effect_score": [-0.0012040315292930852, -0.0065797333566782372],
+      "covariance_gradients": {
+        "evaluator": [
+          [-0.0012661257642321289]
+        ],
+        "item": [
+          [4.8057700041681528e-05]
+        ],
+        "prompt": [
+          [46.615249048045371]
+        ],
+        "evaluator:prompt": [
+          [-0.021190280676819384]
+        ],
+        "item:evaluator": [
+          [0.0049868322093971074]
+        ],
+        "item:prompt": [
+          [-0.018205719243269414]
+        ]
+      },
+      "covariance_projected_scores": {
+        "evaluator": -8.6148946460140596e-06,
+        "item": 3.2699123142521103e-07,
+        "prompt": 0,
+        "evaluator:prompt": -0.00014418159767935063,
+        "item:evaluator": 3.393109540528183e-05,
+        "item:prompt": -0.0001238742292954953
+      },
+      "fixed_effect_scaled_norm": 4.4769414909532422e-05,
+      "covariance_scaled_norm": 0.00014418159767935063,
+      "finite_difference_disagreement": 0.00041596180774886233,
+      "finite_difference_refinement": {
+        "max_refinements": 6,
+        "fixed_steps": [0.0001, 0.0001],
+        "fixed_refinements": [0, 0],
+        "covariance_steps": [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001],
+        "covariance_refinements": [0, 0, 0, 0, 0, 0],
+        "method": "Richardson extrapolation with bounded step halving; unchanged raw coarse/fine disagreement gate."
+      },
+      "tolerance": 0.001,
+      "scaling": "Fixed scores divided by sqrt(number of rows); source covariance PSD projection after scaling by max(1, largest source variance), with scores divided by sqrt(number of rows).",
+      "interpretation": "Independent local first-order Laplace-objective stationarity only; not global optimality, identification, or integration accuracy.",
+      "warnings": []
+    },
+    "stability": {
+      "checked": true,
+      "stable": true,
+      "primary_optimizer_code": 0,
+      "primary_objective_at_tighter_tolerance": 17270.744279517996,
+      "primary_tight_evaluation_error": null,
+      "tight_objectives": [17270.732031097043, 17270.732036364428],
+      "optimizer_codes": [0, 0],
+      "tight_parameters": [
+        [-0.60356712711597049, 0.25356686091437503, 0.1784109225781802, 0.89747173146226822, 0, 0.05615756939656287, 0.28065252780848932, 0.17501343793755261],
+        [-0.60290200902876712, 0.25356671145884663, 0.17822034009092427, 0.89721175866657843, 0, 0.056169879731775903, 0.28065198374412476, 0.17501924399314331]
+      ],
+      "relative_objective_differences": [0, 3.0498914866828723e-10],
+      "scaled_parameter_differences": [0, 0.00066511808720337573],
+      "objective_tolerance": 9.9999999999999995e-07,
+      "parameter_tolerance": 0.02,
+      "alternative_starts": 1,
+      "validation_inner_tol": 1.0000000000000001e-09,
+      "validation_reltol": 1e-10,
+      "inner_tol": 9.9999999999999995e-08,
+      "inner_maxit": 60
+    },
+    "attempts": [
+      {
+        "label": "primary",
+        "start": [-0.38057515673862846, -0.22219643949589055, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003],
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 109.855,
+        "optimizer_code": 0,
+        "optimizer_message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
+        "result_available": true,
+        "parameters": [-0.58739844966128196, 0.25351538469577317, 0.19283452940346826, 0.8822511731212741, 0, 0.055618400847808003, 0.28056046475743818, 0.17508405969683066],
+        "objective": 17270.744279518403,
+        "optimizer": "L-BFGS-B",
+        "optimizer_control": {
+          "maxit": 150,
+          "factr": 450359962.73704958,
+          "trace": 0
+        },
+        "raw_result": {
+          "par": [-0.58739844966128196, 0.25351538469577317, 0.19283452940346826, 0.8822511731212741, 0, 0.055618400847808003, 0.28056046475743818, 0.17508405969683066],
+          "value": 17270.744279518403,
+          "counts": [67, 67],
+          "convergence": 0,
+          "message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
+        }
+      },
+      {
+        "label": "primary_tight",
+        "start": [-0.58739844966128196, 0.25351538469577317, 0.19283452940346826, 0.8822511731212741, 0, 0.055618400847808003, 0.28056046475743818, 0.17508405969683066],
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 57.498000000000019,
+        "optimizer_code": 0,
+        "optimizer_message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
+        "result_available": true,
+        "parameters": [-0.60356712711597049, 0.25356686091437503, 0.1784109225781802, 0.89747173146226822, 0, 0.05615756939656287, 0.28065252780848932, 0.17501343793755261],
+        "objective": 17270.732031097043,
+        "optimizer": "L-BFGS-B",
+        "optimizer_control": {
+          "maxit": 150,
+          "factr": 450359.96273704962,
+          "pgtol": 9.9999999999999995e-08,
+          "ndeps": [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001],
+          "trace": 0
+        },
+        "raw_result": {
+          "par": [-0.60356712711597049, 0.25356686091437503, 0.1784109225781802, 0.89747173146226822, 0, 0.05615756939656287, 0.28065252780848932, 0.17501343793755261],
+          "value": 17270.732031097043,
+          "counts": [37, 37],
+          "convergence": 0,
+          "message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
+        }
+      },
+      {
+        "label": "alternative_1",
+        "start": [-0.23057515673862847, -0.37219643949589054, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008],
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 87.319999999999993,
+        "optimizer_code": 0,
+        "optimizer_message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
+        "result_available": true,
+        "parameters": [-0.59894227050254079, 0.25358636307996923, 0.17744976534786031, 0.89529308997908985, 0, 0.056285877086343312, 0.28059023537643929, 0.17488980272282706],
+        "objective": 17270.73237369016,
+        "optimizer": "L-BFGS-B",
+        "optimizer_control": {
+          "maxit": 150,
+          "factr": 450359962.73704958,
+          "trace": 0
+        },
+        "raw_result": {
+          "par": [-0.59894227050254079, 0.25358636307996923, 0.17744976534786031, 0.89529308997908985, 0, 0.056285877086343312, 0.28059023537643929, 0.17488980272282706],
+          "value": 17270.73237369016,
+          "counts": [60, 60],
+          "convergence": 0,
+          "message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
+        }
+      },
+      {
+        "label": "alternative_1_tight",
+        "start": [-0.59894227050254079, 0.25358636307996923, 0.17744976534786031, 0.89529308997908985, 0, 0.056285877086343312, 0.28059023537643929, 0.17488980272282706],
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 34.156000000000006,
+        "optimizer_code": 0,
+        "optimizer_message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
+        "result_available": true,
+        "parameters": [-0.60290200902876712, 0.25356671145884663, 0.17822034009092427, 0.89721175866657843, 0, 0.056169879731775903, 0.28065198374412476, 0.17501924399314331],
+        "objective": 17270.732036364428,
+        "optimizer": "L-BFGS-B",
+        "optimizer_control": {
+          "maxit": 150,
+          "factr": 450359.96273704962,
+          "pgtol": 9.9999999999999995e-08,
+          "ndeps": [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001],
+          "trace": 0
+        },
+        "raw_result": {
+          "par": [-0.60290200902876712, 0.25356671145884663, 0.17822034009092427, 0.89721175866657843, 0, 0.056169879731775903, 0.28065198374412476, 0.17501924399314331],
+          "value": 17270.732036364428,
+          "counts": [22, 22],
+          "convergence": 0,
+          "message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
+        }
+      }
+    ],
+    "final_checks": [
+      {
+        "label": "tight_candidate_1",
+        "valid": true,
+        "error": null,
+        "warnings": [],
+        "elapsed_seconds": 0.08100000000001728,
+        "failure": null
+      }
+    ],
+    "selected_attempt": "primary_tight",
+    "optimizer": "L-BFGS-B",
+    "optimizer_fixed_across_attempts": true,
+    "optimization_trials": 4,
+    "optimization_trial_budget": 4,
+    "starting_parameters": [-0.38057515673862846, -0.22219643949589055, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003],
+    "automatic_starting_parameters": [-0.38057515673862846, -0.22219643949589055, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003],
+    "supplied_start_parameters": null,
+    "tight_final_mode": true,
+    "marginal_backend": "sparse_marginal_laplace",
+    "resource_estimate": {
+      "total": 46027088,
+      "random_design": 6224080,
+      "conditional_hessian": 16098264,
+      "predictors": 691200,
+      "multiplier": 2,
+      "scope": "Conservative major-array estimate with fully populated source factors and complete Hessian/factor fill. Excludes caller data and optimizer state; neither observed memory use nor an accuracy or speed guarantee."
+    },
+    "evaluations": {
+      "count": 3163,
+      "invalid": 0,
+      "validity_events": 0,
+      "valid_at_inner_budget": 0,
+      "inner_budget": 60,
+      "retained_invalid": [],
+      "retention_limit": 8,
+      "validity_retention_limit": 8,
+      "warm_rescued": 0,
+      "retained_rescued": [],
+      "scope": "Every evaluation of the coarse or tightened objective made by the optimizer and by the one tighter-tolerance re-evaluation of the primary fit; final validation, stationarity and specimen evaluations are not counted. Retained records carry the failed evaluation's own measurements. A solve- or factor-validity event is retained beyond the ordinary limit, within its own. A sparse evaluation rescued by a retry from the last valid mode is a valid evaluation, counted and retained separately."
+    },
+    "covariance_parameterization": "variance",
+    "covariance_parameterization_requested": "auto",
+    "zero_variance_parameters": "prompt::variance[y]",
+    "acceptance": "Completed optimizer, tight conditional mode, independent fixed-effect and covariance-scale stationarity, stable tight restarts, and no artificial-bound contact. Approximation adequacy is separate.",
+    "optimizer_code": 0,
+    "optimizer_message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
+    "inner_converged": true,
+    "inner_gradient": 6.8278716014447127e-14,
+    "inner_iterations": 9,
+    "inner_roundoff_steps": 0,
+    "inner_warm_started": false,
+    "random_dimension": 819,
+    "parameter_count": 8,
+    "boundary_sources": "prompt",
+    "parameter_bounds": [],
+    "source_kernel_rank": {
+      "rank": 6,
+      "n_sources": 6,
+      "smallest_normalized_eigenvalue": 0.35771558193518055
+    },
+    "source_residual_kernel_rank": {
+      "rank": 7,
+      "n_kernels": 7,
+      "n_random_sources": 6,
+      "includes_observation_identity": true,
+      "smallest_normalized_eigenvalue": 0.3550192315363615
+    },
+    "source_covariances_estimated": true,
+    "observation_scale_guard": "Random-source kernels and observation identity must be linearly independent; necessary safeguard, not proof of identification.",
+    "approximation": "First-order Laplace marginal ML; accuracy is not established for sparse groups or large annotation panels.",
+    "conditional_independence": true,
+    "uncertainty": "A source covariance is on or near its boundary; ordinary Wald errors are unavailable."
+  },
+  "variances": {
+    "evaluator": [
+      [0.1784109225781802]
+    ],
+    "item": [
+      [0.89747173146226822]
+    ],
+    "prompt": [
+      [0]
+    ],
+    "evaluator:prompt": [
+      [0.05615756939656287]
+    ],
+    "item:evaluator": [
+      [0.28065252780848932]
+    ],
+    "item:prompt": [
+      [0.17501343793755261]
+    ]
+  },
+  "latent_reliability": [
+    {
+      "design_id": 1,
+      "kind": "outcome",
+      "outcome": "y",
+      "Erho2": 0.87082255347906778,
+      "Erho2_se": null,
+      "Erho2_lower": null,
+      "Erho2_upper": null,
+      "Phi": 0.83108096658543684,
+      "Phi_se": null,
+      "Phi_lower": null,
+      "Phi_upper": null,
+      "allocation_evaluator": 4,
+      "allocation_prompt": 3,
+      "allocation_temperature": 6,
+      "allocation_seed": 3,
+      "scale": "latent",
+      "interval_level": 0.94999999999999996,
+      "uncertainty_available": false,
+      "uncertainty_reason": "A source covariance is on or near its boundary; ordinary Wald errors are unavailable.",
+      "uncertainty_conditional": false,
+      "uncertainty_conditioning": null,
+      "Erho2_interval_available": false,
+      "Phi_interval_available": false,
+      "fixed_facets": "",
+      "composite_weights": null,
+      "measurements_per_object": 216,
+      "measurement_count_exact": true,
+      "extrapolated": false,
+      "batch_status": "not_declared",
+      "projection_target": null,
+      "projection_assumptions": null
+    }
+  ],
+  "same_objective_external_comparison": "pending",
+  "scope": "One fixed synthetic dataset; numerical acceptance is not parameter recovery, interval coverage, or Laplace accuracy."
+}

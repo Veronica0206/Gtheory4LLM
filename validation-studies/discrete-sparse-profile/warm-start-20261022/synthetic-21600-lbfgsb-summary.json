@@ -2,7 +2,7 @@
   "status": "accepted",
   "error": null,
   "warnings": [],
-  "elapsed_seconds": 106.437,
+  "elapsed_seconds": 126.04900000000001,
   "optimizer": "L-BFGS-B",
   "declared_control": {
     "gaussian": [],
@@ -98,7 +98,7 @@
         "start": [-0.38057515673862846, -0.22219643949589055, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003],
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 41.427,
+        "elapsed_seconds": 47.927,
         "optimizer_code": 0,
         "optimizer_message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
         "result_available": true,
@@ -123,7 +123,7 @@
         "start": [-0.5874273212487231, 0.25351533829421441, 0.1928406310559819, 0.88224770088263227, 0, 0.055617615365421987, 0.28056185962396452, 0.17508409682560108],
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 18.143999999999998,
+        "elapsed_seconds": 22.413999999999994,
         "optimizer_code": 0,
         "optimizer_message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
         "result_available": true,
@@ -150,7 +150,7 @@
         "start": [-0.23057515673862847, -0.37219643949589054, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008],
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 34.827000000000005,
+        "elapsed_seconds": 42.034999999999997,
         "optimizer_code": 0,
         "optimizer_message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
         "result_available": true,
@@ -175,7 +175,7 @@
         "start": [-0.6027035049438797, 0.25359160700635797, 0.1768670859596079, 0.89906631077643984, 0, 0.055158852496146611, 0.28016454522211065, 0.17509513038028029],
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 9.0429999999999922,
+        "elapsed_seconds": 10.275000000000006,
         "optimizer_code": 0,
         "optimizer_message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
         "result_available": true,
@@ -204,7 +204,7 @@
         "valid": true,
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 0.08100000000000307,
+        "elapsed_seconds": 0.087999999999993861,
         "failure": null
       }
     ],
@@ -239,7 +239,7 @@
       "retained_rescued": [],
       "warm_started": 2937,
       "cold_fallbacks": 0,
-      "scope": "Every evaluation of the coarse or tightened objective made by the optimizer and by the one tighter-tolerance re-evaluation of the primary fit; final validation, stationarity and specimen evaluations are not counted. Retained records carry the failed evaluation's own measurements. A solve- or factor-validity event is retained beyond the ordinary limit, within its own. A sparse evaluation rescued by a retry from the last valid mode is a valid evaluation, counted and retained separately. A sparse evaluation that began from the attempt's centre mode is counted as warm started; one whose warm solve stopped short and was replaced by the cold solve is counted as a cold fallback."
+      "scope": "Every evaluation of the coarse or tightened objective made by the optimizer and by the one tighter-tolerance re-evaluation of the primary fit; final validation, stationarity and specimen evaluations are not counted. Retained records carry the failed evaluation's own measurements. A solve- or factor-validity event is retained beyond the ordinary limit, within its own. A sparse evaluation rescued by a retry from the last valid mode is a valid evaluation, counted and retained separately. A sparse evaluation that began from the attempt's centre mode is counted as warm started; one whose warm solve stopped short and was replaced by the cold solve is counted as a cold fallback, whether or not it was finally usable."
     },
     "covariance_parameterization": "variance",
     "covariance_parameterization_requested": "auto",

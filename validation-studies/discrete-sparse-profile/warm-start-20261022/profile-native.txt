@@ -1,0 +1,7 @@
+sources: evaluator, item, prompt, evaluator:prompt, item:evaluator, item:prompt, evaluator:prompt:temp, item:evaluator:prompt, evaluator:prompt:temp:seed, item:evaluator:prompt:temp 
+n=21600  parameters=12  random dimension=9507
+cold evaluation: 0.66 s, valid=TRUE, 7 Newton steps, nll=12691.862805
+warm evaluation from neighbour's mode: 0.18 s, 3 Newton steps, nll diff -1.47e-07, max|mode diff| 4.11e-09
+fill: H nnz 433539, factor nnz 328278 (1.5x the triangle)
+step components (s): kernel 0.0030 | assembly 0.0300 | Cholesky fresh 0.0000 | Cholesky update() 0.0170 | nnzero counts 0.0030 | solve 0.0010 | line-search trial 0.0030
+fixed-pattern assembly: precompute 0.042 s once; per evaluation 0.0480 s vs current 0.0300 s (0.6x); max relative entry gap 2.1e-16; Cholesky on it 0.0000 s; contributions 1188000 -> stored 221523

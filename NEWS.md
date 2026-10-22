@@ -53,21 +53,23 @@ release evidence while adding the following bounded capabilities:
   unchanged. Rescued evaluations are marked and counted in the fit's
   evaluation record.
 
-- Within an optimizer attempt, the sparse evaluator starts each conditional
-  solve from the attempt's centre mode, the mode of the last evaluation that
-  moved more than one coordinate. The conditional objective is strictly
-  concave in the random effects, so a start changes the path to the mode and
-  never the mode: on the frozen calibration points and the 21,600-row
-  synthetic panel, warm and cold objectives agree within 3e-9 at the coarse
-  tolerance and 2e-10 at the validation tolerance, and at the native
-  21,600-row panel's starting values within 1.5e-7 (coarse) and 4e-12
-  (validation), while an evaluation needs about three Newton steps instead of
-  seven or eight. Both finite-difference probes of
-  a coordinate start from the same centre and neither replaces it; every
-  attempt begins with a cold solve; the final checks, the stationarity probes
-  and the information step remain cold solves from zero modes; and a warm
-  solve that stops short of the mode without a validity event is replaced by
-  the cold solve. The evaluation record counts `warm_started` and
+- Within an L-BFGS-B attempt, the sparse evaluator starts conditional solves
+  from the attempt's centre mode. The fit supplies the finite-difference
+  gradient itself, written out from `optim()`'s own rule so the optimizer's
+  path is unchanged, and names each evaluation's role: function evaluations
+  start from the centre mode and become the new centre, and every probe of one
+  gradient starts from the mode at the point it differentiates. The
+  conditional objective is strictly concave in the random effects, so a start
+  changes the path to the mode and never the mode: on the frozen calibration
+  points and the 21,600-row synthetic panel, warm and cold objectives agree
+  within 4.4e-9 at the coarse tolerance and 1.9e-10 at the validation
+  tolerance, and at the native 21,600-row panel's starting values within
+  1.5e-7 (coarse) and 3.6e-12 (validation), while an evaluation needs about
+  three Newton steps instead of seven or eight. Every attempt begins with a cold solve; the final
+  checks, the stationarity probes, the information step and every `nlminb`
+  evaluation remain cold solves from zero modes. A warm solve that stops short
+  of the mode is replaced by the cold solve, which keeps the older retry from
+  the last valid mode. The evaluation record counts `warm_started` and
   `cold_fallbacks`. No tolerance, budget or acceptance rule changed.
 - The sparse mode solver no longer computes the factor's fill counts on every
   Newton step; `.gt_d_sparse_factor()` computes them only when asked, which

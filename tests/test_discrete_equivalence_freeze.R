@@ -531,6 +531,38 @@ ok(all(inherited$observed_maximum[is.finite(inherited$observed_maximum)] <=
          inherited$tolerance[is.finite(inherited$observed_maximum)]),
    "calibration never required widening an inherited limit")
 
+# The adopted values themselves are pinned here, outside the table they govern,
+# in the same way as the frozen sources above. The margin checks alone would
+# admit a later widening (a tenfold latent G/Phi tolerance still clears its
+# observed maximum by a hundred), so a change to any adopted rule or value must
+# arrive as a reviewed amendment that updates these pins and the digest.
+ADOPTED_TOLERANCES <- list(
+  predictor = list(rule = "symmetric_relative", value = 1e-13),
+  mode_score = list(rule = "absolute", value = 1e-13),
+  hessian = list(rule = "symmetric_relative", value = 1e-13),
+  conditional_mode = list(rule = "symmetric_relative", value = 1e-13),
+  log_determinant = list(rule = "absolute, c * random_dimension * eps", value = 1000),
+  latent_g_phi = list(rule = "absolute", value = 0.01),
+  equivariance = list(rule = "symmetric_relative", value = 1e-12),
+  marginal_negative_log_likelihood = list(rule = "absolute", value = 1e-10),
+  conditional_objective = list(rule = "absolute", value = 1e-10),
+  fitted_objective_relative = list(rule = "relative", value = 1e-6),
+  fitted_parameter_distance = list(rule = "scaled distance", value = 0.02),
+  solve_validity = list(rule = "32 * random_dimension * eps", value = 32))
+ADOPTED_TABLE_DIGEST <- "a0f24f254d0733ff22d158e53390d782"
+ok(identical(sort(tolerances$quantity), sort(names(ADOPTED_TOLERANCES))),
+   "the tolerance table holds exactly the pinned quantities")
+for (quantity in names(ADOPTED_TOLERANCES)) {
+  adopted <- tolerances[tolerances$quantity == quantity, ]
+  pin <- ADOPTED_TOLERANCES[[quantity]]
+  ok(identical(nrow(adopted), 1L) && identical(adopted$rule_form, pin$rule) &&
+       identical(adopted$tolerance, pin$value),
+     paste0("the adopted ", quantity, " rule and value are the pinned ", pin$rule, " = ",
+            format(pin$value), "; a change needs a reviewed amendment"))
+}
+ok(identical(content_digest(TOLERANCES), ADOPTED_TABLE_DIGEST),
+   "tolerances.csv matches its pinned digest; a change needs a reviewed amendment")
+
 # ---- execution remains blocked --------------------------------------------------
 runner <- paste(readLines(file.path(STUDY, "run-equivalence.R"), warn = FALSE), collapse = "\n")
 ok(grepl("Refusing to run", runner, fixed = TRUE),

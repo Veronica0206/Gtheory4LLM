@@ -1,5 +1,5 @@
 {
-  "started": "2026-10-22T01:17:44.904726+00:00",
+  "started": "2026-10-22T03:24:46.017393+00:00",
   "sources": {
     "DESCRIPTION": "73cdb67badd5198de98dc3e1509f0acbfc8fb07eda702e5e623d9054ad50df94",
     "NAMESPACE": "2f97af07cc237bd0c6bf1b00803c1e5c240567b79b1e13ea947902071ac268c0",
@@ -9,7 +9,7 @@
     "R/categorical_targets.R": "fa4010d758cd5c67edbd8e90aaa5e178c70612527c57cb9ef66c133876b35abc",
     "R/design.R": "c391cddbeefe96b2d17196f148ca5d43bd5282d64233ec8367bc61be16324911",
     "R/diagnostics_stages.R": "242abc1ac0d6a11070951d7a971ff3b1fe0ef6cc29449c5df4999758db63ef6d",
-    "R/discrete.R": "3089f47d010f412d6f5f0622ca332d8374cfd683f87cff51f768c9bf94f962af",
+    "R/discrete.R": "51ca8b72964f407ee19e64fc82d5c2db5c15932e99dd524697daee45fcaecf6f",
     "R/discrete_check.R": "3f11a05bb09f60e60babf52738e87ea157830feb2258e5f986bbccfa11b4f556",
     "R/discrete_dense.R": "87460490011fb710a9209deb3f27bff940869a83525793ad0ac3850adc062319",
     "R/discrete_information.R": "e0cb9cca9b2714284cb84d8224fafdb7cf467a9a38830b23380f6fea05f67b74",
@@ -17,7 +17,7 @@
     "R/discrete_response.R": "2b336a88a2342a9124bba01cd69eaabe61426502e4c3d438ff3473c26ccb9a06",
     "R/discrete_simulation.R": "90c85e84b399c8732342597bc3af9c2edb882bd4a4a23bf85c2a26dd429e890a",
     "R/discrete_sparse.R": "5957e0aa484efe161d4d55bc037d1749f226386a9e1ede9f650e72a2a117bf5f",
-    "R/discrete_sparse_mode.R": "76b7a9bd7c2af316b809b3d212231a495e50d6052fdcd8dc0933573549f91ade",
+    "R/discrete_sparse_mode.R": "b6076afb92b3315ca9ef58c9234cc79b4940d3499d185230bd5bc186215a460b",
     "R/examples.R": "9ab923222db7142d42d9e1ae214bfb6cec8a80d4a7ecec464cd8ba568ee6cb4a",
     "R/family.R": "afd4479ecff72f74422ebfd2bbaa5d4c4acbdab030c4eb97a46dd47d51d16ae3",
     "R/fit.R": "a1168ab793b4e9e38ee0331bcf54d486237299c4d08381fa7f1be7b7b0fe2e14",

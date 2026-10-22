@@ -88,18 +88,20 @@
   state$cold_fallbacks <- 0L
   observe <- function(parameters, value, phase, settings = control) {
     state$count <- state$count + 1L
+    # A cold fallback is a warm solve that stopped short and was replaced by the
+    # cold solve from zero modes. It is counted whether or not the evaluation
+    # was finally usable: both solves ran either way.
+    if (is.list(value) && !is.null(value$inner_warm_attempt))
+      state$cold_fallbacks <- state$cold_fallbacks + 1L
     if (.gt_d_evaluation_usable(value)) {
       if (is.numeric(value$inner_iterations) && length(value$inner_iterations) == 1L &&
           value$inner_iterations >= settings$inner_maxit)
         state$at_budget <- state$at_budget + 1L
       # A warm start within an optimizer attempt is an ordinary valid
       # evaluation; it is counted so a fit says how many of its solves began
-      # from an earlier mode. A cold fallback is a warm solve that stopped short
-      # and was replaced by the cold solve from zero modes.
+      # from an earlier mode.
       if (isTRUE(value$inner_warm_started) && is.null(value$inner_cold_attempt))
         state$warm_started <- state$warm_started + 1L
-      if (!is.null(value$inner_warm_attempt))
-        state$cold_fallbacks <- state$cold_fallbacks + 1L
       if (isTRUE(value$inner_warm_started) && !is.null(value$inner_cold_attempt)) {
         # A sparse evaluation whose cold solve failed and whose retry from the
         # fit's last valid mode succeeded. It is a valid evaluation, counted and
@@ -110,7 +112,8 @@
           state$retained_rescued[[length(state$retained_rescued) + 1L]] <-
             list(evaluation = state$count, phase = phase, parameters = parameters,
                  inner_iterations = value$inner_iterations,
-                 cold_attempt = value$inner_cold_attempt)
+                 cold_attempt = value$inner_cold_attempt,
+                 warm_attempt = value$inner_warm_attempt)
       }
       return(value$nll)
     }
@@ -143,7 +146,7 @@
                   "mode is a valid evaluation, counted and retained separately. A sparse",
                   "evaluation that began from the attempt's centre mode is counted as warm",
                   "started; one whose warm solve stopped short and was replaced by the cold",
-                  "solve is counted as a cold fallback."))
+                  "solve is counted as a cold fallback, whether or not it was finally usable."))
   list(observe = observe, summary = summary)
 }
 
@@ -159,7 +162,8 @@
 .gt_d_failure_record <- function(value, record) {
   fields <- c("reason", "inner_converged", "inner_gradient", "inner_iterations",
               "inner_line_search_failed", "inner_factor_unavailable",
-              .GT_D_SOLVE_DETAIL, "probe_index", "inner_warm_started", "inner_cold_attempt")
+              .GT_D_SOLVE_DETAIL, "probe_index", "inner_warm_started", "inner_cold_attempt",
+              "inner_warm_attempt")
   if (is.list(value)) for (field in fields) if (!is.null(value[[field]]))
     record[[field]] <- value[[field]]
   if (is.null(record$reason)) record$reason <- NA_character_
@@ -357,8 +361,40 @@
   pmin(pmax(par, lower), upper)
 }
 
+# The finite-difference gradient optim() computes for L-BFGS-B when no
+# gradient is supplied, written out so the fit can name its probes. It follows
+# optim's internal rule exactly: for each coordinate, a central difference with
+# step ndeps, each side clipped to its bound with the step used on that side.
+# Supplying it therefore leaves the evaluation sequence, every value and the
+# optimizer's path unchanged; tests/test_discrete_sparse_warm_policy.R checks
+# that. What it adds is the role: objective() here is told the evaluations are
+# probes, so a warm-started sparse evaluator seeds all of them from the mode at
+# the point whose gradient they form.
+.gt_d_numerical_gradient <- function(objective, ndeps, lower, upper) {
+  force(objective); force(ndeps); force(lower); force(upper)
+  function(p) {
+    df <- numeric(length(p))
+    for (i in seq_along(p)) {
+      eps <- epsused <- ndeps[[i]]
+      x <- p
+      tmp <- p[[i]] + eps
+      if (tmp > upper[[i]]) { tmp <- upper[[i]]; epsused <- tmp - p[[i]] }
+      x[[i]] <- tmp
+      plus <- objective(x)
+      tmp <- p[[i]] - eps
+      if (tmp < lower[[i]]) { tmp <- lower[[i]]; eps <- p[[i]] - tmp }
+      x[[i]] <- tmp
+      minus <- objective(x)
+      df[[i]] <- (plus - minus) / (epsused + eps)
+      if (!is.finite(df[[i]]))
+        stop(sprintf("non-finite finite-difference value [%d]", i), call. = FALSE)
+    }
+    df
+  }
+}
+
 .gt_d_optimize <- function(at, objective, lower, upper, optimizer_control,
-                            label, optimizer = "L-BFGS-B") {
+                            label, optimizer = "L-BFGS-B", gradient = NULL) {
   # A function is allowed internally for failure-injection tests only. Public
   # controls select a supported engine, which remains fixed across all trials.
   optimizer_name <- if (is.function(optimizer)) "injected_function" else optimizer
@@ -375,8 +411,11 @@
       if (!identical(optimizer_name, "L-BFGS-B")) .gt_d_stop("Unsupported discrete optimizer.")
       optimizer <- stats::optim
     }
-    captured <- .gt_d_capture(optimizer(at, objective, method = "L-BFGS-B",
-      lower = lower, upper = upper, control = native_control))
+    captured <- .gt_d_capture(if (is.null(gradient))
+      optimizer(at, objective, method = "L-BFGS-B",
+                lower = lower, upper = upper, control = native_control) else
+      optimizer(at, objective, gr = gradient, method = "L-BFGS-B",
+                lower = lower, upper = upper, control = native_control))
   }
   raw_result <- captured$value
   fit <- raw_result
@@ -952,16 +991,29 @@
   # scalar by the log, so an evaluation that fails is described by its own
   # record; see .gt_d_evaluation_log(). The arithmetic is unchanged.
   evaluations <- .gt_d_evaluation_log(control, prep)
-  # Optimizer attempts may start each conditional solve from the attempt's
-  # centre mode (see .gt_d_sparse_evaluator); every other evaluation of the
-  # fit keeps the control without that request and solves cold from zero
-  # modes. The dense evaluator ignores the request.
-  warm_control <- control
-  warm_control$inner_start <- "warm"
+  # L-BFGS-B attempts name each evaluation's role (see .gt_d_sparse_evaluator):
+  # the optimizer's function evaluations are "warm" and the probes of the
+  # explicit gradient below are "warm_probe". The gradient is optim's own
+  # finite-difference rule written out (.gt_d_numerical_gradient), so the
+  # optimizer's path is unchanged. Other optimizers form their finite
+  # differences internally, where no role can be named; their evaluations,
+  # and every evaluation outside an optimizer attempt, carry no role and solve
+  # cold from zero modes. The dense evaluator ignores roles.
+  explicit_roles <- identical(control$optimizer, "L-BFGS-B")
+  role_control <- function(base, role) {
+    if (explicit_roles) base$inner_start <- role
+    base
+  }
+  warm_control <- role_control(control, "warm")
+  probe_control <- role_control(control, "warm_probe")
   reset_evaluator <- attr(.laplace, "reset")
   begin_attempt <- function() if (is.function(reset_evaluator)) reset_evaluator()
   objective <- function(par)
     evaluations$observe(par, .laplace(par, prep, groups, setup, warm_control, details = TRUE), "coarse")
+  probe_objective <- function(par)
+    evaluations$observe(par, .laplace(par, prep, groups, setup, probe_control, details = TRUE), "coarse")
+  coarse_gradient <- if (explicit_roles)
+    .gt_d_numerical_gradient(probe_objective, rep(1e-3, length(start)), lower, upper)
   # The start is evaluated once and its record read directly. There is no
   # replay: see .gt_d_start_failure_detail. The refusal stands on the evidence
   # of the evaluation that refused.
@@ -976,7 +1028,8 @@
     factr = control$reltol / .Machine$double.eps, trace = control$trace)
   begin_attempt()
   primary_fit <- .gt_d_optimize(start, objective, lower, upper,
-                                optimizer_control, "primary", optimizer = control$optimizer)
+                                optimizer_control, "primary", optimizer = control$optimizer,
+                                gradient = coarse_gradient)
   attempts <- list(primary_fit$attempt)
   coarse_candidates <- list(primary_fit)
   # Optimizer completion alone is insufficient. Refine with a tighter inner
@@ -988,18 +1041,24 @@
   tight_objective <- function(par)
     evaluations$observe(par, .laplace(par, prep, groups, setup, validation_control, details = TRUE),
                         "tight", settings = validation_control)
-  tight_warm_control <- validation_control
-  tight_warm_control$inner_start <- "warm"
+  tight_warm_control <- role_control(validation_control, "warm")
+  tight_probe_control <- role_control(validation_control, "warm_probe")
   tight_attempt_objective <- function(par)
     evaluations$observe(par, .laplace(par, prep, groups, setup, tight_warm_control, details = TRUE),
                         "tight", settings = validation_control)
+  tight_probe_objective <- function(par)
+    evaluations$observe(par, .laplace(par, prep, groups, setup, tight_probe_control, details = TRUE),
+                        "tight", settings = validation_control)
+  tight_steps <- rep(1e-4, length(start))
+  tight_gradient <- if (explicit_roles)
+    .gt_d_numerical_gradient(tight_probe_objective, tight_steps, lower, upper)
   optimize_tight <- function(at, label) {
     begin_attempt()
     result <- .gt_d_optimize(at, tight_attempt_objective, lower, upper,
       list(maxit = control$maxit,
         factr = validation_control$reltol / .Machine$double.eps,
-        pgtol = 1e-7, ndeps = rep(1e-4, length(start)), trace = control$trace), label,
-      optimizer = control$optimizer)
+        pgtol = 1e-7, ndeps = tight_steps, trace = control$trace), label,
+      optimizer = control$optimizer, gradient = tight_gradient)
     attempts[[length(attempts) + 1L]] <<- result$attempt
     result
   }
@@ -1037,7 +1096,8 @@
     }
     begin_attempt()
     alternative_primary <- .gt_d_optimize(alternative, objective, lower, upper,
-      optimizer_control, paste0("alternative_", attempt), optimizer = control$optimizer)
+      optimizer_control, paste0("alternative_", attempt), optimizer = control$optimizer,
+      gradient = coarse_gradient)
     attempts[[length(attempts) + 1L]] <- alternative_primary$attempt
     coarse_candidates[[length(coarse_candidates) + 1L]] <- alternative_primary
     alternatives[[attempt]] <- optimize_tight(alternative_primary$par,

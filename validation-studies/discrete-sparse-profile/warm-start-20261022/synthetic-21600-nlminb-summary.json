@@ -2,7 +2,7 @@
   "status": "rejected",
   "error": null,
   "warnings": "Discrete fit did not converge under numerical acceptance checks. Inspect gt_diagnostics(fit); coefficients and D studies are unavailable until the fit is numerically accepted.",
-  "elapsed_seconds": 34.414999999999999,
+  "elapsed_seconds": 147.619,
   "optimizer": "nlminb",
   "declared_control": {
     "gaussian": [],
@@ -19,44 +19,44 @@
   "accepted": false,
   "diagnostics": {
     "converged": false,
-    "optimizer_completed": false,
+    "optimizer_completed": true,
     "numerically_accepted": false,
     "approximation_adequacy": "not_assessed_first_order_laplace",
-    "acceptance_failures": ["optimizer_incomplete", "restart_or_tolerance_stability_failed"],
+    "acceptance_failures": "restart_or_tolerance_stability_failed",
     "outer_stationarity": {
       "stationary_within_tolerance": true,
-      "fixed_effect_score": [-0.0068748219443174703, 0.023229064633293699],
+      "fixed_effect_score": [0.0002862482991379996, 0.013999530589596057],
       "covariance_gradients": {
         "evaluator": [
-          [-0.0091799302026629448]
+          [-0.00044332409743219614]
         ],
         "item": [
-          [-0.0046157583710737526]
+          [-0.00017698766896501184]
         ],
         "prompt": [
-          [46.610435165348463]
+          [46.604018061771058]
         ],
         "evaluator:prompt": [
-          [-0.0024251130525954068]
+          [0.011806514521595091]
         ],
         "item:evaluator": [
-          [0.0090280809672549367]
+          [0.0090239700512029231]
         ],
         "item:prompt": [
-          [-0.053179210226517171]
+          [0.0027310306904837489]
         ]
       },
       "covariance_projected_scores": {
-        "evaluator": -6.2461513530231993e-05,
-        "item": -3.140625773645489e-05,
+        "evaluator": -3.0164384149655721e-06,
+        "item": -1.204248554764753e-06,
         "prompt": 0,
-        "evaluator:prompt": -1.65008042983944e-05,
-        "item:evaluator": 6.1428310350830628e-05,
-        "item:prompt": -0.00036183869438657923
+        "evaluator:prompt": 8.0333156162966379e-05,
+        "item:evaluator": 6.1400339110007085e-05,
+        "item:prompt": 1.8582310176568084e-05
       },
-      "fixed_effect_scaled_norm": 0.00015805376542694555,
-      "covariance_scaled_norm": 0.00036183869438657923,
-      "finite_difference_disagreement": 0.00041606428645424531,
+      "fixed_effect_scaled_norm": 9.5254740508319099e-05,
+      "covariance_scaled_norm": 8.0333156162966379e-05,
+      "finite_difference_disagreement": 0.00041588234962222479,
       "finite_difference_refinement": {
         "max_refinements": 6,
         "fixed_steps": [0.0001, 0.0001],
@@ -74,16 +74,16 @@
       "checked": true,
       "stable": false,
       "primary_optimizer_code": 0,
-      "primary_objective_at_tighter_tolerance": 17270.73203519639,
+      "primary_objective_at_tighter_tolerance": 17270.732071343398,
       "primary_tight_evaluation_error": null,
-      "tight_objectives": [17270.732033889657, 17270.732071053939],
-      "optimizer_codes": [1, 1],
+      "tight_objectives": [17270.73205988156, 17270.732030885574],
+      "optimizer_codes": [1, 0],
       "tight_parameters": [
-        [-0.6039072734496036, 0.25356994034903541, 0.17824493361931387, 0.89737103701472754, 0, 0.056175289637703796, 0.28065609140108311, 0.17499999771588337],
-        [-0.60383386714482779, 0.25356308704484337, 0.17865666374805012, 0.89872688082682628, 0, 0.056213682489627527, 0.28067079664618, 0.17499087056099816]
+        [-0.60357333369237154, 0.25354257106524303, 0.17805740277569962, 0.89659912299721889, 0, 0.056133796095969121, 0.28073144951381607, 0.17501130720585753],
+        [-0.603479847213506, 0.25356971757535934, 0.17841934596099362, 0.89746684380230124, 0, 0.056184918601602879, 0.28065618342406967, 0.1750225471603449]
       ],
-      "relative_objective_differences": [0, 2.1518648860947192e-09],
-      "scaled_parameter_differences": [0, 0.0013558438120985228],
+      "relative_objective_differences": [1.6789089287658572e-09, 0],
+      "scaled_parameter_differences": [0.00086772080508235039, 0],
       "objective_tolerance": 9.9999999999999995e-07,
       "parameter_tolerance": 0.02,
       "alternative_starts": 1,
@@ -98,12 +98,12 @@
         "start": [-0.38057515673862846, -0.22219643949589055, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003, 0.16000000000000003],
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 11.728000000000002,
+        "elapsed_seconds": 32.064,
         "optimizer_code": 0,
         "optimizer_message": "relative convergence (4)",
         "result_available": true,
-        "parameters": [-0.60390587592866884, 0.25355355244929889, 0.17824468257225304, 0.89737282879004499, 0, 0.056174787648526556, 0.28066300817653606, 0.17499304423610842],
-        "objective": 17270.732035207613,
+        "parameters": [-0.60357060114774774, 0.2535832181325553, 0.17805344055819552, 0.89658771456438202, 0, 0.056108109985030866, 0.28077844959851239, 0.17496990888885713],
+        "objective": 17270.732071343729,
         "optimizer": "nlminb",
         "optimizer_control": {
           "iter.max": 150,
@@ -112,25 +112,25 @@
           "trace": 0
         },
         "raw_result": {
-          "par": [-0.60390587592866884, 0.25355355244929889, 0.17824468257225304, 0.89737282879004499, 0, 0.056174787648526556, 0.28066300817653606, 0.17499304423610842],
-          "objective": 17270.732035207613,
+          "par": [-0.60357060114774774, 0.2535832181325553, 0.17805344055819552, 0.89658771456438202, 0, 0.056108109985030866, 0.28077844959851239, 0.17496990888885713],
+          "objective": 17270.732071343729,
           "convergence": 0,
-          "iterations": 32,
-          "evaluations": [51, 326],
+          "iterations": 28,
+          "evaluations": [43, 281],
           "message": "relative convergence (4)"
         }
       },
       {
         "label": "primary_tight",
-        "start": [-0.60390587592866884, 0.25355355244929889, 0.17824468257225304, 0.89737282879004499, 0, 0.056174787648526556, 0.28066300817653606, 0.17499304423610842],
+        "start": [-0.60357060114774774, 0.2535832181325553, 0.17805344055819552, 0.89658771456438202, 0, 0.056108109985030866, 0.28077844959851239, 0.17496990888885713],
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 3.8260000000000005,
+        "elapsed_seconds": 7.9740000000000038,
         "optimizer_code": 1,
         "optimizer_message": "false convergence (8)",
         "result_available": true,
-        "parameters": [-0.6039072734496036, 0.25356994034903541, 0.17824493361931387, 0.89737103701472754, 0, 0.056175289637703796, 0.28065609140108311, 0.17499999771588337],
-        "objective": 17270.732033889657,
+        "parameters": [-0.60357333369237154, 0.25354257106524303, 0.17805740277569962, 0.89659912299721889, 0, 0.056133796095969121, 0.28073144951381607, 0.17501130720585753],
+        "objective": 17270.73205988156,
         "optimizer": "nlminb",
         "optimizer_control": {
           "iter.max": 150,
@@ -139,11 +139,11 @@
           "trace": 0
         },
         "raw_result": {
-          "par": [-0.6039072734496036, 0.25356994034903541, 0.17824493361931387, 0.89737103701472754, 0, 0.056175289637703796, 0.28065609140108311, 0.17499999771588337],
-          "objective": 17270.732033889657,
+          "par": [-0.60357333369237154, 0.25354257106524303, 0.17805740277569962, 0.89659912299721889, 0, 0.056133796095969121, 0.28073144951381607, 0.17501130720585753],
+          "objective": 17270.73205988156,
           "convergence": 1,
-          "iterations": 7,
-          "evaluations": [31, 96],
+          "iterations": 4,
+          "evaluations": [28, 46],
           "message": "false convergence (8)"
         }
       },
@@ -152,12 +152,12 @@
         "start": [-0.23057515673862847, -0.37219643949589054, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008, 0.51840000000000008],
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 13.311,
+        "elapsed_seconds": 44.208000000000006,
         "optimizer_code": 0,
         "optimizer_message": "relative convergence (4)",
         "result_available": true,
-        "parameters": [-0.60383574042777599, 0.25359509651631962, 0.1786586184891911, 0.89873469981660381, 0, 0.056222438100969954, 0.2806771902873933, 0.17496602892054475],
-        "objective": 17270.732076647386,
+        "parameters": [-0.58741248156339265, 0.25248668955610659, 0.17569298841764627, 0.99771617337100527, 0, 0.06364564809704007, 0.28624350591045666, 0.18878188192800527],
+        "objective": 17271.221785783066,
         "optimizer": "nlminb",
         "optimizer_control": {
           "iter.max": 150,
@@ -166,25 +166,25 @@
           "trace": 0
         },
         "raw_result": {
-          "par": [-0.60383574042777599, 0.25359509651631962, 0.1786586184891911, 0.89873469981660381, 0, 0.056222438100969954, 0.2806771902873933, 0.17496602892054475],
-          "objective": 17270.732076647386,
+          "par": [-0.58741248156339265, 0.25248668955610659, 0.17569298841764627, 0.99771617337100527, 0, 0.06364564809704007, 0.28624350591045666, 0.18878188192800527],
+          "objective": 17271.221785783066,
           "convergence": 0,
-          "iterations": 36,
-          "evaluations": [60, 341],
+          "iterations": 37,
+          "evaluations": [57, 376],
           "message": "relative convergence (4)"
         }
       },
       {
         "label": "alternative_1_tight",
-        "start": [-0.60383574042777599, 0.25359509651631962, 0.1786586184891911, 0.89873469981660381, 0, 0.056222438100969954, 0.2806771902873933, 0.17496602892054475],
+        "start": [-0.58741248156339265, 0.25248668955610659, 0.17569298841764627, 0.99771617337100527, 0, 0.06364564809704007, 0.28624350591045666, 0.18878188192800527],
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 2.5159999999999982,
-        "optimizer_code": 1,
-        "optimizer_message": "false convergence (8)",
+        "elapsed_seconds": 59.941999999999993,
+        "optimizer_code": 0,
+        "optimizer_message": "relative convergence (4)",
         "result_available": true,
-        "parameters": [-0.60383386714482779, 0.25356308704484337, 0.17865666374805012, 0.89872688082682628, 0, 0.056213682489627527, 0.28067079664618, 0.17499087056099816],
-        "objective": 17270.732071053939,
+        "parameters": [-0.603479847213506, 0.25356971757535934, 0.17841934596099362, 0.89746684380230124, 0, 0.056184918601602879, 0.28065618342406967, 0.1750225471603449],
+        "objective": 17270.732030885574,
         "optimizer": "nlminb",
         "optimizer_control": {
           "iter.max": 150,
@@ -193,26 +193,26 @@
           "trace": 0
         },
         "raw_result": {
-          "par": [-0.60383386714482779, 0.25356308704484337, 0.17865666374805012, 0.89872688082682628, 0, 0.056213682489627527, 0.28067079664618, 0.17499087056099816],
-          "objective": 17270.732071053939,
-          "convergence": 1,
-          "iterations": 4,
-          "evaluations": [29, 50],
-          "message": "false convergence (8)"
+          "par": [-0.603479847213506, 0.25356971757535934, 0.17841934596099362, 0.89746684380230124, 0, 0.056184918601602879, 0.28065618342406967, 0.1750225471603449],
+          "objective": 17270.732030885574,
+          "convergence": 0,
+          "iterations": 42,
+          "evaluations": [54, 510],
+          "message": "relative convergence (4)"
         }
       }
     ],
     "final_checks": [
       {
-        "label": "tight_candidate_1",
+        "label": "tight_candidate_2",
         "valid": true,
         "error": null,
         "warnings": [],
-        "elapsed_seconds": 0.082000000000000739,
+        "elapsed_seconds": 0.092999999999989313,
         "failure": null
       }
     ],
-    "selected_attempt": "primary_tight",
+    "selected_attempt": "alternative_1_tight",
     "optimizer": "nlminb",
     "optimizer_fixed_across_attempts": true,
     "optimization_trials": 4,
@@ -231,7 +231,7 @@
       "scope": "Conservative major-array estimate with fully populated source factors and complete Hessian/factor fill. Excludes caller data and optimizer state; neither observed memory use nor an accuracy or speed guarantee."
     },
     "evaluations": {
-      "count": 989,
+      "count": 1400,
       "invalid": 0,
       "validity_events": 0,
       "valid_at_inner_budget": 0,
@@ -241,18 +241,18 @@
       "validity_retention_limit": 8,
       "warm_rescued": 0,
       "retained_rescued": [],
-      "warm_started": 984,
+      "warm_started": 0,
       "cold_fallbacks": 0,
-      "scope": "Every evaluation of the coarse or tightened objective made by the optimizer and by the one tighter-tolerance re-evaluation of the primary fit; final validation, stationarity and specimen evaluations are not counted. Retained records carry the failed evaluation's own measurements. A solve- or factor-validity event is retained beyond the ordinary limit, within its own. A sparse evaluation rescued by a retry from the last valid mode is a valid evaluation, counted and retained separately. A sparse evaluation that began from the attempt's centre mode is counted as warm started; one whose warm solve stopped short and was replaced by the cold solve is counted as a cold fallback."
+      "scope": "Every evaluation of the coarse or tightened objective made by the optimizer and by the one tighter-tolerance re-evaluation of the primary fit; final validation, stationarity and specimen evaluations are not counted. Retained records carry the failed evaluation's own measurements. A solve- or factor-validity event is retained beyond the ordinary limit, within its own. A sparse evaluation rescued by a retry from the last valid mode is a valid evaluation, counted and retained separately. A sparse evaluation that began from the attempt's centre mode is counted as warm started; one whose warm solve stopped short and was replaced by the cold solve is counted as a cold fallback, whether or not it was finally usable."
     },
     "covariance_parameterization": "variance",
     "covariance_parameterization_requested": "auto",
     "zero_variance_parameters": "prompt::variance[y]",
     "acceptance": "Completed optimizer, tight conditional mode, independent fixed-effect and covariance-scale stationarity, stable tight restarts, and no artificial-bound contact. Approximation adequacy is separate.",
-    "optimizer_code": 1,
-    "optimizer_message": "false convergence (8)",
+    "optimizer_code": 0,
+    "optimizer_message": "relative convergence (4)",
     "inner_converged": true,
-    "inner_gradient": 6.6502359175046877e-14,
+    "inner_gradient": 1.127986593019159e-13,
     "inner_iterations": 9,
     "inner_roundoff_steps": 1,
     "inner_warm_started": false,
@@ -280,22 +280,22 @@
   },
   "variances": {
     "evaluator": [
-      [0.1782449336193139]
+      [0.17841934596099362]
     ],
     "item": [
-      [0.89737103701472765]
+      [0.89746684380230124]
     ],
     "prompt": [
       [0]
     ],
     "evaluator:prompt": [
-      [0.056175289637703796]
+      [0.056184918601602886]
     ],
     "item:evaluator": [
-      [0.28065609140108316]
+      [0.28065618342406967]
     ],
     "item:prompt": [
-      [0.17499999771588334]
+      [0.17502254716034493]
     ]
   },
   "latent_reliability": null,

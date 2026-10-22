@@ -113,32 +113,56 @@ fit's evaluation record counts such rescues separately from invalid
 evaluations. The first evaluation of a fit, and any evaluation made before a
 valid mode exists, has no retry. The dense evaluator has no retry.
 
-Within an optimizer attempt the sparse evaluator also starts each conditional
-solve warm, when the fit requests it by setting `inner_start = "warm"` on the
-control it passes for that attempt. The start is the attempt's centre mode:
-the mode of the last evaluation that moved more than one coordinate. The
-conditional objective is strictly concave in the random effects for every
-supported family, so the mode is unique and a start changes only the path to
-it. The two finite-difference probes of a coordinate (evaluations that differ
-from the centre in exactly one coordinate) start from the same centre mode and
-neither replaces it, so no gradient is formed from two solves seeded
-differently. The fit resets the evaluator before every attempt, so each
-attempt's first solve is cold and no attempt is seeded by another; the final
-checks, the stationarity probes and the information step are made without the
-request and remain cold solves from zero modes. A warm solve that stops short
-of the mode without a validity event is not the recorded outcome: the cold
-solve from zero modes runs in its place, with the warm attempt's measurements
-retained as `inner_warm_attempt`, so no evaluation ends worse than before warm
-starts existed. The validity invariants are never rescued in either direction.
-The fit's evaluation record counts `warm_started` evaluations and
-`cold_fallbacks`. Warm and cold objectives agree to the precision the inner
-tolerance leaves unresolved: within 3e-9 at the coarse tolerance and 2e-10 at
-the validation tolerance on the frozen calibration points and the 21,600-row
-synthetic panel, and 1.5e-7 (coarse) against 4e-12 (validation) at the native
-21,600-row panel's starting values, whose 9,507 random effects make the
-log-determinant term correspondingly more sensitive. The mode solver does not
-compute the factor's fill counts on its Newton steps; `.gt_d_sparse_factor()`
-computes them only when asked.
+Within an L-BFGS-B attempt the sparse evaluator also starts conditional
+solves warm, and the fit names each evaluation's role rather than leaving the
+evaluator to infer it. The fit supplies the finite-difference gradient itself
+(`.gt_d_numerical_gradient()`), written out from `optim()`'s own rule: central
+differences with the same steps, each side clipped to its bound with the step
+it used. Supplying it leaves the optimizer's evaluations, values and path
+unchanged. The optimizer's function evaluations carry the role `warm`: they
+start from the attempt's centre mode and become the new centre, whatever
+coordinates moved. The gradient's probes carry the role `warm_probe`: they
+start from the centre mode and never replace it, and because L-BFGS-B
+evaluates the function at a point immediately before that point's gradient,
+every probe of one gradient starts from the mode at the point it
+differentiates. The conditional objective is strictly concave in the random
+effects for every supported family, so the mode is unique and a start changes
+only the path to it. The fit resets the evaluator before every attempt, so
+each attempt's first solve is cold and no attempt is seeded by another.
+
+Evaluations without a role solve cold from zero modes: the final checks, the
+stationarity probes, the information step, and every evaluation of an
+optimizer whose finite differences are internal to it (`nlminb` and injected
+optimizers), where no role can be named. The classified-failure retry from the
+last valid mode, which predates warm starts, still applies to those cold
+solves.
+
+A warm solve that stops short of the mode without a validity event is not the
+recorded outcome: the cold solve from zero modes runs in its place, with the
+warm attempt's measurements retained as `inner_warm_attempt`. A cold solve,
+whether the first solve or that fallback, that ends as a classified
+convergence failure is then retried once from the last valid mode, unless that
+mode is the seed the warm solve already tried. Given the same last valid mode,
+an evaluation therefore tries everything the cold path with its retry would
+have tried. Under a restrictive iteration budget this matters: a warm solve
+from a distant centre and the cold solve can both stop short where the retry
+from the nearer last valid mode completes. A probe completed by that retry is
+seeded from the last valid mode rather than the centre and is recorded as
+rescued. The validity invariants are never rescued in either direction. The
+fit's evaluation record counts `warm_started` evaluations and `cold_fallbacks`,
+the latter whether or not the evaluation was finally usable, and failure and
+rescue records keep the warm attempt.
+
+Warm and cold objectives agree to the precision the inner tolerance leaves
+unresolved: within 4.4e-9 at the coarse tolerance and 1.9e-10 at the validation
+tolerance on the frozen calibration points and the 21,600-row synthetic panel,
+and 1.5e-7 (coarse) against 3.6e-12 (validation) at the native 21,600-row
+panel's starting values, whose 9,507 random effects make the log-determinant
+term correspondingly more sensitive; every acceptance check runs at the
+validation tolerance. The ledger is
+`validation-studies/discrete-sparse-profile/warm-start-20261022/agreement.csv`.
+The mode solver does not compute the factor's fill counts on its Newton steps;
+`.gt_d_sparse_factor()` computes them only when asked.
 
 Both mode solvers enforce the same two validity invariants (issues #14 and
 #46). The Newton step is checked against its own system by the shared
