@@ -437,7 +437,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
     resources <- if (sparse) list(sparse_working_bytes_estimate = memory$total,
       sparse_working_bytes_breakdown = memory[c("random_design", "conditional_hessian", "predictors", "multiplier")],
       sparse_estimate_method = memory$method,
-      sparse_structural_entries = memory[c("pair_bound_entries", "hessian_entries", "factor_entries")],
+      sparse_structural_entries = memory[c("pattern_entries", "hessian_entries", "factor_entries")],
       max_sparse_bytes = dc$max_sparse_bytes,
       max_observations = dc$max_observations,
       max_random_dimension = dc$max_random_dimension, max_parameters = dc$max_parameters,

@@ -99,18 +99,22 @@ Only the selected engine's byte limit is applied. Observation, random-dimension
 and parameter limits apply to both engines. The sparse estimate is made in two
 stages. A complete-fill bound, which allows fully populated source covariance
 factors and complete fill of the conditional Hessian and its factor, is kept
-whenever it already fits the budget. Otherwise a pair-count bound on the
+whenever it already fits the budget. Otherwise the exact count of the
 conditional Hessian's structural nonzeros (two coordinates are coupled only
-when their groups share an observation) decides whether the Hessian alone
-exceeds the budget, in which case the request is refused before any pattern is
-built; if it does not, the structural pattern with every factor entry nonzero
-and every latent dimension coupled is factorized once with the fit's
-fill-reducing ordering, and the counted Hessian and factor entries give the
+when their groups share an observation, so the count follows from the observed
+pairs of group levels) decides whether the Hessian alone exceeds the budget,
+in which case the request is refused before any pattern is built; if it does
+not, the structural pattern with every factor entry nonzero and every latent
+dimension coupled is factorized once with a fill-reducing ordering computed
+for that pattern, and the counted Hessian and factor entries give the
 estimate. The method and the counts are recorded by \code{gt_preflight()}. It
-remains a planning estimate, excluding caller data, optimizer state and the
-repeated allocations of the finite-difference checks, rather than a measurement
-or a speed guarantee; a feasible factorization does not establish acceptance
-or approximation accuracy at that size.
+remains a planning estimate rather than a bound: the fit recomputes its
+ordering on the fitted matrix, whose pattern is contained in the structural
+one, so a fitted factor can fill slightly more or less than the structural
+factor did, and the multiplier is the allowance. The estimate excludes caller
+data, optimizer state and the repeated allocations of the finite-difference
+checks, and a feasible factorization does not establish acceptance or
+approximation accuracy at that size.
 Discrete optimizer controls are:
 \itemize{
 \item \code{maxit}: 150.

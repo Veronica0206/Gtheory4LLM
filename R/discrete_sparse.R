@@ -33,54 +33,64 @@
          "neither observed memory use nor an accuracy or speed guarantee."))
 }
 
-# Pair-count bound on the structural nonzeros of the conditional Hessian.
+# Exact count of the structural nonzeros of the conditional Hessian's pattern.
 # Two columns of W are coupled only when their groups share an observation, so
-# a pair of distinct sources contributes at most min(levels_g * levels_h, n)
-# distinct level pairs, a source with itself only its own levels, and every
-# level pair couples all q latent dimensions. Counts only; nothing is allocated.
-.gt_d_sparse_pair_bound <- function(groups, n, q) {
+# the pattern holds one q-by-q block for every level of every source (the
+# diagonal blocks) and one for every observed pair of levels of two distinct
+# sources, in both triangles. The observed pairs are counted from the group
+# indices; nothing is allocated beyond those counts, and the result equals the
+# number of nonzeros of the structural pattern that a factorization would see.
+.gt_d_sparse_pattern_entries <- function(groups, n, q) {
   levels <- as.double(vapply(groups, `[[`, integer(1), "nlevels"))
-  pairs <- outer(levels, levels)
-  diag(pairs) <- levels
-  as.double(q)^2 * sum(pmin(pairs, as.double(n)))
+  entries <- sum(levels)
+  for (g in seq_along(groups)) for (h in seq_along(groups)) if (g < h) {
+    ig <- as.double(groups[[g]]$index)
+    ih <- as.double(groups[[h]]$index)
+    entries <- entries + 2 * length(unique((ig - 1) * levels[h] + ih))
+  }
+  as.double(q)^2 * entries
 }
 
 # Working-memory estimate for the sparse engine against a declared budget, in
 # two stages, neither of which allocates anything the fit would not.
 #
 # The complete-fill bound of .gt_d_sparse_bytes() is kept when it already fits
-# the budget. Otherwise the pair-count bound decides whether the conditional
-# Hessian's structural nonzeros alone exceed the budget; if they do the request
-# is refused before any pattern is built. If they do not, the structural
-# pattern is factorized once: every covariance-factor entry nonzero and every
-# latent dimension of an observation coupled, so its pattern contains the
-# pattern of any conditional Hessian the fit can assemble, and the counted
-# fill is an upper bound on the fill of any fitted factor under the same
-# ordering. The estimate stays a planning estimate: it excludes caller data,
-# optimizer state and the repeated allocation of the finite-difference checks,
-# and a feasible factorization establishes neither acceptance nor accuracy.
+# the budget. Otherwise the exact structural nonzero count of the conditional
+# Hessian decides whether the Hessian alone exceeds the budget; if it does the
+# request is refused before any pattern is built. If it does not, the
+# structural pattern is factorized once: every covariance-factor entry nonzero
+# and every latent dimension of an observation coupled, so its pattern contains
+# the pattern of any conditional Hessian the fit can assemble. The counted
+# fill is a planning estimate, not a bound: the fit recomputes its
+# fill-reducing ordering on the fitted matrix, whose pattern is a subset, and
+# a different ordering can fill slightly more or less than the structural
+# factor did; the planning multiplier is the allowance for that and for the
+# arrays the estimate omits (caller data, optimizer state, the repeated
+# allocation of the finite-difference checks). A feasible factorization
+# establishes neither acceptance nor accuracy.
 .gt_d_sparse_resources <- function(groups, n, q, random_dimension, budget, multiplier = 2) {
   per_entry <- 12
   bound <- .gt_d_sparse_bytes(n, q, random_dimension, length(groups), multiplier)
   bound$method <- "complete_fill_bound"
   bound$hessian_entries <- NA_real_
   bound$factor_entries <- NA_real_
-  bound$pair_bound_entries <- .gt_d_sparse_pair_bound(groups, n, q)
+  bound$pattern_entries <- .gt_d_sparse_pattern_entries(groups, n, q)
   bound$budget <- budget
   if (!is.numeric(budget) || length(budget) != 1L || is.na(budget) || bound$total <= budget)
     return(bound)
   base <- bound$random_design + bound$predictors
-  floor_total <- multiplier * (base + per_entry * bound$pair_bound_entries)
+  floor_total <- multiplier * (base + per_entry * bound$pattern_entries)
   if (floor_total > budget)
     return(list(total = floor_total, random_design = bound$random_design,
-      conditional_hessian = per_entry * bound$pair_bound_entries,
+      conditional_hessian = per_entry * bound$pattern_entries,
       predictors = bound$predictors, multiplier = multiplier,
-      method = "pair_bound_exceeds_budget", hessian_entries = NA_real_,
-      factor_entries = NA_real_, pair_bound_entries = bound$pair_bound_entries,
+      method = "pattern_exceeds_budget", hessian_entries = bound$pattern_entries,
+      factor_entries = NA_real_, pattern_entries = bound$pattern_entries,
       budget = budget,
-      scope = paste("Lower bound from the conditional Hessian's structural nonzeros, without",
-        "any factor fill. No pattern was built. Excludes caller data and optimizer state;",
-        "neither observed memory use nor an accuracy or speed guarantee.")))
+      scope = paste("Lower bound from the conditional Hessian's structural nonzeros alone,",
+        "counted exactly from the observed group pairs, without any factor fill. No",
+        "pattern was built. Excludes caller data and optimizer state; neither observed",
+        "memory use nor an accuracy or speed guarantee.")))
   pattern <- .gt_d_sparse_W(groups, rep(list(matrix(1, q, q)), length(groups)), n, q)
   H <- Matrix::Diagonal(ncol(pattern)) + Matrix::crossprod(pattern)
   factor <- .gt_d_sparse_factor(H, permute = TRUE, counts = TRUE)
@@ -92,13 +102,14 @@
        hessian = per_entry * hessian_entries, factor = per_entry * factor_entries,
        predictors = bound$predictors, multiplier = multiplier,
        method = "structural_factorization", hessian_entries = hessian_entries,
-       factor_entries = factor_entries, pair_bound_entries = bound$pair_bound_entries,
+       factor_entries = factor_entries, pattern_entries = bound$pattern_entries,
        budget = budget,
        scope = paste("Structural estimate: the conditional Hessian's pattern with every factor",
-         "entry nonzero and every latent dimension coupled, factorized once with the fit's",
-         "fill-reducing ordering. Excludes caller data, optimizer state and repeated",
-         "finite-difference allocations; neither observed memory use nor an accuracy or",
-         "speed guarantee."))
+         "entry nonzero and every latent dimension coupled, factorized once with a",
+         "fill-reducing ordering computed for that pattern. A fitted factor uses its own",
+         "ordering and can fill slightly more or less; the multiplier is the allowance.",
+         "Excludes caller data, optimizer state and repeated finite-difference",
+         "allocations; neither observed memory use nor an accuracy or speed guarantee."))
 }
 
 .gt_d_sparse_validate <- function(groups, factors, n, q) {

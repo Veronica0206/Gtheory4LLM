@@ -121,10 +121,11 @@ scientifically sufficient. Those are separate questions with separate evidence.
   acceptance rules. Defaults remain 1,200 rows, 200 random-effect dimensions
   and 80 parameters, plus the selected engine's 512 MiB memory guard. The sparse
   estimate keeps a complete-fill bound while that fits the budget; otherwise it
-  refuses on a pair-count bound of the conditional Hessian's structural
-  nonzeros or factorizes the structural pattern once and counts the fill, so a
-  declared larger budget is judged against the design's actual sparsity rather
-  than a dense square. Raising limits does not qualify full-panel solver
+  refuses on the exact count of the conditional Hessian's structural nonzeros
+  or factorizes the structural pattern once and counts the fill, so a declared
+  larger budget is judged against the design's actual sparsity rather than a
+  dense square; the counted fill is a planning estimate, with the multiplier
+  as allowance, because the fit recomputes its own ordering. Raising limits does not qualify full-panel solver
   performance or approximation accuracy; the native 21,600-row panels exceed
   the default caps, and the joint native panels need an explicitly declared
   budget above the default.

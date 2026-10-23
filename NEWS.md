@@ -23,16 +23,18 @@ threshold was loosened; where an optimizer path changed, the change is named.
   random-dimension and parameter limits remain in force.
 - The sparse working-memory guard judges a declared `max_sparse_bytes` against
   the design's structural pattern instead of a dense square. The complete-fill
-  bound is kept while it fits the budget; otherwise a pair-count bound on the
-  conditional Hessian's structural nonzeros refuses before any pattern is
-  built, or the structural pattern (every factor entry nonzero, every latent
-  dimension of an observation coupled) is factorized once with the fit's
-  fill-reducing ordering and the counted Hessian and factor entries give the
-  estimate. The old bound made every joint native panel infeasible at any
-  budget; the structural estimate reports what the design needs, which the
-  joint 21,600-row panels still place above the 512 MiB default. Preflight
-  records the method and the counts. A feasible factorization establishes
-  neither acceptance nor approximation accuracy at that size.
+  bound is kept while it fits the budget; otherwise the exact count of the
+  conditional Hessian's structural nonzeros, from the observed pairs of group
+  levels, refuses before any pattern is built, or the structural pattern (every
+  factor entry nonzero, every latent dimension of an observation coupled) is
+  factorized once and the counted Hessian and factor entries give the
+  estimate. The counted fill is a planning estimate with the multiplier as
+  allowance, not a bound: the fit recomputes its own fill-reducing ordering.
+  The old bound made every joint native panel infeasible at any budget; the
+  structural estimate reports what the design needs, which the joint
+  21,600-row panels still place above the 512 MiB default. Preflight records
+  the method and the counts. A feasible factorization establishes neither
+  acceptance nor approximation accuracy at that size.
 - Sparse conditional solves use a bounded derivative check when rounded
   function values block a full Newton step. Outside the small plateau window,
   the candidate must already meet the final score tolerance; final score,

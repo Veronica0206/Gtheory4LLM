@@ -28,8 +28,8 @@ includes nominal outcomes and eligible fixed calls, with all-attempt
 availability and conditional error summaries. The formula interface is retained. The help pages
 define each target, its guards and its unsupported combinations. Two repairs
 from the 2026-10-23 review are integrated: the sparse memory guard now judges a
-declared budget against the design's structural pattern (a pair-count bound,
-then one factorization of the pattern) instead of a dense square, which is what
+declared budget against the design's structural pattern (the exact structural
+nonzero count, then one factorization of the pattern) instead of a dense square, which is what
 kept the joint native panels unfittable at any budget; and the exact Gaussian
 engine recovers once, after an ordinary refusal of a multivariate unstructured
 model, from a bounded square-root search on the same deviance, which is what
@@ -73,7 +73,7 @@ reported beside it. They qualify the declared fixtures only.
 | Nominal unstructured, mean G / Phi (500) | 467 | 211 | 210 / 209 | 0.995 / 0.991 | 0.420 / 0.418 |
 | Joint binary + ordinal, outcomes y, z and composite (500) | 496 | 435 | 414, 405, 417 (G) | 0.952, 0.931, 0.959 | 0.828, 0.810, 0.834 |
 | Joint binary + nominal, outcomes y, z (500) | 470 | 125 | 120, 124 (G) | 0.960, 0.992 | 0.240, 0.248 |
-| Near-boundary cells (binary/ordinal, both links; 500 each) | 427–499 | 216–345 | — | 0.66–0.88 | 0.43–0.69 |
+| Near-boundary cells (binary/ordinal, both links; 500 each) | 427–499 | 216–345 (availability 0.43–0.69) | 143–304 | 0.66–0.88 | 0.29–0.61 |
 | Exact-boundary cells (true variance zero; 500 each) | 400–500 | 192–227 | 0 | 0.00 | 0.00 |
 | Categorical call covariance, binary / ordinal / nominal (300 each) | 300 / 300 / 300 | information 262 / 276 / 201 | — | covariance recovery only | — |
 | Observed-row Gaussian projections, MCAR and design-dependent deletion (500 each) | 500 | point projections only | — | — | — |

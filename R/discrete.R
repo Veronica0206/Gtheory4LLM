@@ -467,10 +467,11 @@
 # step ndeps, each side clipped to its bound with the step used on that side.
 # Supplying it therefore leaves the evaluation sequence, every value and the
 # optimizer's path unchanged; tests/test_discrete_sparse_warm_policy.R checks
-# that. A coarse attempt rerun after a collapsed first step (coarse_attempt in
-# the fit) runs at a parameter scale, where optim would difference in scaled
-# coordinates; this rule still differences in the original ones with the same
-# steps, so the two agree to rounding.
+# that. At a parameter scale other than one (a coarse attempt rerun after a
+# collapsed first step, or optimizer_scaling = "start") optim would difference
+# in the scaled coordinates with ndeps applied there; this rule deliberately
+# keeps its physical steps in the original coordinates, so the two differ by
+# their truncation errors and the scaled attempt follows this rule's path.
 # What it adds is the role: objective() here is told the evaluations are
 # probes, so a warm-started sparse evaluator seeds all of them from the mode at
 # the point whose gradient they form.
@@ -1162,7 +1163,7 @@
   if (sparse && sparse_memory$total > control$max_sparse_bytes)
     .gt_d_stop("This discrete model exceeds max_sparse_bytes (",
       .gt_d_format_bytes(control$max_sparse_bytes), "); its sparse working-memory ",
-      if (identical(sparse_memory$method, "pair_bound_exceeds_budget"))
+      if (identical(sparse_memory$method, "pattern_exceeds_budget"))
         "lower bound from the conditional Hessian's structural nonzeros alone is " else
         "estimate from one factorization of the structural pattern is ",
       .gt_d_format_bytes(sparse_memory$total), ". Raising a resource guard ",

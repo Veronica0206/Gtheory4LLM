@@ -140,10 +140,14 @@ evaluator to infer it. The fit supplies the finite-difference gradient itself
 (`.gt_d_numerical_gradient()`), written out from `optim()`'s own rule: central
 differences with the same steps, each side clipped to its bound with the step
 it used. At unit parameter scale, supplying it leaves the optimizer's
-evaluations, values and path unchanged; a coarse attempt rerun after a
-collapsed first step (below) runs at a parameter scale, where the explicit
-rule, differencing in the original coordinates, agrees with `optim()`'s scaled
-one to rounding. The optimizer's function evaluations carry the role `warm`: they
+evaluations, values and path unchanged. At a parameter scale other than one (a
+coarse attempt rerun after a collapsed first step, below, or
+`optimizer_scaling = "start"`) the explicit rule deliberately keeps its
+physical steps in the original coordinates, whereas `optim()`'s own rule would
+difference in the scaled coordinates with `ndeps` applied there; the two
+differ by their truncation errors, so the scaled attempt's path is that of the
+explicit gradient, not a reproduction of the implicit one. The optimizer's
+function evaluations carry the role `warm`: they
 start from the attempt's centre mode and become the new centre, whatever
 coordinates moved. The gradient's probes carry the role `warm_probe`: they
 start from the centre mode and never replace it, and because L-BFGS-B
@@ -248,25 +252,29 @@ The sparse engine's guard against `max_sparse_bytes` is evaluated before any
 random design is built, in two stages that allocate nothing the fit would not.
 The complete-fill bound of `.gt_d_sparse_bytes()`, which assumes fully populated
 source factors and a dense conditional Hessian and factor, is kept whenever it
-already fits the budget. Otherwise `.gt_d_sparse_pair_bound()` counts the
-structural nonzeros the conditional Hessian can have at most: two coordinates
-are coupled only when their groups share an observation, so a pair of distinct
-sources contributes at most `min(levels_g * levels_h, n)` level pairs, a source
-with itself only its own levels, each pair `q^2` entries. If that bound alone
-exceeds the budget the request is refused with method
-`pair_bound_exceeds_budget` and no pattern is built. If it does not,
-`.gt_d_sparse_resources()` builds the structural pattern through
+already fits the budget. Otherwise `.gt_d_sparse_pattern_entries()` counts the
+structural nonzeros of the conditional Hessian exactly: two coordinates are
+coupled only when their groups share an observation, so the pattern holds one
+`q`-by-`q` block per level of every source and one per observed pair of levels
+of two distinct sources, in both triangles; the observed pairs are counted from
+the group indices. If that count alone exceeds the budget the request is
+refused with method `pattern_exceeds_budget` and no pattern is built. If it
+does not, `.gt_d_sparse_resources()` builds the structural pattern through
 `.gt_d_sparse_W()` with every factor entry set to one, so that every latent
 dimension of an observation is coupled and the pattern contains the pattern of
 any conditional Hessian the fit can assemble, factorizes `I + W'W` once through
-`.gt_d_sparse_factor()` with the same fill-reducing ordering the fit uses, and
-charges twelve bytes per counted Hessian and factor entry alongside the design
-and predictor arrays. The method, the pair-count bound and the counted entries
-are reported by preflight and recorded in the fit's resource estimate. The
-estimate is still a planning estimate: it excludes caller data, optimizer state
-and the repeated allocation of the finite-difference checks, and a feasible
-factorization establishes neither numerical acceptance nor approximation
-accuracy at that size.
+`.gt_d_sparse_factor()`, and charges twelve bytes per counted Hessian and factor
+entry alongside the design and predictor arrays. The counted Hessian entries
+equal the exact count. The counted factor entries are a planning estimate, not
+a bound: the fit computes its own fill-reducing ordering on the fitted matrix,
+whose pattern is a subset of the structural one, and a different ordering can
+fill slightly more or less than the structural factor did; the planning
+multiplier is the allowance for that difference and for what the estimate
+omits (caller data, optimizer state, the repeated allocation of the
+finite-difference checks). The method and the counts are reported by preflight
+and recorded in the fit's resource estimate. A feasible factorization
+establishes neither numerical acceptance nor approximation accuracy at that
+size.
 
 ## Declared numerical domains
 

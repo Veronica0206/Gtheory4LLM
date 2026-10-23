@@ -403,8 +403,9 @@ balanced coded panel. The explicitly selected observed-row Gaussian route and
 intended balanced projection have separate guards described above. Both discrete
 engines are bounded by row, dimension, parameter and working-memory limits;
 sparse requests use the sparse memory budget rather than the dense budget, and
-that budget is judged against the design's structural pattern (a pair-count
-bound, then one factorization of the pattern) rather than a dense square. The
+that budget is judged against the design's structural pattern (the exact count
+of the conditional Hessian's structural nonzeros, then one factorization of the
+pattern, a planning estimate rather than a bound) rather than a dense square. The
 exact Gaussian engine may recover once from a bounded square-root search after
 an ordinary refusal of a multivariate unstructured model; it consumes an
 existing attempt and decides nothing, and `initialization = "none"` disables it.

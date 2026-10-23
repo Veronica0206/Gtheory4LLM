@@ -12,7 +12,7 @@ if (identical(Sys.getenv("GT_SPARSE_RESOURCES_TEST_SOURCE"), "true")) {
 }
 resources <- internal(".gt_d_sparse_resources")
 fill_bound <- internal(".gt_d_sparse_bytes")
-pair_bound <- internal(".gt_d_sparse_pair_bound")
+pattern_entries <- internal(".gt_d_sparse_pattern_entries")
 sparse_W <- internal(".gt_d_sparse_W")
 sparse_factor <- internal(".gt_d_sparse_factor")
 
@@ -28,25 +28,25 @@ groups <- list(item = level_index(d$item), rater = level_index(d$rater),
 dimension <- sum(vapply(groups, `[[`, integer(1), "nlevels")) * q
 
 bound <- fill_bound(n, q, dimension, length(groups))
-pairs <- pair_bound(groups, n, q)
+pairs <- pattern_entries(groups, n, q)
 stopifnot(is.finite(pairs), pairs > 0, pairs < dimension^2)
 
 # Stage zero: a budget the complete-fill bound already fits keeps that bound.
 within <- resources(groups, n, q, dimension, Inf)
 stopifnot(identical(within$method, "complete_fill_bound"), within$total == bound$total,
-          is.na(within$factor_entries), within$pair_bound_entries == pairs)
+          is.na(within$factor_entries), within$pattern_entries == pairs)
 
-# Stage one: the pair-count floor is refused without building a pattern.
+# Stage one: the exact structural count is refused without building a pattern.
 floor_total <- 2 * (bound$random_design + bound$predictors + 12 * pairs)
 stopifnot(floor_total < bound$total)
 refused <- resources(groups, n, q, dimension, floor_total - 1)
-stopifnot(identical(refused$method, "pair_bound_exceeds_budget"), refused$total == floor_total,
-          is.na(refused$factor_entries), is.na(refused$hessian_entries))
+stopifnot(identical(refused$method, "pattern_exceeds_budget"), refused$total == floor_total,
+          is.na(refused$factor_entries), refused$hessian_entries == pairs)
 
 # Stage two: the structural pattern is factorized once.
 structural <- resources(groups, n, q, dimension, floor_total)
 stopifnot(identical(structural$method, "structural_factorization"),
-          structural$hessian_entries <= pairs,
+          structural$hessian_entries == pairs,
           structural$factor_entries >= dimension,
           structural$total <= bound$total,
           structural$total == 2 * (bound$random_design + bound$predictors +
@@ -101,7 +101,7 @@ stopifnot(identical(pre_short$resources$sparse_estimate_method, "structural_fact
           "sparse_memory_limit" %in% pre_short$checks$check[!pre_short$checks$passed])
 pre_refused <- gt_preflight(d, c("a", "b"), design, family = families,
   control = gt_control(discrete = list(engine = "sparse", max_random_dimension = 400L, max_sparse_bytes = 1)))
-stopifnot(identical(pre_refused$resources$sparse_estimate_method, "pair_bound_exceeds_budget"),
+stopifnot(identical(pre_refused$resources$sparse_estimate_method, "pattern_exceeds_budget"),
           "sparse_memory_limit" %in% pre_refused$checks$check[!pre_refused$checks$passed])
 refusal <- tryCatch(gt_fit(d, c("a", "b"), design, family = families,
   control = gt_control(discrete = list(engine = "sparse", max_random_dimension = 400L, max_sparse_bytes = 1))),

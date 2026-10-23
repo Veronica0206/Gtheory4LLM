@@ -191,7 +191,7 @@
     evaluate(x)$value
   }
   derivative <- function(x) evaluate(x)$gradient
-  record <- list(policy = "automatic_square_root_cold_v1", status = "started", eligible = FALSE,
+  record <- list(algorithm = "square_root_cold_v1", status = "started", eligible = FALSE,
     original_parameter = context$parameter, metric = "standard deviation units for factor entries, one for scaled variances",
     fnscale = context$N, maxit = 10000L, factr = 1e3, pgtol = 0,
     independent_tolerance = 1e-5, no_fitted_endpoint_reuse = TRUE,

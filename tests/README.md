@@ -20,8 +20,10 @@ into subdirectories without silently removing them from the release gate.
 | `package-properties.R` | Invariance, equivariance and monotonicity properties |
 | `package-fuzz-inputs.R` | Parsers, validators and resource guards under hostile input |
 | `package-gaussian-starts.R` | Gaussian starting values and their matching rules |
+| `package-planning.R` | Installed planning interface: accepted fit, public extraction, user cost model; equal final candidates keep their flags and cost |
+| `package-installed-examples.R` | Every shipped example script still runs against the installed package |
 | `package-gaussian-initialization.R` | Square-root recovery through the public interface: an accepted primary attempt is identical under both policies, the control is validated, the record is reported, and a one-iteration budget exercises a real recovery without relaxing acceptance |
-| `package-sparse-resources.R` | The two-stage sparse memory estimate: complete-fill bound within budget, pair-count refusal without a pattern, structural factorization containing an actual Hessian pattern, and preflight/fit refusals naming the method |
+| `package-sparse-resources.R` | The two-stage sparse memory estimate: complete-fill bound within budget, refusal on the exact structural count without a pattern, structural factorization containing an actual Hessian pattern, and preflight/fit refusals naming the method |
 | `package-uncertainty.R` | Standard errors, the covariance Jacobian, coefficient derivatives |
 | `package-mixed-model.R` | Brennan fixed facets, `full_cell = FALSE` |
 | `package-nested-designs.R` | Nested reliability, mixed fixed/nested weighting, nested D studies |
@@ -70,6 +72,24 @@ into subdirectories without silently removing them from the release gate.
 | `test_planning.R` | Bounded cost search, Pareto and minimum-cost ties, constraints, source error changes, fixed-universe and unavailable-bound guards |
 | `test_simulation.R` | Independent nested multivariate generation moments, scenario guards, fixed-protocol refit precision, deterministic replay, failure ledgers and Monte Carlo denominators |
 | `test_gaussian_retry.R` | The retry controller, with the optimizer injected |
+| `test_gaussian_observed.R` | Observed-row Gaussian route against an independent dense covariance construction, direct inversion and determinant |
+| `test_gaussian_projection.R` | Intended balanced D-study projections from observed-row fits against an independent additive-intercept allocation definition |
+| `test_batch_complete_scope.R` | Missing whole conditions cannot be hidden by valid recorded call identifiers in the remaining cells |
+| `test_categorical_targets.R` | Analytic observed-scale and decision oracles (uniform-probability special case), relabeling invariance and degenerate targets |
+| `test_categorical_planning.R` | Categorical planning on real small fits: declared target semantics, undefined targets kept as explained rows, cost accounting, call membership retained |
+| `test_categorical_pilot_targets.R` | Point-estimator pilots: independent reference, all attempts retained, no fabricated interval, fixed-zero refitting constraints |
+| `test_categorical_resources.R` | Categorical resource preflights by arithmetic and fault injection, never large matrices; guards fire before simulated panels or refits |
+| `test_discrete_simulation.R` | Exact response-probability oracles and bounded simulation contracts from an accepted-fit fixture; category display order never changes a probability |
+| `test_discrete_pilot.R` | Bounded latent pilot refits, reproducible errors and all-attempt accounting; a numerical refusal is an outcome, not grounds to change a seed |
+| `test_discrete_information.R` | Full nuisance/covariance observed information: cross derivatives, the -2 log likelihood convention, and a wrong native inverse that must not leak uncertainty |
+| `test_discrete_information_reference.R` | Observed information against an independently fitted Laplace likelihood on frozen panels; nominal covariance Jacobian from closed expressions |
+| `test_information_public.R` | Public information extractor and report contracts on a genuine fitted record |
+| `test_discrete_solve_validity.R` | The dense conditional-solve validity invariant |
+| `test_discrete_sparse_public.R` | Public backend selection uses the shared numerical acceptance policy and the sparse memory budget |
+| `test_discrete_sparse_joint_calls.R` | Small joint and call fixtures: sparse likelihoods against dense, recorded calls invariant to row order, size-one calls refused |
+| `test_discrete_equivalence_freeze.R` | The frozen dense/sparse equivalence study: digests of its protocol, cases and calibrated tolerances |
+| `test_laplace_check_development.R` | Small public sparse-fit regression: call reconstruction from recorded identifiers and the Laplace check's dense budget refusals |
+| `test_preflight_development.R` | Structural and resource preflight checks for the development routes, without any optimization |
 | `test_gaussian_initialization.R` | The square-root kernel against the exact and dense deviances with analytic gradients, the recovery controller with the optimizer injected, and the public policies |
 | `test_discrete_sparse_resources.R` | Source entrypoint for the installed sparse-resource contract |
 | `test_gaussian_lme4_restart.R` | The lme4 restart rule: a restart counts only when it completes without a convergence warning and reproduces the solution |
@@ -111,7 +131,11 @@ into subdirectories without silently removing them from the release gate.
 `test_public_contents.py`, `test_cran_readiness.py`, `test_package_validation.py`,
 `test_validation_runner.py`, `test_validation_bundle.py`, `test_workflow_contract.py`,
 `test_documentation_lock.py`, `test_dependency_bootstrap.py`,
-`test_branch_protection.py`, `test_documentation_consistency.py`, `test_style.py`.
+`test_branch_protection.py`, `test_documentation_consistency.py`, `test_style.py`,
+`test_compatibility_build_environment.py` (build prerequisites preserve numerical
+pins and source bytes), `test_nold_evidence.py` (the no-long-double evidence gates
+without a container or a fit) and `test_reference_blas.py` (the reference-backend
+evidence gate with controlled runtime records).
 
 ## Conventions
 
@@ -137,5 +161,5 @@ installed older version for the source under review. The full source gate is
 The current planning suites describe computation under development version 1.0.0.9000.
 Their small simulation runs exercise software contracts; they do not recommend
 a pilot size or establish confidence-interval coverage. Run the full source gate
-against the current source archive separately from the unchanged published
-0.5.0 release artifact. A listing in this map is not evidence that a run passed.
+against the current source archive separately from the unchanged retained
+release bundle. A listing in this map is not evidence that a run passed.
