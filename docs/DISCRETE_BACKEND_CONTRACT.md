@@ -242,6 +242,32 @@ into the successful detailed result in its original position. Outer optimizers,
 restarts, bounds, stationarity probes, numerical acceptance, and public output
 assembly remain unchanged in `discrete.R`.
 
+## Sparse working-memory estimate
+
+The sparse engine's guard against `max_sparse_bytes` is evaluated before any
+random design is built, in two stages that allocate nothing the fit would not.
+The complete-fill bound of `.gt_d_sparse_bytes()`, which assumes fully populated
+source factors and a dense conditional Hessian and factor, is kept whenever it
+already fits the budget. Otherwise `.gt_d_sparse_pair_bound()` counts the
+structural nonzeros the conditional Hessian can have at most: two coordinates
+are coupled only when their groups share an observation, so a pair of distinct
+sources contributes at most `min(levels_g * levels_h, n)` level pairs, a source
+with itself only its own levels, each pair `q^2` entries. If that bound alone
+exceeds the budget the request is refused with method
+`pair_bound_exceeds_budget` and no pattern is built. If it does not,
+`.gt_d_sparse_resources()` builds the structural pattern through
+`.gt_d_sparse_W()` with every factor entry set to one, so that every latent
+dimension of an observation is coupled and the pattern contains the pattern of
+any conditional Hessian the fit can assemble, factorizes `I + W'W` once through
+`.gt_d_sparse_factor()` with the same fill-reducing ordering the fit uses, and
+charges twelve bytes per counted Hessian and factor entry alongside the design
+and predictor arrays. The method, the pair-count bound and the counted entries
+are reported by preflight and recorded in the fit's resource estimate. The
+estimate is still a planning estimate: it excludes caller data, optimizer state
+and the repeated allocation of the finite-difference checks, and a feasible
+factorization establishes neither numerical acceptance nor approximation
+accuracy at that size.
+
 ## Declared numerical domains
 
 `parameter_bounds` optionally supplies partial named `lower` and `upper`

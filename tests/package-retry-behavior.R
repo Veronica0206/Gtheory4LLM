@@ -28,9 +28,14 @@ hopeless <- setNames(lapply(components, function(x) matrix(1e6, 1, 1)), componen
 fit_with <- function(...) quiet(gt_fit(panel, "score", design,
   control = gt_control(gaussian = list(check_hessian = FALSE, ...))))
 
+# The last two columns record whether an attempt's likelihood was independently
+# reconstructed, so that it may anchor a later restart, and which attempt
+# anchors the next one; a result whose native objective the independent
+# evaluation contradicted is never an anchor.
 RETRY_COLUMNS <- c("attempt", "optimizer", "start_type", "status",
                    "optimizer_success", "minus2loglik", "external_accepted",
-                   "external_rejection_reason", "error", "returned_fit")
+                   "external_rejection_reason", "error", "returned_fit",
+                   "retry_anchor_eligible", "retry_anchor_attempt")
 
 check_record <- function(fit, label) {
   history <- fit$retry_attempts

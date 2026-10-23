@@ -43,7 +43,8 @@
 # excludes the caller's original data frame and downstream OpenMx objects.
 .gt_gaussian_preparation_bytes <- function(N, D, n_axes) {
   8 * (10 * as.double(N) * D + (2 * n_axes + 10) * as.double(N) +
-       2^n_axes * (D * D + 8))
+       2^n_axes * (D * D + 8)) +
+    if (D > 1L) 8 * (2 * as.double(N) * D + 2^n_axes * D * D) else 0
 }
 
 # Warnings from a derivative-only diagnostic pass describe that pass, not the
@@ -453,7 +454,23 @@ gtheory_prepare <- function(data, outcomes, facets = .gt_default_facets,
   }
   strata <- lapply(seq.int(0L, .gt_full_mask), function(mask) {
     block <- transformed[codes == mask, , drop = FALSE]
-    list(mask = mask, df = nrow(block), SSCP = crossprod(block))
+    ss <- crossprod(block)
+    root <- NULL
+    if (D > 1L) {
+      # A root of the stratum cross-products taken from the contrast rows
+      # themselves, for the square-root initializer; the cross-products are
+      # not squared again. Row signs are fixed so that permuted observations
+      # give the same record, and a low-df stratum keeps a rectangular root.
+      decomposition <- qr(block, LAPACK = TRUE)
+      triangular <- qr.R(decomposition)
+      signs <- sign(diag(triangular))
+      signs[signs == 0] <- 1
+      triangular <- triangular * signs
+      root <- matrix(0, D, nrow(triangular))
+      root[decomposition$pivot, ] <- t(triangular)
+      if (any(!is.finite(root))) .gt_error("Nonfinite contrast root.")
+    }
+    list(mask = mask, df = nrow(block), SSCP = ss, root = root)
   })
   names(strata) <- as.character(seq.int(0L, .gt_full_mask))
   structure(list(strata = strata, counts = counts, N = N, D = D,
@@ -633,7 +650,7 @@ fit_openmx_multivariate <- function(
     start = NULL, optimizer = "CSOLNP", max_iterations = 3000L,
     tolerance = 1e-12, check_hessian = TRUE, threads = 1L, silent = TRUE,
     extra_tries = 9L, retry_seed = NULL, prepared = NULL,
-    max_preparation_bytes = 512 * 1024^2) {
+    max_preparation_bytes = 512 * 1024^2, initialization = "automatic") {
   if (!requireNamespace("OpenMx", quietly = TRUE))
     .gt_error("Install OpenMx before fitting: install.packages('OpenMx').")
   groups <- .gt_resolve_spec(spec)
@@ -688,171 +705,215 @@ fit_openmx_multivariate <- function(
   if (!setequal(names(start), component_names))
     .gt_error("start must contain a covariance matrix for every model component.")
   D <- prepared$D
-  parameter_scales <- .gt_parameter_scales(prepared, start, groups, reml)
-  objects <- list()
   algebra_names <- setNames(sprintf("G%02d", seq_along(types)), component_names)
-  n_variance_parameters <- 0L
-  parameter_labels <- list()
-  for (j in seq_along(types)) {
-    g <- component_names[j]
-    type <- types[j]
-    nm <- unname(algebra_names[j])
-    M <- .gt_psd_start(start[[g]], prepared$observed_variances)
-    if (type == "diagonal") {
-      sn <- paste0(nm, "_V")
-      scale_name <- paste0(nm, "_scale")
-      scale_values <- parameter_scales[[g]]
-      labels <- matrix(NA_character_, D, D)
-      diag(labels) <- paste0(nm, "_v", seq_len(D))
-      bounds <- matrix(NA_real_, D, D)
-      diag(bounds) <- if (g == "Residual") prepared$observed_variances * 1e-10 / scale_values else 0
-      objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
-        "Diag", D, D, values = diag(scale_values, D), free = FALSE, name = scale_name)
-      objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
-        "Diag", D, D, free = diag(TRUE, D), values = diag(diag(M) / scale_values, D),
-        labels = labels, lbound = bounds, name = sn)
-      objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-        paste0(scale_name, " %*% ", sn), name = nm)
-      n_variance_parameters <- n_variance_parameters + D
-      parameter_labels[[g]] <- diag(labels)
-    } else if (type == "pooled") {
-      vn <- paste0(nm, "_scalar")
-      objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
-        "Full", 1, 1, free = TRUE, values = mean(diag(M)),
-        labels = paste0(nm, "_v"), lbound = min(prepared$observed_variances) * 1e-10,
-        name = vn)
-      objects[[length(objects) + 1L]] <- OpenMx::mxMatrix("Iden", D, D, name = "traitI")
-      objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-        paste0(vn, " %x% traitI"), name = nm)
-      n_variance_parameters <- n_variance_parameters + 1L
-      parameter_labels[[g]] <- paste0(nm, "_v")
-    } else {
-      ln <- paste0(nm, "_L")
-      free <- lower.tri(M, diag = TRUE)
-      labels <- matrix(NA_character_, D, D)
-      labels[free] <- paste0(nm, "_l", seq_len(sum(free)))
-      bounds <- matrix(NA_real_, D, D)
-      diag(bounds) <- if (g == "Residual") sqrt(prepared$observed_variances * 1e-10) else 0
-      objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
-        "Lower", D, D, free = free, values = t(chol(M)), labels = labels,
-        lbound = bounds, name = ln)
-      objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-        paste0(ln, " %*% t(", ln, ")"), name = nm)
-      n_variance_parameters <- n_variance_parameters + D * (D + 1L) / 2L
-      parameter_labels[[g]] <- labels[free]
-    }
-  }
-  # Evaluate determinants in fixed observed-SD units to avoid over/underflow
-  # when otherwise well-conditioned outcomes use very large or small units.
-  # The constant restores the determinant in the original outcome units.
-  objects[[length(objects) + 1L]] <- OpenMx::mxMatrix("Diag", D, D,
-    values = diag(1 / sqrt(prepared$observed_variances), D), free = FALSE,
-    name = "observedSDInverse")
-  log_scale_determinant <- sum(log(prepared$observed_variances))
-  blocks <- character()
-  score_names <- character()
-  for (s in prepared$strata) {
-    if (reml && s$mask == 0L) next
-    nm <- paste0("C", s$mask)
-    summands <- algebra_names[["Residual"]]
-    for (g in groups) {
-      gm <- .gt_mask(g)
-      if (bitwAnd(gm, s$mask) == s$mask) {
-        coefficient <- prod(prepared$counts[!.gt_bits(gm)])
-        summands <- c(summands, paste0(coefficient, " * ", algebra_names[[g]]))
+  # The OpenMx model is built from starting components: their interior repair
+  # and the parameter scales derived from them are part of the start. The
+  # square-root recovery hands its components through this same path, so a
+  # recovered start is scaled like any other, rather than written into the
+  # original model's coordinates.
+  build_model <- function(start) {
+    parameter_scales <- .gt_parameter_scales(prepared, start, groups, reml)
+    objects <- list()
+    n_variance_parameters <- 0L
+    parameter_labels <- list()
+    for (j in seq_along(types)) {
+      g <- component_names[j]
+      type <- types[j]
+      nm <- unname(algebra_names[j])
+      M <- .gt_psd_start(start[[g]], prepared$observed_variances)
+      if (type == "diagonal") {
+        sn <- paste0(nm, "_V")
+        scale_name <- paste0(nm, "_scale")
+        scale_values <- parameter_scales[[g]]
+        labels <- matrix(NA_character_, D, D)
+        diag(labels) <- paste0(nm, "_v", seq_len(D))
+        bounds <- matrix(NA_real_, D, D)
+        diag(bounds) <- if (g == "Residual") prepared$observed_variances * 1e-10 / scale_values else 0
+        objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
+          "Diag", D, D, values = diag(scale_values, D), free = FALSE, name = scale_name)
+        objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
+          "Diag", D, D, free = diag(TRUE, D), values = diag(diag(M) / scale_values, D),
+          labels = labels, lbound = bounds, name = sn)
+        objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
+          paste0(scale_name, " %*% ", sn), name = nm)
+        n_variance_parameters <- n_variance_parameters + D
+        parameter_labels[[g]] <- diag(labels)
+      } else if (type == "pooled") {
+        vn <- paste0(nm, "_scalar")
+        objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
+          "Full", 1, 1, free = TRUE, values = mean(diag(M)),
+          labels = paste0(nm, "_v"), lbound = min(prepared$observed_variances) * 1e-10,
+          name = vn)
+        objects[[length(objects) + 1L]] <- OpenMx::mxMatrix("Iden", D, D, name = "traitI")
+        objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
+          paste0(vn, " %x% traitI"), name = nm)
+        n_variance_parameters <- n_variance_parameters + 1L
+        parameter_labels[[g]] <- paste0(nm, "_v")
+      } else {
+        ln <- paste0(nm, "_L")
+        free <- lower.tri(M, diag = TRUE)
+        labels <- matrix(NA_character_, D, D)
+        labels[free] <- paste0(nm, "_l", seq_len(sum(free)))
+        bounds <- matrix(NA_real_, D, D)
+        diag(bounds) <- if (g == "Residual") sqrt(prepared$observed_variances * 1e-10) else 0
+        objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
+          "Lower", D, D, free = free, values = t(chol(M)), labels = labels,
+          lbound = bounds, name = ln)
+        objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
+          paste0(ln, " %*% t(", ln, ")"), name = nm)
+        n_variance_parameters <- n_variance_parameters + D * (D + 1L) / 2L
+        parameter_labels[[g]] <- labels[free]
       }
     }
-    objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-      paste(summands, collapse = " + "), name = nm)
-    inv_name <- paste0("Inv", s$mask)
-    objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-      paste0("solve(", nm, ")"), name = inv_name)
-    # Retain determinant-domain trial rejection (a failing chol algebra can be
-    # fatal in OpenMx), but apply it to the standardized stratum covariance.
-    scaled_name <- paste0("Scaled", nm)
-    objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-      paste0("observedSDInverse %*% ", nm, " %*% observedSDInverse"), name = scaled_name)
-    term <- paste0(s$df, " * (log(det(", scaled_name, ")) + ",
-      format(log_scale_determinant, digits = 17, scientific = FALSE, trim = TRUE), ")")
-    if (s$mask != 0L) {
-      sn <- paste0("SS", s$mask)
-      objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
-        "Full", D, D, values = s$SSCP, free = FALSE, name = sn)
-      term <- paste0(term, " + tr(", inv_name, " %*% ", sn, ")")
-    }
-    bn <- paste0("block", s$mask)
-    objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(term, name = bn)
-    blocks <- c(blocks, bn)
-    score_name <- paste0("Score", s$mask)
-    score_expr <- paste0(s$df, " * ", inv_name)
-    if (s$mask != 0L) score_expr <- paste0(score_expr, " - ", inv_name,
-      " %*% SS", s$mask, " %*% ", inv_name)
-    objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(score_expr, name = score_name)
-    score_names[as.character(s$mask)] <- score_name
-  }
-  # Exact first derivatives avoid finite-difference cancellation on the large
-  # observed-data deviances, especially near variance-component boundaries.
-  gradient_entries <- character()
-  gradient_labels <- character()
-  for (g in component_names) {
-    nm <- algebra_names[[g]]
-    terms <- character()
-    for (mask in as.integer(names(score_names))) {
-      gm <- if (g == "Residual") .gt_full_mask else .gt_mask(g)
-      if (bitwAnd(gm, mask) == mask) {
-        multiplier <- if (g == "Residual") 1 else prod(prepared$counts[!.gt_bits(gm)])
-        terms <- c(terms, paste0(multiplier, " * ", score_names[[as.character(mask)]]))
+    # Evaluate determinants in fixed observed-SD units to avoid over/underflow
+    # when otherwise well-conditioned outcomes use very large or small units.
+    # The constant restores the determinant in the original outcome units.
+    objects[[length(objects) + 1L]] <- OpenMx::mxMatrix("Diag", D, D,
+      values = diag(1 / sqrt(prepared$observed_variances), D), free = FALSE,
+      name = "observedSDInverse")
+    log_scale_determinant <- sum(log(prepared$observed_variances))
+    blocks <- character()
+    score_names <- character()
+    for (s in prepared$strata) {
+      if (reml && s$mask == 0L) next
+      nm <- paste0("C", s$mask)
+      summands <- algebra_names[["Residual"]]
+      for (g in groups) {
+        gm <- .gt_mask(g)
+        if (bitwAnd(gm, s$mask) == s$mask) {
+          coefficient <- prod(prepared$counts[!.gt_bits(gm)])
+          summands <- c(summands, paste0(coefficient, " * ", algebra_names[[g]]))
+        }
       }
-    }
-    gn <- paste0(nm, "_score")
-    objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-      paste(terms, collapse = " + "), name = gn)
-    if (types[[g]] == "diagonal") {
-      gradient_entries <- c(gradient_entries, paste0(nm, "_scale[", seq_len(D), ",", seq_len(D), "] * ",
-        gn, "[", seq_len(D), ",", seq_len(D), "]"))
-    } else if (types[[g]] == "pooled") {
-      gradient_entries <- c(gradient_entries, paste0("tr(", gn, ")"))
-    } else {
-      ln <- paste0(nm, "_L")
-      gl <- paste0(nm, "_Lscore")
       objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-        paste0("2 * ", gn, " %*% ", ln), name = gl)
-      ix <- which(lower.tri(matrix(0, D, D), diag = TRUE), arr.ind = TRUE)
-      gradient_entries <- c(gradient_entries, paste0(gl, "[", ix[,1], ",", ix[,2], "]"))
+        paste(summands, collapse = " + "), name = nm)
+      inv_name <- paste0("Inv", s$mask)
+      objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
+        paste0("solve(", nm, ")"), name = inv_name)
+      # Retain determinant-domain trial rejection (a failing chol algebra can be
+      # fatal in OpenMx), but apply it to the standardized stratum covariance.
+      scaled_name <- paste0("Scaled", nm)
+      objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
+        paste0("observedSDInverse %*% ", nm, " %*% observedSDInverse"), name = scaled_name)
+      term <- paste0(s$df, " * (log(det(", scaled_name, ")) + ",
+        format(log_scale_determinant, digits = 17, scientific = FALSE, trim = TRUE), ")")
+      if (s$mask != 0L) {
+        sn <- paste0("SS", s$mask)
+        objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
+          "Full", D, D, values = s$SSCP, free = FALSE, name = sn)
+        term <- paste0(term, " + tr(", inv_name, " %*% ", sn, ")")
+      }
+      bn <- paste0("block", s$mask)
+      objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(term, name = bn)
+      blocks <- c(blocks, bn)
+      score_name <- paste0("Score", s$mask)
+      score_expr <- paste0(s$df, " * ", inv_name)
+      if (s$mask != 0L) score_expr <- paste0(score_expr, " - ", inv_name,
+        " %*% SS", s$mask, " %*% ", inv_name)
+      objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(score_expr, name = score_name)
+      score_names[as.character(s$mask)] <- score_name
     }
-    gradient_labels <- c(gradient_labels, parameter_labels[[g]])
+    # Exact first derivatives avoid finite-difference cancellation on the large
+    # observed-data deviances, especially near variance-component boundaries.
+    gradient_entries <- character()
+    gradient_labels <- character()
+    for (g in component_names) {
+      nm <- algebra_names[[g]]
+      terms <- character()
+      for (mask in as.integer(names(score_names))) {
+        gm <- if (g == "Residual") .gt_full_mask else .gt_mask(g)
+        if (bitwAnd(gm, mask) == mask) {
+          multiplier <- if (g == "Residual") 1 else prod(prepared$counts[!.gt_bits(gm)])
+          terms <- c(terms, paste0(multiplier, " * ", score_names[[as.character(mask)]]))
+        }
+      }
+      gn <- paste0(nm, "_score")
+      objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
+        paste(terms, collapse = " + "), name = gn)
+      if (types[[g]] == "diagonal") {
+        gradient_entries <- c(gradient_entries, paste0(nm, "_scale[", seq_len(D), ",", seq_len(D), "] * ",
+          gn, "[", seq_len(D), ",", seq_len(D), "]"))
+      } else if (types[[g]] == "pooled") {
+        gradient_entries <- c(gradient_entries, paste0("tr(", gn, ")"))
+      } else {
+        ln <- paste0(nm, "_L")
+        gl <- paste0(nm, "_Lscore")
+        objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
+          paste0("2 * ", gn, " %*% ", ln), name = gl)
+        ix <- which(lower.tri(matrix(0, D, D), diag = TRUE), arr.ind = TRUE)
+        gradient_entries <- c(gradient_entries, paste0(gl, "[", ix[,1], ",", ix[,2], "]"))
+      }
+      gradient_labels <- c(gradient_labels, parameter_labels[[g]])
+    }
+    objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
+      paste0("rbind(", paste(gradient_entries, collapse = ","), ")"),
+      name = "analyticGradient", dimnames = list(gradient_labels, NULL))
+    constant <- (prepared$N - as.integer(reml)) * D * log(2 * pi)
+    if (reml) constant <- constant + D * log(prepared$N)
+    objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
+      "Full", 1, 1, values = constant, free = FALSE, name = "constant")
+    objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
+      paste(c("constant", blocks), collapse = " + "), name = "deviance")
+    objects[[length(objects) + 1L]] <- OpenMx::mxFitFunctionAlgebra(
+      "deviance", gradient = "analyticGradient", numObs = prepared$N * D, units = "-2lnL")
+    # Actual observations supply native summary metadata. The algebra likelihood
+    # still uses the fixed contrast cross-products rebuilt by gtheory_prepare().
+    # mxBootstrap() cannot rebuild those statistics by resampling this mxData.
+    # Raw data are summary metadata, not the algebra likelihood input. OpenMx
+    # prohibits punctuation such as periods in manifest names, although these are
+    # valid R column names. Use private names here and keep original outcome names
+    # on means, covariance matrices, estimates, and every returned statistic.
+    metadata_data <- as.data.frame(data[outcomes])
+    names(metadata_data) <- paste0("GTOutcome", seq_along(outcomes))
+    objects[[length(objects) + 1L]] <- OpenMx::mxData(
+      observed = metadata_data, type = "raw")
+    model <- do.call(OpenMx::mxModel, c(list(model = "BalancedGTheory"), objects))
+    model <- OpenMx::mxOption(model, "Number of Threads", as.character(threads))
+    # mxTryHard preserves this explicit optimizer plan. No Hessian/SE/CI work is
+    # requested during retrying, so its optional final run cannot optimize again.
+    model <- OpenMx::mxOption(model, "Calculate Hessian", "No")
+    model <- OpenMx::mxOption(model, "Standard Errors", "No")
+    model <- OpenMx::mxModel(model, OpenMx::mxComputeSequence(list(
+      OpenMx::mxComputeGradientDescent(engine = optimizer, tolerance = tolerance,
+        maxMajorIter = as.integer(max_iterations), nudgeZeroStarts = FALSE))))
+    list(model = model, n_variance_parameters = n_variance_parameters,
+         parameter_labels = parameter_labels)
   }
-  objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-    paste0("rbind(", paste(gradient_entries, collapse = ","), ")"),
-    name = "analyticGradient", dimnames = list(gradient_labels, NULL))
-  constant <- (prepared$N - as.integer(reml)) * D * log(2 * pi)
-  if (reml) constant <- constant + D * log(prepared$N)
-  objects[[length(objects) + 1L]] <- OpenMx::mxMatrix(
-    "Full", 1, 1, values = constant, free = FALSE, name = "constant")
-  objects[[length(objects) + 1L]] <- OpenMx::mxAlgebraFromString(
-    paste(c("constant", blocks), collapse = " + "), name = "deviance")
-  objects[[length(objects) + 1L]] <- OpenMx::mxFitFunctionAlgebra(
-    "deviance", gradient = "analyticGradient", numObs = prepared$N * D, units = "-2lnL")
-  # Actual observations supply native summary metadata. The algebra likelihood
-  # still uses the fixed contrast cross-products rebuilt by gtheory_prepare().
-  # mxBootstrap() cannot rebuild those statistics by resampling this mxData.
-  # Raw data are summary metadata, not the algebra likelihood input. OpenMx
-  # prohibits punctuation such as periods in manifest names, although these are
-  # valid R column names. Use private names here and keep original outcome names
-  # on means, covariance matrices, estimates, and every returned statistic.
-  metadata_data <- as.data.frame(data[outcomes])
-  names(metadata_data) <- paste0("GTOutcome", seq_along(outcomes))
-  objects[[length(objects) + 1L]] <- OpenMx::mxData(
-    observed = metadata_data, type = "raw")
-  model <- do.call(OpenMx::mxModel, c(list(model = "BalancedGTheory"), objects))
-  model <- OpenMx::mxOption(model, "Number of Threads", as.character(threads))
-  # mxTryHard preserves this explicit optimizer plan. No Hessian/SE/CI work is
-  # requested during retrying, so its optional final run cannot optimize again.
-  model <- OpenMx::mxOption(model, "Calculate Hessian", "No")
-  model <- OpenMx::mxOption(model, "Standard Errors", "No")
-  model <- OpenMx::mxModel(model, OpenMx::mxComputeSequence(list(
-    OpenMx::mxComputeGradientDescent(engine = optimizer, tolerance = tolerance,
-      maxMajorIter = as.integer(max_iterations), nudgeZeroStarts = FALSE))))
+  built <- build_model(start)
+  model <- built$model
+  n_variance_parameters <- built$n_variance_parameters
+  parameter_labels <- built$parameter_labels
+  # One deterministic recovery after an ordinary refusal: a bounded search on
+  # the square-root form of the same deviance supplies starting components for
+  # the next ordinary attempt. It consumes an existing attempt, never adds one,
+  # and never decides acceptance; see R/gaussian_initializer.R.
+  square_root_initialization <- list(policy = initialization, status = "not_applicable",
+    eligible = FALSE, reason = "Requires a balanced multivariate model with an unstructured covariance and no call effect.")
+  recover <- NULL
+  if (identical(initialization, "automatic") && D > 1L &&
+      any(types == "unstructured") && is.null(.gt_call)) {
+    square_root_initialization$status <- "not_invoked"
+    square_root_initialization$reason <- "Recovery requires an ordinary refusal and unused attempt budget."
+    original_parameters <- OpenMx::omxGetParameters(model)
+    recover <- function(original_model) {
+      if (!identical(OpenMx::omxGetParameters(original_model), original_parameters))
+        stop("Recovery must start from the declared original coordinates.", call. = FALSE)
+      source_masks <- stats::setNames(vapply(component_names, function(g)
+        if (g == "Residual") .gt_full_mask else .gt_mask(g), numeric(1)), component_names)
+      source_weights <- stats::setNames(vapply(component_names, function(g)
+        if (g == "Residual") 1 else prod(prepared$counts[!.gt_bits(.gt_mask(g))]), numeric(1)), component_names)
+      context <- .gt_square_root_context(original_model, prepared, types, algebra_names,
+        source_masks, source_weights, reml)
+      record <- .gt_square_root_initialize(context,
+        function(components) gtheory_deviance(prepared, components, reml = reml))
+      recovered_model <- if (isTRUE(record$eligible))
+        build_model(record$components)$model else NULL
+      list(model = recovered_model, diagnostics = record)
+    }
+  } else if (identical(initialization, "none")) {
+    square_root_initialization$status <- "disabled"
+    square_root_initialization$reason <- "Explicitly disabled."
+  }
   assess <- function(candidate) {
     components <- lapply(algebra_names, function(nm) {
       M <- OpenMx::mxEvalByName(nm, candidate)
@@ -874,8 +935,10 @@ fit_openmx_multivariate <- function(
   }
   timing <- system.time({
     retried <- .gt_gaussian_retry(model, optimizer, as.integer(extra_tries), tolerance,
-      as.integer(max_iterations), start_label, silent, assess)
+      as.integer(max_iterations), start_label, silent, assess, recover = recover)
     model <- retried$model
+    if (isTRUE(retried$recovery_attempted))
+      square_root_initialization <- c(list(policy = initialization), retried$recovery_record)
   })
   optimizer_status <- as.integer(model$output$status$code)
   derivative_diagnostics <- NULL
@@ -999,7 +1062,8 @@ fit_openmx_multivariate <- function(
     bic_nobs = if (reml) NA_real_ else prepared$N,
     legacy_bic_nobs = native_summary$numObs, status = status,
     converged = isTRUE(retried$assessment$accepted),
-    diagnostics = list(issues = issues, boundary_components = boundary,
+    diagnostics = list(issues = issues, square_root_initialization = square_root_initialization,
+                       boundary_components = boundary,
                        hessian_checked = check_hessian,
                        gradient = diagnostic_output$gradient,
                        hessian = diagnostic_output$hessian,
@@ -1018,7 +1082,7 @@ fit_openmx_multivariate <- function(
     retry_settings = list(optimizer = optimizer, extraTries = as.integer(extra_tries),
       jitterDistrib = "runif", loc = 1, scale = 0.25, OKstatuscodes = 0L,
       start = start_label, retry_seed = retry_seed, rng = RNGkind(),
-      protocol = "direct_optimizer_uniform_perturbation_v3",
+      protocol = "isolated_valid_anchor_square_root_recovery_v1",
       acceptance = "optimizer0_covariance_stationarity_likelihood",
       total_trial_budget = retried$budget, optimizer_runs = retried$optimizer_runs,
       continuation_perturbation = "OpenMx::imxJiggle(runif, loc=1, scale=0.25)"),

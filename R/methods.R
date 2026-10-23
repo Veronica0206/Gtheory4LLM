@@ -242,6 +242,12 @@ print.gt_diagnostics <- function(x, ...) {
   cat("Estimator:", x$estimator, "| approximation:",
       if (length(x$approximation)) x$approximation else "not recorded", "\n")
   .gt_print_fit_status(x)
+  init <- x$initialization
+  if (!is.null(init) && !identical(init$status, "not_applicable"))
+    cat("Square-root initialization:", init$status,
+        if (!is.null(init$handoff_attempt) && !is.na(init$handoff_attempt))
+          paste0("(handed to attempt ", init$handoff_attempt, ")") else
+        if (length(init$reason)) paste0("(", init$reason, ")") else "", "\n")
   # The staged summary is the reason a reader does not have to reconstruct the
   # numerical pathway from private records, so printing has to show it.
   if (inherits(x$stages, "gt_diagnostic_stages")) {

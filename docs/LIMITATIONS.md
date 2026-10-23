@@ -81,6 +81,14 @@ scientifically sufficient. Those are separate questions with separate evidence.
   checks refuse duplicate cells, aliased covariance kernels, batches and
   jointly multivariate outcomes; increasing a resource budget changes none of
   these contracts.
+- **Square-root recovery is a start, not an estimate.** After an ordinary
+  refusal of a multivariate unstructured model, one bounded search on the
+  square-root form of the same deviance may supply the next attempt's starting
+  components (`gt_control(gaussian = list(initialization = "none"))` disables
+  it). It consumes an existing attempt, adds none, and the ordinary optimizer,
+  stationarity and independent-likelihood checks decide acceptance unchanged.
+  It does not repair an objective that is unstable at the returned point, and
+  a fit it rescues is a numerical acceptance, not evidence of a global optimum.
 - Standard errors are asymptotic Wald quantities from the restricted (REML) or
   profile (ML) likelihood Hessian, with delta-method coefficient intervals on
   the logit scale. They describe estimation uncertainty under the fitted model
@@ -111,10 +119,15 @@ scientifically sufficient. Those are separate questions with separate evidence.
   `gt_control(discrete = list(engine = "sparse"))`. Both support univariate and
   joint binary, ordinal and nominal outcomes, subject to the same numerical
   acceptance rules. Defaults remain 1,200 rows, 200 random-effect dimensions
-  and 80 parameters, plus the selected engine's 512 MiB memory guard. Sparse
-  memory estimates conservatively allow full conditional-Hessian and Cholesky
-  fill. Raising limits does not qualify full-panel solver performance or
-  approximation accuracy; the native 21,600-row panels exceed the default caps.
+  and 80 parameters, plus the selected engine's 512 MiB memory guard. The sparse
+  estimate keeps a complete-fill bound while that fits the budget; otherwise it
+  refuses on a pair-count bound of the conditional Hessian's structural
+  nonzeros or factorizes the structural pattern once and counts the fill, so a
+  declared larger budget is judged against the design's actual sparsity rather
+  than a dense square. Raising limits does not qualify full-panel solver
+  performance or approximation accuracy; the native 21,600-row panels exceed
+  the default caps, and the joint native panels need an explicitly declared
+  budget above the default.
 - `approximation_adequacy` stays `not_assessed_first_order_laplace` for any fit
   with random variation. Numerical acceptance is not integration accuracy.
   `gt_laplace_check()` compares the Laplace objective of one fitted model

@@ -367,7 +367,7 @@
     if (identical(setup$parameterization, "log_cholesky")) {
       diagonal <- rep(setup$diagpos, length(setup$sources))
       extremes[diagonal] <- upper[covariance][diagonal]
-      if (any(exp(lower[covariance][diagonal])^2 <= 0))
+      if (any(exp(2 * lower[covariance][diagonal]) == 0))
         .gt_d_stop("parameter_bounds must keep log-Cholesky diagonals representably positive.")
     }
     factors <- .gt_d_covariance_factors(extremes, setup)
@@ -1157,11 +1157,15 @@
       "design, reduce the number of jointly modelled outcomes, or use an ",
       "implementation with a sparse random-effects backend.")
   sparse_memory <- if (sparse)
-    .gt_d_sparse_bytes(nrow(data), prep$q, random_dimension, length(groups)) else NULL
+    .gt_d_sparse_resources(groups, nrow(data), prep$q, random_dimension,
+                           control$max_sparse_bytes) else NULL
   if (sparse && sparse_memory$total > control$max_sparse_bytes)
     .gt_d_stop("This discrete model exceeds max_sparse_bytes (",
-      .gt_d_format_bytes(control$max_sparse_bytes), "); its conservative sparse working-memory ",
-      "estimate is ", .gt_d_format_bytes(sparse_memory$total), ". Raising a resource guard ",
+      .gt_d_format_bytes(control$max_sparse_bytes), "); its sparse working-memory ",
+      if (identical(sparse_memory$method, "pair_bound_exceeds_budget"))
+        "lower bound from the conditional Hessian's structural nonzeros alone is " else
+        "estimate from one factorization of the structural pattern is ",
+      .gt_d_format_bytes(sparse_memory$total), ". Raising a resource guard ",
       "does not establish numerical acceptance or Laplace approximation accuracy.")
   setup <- .gt_d_covariance_setup(groups, prep$q, covariance, control, prep$dimensions, prep$blocks)
   kernel_rank <- .gt_d_kernel_rank(groups)

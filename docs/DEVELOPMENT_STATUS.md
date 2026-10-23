@@ -26,7 +26,15 @@ decision-agreement targets, cost screening for those targets, and binary/ordinal
 pilot precision planning. A separate categorical point-estimator pilot route
 includes nominal outcomes and eligible fixed calls, with all-attempt
 availability and conditional error summaries. The formula interface is retained. The help pages
-define each target, its guards and its unsupported combinations.
+define each target, its guards and its unsupported combinations. Two repairs
+from the 2026-10-23 review are integrated: the sparse memory guard now judges a
+declared budget against the design's structural pattern (a pair-count bound,
+then one factorization of the pattern) instead of a dense square, which is what
+kept the joint native panels unfittable at any budget; and the exact Gaussian
+engine recovers once, after an ordinary refusal of a multivariate unstructured
+model, from a bounded square-root search on the same deviance, which is what
+the six-flag mental-health panel needed. Neither changes an acceptance rule or
+an accepted primary attempt.
 
 Focused synthetic reference tests and refusal tests accompany the new routes;
 they do not qualify a full native panel, establish Laplace accuracy or calibrate
@@ -43,6 +51,50 @@ qualification. Qualification gaps are listed under current priorities below.
 The historical checkpoints that follow retain their original source, archive,
 platform and run identities; their passing results do not apply to this
 development checkout.
+
+## Statistical qualification record, 2026-10-23
+
+The local qualification campaign (`Development/1.0/qualification-20261022T211319Z`,
+candidate-v1 source for the statistical studies, candidate-v6 archive for the
+native fits; final tables in
+`statistical-campaigns/analysis/final-current-qualification-tables/`, created
+2026-10-23 07:57 UTC) completed every planned primary panel. These are its
+dispositions, with attempted / accepted / interval-available / covered counts;
+coverage is conditional on an available interval and the all-attempt yield is
+reported beside it. They qualify the declared fixtures only.
+
+| Scenario (2,000 panels each unless noted) | Accepted | Intervals | Covered | Conditional coverage | Covering yield |
+|---|---:|---:|---:|---:|---:|
+| Binary logit, interior, pilot / larger | 1,980 / 1,994 | 1,875 / 1,994 | 1,838 / 1,902 | 0.980 / 0.954 | 0.919 / 0.951 |
+| Binary probit, interior, pilot / larger | 1,987 / 1,916 | 1,984 / 1,916 | 1,977 / 1,842 | 0.996 / 0.961 | 0.989 / 0.921 |
+| Ordinal probit, interior, pilot / larger | 2,000 / 2,000 | 1,998 / 2,000 | 1,975 / 1,883 | 0.988 / 0.942 | 0.988 / 0.942 |
+| Ordinal logit, interior, pilot / larger | 1,999 / 1,997 | 1,921 / 1,997 | 1,880 / 1,892 | 0.979 / 0.947 | 0.940 / 0.946 |
+| Nominal exchangeable, mean G / Phi (500) | 499 | 493 | 468 / 467 | 0.949 / 0.947 | 0.936 / 0.934 |
+| Nominal unstructured, mean G / Phi (500) | 467 | 211 | 210 / 209 | 0.995 / 0.991 | 0.420 / 0.418 |
+| Joint binary + ordinal, outcomes y, z and composite (500) | 496 | 435 | 414, 405, 417 (G) | 0.952, 0.931, 0.959 | 0.828, 0.810, 0.834 |
+| Joint binary + nominal, outcomes y, z (500) | 470 | 125 | 120, 124 (G) | 0.960, 0.992 | 0.240, 0.248 |
+| Near-boundary cells (binary/ordinal, both links; 500 each) | 427–499 | 216–345 | — | 0.66–0.88 | 0.43–0.69 |
+| Exact-boundary cells (true variance zero; 500 each) | 400–500 | 192–227 | 0 | 0.00 | 0.00 |
+| Categorical call covariance, binary / ordinal / nominal (300 each) | 300 / 300 / 300 | information 262 / 276 / 201 | — | covariance recovery only | — |
+| Observed-row Gaussian projections, MCAR and design-dependent deletion (500 each) | 500 | point projections only | — | — | — |
+
+Reading: interior latent coefficients are covered close to nominally when an
+interval exists; small-panel Wald intervals are conservative; near a boundary
+roughly half the panels have no interval and the rest cover 66–88 %; at a true
+zero no available logit-Wald interval covers; crossed nominal-unstructured and
+joint binary–nominal models withhold most intervals. The weak-signal
+observed-score Monte Carlo targets failed their prespecified availability and
+error-calibration criteria (availability 58.6 % and 67.8 % at the two budgets,
+upward selection bias among available estimates;
+`statistical-campaigns/analysis/candidate-v1-mc-weak-signal/REPORT.md`). The
+full 21,600-row hate-speech ordinal probit fit (ten sources, 9,507 random
+effects, sparse engine, log-Cholesky coordinates) was accepted with information
+on macOS and Linux from the same candidate-v6 archive and passed its 19
+prespecified comparisons (latent G 0.9588 [0.9421, 0.9707], Phi 0.9545
+[0.9349, 0.9684]); this qualifies that model only. The joint binary and joint
+ordinal native panels were refused by the former memory guard, and the six-flag
+Gaussian panel was accepted only from an externally supplied start; both
+findings are addressed in this source and await their own prospective runs.
 
 ## 0.6.1 corrections
 

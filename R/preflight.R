@@ -402,7 +402,7 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
     add_check("parameter_limit", location_parameters + sum(covariance_parameters) <= dc$max_parameters,
               paste("Free observation and covariance parameters must not exceed", dc$max_parameters))
     sparse <- identical(dc$engine, "sparse")
-    memory <- if (sparse) .gt_d_sparse_bytes(n, q, random_dimension, length(groups)) else
+    memory <- if (sparse) .gt_d_sparse_resources(groups, n, q, random_dimension, dc$max_sparse_bytes) else
       .gt_d_dense_bytes(n, q, random_dimension)
     memory_limit <- if (sparse) dc$max_sparse_bytes else dc$max_dense_bytes
     add_check(if (sparse) "sparse_memory_limit" else "dense_memory_limit", memory$total <= memory_limit,
@@ -436,6 +436,8 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
     } else kernel_check <- "skipped_after_structural_or_resource_failure"
     resources <- if (sparse) list(sparse_working_bytes_estimate = memory$total,
       sparse_working_bytes_breakdown = memory[c("random_design", "conditional_hessian", "predictors", "multiplier")],
+      sparse_estimate_method = memory$method,
+      sparse_structural_entries = memory[c("pair_bound_entries", "hessian_entries", "factor_entries")],
       max_sparse_bytes = dc$max_sparse_bytes,
       max_observations = dc$max_observations,
       max_random_dimension = dc$max_random_dimension, max_parameters = dc$max_parameters,

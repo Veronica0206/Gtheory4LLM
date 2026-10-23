@@ -43,13 +43,19 @@
 .gt_gaussian_validate_control <- function(control) {
   allowed <- c("engine", "start", "optimizer", "max_iterations", "tolerance", "check_hessian",
                "threads", "silent", "extra_tries", "retry_seed", "max_preparation_bytes",
-               "panel", "max_observed_rows")
+               "panel", "max_observed_rows", "initialization")
   if (!is.list(control) || (length(control) && (is.null(names(control)) ||
       anyNA(names(control)) || any(!nzchar(names(control))) || anyDuplicated(names(control)))))
     stop("Gaussian control must be a uniquely named list.", call. = FALSE)
   unknown <- setdiff(names(control), allowed)
   if (length(unknown)) stop("Unsupported Gaussian control setting(s): ",
                            paste(unknown, collapse = ", "), call. = FALSE)
+  if (!is.null(control$initialization) && (!is.character(control$initialization) ||
+      length(control$initialization) != 1L || is.na(control$initialization) ||
+      !control$initialization %in% c("automatic", "none")))
+    stop("initialization must be automatic or none.", call. = FALSE)
+  if (!is.null(control$initialization) && identical(control$engine, "lme4"))
+    stop("initialization applies to the exact balanced OpenMx route only.", call. = FALSE)
   if (!is.null(control$engine) && (!is.character(control$engine) || length(control$engine) != 1L ||
       is.na(control$engine) || !control$engine %in% c("openmx", "lme4")))
     stop("engine must be 'openmx' (the exact balanced likelihood, the default) or 'lme4'.", call. = FALSE)

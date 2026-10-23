@@ -12,11 +12,12 @@
 # fit. Every trial here has a status because this code is the caller that
 # received it.
 #
-# The retry policy itself is unchanged: at most extra_tries + 1 runs, each
-# unsuccessful run followed by OpenMx's own bounded uniform perturbation of the
-# best model so far, stopping at the first run the external acceptance check
-# accepts, and otherwise returning the best usable candidate. Acceptance is the
-# caller's `assess` function; this loop never decides that a fit is good.
+# Forward candidate only: at most extra_tries + 1 runs. The continuation anchor
+# is the lowest independently reconstructed objective, never a mismatched native
+# objective. With no valid anchor, perturb the original declared start. Stop at
+# the first externally accepted run. Preserve invalid attempts and, if no valid
+# candidate exists, return the first assessable refusal for diagnosis.
+# Acceptance remains the caller's `assess` decision; no tolerance is relaxed.
 
 # OpenMx's own jitter, with the parameters the previous implementation passed
 # to mxTryHard: a uniform perturbation inside each parameter's bounds.
@@ -87,16 +88,20 @@
 #   OpenMx's own perturbation.
 .gt_gaussian_retry <- function(model, optimizer, extra_tries, tolerance,
                                max_iterations, start_label, silent, assess,
-                               run = OpenMx::mxRun, jitter = .gt_gaussian_jitter) {
+                               run = OpenMx::mxRun, jitter = .gt_gaussian_jitter,
+                                recover = NULL) {
   budget <- as.integer(extra_tries) + 1L
   if (!is.finite(budget) || budget < 1L)
     stop("The optimizer trial budget must be at least one attempt.", call. = FALSE)
   rows <- vector("list", budget)
   log <- character()
   best <- NULL
+  anchor <- NULL
   candidate <- model
   start_type <- start_label
   used <- 0L
+  recovery_attempted <- FALSE
+  recovery_record <- NULL
   for (attempt in seq_len(budget)) {
     used <- attempt
     result <- .gt_gaussian_run_once(candidate, silent, run)
@@ -113,23 +118,58 @@
       if (nzchar(rows[[attempt]]$external_rejection_reason))
         paste0(" (", rows[[attempt]]$external_rejection_reason, ")") else ""),
       result$messages, result$warnings, result$printed)
-    # A candidate is usable only if the acceptance check could evaluate it.
-    # An accepted candidate always wins; otherwise the lowest objective does,
-    # and an accepted candidate is never displaced by a lower unaccepted one.
+    # Retain a rejected result for inspection, but never rank a result whose
+    # native objective the independent likelihood evaluation contradicted as if
+    # that objective were meaningful: it neither seeds another trial nor
+    # displaces a reconstructed candidate. Among reconstructed candidates an
+    # accepted one always wins and otherwise the lowest objective does. An
+    # acceptance check that makes no likelihood comparison leaves the rule as
+    # it was.
     usable <- !is.null(result$model) && is.finite(result$objective) &&
       !is.null(evaluation$components)
+    reconstructs <- usable && !isFALSE(evaluation$likelihood_matches)
+    candidate_record <- if (usable) list(model = result$model,
+      evaluation = evaluation, objective = result$objective, attempt = attempt,
+      reconstructs = reconstructs) else NULL
+    if (reconstructs && (is.null(anchor) || result$objective < anchor$objective))
+      anchor <- candidate_record
     if (usable && (is.null(best) || isTRUE(evaluation$accepted) ||
-                   (!isTRUE(best$evaluation$accepted) && result$objective < best$objective)))
-      best <- list(model = result$model, evaluation = evaluation,
-                   objective = result$objective, attempt = attempt)
+        (reconstructs && !isTRUE(best$evaluation$accepted) &&
+          (!best$reconstructs || result$objective < best$objective)))) best <- candidate_record
+    rows[[attempt]]$retry_anchor_eligible <- reconstructs
+    rows[[attempt]]$retry_anchor_attempt <- if (is.null(anchor)) NA_integer_ else anchor$attempt
     if (isTRUE(evaluation$accepted)) break
     if (attempt < budget) {
-      base <- if (!is.null(best)) best$model else model
+      recovered <- NULL
+      if (!is.null(recover) && !recovery_attempted) {
+        recovery_attempted <- TRUE
+        recovered <- tryCatch(recover(model), error = function(e)
+          list(model = NULL, diagnostics = list(status = "refused", eligible = FALSE,
+            error = conditionMessage(e))))
+        recovery_record <- recovered$diagnostics
+        recovery_record$trigger_attempt <- attempt
+        recovery_record$handoff_attempt <- if (is.null(recovered$model)) NA_integer_ else attempt + 1L
+        recovery_record$ordinary_budget <- budget
+      }
+      if (!is.null(recovered$model)) {
+        if (!inherits(recovered$model, "MxModel") ||
+            !isTRUE(recovery_record$eligible))
+          stop(structure(list(message = "Invalid internal recovery handoff; ordinary acceptance cannot be bypassed.",
+            call = NULL, retry_attempts = do.call(rbind, rows[seq_len(attempt)]),
+            retry_log = log, optimization_trials = attempt,
+            recovery_attempted = recovery_attempted, recovery_record = recovery_record),
+            class = c("gt_native_retry_failure", "error", "condition")))
+        candidate <- recovered$model
+        start_type <- "square_root_cold_recovery"
+        next
+      }
+      base <- if (!is.null(anchor)) anchor$model else model
       candidate <- tryCatch(jitter(base), error = function(e) {
         message <- paste("Perturbing the next starting values failed:", conditionMessage(e))
         stop(structure(list(message = message, call = NULL,
           retry_attempts = do.call(rbind, rows[seq_len(attempt)]),
-          retry_log = c(log, message), optimization_trials = attempt),
+          retry_log = c(log, message), optimization_trials = attempt,
+          recovery_attempted = recovery_attempted, recovery_record = recovery_record),
           class = c("gt_native_retry_failure", "error", "condition")))
       })
       start_type <- "uniform_perturbation"
@@ -140,8 +180,10 @@
   if (is.null(best)) stop(structure(list(
     message = "No optimizer attempt supplied usable covariance estimates within the trial budget.",
     call = NULL, retry_attempts = attempts, retry_log = log,
-    optimization_trials = used), class = c("gt_native_retry_failure", "error", "condition")))
+    optimization_trials = used, recovery_attempted = recovery_attempted,
+    recovery_record = recovery_record), class = c("gt_native_retry_failure", "error", "condition")))
   attempts$returned_fit <- attempts$attempt == best$attempt
   list(model = best$model, assessment = best$evaluation, attempts = attempts,
-       log = log, budget = budget, optimizer_runs = used)
+       log = log, budget = budget, optimizer_runs = used,
+       recovery_attempted = recovery_attempted, recovery_record = recovery_record)
 }

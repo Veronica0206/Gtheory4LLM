@@ -10,100 +10,39 @@ version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
 
 This local development version retains the formula interface and historical
-release evidence while adding the following bounded capabilities:
+release evidence while adding the capabilities below. No numerical acceptance
+threshold was loosened; where an optimizer path changed, the change is named.
 
-- Ordinal interval probabilities, scores and curvature retain small tail
-  contributions and use a bounded, blocked normal-density quadrature for narrow
-  probit intervals. Nominal losses, scores and both backends' curvature retain
-  the complement of a dominant category. These arithmetic repairs leave the
-  first-order Laplace criterion and numerical acceptance tolerances unchanged.
-- Simulated score and category-vector noise use nonnegative variance sums
-  instead of subtracting nearly equal moments. Item summaries correctly align
-  shuffled groups of unequal sizes and reject invalid group identifiers. The
-  target availability rules and their weak-signal limitations remain unchanged.
-- Help now distinguishes zero Cholesky pivots from zero marginal variances,
-  defines the existing covariance-based restart comparison, and states when
-  preflight skips resolved-domain checks after an earlier refusal. Numerical
-  decisions are unchanged.
-- Interval guidance separates true from estimated boundaries, conditional
-  coverage from all-attempt availability, and covering-interval yield from
-  both. Categorical integration and pilot guidance retain weak-signal
-  refusals and explain selection bias and shared-instrumentation precision
-  limits; available-only summaries are not a calibration guarantee.
-- Alternative starts now remain inside narrowly declared categorical parameter
-  bounds. Ordinary domains retain their existing start coordinates and all
-  numerical acceptance rules remain unchanged.
-- Categorical shared-call refusals now point to the supported repeated-panel
-  target API. Help clarifies stored information coordinates, quadratic
-  information cost, and the distinction between missing cells and partially
-  observed outcome vectors.
-
-- Discrete L-BFGS-B fits offer explicit `optimizer_scaling = "start"` for
-  per-attempt coordinate preconditioning. Every metric is recorded; original
-  finite-difference steps and independent acceptance checks are unchanged.
-  The default optimizer paths remain unchanged.
-- Discrete fits accept predeclared named `parameter_bounds` overrides for
-  artificial optimizer coordinates. Fitting, preflight and saved-fit Laplace
-  checks share the domain validation; natural zero boundaries, default domains
-  and all acceptance thresholds remain unchanged. Requested and effective
-  domains are recorded, and artificial-bound contact still refuses acceptance.
-- Review corrections preserve a failed optimizer attempt when first-step
-  rescaling is ineligible, and retain the complete original attempt when a
-  finite collapsed attempt is rerun. Saved Laplace diagnostics use the fit's
-  recorded covariance coordinates rather than a newer default. Binary logit
-  losses, scores and curvature retain representable probabilities in the tails.
-- Formula reconstruction preserves unusual column names. Formula updates
-  refuse declarations whose explicit nesting or source-free facets would be
-  lost; ordinary argument updates retain the design. Preflight now identifies
-  supported nominal latent coefficients. Nominal D-studies use a symmetric
-  eigenproblem and preserve unavailable rows at unresolved allocations.
-- Validation summaries, package checks, artifact checks and public-content
-  audits refuse reused evidence destinations; the manual builder protects
-  both the existing PDF and prior build logs. New regressions ship with the
-  installed package, including a nominal fit with estimated exchangeable
-  covariance and independent coefficient checks.
+## Engines
 
 - Public dense/sparse selection for binary, ordinal, nominal and joint
-  categorical Laplace fits, including eligible equal fixed-call effects.
-  Preflight applies the selected engine's memory budget; existing default
-  row, random-dimension and parameter limits remain in force.
+  categorical Laplace fits, `gt_control(discrete = list(engine = "sparse"))`,
+  including eligible equal fixed-call effects. Both engines calculate the same
+  first-order Laplace objective under the same acceptance rules. Preflight
+  applies the selected engine's memory budget; the default row,
+  random-dimension and parameter limits remain in force.
+- The sparse working-memory guard judges a declared `max_sparse_bytes` against
+  the design's structural pattern instead of a dense square. The complete-fill
+  bound is kept while it fits the budget; otherwise a pair-count bound on the
+  conditional Hessian's structural nonzeros refuses before any pattern is
+  built, or the structural pattern (every factor entry nonzero, every latent
+  dimension of an observation coupled) is factorized once with the fit's
+  fill-reducing ordering and the counted Hessian and factor entries give the
+  estimate. The old bound made every joint native panel infeasible at any
+  budget; the structural estimate reports what the design needs, which the
+  joint 21,600-row panels still place above the 512 MiB default. Preflight
+  records the method and the counts. A feasible factorization establishes
+  neither acceptance nor approximation accuracy at that size.
 - Sparse conditional solves use a bounded derivative check when rounded
   function values block a full Newton step. Outside the small plateau window,
   the candidate must already meet the final score tolerance; final score,
   solve, factor and outer-fit acceptance requirements are unchanged.
-- An explicit observed-row univariate Gaussian route through lme4, with an
-  independent dense ML/REML likelihood cross-check, covariance-kernel
-  identification and row/memory guards. No missing cells are filled.
-  `gt_dstudy(projection = "balanced")` projects to a separately declared
-  complete allocation; reliability of the incomplete allocation and joint
-  incomplete Gaussian fitting remain unsupported.
-- Optional discrete observed information includes nuisance intercepts or
-  thresholds and covariance parameters. Component uncertainty and latent
-  coefficient intervals require acceptance, interior estimated components,
-  stable numerical differentiation and positive definite information.
-  Unavailable results retain their reason; intervals inherit Laplace error.
-- Shared categorical simulation preserves fitted links, thresholds, nominal
-  reference contrasts, joint covariance and eligible fixed-call layouts.
-  `gt_categorical_target()` separately defines observed-score,
-  relabeling-invariant category-vector and plurality-decision targets.
-  Decision diversity accompanies agreement, and Monte Carlo errors describe
-  integration uncertainty at fixed model parameters.
-- `gt_plan()` can screen those categorical targets over a bounded allocation
-  grid using declared costs. Binary/ordinal pilot precision planning refits
-  small complete pilots for latent intervals. A distinct categorical
-  point-estimator route includes nominal and fixed-call pilots, with
-  acceptance/availability rates, conditional bias and RMSE, and separately
-  recorded reference and inner integration errors. It provides no parameter
-  intervals or interval-width criterion.
-
 - The sparse evaluator retries an evaluation whose cold conditional-mode solve
   ends as a classified convergence failure, once, from the fit's last valid
   mode, under unchanged tolerances, budgets and validity checks. A cold solve
   that failed a solve- or factor-validity invariant is never retried, and a
-  retry that fails one is the recorded outcome. Cold solves that succeed are
-  unchanged. Rescued evaluations are marked and counted in the fit's
-  evaluation record.
-
+  retry that fails one is the recorded outcome. Rescued evaluations are marked
+  and counted in the fit's evaluation record.
 - Within an L-BFGS-B attempt, the sparse evaluator starts conditional solves
   from the attempt's centre mode. The fit supplies the finite-difference
   gradient itself, written out from `optim()`'s own rule so the optimizer's
@@ -116,25 +55,63 @@ release evidence while adding the following bounded capabilities:
   within 4.4e-9 at the coarse tolerance and 1.9e-10 at the validation
   tolerance, and at the native 21,600-row panel's starting values within
   1.5e-7 (coarse) and 3.6e-12 (validation), while an evaluation needs about
-  three Newton steps instead of seven or eight. Every attempt begins with a cold solve; the final
-  checks, the stationarity probes, the information step and every `nlminb`
-  evaluation remain cold solves from zero modes. A warm solve that stops short
-  of the mode is replaced by the cold solve, which keeps the older retry from
-  the last valid mode. The evaluation record counts `warm_started` and
-  `cold_fallbacks`. No tolerance, budget or acceptance rule changed.
-- The sparse mode solver no longer computes the factor's fill counts on every
-  Newton step; `.gt_d_sparse_factor()` computes them only when asked, which
-  the diagnostics, tests and profile study still do.
-
-- The lme4 engine's restart check now also requires the restart itself to
+  three Newton steps instead of seven or eight. Every attempt begins with a
+  cold solve; the final checks, the stationarity probes, the information step
+  and every `nlminb` evaluation remain cold solves from zero modes. A warm
+  solve that stops short of the mode is replaced by the cold solve, which keeps
+  the retry from the last valid mode. The evaluation record counts
+  `warm_started` and `cold_fallbacks`. The sparse mode solver no longer
+  computes the factor's fill counts on every Newton step; `.gt_d_sparse_factor()`
+  computes them only when asked, which the diagnostics, tests and profile
+  study still do.
+- Sparse nominal fits no longer stop when rounding lifts a row of contrast
+  probabilities a few dozen ulps above one, which happens where the reference
+  category's probability is near zero. The sparse Hessian guard allowed 16
+  ulps and stopped the evaluation while the dense assembly accepted the same
+  rows; it now allows `sqrt(.Machine$double.eps)` and still refuses inputs that
+  are not probabilities.
+- Ordinal interval probabilities, scores and curvature retain small tail
+  contributions and use a bounded, blocked normal-density quadrature for narrow
+  probit intervals. Nominal losses, scores and both backends' curvature retain
+  the complement of a dominant category. Binary logit losses, scores and
+  curvature retain representable probabilities in the tails. These arithmetic
+  repairs leave the first-order Laplace criterion and numerical acceptance
+  tolerances unchanged; on a flat ridge an optimizer may stop at a slightly
+  different accepted point.
+- The exact Gaussian engine recovers once, after an ordinary attempt of a
+  multivariate model with an unstructured covariance is refused while an
+  attempt remains in the budget, from a bounded L-BFGS-B search on the
+  square-root form of the same deviance: stratum covariance roots are QR
+  factors of the stacked weighted source factors and the cross-products enter
+  through roots taken from the contrast rows, so nearly singular strata are
+  evaluated without forming and inverting their covariance. The search starts
+  from the declared original coordinates, never from the refused endpoint, and
+  its endpoint's covariance components seed the next ordinary attempt, through
+  the same path as a user-supplied `start` so that the parameter scales are
+  recomputed, only when the search converged, lies within the bounds, and the
+  independent deviance reproduces its value within 1e-5. It consumes an existing attempt, adds none, and decides nothing;
+  `gt_control(gaussian = list(initialization = "none"))` disables it, and
+  `gt_diagnostics(fit)$initialization` records the outcome. An accepted
+  primary attempt is identical under both settings. Continuation restarts now
+  perturb the best attempt whose likelihood was independently reconstructed, or
+  the original start when there is none; a result whose native objective the
+  independent evaluation contradicted never seeds a restart, and the attempt
+  table records this in `retry_anchor_eligible` and `retry_anchor_attempt`.
+  The six-flag
+  mental-health panel, whose default start led into a region where the
+  algebraic objective was invalid, is what this repairs.
+- The lme4 engine's restart check also requires the restart itself to
   complete with optimizer code 0 and no lme4 convergence warning; agreement
   with an incomplete or warned restart no longer counts as reproduction. The
   stability record names the restart's completion and warnings.
+- An explicit observed-row univariate Gaussian route through lme4, with an
+  independent dense ML/REML likelihood cross-check, covariance-kernel
+  identification and row/memory guards. No missing cells are filled.
+  `gt_dstudy(projection = "balanced")` projects to a separately declared
+  complete allocation; reliability of the incomplete allocation and joint
+  incomplete Gaussian fitting remain unsupported.
 
-- `gt_reliability()` and `gt_dstudy()` without a projection on an observed-row
-  Gaussian fit now name `gt_dstudy(projection = "balanced")` in their refusal.
-  The shipped example scripts and help examples read acceptance and attempt
-  records through `gt_diagnostics()` rather than fit fields.
+## Outcomes and targets
 
 - Nominal (unordered categorical) outcomes have latent G and Phi.
   `gt_reliability()` and `gt_dstudy()` report the mean of the generalized
@@ -149,7 +126,9 @@ release evidence while adding the following bounded capabilities:
   interval of the mean uses the observed information and matches a
   finite-difference gradient. A diagonal covariance on the contrasts is a
   different model for each reference, so its coefficient is refused, as is a
-  weighted composite with a nominal outcome.
+  weighted composite with a nominal outcome. Preflight identifies the
+  supported nominal latent coefficients, and nominal D-studies use a symmetric
+  eigenproblem and preserve unavailable rows at unresolved allocations.
 - `covariance = "exchangeable"` for discrete fits with a nominal outcome:
   each source gives every category its own random utility with one variance,
   `sigma^2 (I + 11')` on the contrasts, one parameter per source and outcome
@@ -173,24 +152,61 @@ release evidence while adding the following bounded capabilities:
   likelihood falls by 1.0e-5, no variance moves by more than 0.14%, and rater
   joins item among the boundary sources. Its stored baseline was recaptured
   for that case only.
-- `gt_plan()` works on fits with nominal outcomes. It built one weight per
-  outcome while the covariance matrices are indexed by latent dimension, so a
-  three-category nominal outcome (two contrast dimensions) made every plan fail
-  with non-conformable arguments, including a plan for the binary outcome of a
-  joint nominal-and-binary fit. Weights now follow the fit's latent dimensions.
-  A nominal outcome is screened and costed on its mean generalized-eigenvalue
-  coefficient; its scalar universe and error variances and source
-  contributions are `NA`, and `provenance$decomposition` says why.
+- Shared categorical simulation preserves fitted links, thresholds, nominal
+  reference contrasts, joint covariance and eligible fixed-call layouts.
+  `gt_categorical_target()` separately defines observed-score,
+  relabeling-invariant category-vector and plurality-decision targets.
+  Decision diversity accompanies agreement, and Monte Carlo errors describe
+  integration uncertainty at fixed model parameters. Categorical shared-call
+  refusals point to this repeated-panel target API.
+
+## Uncertainty
+
+- Optional discrete observed information includes nuisance intercepts or
+  thresholds and covariance parameters. Component uncertainty and latent
+  coefficient intervals require acceptance, interior estimated components,
+  stable numerical differentiation and positive definite information.
+  Unavailable results retain their reason; intervals inherit Laplace error.
+  The two central-difference Hessians need `2 * (1 + 2 * p^2)` marginal
+  likelihood evaluations for `p` stored parameters, all from cold conditional
+  modes, so information can cost much more than point estimation.
+- Interval guidance separates true from estimated boundaries, conditional
+  coverage from all-attempt availability, and covering-interval yield from
+  both. Small-panel Wald intervals can be overly conservative, unstructured
+  models can frequently withhold intervals at estimated covariance boundaries,
+  and withholding at an estimated boundary does not ensure coverage at a true
+  one. Available-only summaries are not a calibration guarantee.
+
+## Planning
+
+- `gt_plan()` can screen the categorical targets over a bounded allocation
+  grid using declared costs, and works on fits with nominal outcomes: it built
+  one weight per outcome while the covariance matrices are indexed by latent
+  dimension, so a three-category nominal outcome made every plan fail with
+  non-conformable arguments; weights now follow the fit's latent dimensions,
+  a nominal outcome is screened and costed on its mean generalized-eigenvalue
+  coefficient, and its scalar universe and error variances and source
+  contributions are `NA`, with `provenance$decomposition` saying why.
+- Binary/ordinal pilot precision planning refits small complete pilots for
+  latent intervals. A distinct categorical point-estimator route includes
+  nominal and fixed-call pilots, with acceptance/availability rates,
+  conditional bias and RMSE, and separately recorded reference and inner
+  integration errors. It provides no parameter intervals or interval-width
+  criterion. Near weak signals, selection of available targets can bias both;
+  interpret them with all-attempt availability and never replace failed
+  targets with new seeds.
 - `gt_simulate()` and the categorical pilots refuse covariance overrides that
-  break an exchangeable fit's structure. A nominal block must be
+  break an exchangeable fit's structure: a nominal block must be
   `sigma^2 (I + 11')` and outcomes stay independent within a source; unequal
   diagonals, equal diagonals without the off-diagonal term, and covariance
   across outcomes were previously accepted and simulated under the fit's
-  `"exchangeable"` label.
-- Help and guides no longer say that no scalar nominal coefficient exists, and
-  the latent-scale guidance names nominal outcomes. The retained profiling
-  harness's README says to create the lock's parent directory when the harness
-  is copied outside the checkout.
+  `"exchangeable"` label. Simulated score and category-vector noise use
+  nonnegative variance sums instead of subtracting nearly equal moments, and
+  item summaries align shuffled groups of unequal sizes and reject invalid
+  group identifiers.
+
+## Numerical acceptance and optimizer controls
+
 - A coarse L-BFGS-B attempt whose first step collapses is rerun at the
   per-row scale. Every discrete coordinate has two finite bounds, so
   L-BFGS-B's first trial point is the start minus the raw gradient, a sum over
@@ -201,20 +217,54 @@ release evidence while adding the following bounded capabilities:
   where it began after an invalid evaluation is now run again from the same
   start at a uniform parameter scale of `1/sqrt(rows)`, which makes the first
   step the per-row gradient; the collapsed run is kept in the attempt's
-  `first_step_rescue` record. Attempts that move are never rerun, so no other
-  path changes. Tight attempts and `nlminb` are not scaled.
-- Sparse nominal fits no longer stop when rounding lifts a row of contrast
-  probabilities a few dozen ulps above one, which happens where the reference
-  category's probability is near zero. The sparse Hessian guard allowed 16
-  ulps and stopped the evaluation while the dense assembly accepted the same
-  rows; it now allows `sqrt(.Machine$double.eps)` and still refuses inputs that
-  are not probabilities.
+  `first_step_rescue` record. Attempts that move, attempts that ended in an
+  optimizer exception, and attempts whose result is unusable are never rerun,
+  so a failed attempt stays visible and no other path changes. Tight attempts
+  and `nlminb` are not scaled.
+- Discrete L-BFGS-B fits offer explicit `optimizer_scaling = "start"` for
+  per-attempt coordinate preconditioning. Every metric is recorded; original
+  finite-difference steps and independent acceptance checks are unchanged.
+  The default optimizer paths remain unchanged.
+- Discrete fits accept predeclared named `parameter_bounds` overrides for
+  artificial optimizer coordinates. Fitting, preflight and saved-fit Laplace
+  checks share the domain validation; natural zero boundaries, default domains
+  and all acceptance thresholds remain unchanged. Requested and effective
+  domains are recorded, and artificial-bound contact still refuses acceptance.
+  Alternative starts remain inside narrowly declared domains; ordinary domains
+  retain their existing start coordinates.
+- Saved Laplace diagnostics use the fit's recorded covariance coordinates
+  rather than a newer default, and `gt_laplace_check()` reads a fit's retained
+  responses as the engine's encoding: a binary outcome fitted with labels other
+  than `"0"`/`"1"` is retained as 0/1 integers, and the diagnostic refused
+  those encodings as new data. Data supplied through `data =` is still
+  validated as new data.
+- Help defines the existing covariance-based restart comparison, distinguishes
+  zero Cholesky pivots from zero marginal variances, and states when preflight
+  skips resolved-domain checks after an earlier refusal.
 
-- `gt_laplace_check()` no longer re-resolves a fit's retained data as new user
-  data. A binary outcome fitted with labels other than `"0"`/`"1"` is retained
-  as 0/1 integers, and the diagnostic refused those encodings; it now reads the
-  retained frame as the engine's prepared input. Data supplied through `data =`
-  is still validated as new data.
+## Interface, documentation and tooling
+
+- Formula reconstruction preserves unusual column names. Formula updates
+  refuse declarations whose explicit nesting or source-free facets would be
+  lost; ordinary argument updates retain the design.
+- `gt_reliability()` and `gt_dstudy()` without a projection on an observed-row
+  Gaussian fit name `gt_dstudy(projection = "balanced")` in their refusal. The
+  shipped example scripts and help examples read acceptance and attempt
+  records through `gt_diagnostics()` rather than fit fields.
+- Help and guides no longer say that no scalar nominal coefficient exists, the
+  latent-scale guidance names nominal outcomes, and help clarifies stored
+  information coordinates, quadratic information cost, and the distinction
+  between missing cells and partially observed outcome vectors. The retained
+  profiling harness's README says to create the lock's parent directory when
+  the harness is copied outside the checkout.
+- Validation summaries, package checks, artifact checks and public-content
+  audits refuse reused evidence destinations; the manual builder protects
+  both the existing PDF and prior build logs. New regressions ship with the
+  installed package, including a nominal fit with estimated exchangeable
+  covariance and independent coefficient checks, the ordinal and nominal tail
+  contracts, the categorical-target moment contract, the two-stage sparse
+  memory estimate and the square-root recovery; every test file is listed in
+  `tests/README.md`.
 
 Focused reference and refusal tests accompany these routes. This is not a
 released or fully qualified 1.0 package: full-panel solver qualification,

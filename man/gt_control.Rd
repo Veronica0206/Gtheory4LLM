@@ -27,7 +27,7 @@ None of these components is used to compute an estimate, a diagnostic decision, 
 
 \strong{Gaussian controls} and their defaults are:
 \itemize{
-\item \code{engine}: \code{"openmx"}, the exact balanced likelihood optimized through OpenMx. \code{"lme4"} fits the same random sources as random intercepts with \code{lme4::lmer()}, one outcome at a time, with the call source when a balanced batch is modelled. An lme4 fit is accepted only when lme4's optimizer completes without any lme4 convergence warning; when the package's own stationarity check on lme4's deviance function passes, which computes lme4's Cholesky-scaled gradient statistic over the interior parameters against lme4's tolerance and requires that no parameter resting on its zero bound has a one-sided derivative pointing inward (a source variance of zero is a legitimate boundary estimate, so lme4's singular-fit message is suppressed and the boundary is judged by that derivative instead); when a restart from a different point itself completes without a convergence warning and reproduces objective and parameters; and when an independently calculated Gaussian deviance agrees with lme4's criterion. The reference is the factorial-contrast likelihood for \code{panel = "complete"} and the dense observed-row likelihood for \code{panel = "observed"}. This agreement verifies the model and objective, rather than establishing optimality. A verdict the statistic cannot support is a refusal, never an acceptance. It computes no standard errors, so coefficient intervals are unavailable, and the exact engine's settings \code{optimizer}, \code{max_iterations}, \code{tolerance}, \code{check_hessian}, \code{threads}, \code{extra_tries} and \code{start} are refused with it. lme4 is a suggested package.
+\item \code{engine}: \code{"openmx"}, the exact balanced likelihood optimized through OpenMx. \code{"lme4"} fits the same random sources as random intercepts with \code{lme4::lmer()}, one outcome at a time, with the call source when a balanced batch is modelled. An lme4 fit is accepted only when lme4's optimizer completes without any lme4 convergence warning; when the package's own stationarity check on lme4's deviance function passes, which computes lme4's Cholesky-scaled gradient statistic over the interior parameters against lme4's tolerance and requires that no parameter resting on its zero bound has a one-sided derivative pointing inward (a source variance of zero is a legitimate boundary estimate, so lme4's singular-fit message is suppressed and the boundary is judged by that derivative instead); when a restart from a different point itself completes without a convergence warning and reproduces objective and parameters; and when an independently calculated Gaussian deviance agrees with lme4's criterion. The reference is the factorial-contrast likelihood for \code{panel = "complete"} and the dense observed-row likelihood for \code{panel = "observed"}. This agreement verifies the model and objective, rather than establishing optimality. A verdict the statistic cannot support is a refusal, never an acceptance. It computes no standard errors, so coefficient intervals are unavailable, and the exact engine's settings \code{optimizer}, \code{max_iterations}, \code{tolerance}, \code{check_hessian}, \code{threads}, \code{extra_tries}, \code{start} and \code{initialization} are refused with it. lme4 is a suggested package.
 \item \code{panel}: \code{"complete"}. The explicit \code{"observed"} option requires \code{engine = "lme4"} and fits a univariate Gaussian outcome to observed rows when whole cells are absent. It does not fill cells or remove missing outcome values, and refuses within-cell replication, joint outcomes and batch declarations. Source and residual covariance kernels must remain linearly independent after removing the intercept. See \link{gaussian_observed} for the assumptions and distinction between fitting an incomplete panel and projecting to an intended balanced allocation.
 \item \code{max_observed_rows}: 1000, used only with \code{panel = "observed"}. This explicit bound limits the dense independent likelihood check. Raising it does not qualify larger designs statistically; the memory guard also applies.
 \item \code{optimizer}: CSOLNP.
@@ -39,8 +39,37 @@ None of these components is used to compute an estimate, a diagnostic decision, 
 \item \code{extra_tries}: 9.
 \item \code{retry_seed}: NULL.
 \item \code{start}: NULL (automatic moment-based covariance starts).
+\item \code{initialization}: \code{"automatic"}; \code{"none"} disables the square-root recovery described below.
 \item \code{max_preparation_bytes}: 512 * 1024^2.
 }
+\strong{Square-root recovery.} With \code{initialization = "automatic"}, a
+balanced multivariate model with at least one unstructured covariance and no
+call effect receives one deterministic recovery after an ordinary optimizer
+attempt is refused while an attempt remains in the \code{extra_tries} budget.
+A bounded L-BFGS-B search (at most 10,000 iterations, \code{factr = 1000},
+\code{pgtol = 0}, a fixed metric of standard-deviation units) minimizes the
+square-root form of the same exact deviance: each stratum covariance root is
+the QR factor of the stacked weighted source factors and the cross-products
+enter through their own roots, so nearly singular strata are evaluated without
+forming and inverting their covariance. The search starts from the model's
+declared original coordinates, never from the refused endpoint. Its endpoint's
+covariance components become the starting components of the next ordinary
+attempt, through the same path as a user-supplied \code{start} so that the
+parameter scales are recomputed for them, only if the search
+reports convergence, the point lies within the bounds, and the independent
+deviance evaluation reproduces the square-root value within 1e-5; otherwise the
+ordinary perturbed restarts continue from the best attempt whose likelihood
+was independently reconstructed, or from the original start when there is
+none. The recovery consumes an existing attempt, adds none, and decides
+nothing: acceptance still requires optimizer completion, the covariance-scale
+stationarity check and the independent likelihood check, with unchanged
+tolerances. \code{gt_diagnostics(fit)$initialization} records the policy and
+a status of \code{"disabled"}, \code{"not_applicable"}, \code{"not_invoked"},
+\code{"handoff_eligible"} or \code{"refused"}, with the trigger and handoff
+attempts, the initializer's optimizer code, message and evaluation counts, and
+the independent deviance difference. An accepted primary attempt is identical
+under both settings. The control is refused with the lme4 engine.
+
 The allocation guard estimates preparation memory. It excludes caller data
 and downstream engine objects. For observed-row panels, it includes dense
 covariance kernels, working matrices and the identification calculation after
@@ -67,10 +96,21 @@ Discrete resource limits are:
 \item \code{max_sparse_bytes}: 512 * 1024^2.
 }
 Only the selected engine's byte limit is applied. Observation, random-dimension
-and parameter limits apply to both engines. The sparse estimate allows fully
-populated source covariance factors and complete fill of the conditional
-Hessian and its factor. It remains a conservative planning estimate, excluding
-caller data and optimizer state, rather than a measurement or speed guarantee.
+and parameter limits apply to both engines. The sparse estimate is made in two
+stages. A complete-fill bound, which allows fully populated source covariance
+factors and complete fill of the conditional Hessian and its factor, is kept
+whenever it already fits the budget. Otherwise a pair-count bound on the
+conditional Hessian's structural nonzeros (two coordinates are coupled only
+when their groups share an observation) decides whether the Hessian alone
+exceeds the budget, in which case the request is refused before any pattern is
+built; if it does not, the structural pattern with every factor entry nonzero
+and every latent dimension coupled is factorized once with the fit's
+fill-reducing ordering, and the counted Hessian and factor entries give the
+estimate. The method and the counts are recorded by \code{gt_preflight()}. It
+remains a planning estimate, excluding caller data, optimizer state and the
+repeated allocations of the finite-difference checks, rather than a measurement
+or a speed guarantee; a feasible factorization does not establish acceptance
+or approximation accuracy at that size.
 Discrete optimizer controls are:
 \itemize{
 \item \code{maxit}: 150.
@@ -88,9 +128,12 @@ Discrete optimizer controls are:
   \code{pmax(1, abs(start)) / sqrt(nrow(data))}, computed from that attempt's
   starting vector and recorded with its optimizer controls. This changes the
   search path, not the likelihood, finite-difference steps in original
-  coordinates, or independent acceptance checks. The automatic collapsed-step
-  rescue does not replace an explicitly requested metric. Scaling is not
-  supported with \code{"nlminb"}.
+  coordinates, or independent acceptance checks. The projected-gradient
+  stopping tolerance \code{pgtol} is applied to the scaled gradient and is not
+  rescaled, so a scaled attempt can stop earlier in original-gradient terms;
+  the independent stationarity and restart checks are unchanged. The automatic
+  collapsed-step rescue does not replace an explicitly requested metric. Scaling
+  is not supported with \code{"nlminb"}.
 \item \code{start}: NULL (automatic response and covariance starts).
 \item \code{parameter_bounds}: NULL (the default numerical domains).
 \item \code{covariance_parameterization}: \code{"auto"}.

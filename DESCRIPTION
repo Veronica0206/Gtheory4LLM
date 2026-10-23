@@ -47,6 +47,7 @@ Collate:
     'batch.R'
     'family.R'
     'gaussian_retry.R'
+    'gaussian_initializer.R'
     'gaussian_engine.R'
     'gaussian_observed.R'
     'gaussian.R'

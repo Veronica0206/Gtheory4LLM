@@ -20,6 +20,8 @@ into subdirectories without silently removing them from the release gate.
 | `package-properties.R` | Invariance, equivariance and monotonicity properties |
 | `package-fuzz-inputs.R` | Parsers, validators and resource guards under hostile input |
 | `package-gaussian-starts.R` | Gaussian starting values and their matching rules |
+| `package-gaussian-initialization.R` | Square-root recovery through the public interface: an accepted primary attempt is identical under both policies, the control is validated, the record is reported, and a one-iteration budget exercises a real recovery without relaxing acceptance |
+| `package-sparse-resources.R` | The two-stage sparse memory estimate: complete-fill bound within budget, pair-count refusal without a pattern, structural factorization containing an actual Hessian pattern, and preflight/fit refusals naming the method |
 | `package-uncertainty.R` | Standard errors, the covariance Jacobian, coefficient derivatives |
 | `package-mixed-model.R` | Brennan fixed facets, `full_cell = FALSE` |
 | `package-nested-designs.R` | Nested reliability, mixed fixed/nested weighting, nested D studies |
@@ -37,6 +39,9 @@ into subdirectories without silently removing them from the release gate.
 | `package-nominal-reliability.R` | Estimated exchangeable nominal coefficients against a utility-scale oracle, singular-universe eigenvalues at large finite allocations, and unavailable projections without losing other rows |
 | `package-dense-memory-guard.R` | The dense working-memory guard |
 | `package-binary-probabilities.R` | Binary tail probabilities |
+| `package-ordinal-tail.R` | Ordinal interval log probabilities, scores and curvature at fixed points against independently rounded 160-digit references: far tails, narrow intervals, crossing intervals, block joins and the joint response kernel |
+| `package-nominal-tails.R` | Nominal losses, scores and dominant-category complements against high-precision references where one category probability rounds to one |
+| `package-categorical-target-moments.R` | Nonnegative category-vector and score variance sums, group alignment of shuffled unequal item groups and invalid-index refusals |
 | `package-stationarity-validity.R` | Rejection of invalid stationarity probes |
 | `package-preflight.R` | Preflight reporting, including the installed tutorial |
 | `package-outcome-profile.R` | Outcome category counts, group coverage and descriptive profile plots |
@@ -65,11 +70,16 @@ into subdirectories without silently removing them from the release gate.
 | `test_planning.R` | Bounded cost search, Pareto and minimum-cost ties, constraints, source error changes, fixed-universe and unavailable-bound guards |
 | `test_simulation.R` | Independent nested multivariate generation moments, scenario guards, fixed-protocol refit precision, deterministic replay, failure ledgers and Monte Carlo denominators |
 | `test_gaussian_retry.R` | The retry controller, with the optimizer injected |
+| `test_gaussian_initialization.R` | The square-root kernel against the exact and dense deviances with analytic gradients, the recovery controller with the optimizer injected, and the public policies |
+| `test_discrete_sparse_resources.R` | Source entrypoint for the installed sparse-resource contract |
 | `test_gaussian_lme4_restart.R` | The lme4 restart rule: a restart counts only when it completes without a convergence warning and reproduces the solution |
 | `test_discrete.R` | Probability and derivative identities, glmer/clmm comparisons |
 | `test_discrete_acceptance.R` | Boundary, restart and stationarity acceptance |
 | `test_discrete_domain.R` | Source entrypoint for the installed numerical-domain contract |
 | `test_discrete_scaling.R` | Source entrypoint for the installed optimizer-scaling contract |
+| `test_ordinal_tail.R` | Source entrypoint for the installed ordinal tail contract |
+| `test_nominal_tails.R` | Source entrypoint for the installed nominal tail contract |
+| `test_categorical_target_moments.R` | Source entrypoint for the installed categorical-target moment contract |
 | `test_interface.R` | Dispatch and reliability against dense aggregation |
 | `test_staged_diagnostics.R` | Staged summary reports retained evidence without changing acceptance |
 | `package-staged-diagnostics.R` | Staged summary is truthful on installed public fits |
