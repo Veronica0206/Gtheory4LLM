@@ -30,9 +30,10 @@ threshold was loosened; where an optimizer path changed, the change is named.
   factorized once and the counted Hessian and factor entries give the
   estimate. The counted fill is a planning estimate with the multiplier as
   allowance, not a bound: the fit recomputes its own fill-reducing ordering.
-  The old bound made every joint native panel infeasible at any budget; the
-  structural estimate reports what the design needs, which the joint
-  21,600-row panels still place above the 512 MiB default. Preflight records
+  The old bound made the bundled joint native panels infeasible at their
+  declared 8 GiB budget (dense squares of 32 and 73 GiB); the structural
+  estimate reports what the design needs, which the joint 21,600-row panels
+  still place above the 512 MiB default. Preflight records
   the method and the counts. A feasible factorization establishes neither
   acceptance nor approximation accuracy at that size.
 - Sparse conditional solves use a bounded derivative check when rounded

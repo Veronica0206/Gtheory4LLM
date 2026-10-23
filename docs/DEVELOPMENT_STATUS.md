@@ -30,7 +30,8 @@ define each target, its guards and its unsupported combinations. Two repairs
 from the 2026-10-23 review are integrated: the sparse memory guard now judges a
 declared budget against the design's structural pattern (the exact structural
 nonzero count, then one factorization of the pattern) instead of a dense square, which is what
-kept the joint native panels unfittable at any budget; and the exact Gaussian
+kept the joint native panels unfittable at their declared 8 GiB budget (dense squares of 32 and
+73 GiB); and the exact Gaussian
 engine recovers once, after an ordinary refusal of a multivariate unstructured
 model, from a bounded square-root search on the same deviance, which is what
 the six-flag mental-health panel needed. Neither changes an acceptance rule or
