@@ -124,4 +124,34 @@ expect(is.null(dropped$data), "retention off stores no data")
 expect(grepl("retain = list(data = FALSE)", outcome(check(dropped)), fixed = TRUE),
        "without retained data the check asks for data =")
 same(check(dropped, data = d), check(kept), "retention off with explicit data against retention on", usable = FALSE)
-cat("PASS: gt_laplace_check() reads retained encoded responses as the encoding they are on accepted fits; new data is still validated; usability verdicts are explicit.\n")
+
+# Saved auto requests must retain the coordinates that the fitting version
+# resolved. Before the Cholesky default changed, the following explicit fit
+# would have recorded an auto request with these same log-Cholesky parameters.
+# A deliberately short fit is sufficient: this diagnostic describes the
+# recorded point and must not alter its covariance coordinates.
+legacy_panel <- expand.grid(item = 1:4, rater = 1:6)
+legacy_panel$y <- as.integer((legacy_panel$item + legacy_panel$rater) %% 3L > 0L)
+legacy_panel$z <- as.integer((2L * legacy_panel$item + legacy_panel$rater) %% 4L > 1L)
+legacy_fit <- suppressWarnings(gt_fit(legacy_panel, c("y", "z"),
+  gt_design("item", "rater", random = "item"), gt_family("binary", "logit"),
+  covariance = "unstructured", control = gt_control(discrete = list(
+    covariance_parameterization = "log_cholesky", maxit = 2L, alternative_starts = 0L))))
+legacy_explicit <- gt_laplace_check(legacy_fit, draws = 100L, seed = 71L)
+expect(identical(legacy_fit$diagnostics$covariance_parameterization, "log_cholesky"),
+       "the fixture records resolved log-Cholesky coordinates")
+legacy_fit$control$discrete$covariance_parameterization <- "auto"
+legacy_auto <- gt_laplace_check(legacy_fit, draws = 100L, seed = 71L)
+legacy_fit$control$discrete$covariance_parameterization <- NULL
+legacy_default <- gt_laplace_check(legacy_fit, draws = 100L, seed = 71L)
+for (comparison in list(legacy_auto, legacy_default)) {
+  expect(isTRUE(comparison$available) && isTRUE(comparison$recomputed_agrees) &&
+           abs(comparison$laplace_minus2loglik - legacy_explicit$laplace_minus2loglik) < 1e-10 &&
+           abs(comparison$refined_minus2loglik - legacy_explicit$refined_minus2loglik) < 1e-10,
+         "saved auto and omitted requests use their recorded covariance coordinates")
+}
+legacy_fit$diagnostics$covariance_parameterization <- "future_coordinates"
+expect(grepl("unsupported covariance parameterization",
+             outcome(gt_laplace_check(legacy_fit, draws = 100L, seed = 71L)), fixed = TRUE),
+       "unknown recorded coordinates are refused rather than reinterpreted")
+cat("PASS: retained response and covariance coordinates, integration and diagnostic safeguards.\n")

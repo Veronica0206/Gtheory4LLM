@@ -88,7 +88,8 @@ COMPACT_TESTS = {"test_design.R", "test_examples.R", "test_gaussian_review.R",
                  "test_categorical_planning.R",
                  "test_discrete_sparse_warm_start.R", "test_discrete_sparse_warm_policy.R",
                  "test_laplace_check_retained_data.R",
-                 "test_discrete_attempt_names.R",
+                 "test_discrete_attempt_names.R", "test_discrete_domain.R",
+                 "test_discrete_scaling.R",
                  "test_laplace_check_resources.R"}
 
 
@@ -295,10 +296,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--timeout", type=int, default=1800, help="Maximum seconds per stage.")
-    parser.add_argument("--output", type=Path, help="Explicit optional summary JSON destination.")
+    parser.add_argument("--output", type=Path, help="New optional summary JSON destination; existing evidence is never replaced.")
     parser.add_argument("--release-manifest", type=Path,
                         help="Verify a staged release bundle against its recorded source; used by preparation.")
     options = parser.parse_args(argv)
+    if not options.list and options.output and (options.output.exists() or options.output.is_symlink()):
+        parser.error("--output already exists; choose a new path to preserve validation evidence.")
     if options.timeout <= 0:
         parser.error("--timeout must be positive")
     compatibility = options.compatibility or options.allow_version_drift
@@ -398,7 +401,8 @@ def main(argv: list[str] | None = None) -> int:
                    "full_locked_validation_passed": passed and mode == "locked" and options.scope == "all" and not options.compact})
     if options.output:
         options.output.parent.mkdir(parents=True, exist_ok=True)
-        options.output.write_text(json.dumps(report, indent=2) + "\n")
+        with options.output.open("x", encoding="utf-8") as stream:
+            stream.write(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)
     if staging is not None:
         staging.cleanup()

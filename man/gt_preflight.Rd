@@ -23,7 +23,7 @@ gt_preflight(data, outcomes, design = NULL, family = gt_family("gaussian"),
 \item{family}{A family from \code{\link{gt_family}}, or a named family list matching the outcomes.}
 \item{covariance}{The source covariance specification accepted by \code{\link{gt_fit}}.}
 \item{residual}{Gaussian residual covariance specification, or \code{NULL} for the default. Do not specify this argument for discrete outcomes.}
-\item{control}{Engine controls from \code{\link{gt_control}}. Resource limits are read from the selected engine's controls.}
+\item{control}{Engine controls from \code{\link{gt_control}}. Resource limits are read from the selected engine's controls. Discrete parameter-bound overrides are validated with the same coordinate and representability rules as fitting. Validation of resolved covariance coordinates, starting values and parameter domains runs only after the preceding structural, category and resource checks pass. A request stopped by those earlier checks has not passed the skipped validation; fitting repeats all applicable input checks.}
 \item{formula, measured}{The model formula under its own name and the right-hand variable that is the object of measurement, as for \code{\link{gt_fit}}.}
 \item{max_examples}{A nonnegative finite integer, no greater than \code{.Machine$integer.max}. Maximum rows in each panel-audit table and in each outcome/variable no-variation example table, and maximum invalid design-row indices in an error. Zero suppresses examples while retaining counts and truncation metadata. Defaults to 10.}
 \item{x}{An object returned by \code{gt_preflight}.}
@@ -83,6 +83,11 @@ that declaration implies or records; absent otherwise. Described below.
 \item \code{checks}: a data frame of the structural and resource checks.
 \item \code{fitting_feasible}: whether those checks passed.
 \item \code{supported_reliability_scales}: conditional coefficient scales.
+Complete balanced nominal panels support \code{"latent"} with
+\code{covariance = "exchangeable"} or \code{"unstructured"}; their
+coefficients summarize generalized eigenvalues over category contrasts,
+not observed-label agreement. Diagonal nominal contrasts have no such
+reference-invariant coefficient. See \code{\link{gt_reliability}}.
 }
 Feasibility is not a fitting or identification result. Invalid input types or
 undeclared observation categories raise an error. Declared but absent categories

@@ -19,8 +19,9 @@ Description: Studies the reliability and generalizability of subjective
     Supported balanced decision studies compare evaluator, prompt, and
     replication allocations using observed Gaussian or explicitly requested
     latent binary and ordinal reliability, with random or fixed facets after
-    Brennan (2001). Gaussian fits report asymptotic Wald standard errors for
-    their variance components and delta-method intervals for the coefficients.
+    Brennan (2001). OpenMx Gaussian fits report asymptotic Wald standard errors
+    for variance components and delta-method coefficient intervals when
+    curvature checks permit them; the lme4 route returns point estimates only.
     Discrete fits offer optional full-information latent coefficient intervals,
     subject to numerical and boundary checks. Provides fixed-layout call
     effects, categorical score and category-vector reliability projections,

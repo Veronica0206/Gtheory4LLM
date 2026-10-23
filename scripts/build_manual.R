@@ -22,8 +22,19 @@ script <- sub("^--file=", "", grep("^--file=", commandArgs(), value = TRUE)[1L])
 # from a path containing a space resolves to a file that does not exist.
 if (!file.exists(script)) script <- gsub("~+~", " ", script, fixed = TRUE)
 root <- dirname(dirname(normalizePath(script, mustWork = TRUE)))
-output <- normalizePath(args[1L], mustWork = FALSE)
+is_link <- function(path) {
+  target <- Sys.readlink(path)
+  length(target) == 1L && !is.na(target) && nzchar(target)
+}
+# Refuse reused evidence before resolving TeX tools or generating any files.
+# Check links before normalization so a dangling output link is not followed.
+if (file.exists(args[1L]) || is_link(args[1L]))
+  stop("Manual output already exists; choose a new path to preserve evidence.")
 work <- if (length(args) == 2L) args[2L] else tempfile("gtheory-manual-")
+if (is_link(work) || (file.exists(work) &&
+    (!dir.exists(work) || length(list.files(work, all.files = TRUE, no.. = TRUE)) > 0L)))
+  stop("Manual build directory must be new or empty; existing evidence is never replaced.")
+output <- normalizePath(args[1L], mustWork = FALSE)
 dir.create(work, recursive = TRUE, showWarnings = FALSE)
 work <- normalizePath(work, mustWork = TRUE)
 dir.create(dirname(output), recursive = TRUE, showWarnings = FALSE)
@@ -130,7 +141,9 @@ if (!is.na(result$log) && file.exists(result$log)) {
   if (any(grepl("Overfull \\\\", log_lines)))
     stop("Manual contains overfull boxes; inspect build log ", result$log)
 }
-if (!file.copy(result$pdf, output, overwrite = TRUE))
+same_output <- identical(normalizePath(result$pdf, mustWork = TRUE),
+                         normalizePath(output, mustWork = FALSE))
+if (!same_output && !file.copy(result$pdf, output, overwrite = FALSE))
   stop("Could not copy completed manual")
 
 summary <- list(package = package, output = output, build_directory = work,

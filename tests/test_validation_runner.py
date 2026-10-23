@@ -41,6 +41,20 @@ def external_temporary_base() -> Path:
 
 
 class ValidationRunnerTests(unittest.TestCase):
+    def test_existing_summary_is_refused_before_staging_or_running_checks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "report.json"
+            original = b'{"success": true, "historical": true}\n'
+            output.write_bytes(original)
+            with patch.object(RUNNER, "default_release_manifest") as stage, \
+                    patch.object(RUNNER, "launch") as launch, \
+                    self.assertRaises(SystemExit) as error:
+                RUNNER.main(["--output", str(output)])
+            self.assertEqual(error.exception.code, 2)
+            stage.assert_not_called()
+            launch.assert_not_called()
+            self.assertEqual(output.read_bytes(), original)
+
     def test_the_entry_point_stages_a_manifest_only_when_none_is_supplied_and_a_run_needs_one(self):
         explicit = Path("/explicit/manifest.json")
         # The rehearsal staging below is synthetic, so this test chooses where

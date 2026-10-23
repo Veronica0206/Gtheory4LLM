@@ -55,6 +55,8 @@ The comparison introduces its own linear algebra, and that is checked as the eng
 
 The diagnostic uses dense conditional algebra even when the fitted engine was sparse. Before allocating dense matrices, it applies the fit's discrete \code{max_dense_bytes} control to a conservative estimate of dense reconstruction plus importance-proposal or quadrature-grid workspace. A fit that is feasible with sparse algebra can therefore exceed the diagnostic's memory budget. The dimension, evaluation and draw limits remain in force; raising a memory budget does not improve approximation accuracy. Fixed-layout Call sources use the retained item membership and the same layout validator as fitting. An absent or inconsistent retained layout is refused rather than replaced by newly inferred batches.
 
+The diagnostic reconstructs covariance parameters using the coordinates recorded by the fit. In particular, a saved joint fit using log-Cholesky coordinates is not reinterpreted under a newer Cholesky default. An unsupported or inconsistent recorded parameterization is refused.
+
 This function does not refit the model. Adaptive quadrature as a fitting method in \pkg{lme4} and \pkg{ordinal} is restricted to a single scalar random-effect term; it is not a direct substitute in those packages for a crossed multi-source fit. Other Monte Carlo likelihood methods exist for some crossed discrete models. A comparison must match the response family, link, covariance structure and estimand; this diagnostic does not replace such a refitted comparison.
 
 A fit that failed numerical acceptance can still be checked. The result then describes its stopping point, and the print says so.}

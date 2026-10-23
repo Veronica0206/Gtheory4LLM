@@ -128,7 +128,7 @@ def check_status(log, as_cran=False, vignettes_built=True, version=None,
             "allowed_notes": allowed, "note_exceptions": exceptions}
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rscript', default='Rscript')
     parser.add_argument('--as-cran', action='store_true',
@@ -137,10 +137,13 @@ def main():
                         help='Record a CRAN maintenance request and allow only its release timing NOTE; requires --as-cran.')
     parser.add_argument('--output-dir', type=Path,
                         default=os.environ.get('GTHEORY_PACKAGE_CHECK_DIR'),
-                        help='Keep build/check artifacts here (also settable with GTHEORY_PACKAGE_CHECK_DIR).')
-    args = parser.parse_args()
+                        help='New or empty build/check directory (also settable with GTHEORY_PACKAGE_CHECK_DIR).')
+    args = parser.parse_args(argv)
     if args.cran_requested_maintenance is not None and not args.as_cran:
         parser.error('--cran-requested-maintenance requires --as-cran.')
+    if args.output_dir and (args.output_dir.is_symlink() or
+            (args.output_dir.exists() and (not args.output_dir.is_dir() or any(args.output_dir.iterdir())))):
+        parser.error('--output-dir must be a new or empty directory; existing validation evidence is never replaced.')
     work = args.output_dir.resolve() if args.output_dir else Path(tempfile.mkdtemp(prefix='gtheory-package-check-'))
     work.mkdir(parents=True, exist_ok=True)
     installed = work / 'library'; installed.mkdir(exist_ok=True)

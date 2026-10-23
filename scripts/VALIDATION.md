@@ -10,6 +10,15 @@ python3 scripts/run_validation.py --scope artifact
 python3 scripts/run_validation.py --scope all --as-cran
 ```
 
+When retaining results, choose a new `--output` summary path for each run.
+The package and committed-artifact checks accept a new or empty `--output-dir`
+(including the package check's `GTHEORY_PACKAGE_CHECK_DIR` setting). They refuse
+reused evidence directories before starting a check. Existing summaries, logs,
+archives and installed libraries are preserved; reruns need separate destinations.
+The public-content audit likewise requires a new `--output` file.
+The reference-manual builder requires a new output PDF and a new or empty
+optional build directory before it starts TeX.
+
 The source scope runs independent synthetic numerical regressions, the standalone
 example, an integrity check of bundled real annotation resources, a package-content
 audit, and R package build/install/check. The artifact scope independently verifies

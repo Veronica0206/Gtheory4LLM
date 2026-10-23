@@ -42,6 +42,7 @@ nominal <- gt_fit(d, "nominal", design, family = gt_family("categorical", refere
   control = gt_control(discrete = list(engine = "sparse", optimizer = "nlminb",
     fixed_covariance = list(item = matrix(0, 2, 2), rater = matrix(0, 2, 2)))))
 stopifnot(gt_diagnostics(nominal)$numerically_accepted)
+expect_error(gt_reliability(nominal), "nominal")
 vector <- as.data.frame(gt_categorical_target(nominal, "category_vector", n_items = 20,
   replications = 5, seed = 14))
 stopifnot(vector$available, vector$estimate == 0,
@@ -62,6 +63,7 @@ calls <- gt_fit(d, "binary", gt_design("item", "rater", random = ~ item + rater,
   control = gt_control(discrete = list(engine = "sparse", optimizer = "nlminb",
     fixed_covariance = list(item = matrix(.3), rater = matrix(.15), Call = matrix(.1)))))
 call_diagnostics <- gt_diagnostics(calls)
+expect_error(gt_reliability(calls, scale = "latent"), "gt_categorical_target()")
 call_simulation <- gt_simulate(calls, 12, counts = c(rater = 3), seed = 14)
 call_decision <- as.data.frame(gt_categorical_target(calls, "decision", n_items = 12,
   replications = 3, seed = 14))

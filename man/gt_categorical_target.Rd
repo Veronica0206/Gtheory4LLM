@@ -86,6 +86,18 @@ denominators or estimates outside [0,1] remain unavailable; their raw
 estimates and reasons are retained. Increase integration precision and
 inspect the model rather than treating a refused estimate as zero.
 
+With weak positive object signal, a finite integration budget can return many
+unavailable ratios. Summarizing only the available ratios can then select
+upward-biased estimates, even when their conditional error bands appear
+adequate. Retain every attempted seed and its availability; do not replace
+refused runs or clip their raw estimates into [0,1]. More objects within a panel
+cannot remove Monte Carlo variation from shared instrumentation. Independent
+panel pairs are needed. As a pilot approximation, multiplying the pair count
+by the squared ratio of the current to the desired Monte Carlo standard error
+suggests a new budget, within the resource limits. Verify that budget with
+independent seeds and report availability as well as precision; this scaling
+rule is not a guarantee near zero signal or an unresolved denominator.
+
 Future panels are complete. Using a fit from missing whole cells requires
 the same exchangeability and ignorable observation assumptions as that fit;
 the simulation does not impute historical labels or establish ignorability.

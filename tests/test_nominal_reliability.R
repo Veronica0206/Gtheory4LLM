@@ -48,6 +48,20 @@ fake <- list(outcomes = "y", families = list(list(family = "categorical", link =
 expect(abs(.gt_reliability_layout(fake, "categorical")$residual[1, 1] - pi^2 / 3) < 1e-15,
        "two categories have the logit residual pi^2/3, so K = 2 is exactly the binary logit coefficient")
 
+# A finite, highly unbalanced spectrum must not be confused with a singular
+# total covariance. The direct solve(T, U) used previously aborted on this
+# exact-zero universe direction once the future allocation reached 1e17.
+for (n in c(2, 1e17, 1e200)) {
+  residual <- (pi^2 / 6) * (diag(2) + matrix(1, 2, 2)) / n
+  values <- .gt_nominal_eigenvalues(diag(c(1, 0)), residual)
+  expected <- c(1 / (1 + pi^2 / (4 * n)), 0)
+  expect(length(values) == 2L && max(abs(values - expected)) < 1e-12,
+         "symmetric whitening preserves the rank-one oracle at large finite allocations")
+}
+expect(identical(.gt_nominal_eigenvalues(diag(c(1, 0)), matrix(0, 2, 2)),
+                 c(NA_real_, NA_real_)),
+       "an unresolved singular total retains one unavailable value per contrast")
+
 # --- a small nominal panel ---------------------------------------------------------
 labels <- c("a", "b", "c")
 n_item <- 30L; n_rater <- 4L; n_rep <- 3L

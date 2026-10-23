@@ -415,7 +415,8 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       setup_error <- NULL
       setup <- tryCatch({
         prep <- .gt_d_prepare(resolved$data, outcomes, families)
-        .gt_d_covariance_setup(groups, prep$q, covariance, dc, prep$dimensions, prep$blocks)
+        prepared <- .gt_d_covariance_setup(groups, prep$q, covariance, dc, prep$dimensions, prep$blocks)
+        .gt_d_parameter_domain(prep, prepared, dc)$setup
       }, error = function(e) {
         setup_error <<- conditionMessage(e)
         NULL
@@ -455,12 +456,15 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
   balanced <- complete && replicated
   # Ordinary coefficients do not describe shared-call layouts; those require
   # a separate supported batch-aware target.
+  nominal <- any(kinds == "categorical")
+  nominal_supported <- !nominal || covariance %in% c("exchangeable", "unstructured")
   scales <- if (!balanced || gaussian_observed || !all(category_complete) ||
-    any(kinds == "categorical") || call_modelled) character() else
+    !nominal_supported || call_modelled) character() else
     if (gaussian) "observed" else "latent"
   notes <- c("Preflight checks structure and configured size limits. It does not establish identification, approximation adequacy, fit acceptance, or scientific validity.",
     "A supported reliability scale is conditional on a numerically accepted fit and the stated averaging design.",
-    "Starting values and all optimizer-specific controls are validated during fitting.")
+    paste("Starting values and optimizer-specific controls are checked again during fitting.",
+      "Discrete resolved starts and parameter domains are also checked by preflight when preceding checks pass."))
   if (any(levels < 5L)) notes <- c(notes,
     "Some sources have fewer than five observed groups. This is a descriptive caution about limited information, not a rejection rule.")
   if (!balanced) notes <- c(notes,
@@ -492,6 +496,8 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       "A fit of this design models a call effect; ordinary scalar coefficients do not account for its sharing layout. Use an explicitly supported batch-aware target." else
       if (length(scales) == 0L) "No implemented analytic scalar coefficient for this family/panel combination." else
       if (gaussian) "Reliability of observed Gaussian-score averages." else
+      if (nominal) paste("Reliability of latent-response averages; nominal outcomes report the mean",
+        "and range of generalized eigenvalues over category contrasts, not reliability of observed labels.") else
         "Reliability of latent-response averages; not label proportions, majority votes, or ordinal-score averages.",
     notes = notes), class = "gt_preflight")
   # Present only for a design that declares batches, so every other preflight

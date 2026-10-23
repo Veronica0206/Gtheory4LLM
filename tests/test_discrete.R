@@ -968,4 +968,30 @@ stopifnot(identity_fixed_fit$converged,
           identity_fixed_fit$diagnostics$source_residual_kernel_rank$includes_observation_identity,
           identical(identity_fixed_fit$diagnostics$source_covariances_estimated, FALSE),
           grepl("not enforced", identity_fixed_fit$design$validation_scope, fixed = TRUE))
+
+# A correctly classified tail observation still has positive, representable
+# log loss, score magnitude and curvature. Compare relative error to R's
+# independent log-probability and density APIs; an absolute tolerance would
+# accidentally allow all three quantities to be rounded to zero.
+tail_data <- data.frame(y = c(0L, 1L))
+tail_prep <- .gt_d_prepare(tail_data, "y", list(list(
+  family = "binary", link = "logit", levels = c("0", "1"))))
+for (magnitude in c(0, 1, 20, 40, 100, 700)) {
+  for (direction in c(-1, 1)) {
+    tail_eta <- direction * c(-magnitude, magnitude)
+    tail_value <- .gt_d_response_kernel(matrix(tail_eta, ncol = 1L), tail_prep$start, tail_prep)
+    margin <- (2 * tail_data$y - 1) * tail_eta
+    expected_nll <- -sum(stats::plogis(margin, log.p = TRUE))
+    expected_gradient <- ifelse(tail_data$y == 0L,
+      exp(stats::plogis(tail_eta, log.p = TRUE)),
+      -exp(stats::plogis(tail_eta, lower.tail = FALSE, log.p = TRUE)))
+    expected_curvature <- stats::dlogis(tail_eta)
+    stopifnot(isTRUE(tail_value$valid), tail_value$nll > 0,
+      max(abs(tail_value$nll / expected_nll - 1)) < 1e-12,
+      all(abs(tail_value$gradient) > 0),
+      max(abs(tail_value$gradient / expected_gradient - 1)) < 1e-12,
+      all(tail_value$curvature[[1L]]$diagonal > 0),
+      max(abs(tail_value$curvature[[1L]]$diagonal / expected_curvature - 1)) < 1e-12)
+  }
+}
 cat("Discrete function checks passed: derivatives, exact zero-variance likelihoods, joint endpoints, multinomial reference contrasts, external Laplace benchmarks, and validation.\n")

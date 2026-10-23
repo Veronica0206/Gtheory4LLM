@@ -83,7 +83,16 @@ Discrete optimizer controls are:
   A coarse L-BFGS-B attempt that stops at its start after an invalid
   evaluation is rerun at a parameter scale of one over the square root of the
   number of rows, so its first step is the per-row gradient.
+\item \code{optimizer_scaling}: \code{"none"}; optionally \code{"start"}
+  for L-BFGS-B. Each attempt then uses a fixed coordinate scale
+  \code{pmax(1, abs(start)) / sqrt(nrow(data))}, computed from that attempt's
+  starting vector and recorded with its optimizer controls. This changes the
+  search path, not the likelihood, finite-difference steps in original
+  coordinates, or independent acceptance checks. The automatic collapsed-step
+  rescue does not replace an explicitly requested metric. Scaling is not
+  supported with \code{"nlminb"}.
 \item \code{start}: NULL (automatic response and covariance starts).
+\item \code{parameter_bounds}: NULL (the default numerical domains).
 \item \code{covariance_parameterization}: \code{"auto"}.
 }
 The default \code{"auto"} uses direct nonnegative variance coordinates for
@@ -97,9 +106,9 @@ covariance parameters are retained. Explicit \code{"variance"},
 log-Cholesky coordinates can only approach a singular matrix. Direct variance
 coordinates admit exact zeros; an explicit \code{"variance"} request with joint
 unstructured covariance is rejected rather than removing covariances. The
-variance upper bound is \code{exp(10)}, matching the largest diagonal variance
-allowed by the Cholesky and log-Cholesky bounds, a diagonal factor entry of at
-most \code{exp(5)}. The exchangeable covariance for nominal outcomes always uses
+default variance upper bound is \code{exp(10)}, the square of the default
+maximum diagonal factor entry, \code{exp(5)}, in Cholesky and log-Cholesky
+coordinates. Off-diagonal factor entries default to bounds of -10 and 10. The exchangeable covariance for nominal outcomes always uses
 direct variance coordinates; the Cholesky choices are refused with it.
 \code{start_sd}
 still denotes a starting standard deviation and must be positive.
@@ -112,7 +121,7 @@ the optimizer never silently projects an invalid starting vector. Labels that
 produce ambiguous parameter names are rejected. The fitted
 \code{fit$parameters} vector can initialize a refit of the
 same model, with unchanged family links, category coding, covariance structure,
-and covariance parameterization. These are optimizer coordinates: ordinal
+and covariance parameterization. These are stored parameter coordinates, before optimizer scaling: ordinal
 threshold parameters contain the first threshold followed by log positive gaps;
 Cholesky parameters are factor entries; log-Cholesky diagonal parameters are
 log standard deviations; direct-variance
@@ -123,6 +132,29 @@ use the automatic covariance starts with distinct deterministic scale
 perturbations. If clipping would duplicate an earlier start, a bounded
 fixed-effect perturbation makes the additional trial distinct.
 
+Discrete \code{parameter_bounds} is an optional list with named numeric
+\code{lower} and/or \code{upper} vectors. These partially override artificial
+optimizer bounds in the same resolved coordinates used by \code{start}; unknown
+or duplicate names, nonfinite values, and unordered bounds are rejected.
+For example, \code{list(lower = c("rating::threshold_parameter1" = -30))}
+extends the first threshold's lower bound for outcome \code{rating}.
+Natural variance and ordinary Cholesky diagonal lower bounds must remain zero.
+Declared domains must keep ordinal gaps positive and distinguishable and
+covariance factors and summed variances finite. Starts must lie in the effective
+domain. Defaults are unchanged, and bounds never expand automatically.
+A wider numerical domain changes neither the likelihood nor the acceptance
+thresholds: contact with a declared artificial bound still refuses acceptance.
+It does not establish identification, approximation accuracy or interval coverage.
+Preflight validates these declarations after preceding structural, category and
+resource checks pass. Diagnostics retain a
+\code{parameter_domain} list. Its \code{requested}, \code{default} and
+\code{effective} entries describe the declared and resolved lower/upper vectors.
+Its \code{natural_zero_coordinates} entry names the natural boundaries.
+The separate \code{parameter_bounds} field continues to list contacted bounds.
+Retained controls and Laplace diagnostics
+must reproduce the same domain. Declare any domain revision before a new run
+and preserve the earlier refusal as evidence.
+
 The selected discrete optimizer remains fixed for primary fits, alternatives,
 and tight refinements; the engine never silently switches algorithms.
 \code{maxit} limits iterations per optimization. For \code{nlminb}, the function
@@ -131,10 +163,16 @@ relative objective tolerance. Each optimizer uses its own native stopping rules;
 the same independent numerical-acceptance checks apply afterward. Optimizer
 choice is not evidence of approximation accuracy.
 
-Zero is a natural lower boundary in direct variance coordinates, not an artificial
-optimizer floor. Within \code{gt_diagnostics(fit)$diagnostics}, the
-\code{zero_variance_parameters} field lists exact zeros. These estimates must
-still pass independent covariance-scale stationarity and restart checks. All upper
+Zero is a natural lower boundary in direct variance coordinates and on ordinary
+Cholesky factor diagonals. Within \code{gt_diagnostics(fit)$diagnostics},
+\code{zero_variance_parameters} retains the names of exact-zero natural-boundary
+coordinates. For variance or exchangeable coordinates these are variance
+parameters. For Cholesky coordinates they are zero diagonal factor pivots; the
+corresponding marginal variance can still be positive. Use
+\code{\link{gt_components}} for the source covariance entries, and
+\code{boundary_sources} for the recorded zero or nearly singular sources.
+These estimates must still pass independent covariance-scale stationarity and
+restart checks. All upper
 bounds and fixed-effect/threshold bounds remain artificial and still cause
 rejection on contact. This mode does not establish approximation accuracy or
 sampling properties for boundary estimates.
@@ -153,6 +191,18 @@ Discrete numerical-acceptance controls are:
 \item \code{stability_parameter_tol}: 0.02.
 \item \code{bound_tol}: 1e-4.
 }
+Restart stability compares all tight candidates. The objective difference is the
+absolute difference from the selected objective divided by
+\code{max(1, abs(selected objective))}. The parameter distance is the maximum of
+two quantities: the largest absolute difference in stored intercept/threshold
+coordinates, each divided by \code{max(1, abs(left), abs(right))}; and, for each
+source, the largest absolute entry difference between its two covariance
+matrices, divided by the maximum of one and the largest absolute entry in either
+matrix. Covariance matrices are compared after reconstructing them from their
+factors, so equivalent Cholesky factors have distance zero. Every tight candidate
+must complete and satisfy both tolerances; the remaining numerical-acceptance
+requirements still apply.
+
 Setting alternative starts to zero disables numerical acceptance, not just an optional report.
 The discrete optimization-attempt budget is
 \code{2 * (1 + alternative_starts)}: one preliminary and one tight fit for
@@ -199,7 +249,7 @@ practical nor the approximation accurate. For \code{engine = "sparse"},
 Optional discrete information controls are:
 \itemize{
 \item \code{check_hessian}: \code{FALSE}; \code{TRUE} requests observed information after numerical acceptance.
-\item \code{hessian_step}: \code{1e-3}, the finite-difference step multiplier in optimizer coordinates, scaled by \code{max(1, abs(parameter))}.
+\item \code{hessian_step}: \code{1e-3}, the finite-difference step multiplier in stored parameter coordinates, scaled by \code{max(1, abs(parameter))}. These coordinates include ordinal log gaps and are unaffected by optimizer scaling.
 \item \code{hessian_tolerance}: \code{0.05}, the maximum normalized disagreement between Hessians computed at the requested step and half that step.
 }
 The Hessian is for the full Laplace negative log likelihood, including nuisance
@@ -213,6 +263,13 @@ The reason is retained without changing an otherwise accepted point estimate.
 These are asymptotic intervals conditional on the first-order Laplace
 approximation. They do not establish approximation accuracy or finite-sample
 coverage; a dedicated simulation study is needed for those questions.
+
+For \eqn{p} stored parameters, the two central-difference Hessians require
+\eqn{2(1+2p^2)} marginal likelihood evaluations when all evaluations complete.
+These evaluations start their conditional modes cold. Information can therefore
+cost much more than point estimation, particularly for joint categorical models.
+Full-panel fitting or a feasible sparse factorization does not establish that
+information or interval-pilot calculations are practical at that size.
 
 Optimizer completion, numerical acceptance, and approximation adequacy are separate. Tighter numerical tolerances do not establish the adequacy of a first-order Laplace approximation.}
 \seealso{\code{\link{gt_diagnostics}}, \code{\link{gt_fit}}}

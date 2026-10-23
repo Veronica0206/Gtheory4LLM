@@ -129,6 +129,10 @@ across all attempted refits. Per-fit numerical and workspace limits still apply;
 this is not a runtime or acceptance guarantee. Samples with absent categories
 retain all declared levels and are recorded as fitting errors, without recoding
 or discarding the attempt.
+Interval pilots also repeat the full information calculation for eligible
+accepted refits. Its likelihood-evaluation cost grows quadratically with the
+number of stored parameters; see \code{\link{gt_control}}. A feasible large-panel
+point fit does not qualify interval-pilot computation at the same size.
 
 \strong{Categorical point targets.} Observed-score, category-vector and decision
 targets evaluate the finite numerical estimator rather than interval width.
@@ -141,6 +145,11 @@ Each attempted pilot is then simulated, refitted and evaluated at the same
 retain their labels and reference contrasts. Fixed calls retain item count,
 membership and batch size in both pilot and target panels, while resampling
 call effects. Variable or newly assigned groups are unsupported.
+
+Available-only bias and RMSE can be affected by numerical-target selection near
+weak signals. Interpret them together with all-attempt target availability and
+reference integration error; a missing target must not be replaced by a new
+seed. See \code{\link{gt_categorical_target}} for precision limitations.
 
 This route limits all generated rows, including the reference, every pilot,
 and every planned inner integration, to ten million before calculation starts.

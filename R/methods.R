@@ -29,19 +29,22 @@ nobs.gt_fit <- function(object, ...) {
 }
 
 # The model formula of any fit. A fit declared by formula returns that formula;
-# a fit declared with gt_design() returns the equivalent one, built from its
-# outcomes and requested sources, so update() has a model to edit either way.
-.gt_formula_name <- function(x) ifelse(make.names(x) == x, x, paste0("`", x, "`"))
+# a fit declared with gt_design() returns its outcomes and requested sources.
+# Additional declaration metadata is not representable by a source formula.
 
 formula.gt_fit <- function(x, ...) {
   .gt_require_fit(x)
   text <- x$design$formula
   if (is.null(text)) {
-    outcomes <- .gt_formula_name(x$outcomes)
-    lhs <- if (length(outcomes) == 1L) outcomes else paste0("cbind(", paste(outcomes, collapse = ", "), ")")
-    terms <- vapply(strsplit(x$design$terms_requested, ":", fixed = TRUE), function(parts)
-      paste(.gt_formula_name(parts), collapse = ":"), character(1))
-    text <- paste(lhs, "~", paste(terms, collapse = " + "))
+    # Build language objects instead of parsing quoted names: backticks and
+    # backslashes are valid column names and need no manual escaping here.
+    outcomes <- lapply(x$outcomes, as.name)
+    lhs <- if (length(outcomes) == 1L) outcomes[[1L]] else
+      as.call(c(list(as.name("cbind")), outcomes))
+    terms <- lapply(strsplit(x$design$terms_requested, ":", fixed = TRUE), function(parts)
+      Reduce(function(a, b) call(":", a, b), lapply(parts, as.name)))
+    rhs <- Reduce(function(a, b) call("+", a, b), terms)
+    text <- call("~", lhs, rhs)
   }
   stats::as.formula(text, env = globalenv())
 }
@@ -63,6 +66,15 @@ update.gt_fit <- function(object, formula., ..., evaluate = TRUE) {
     if (!is.null(object$design$batch) || !identical(as.integer(object$design$replicates), 1L))
       stop("A formula cannot carry a batch declaration or replicates; declare the new model with gt_design() and refit.",
            call. = FALSE)
+    if (length(object$design$nested))
+      stop("A formula cannot carry explicit nesting metadata; declare the new model with gt_design() and refit.",
+           call. = FALSE)
+    absent_facets <- setdiff(object$design$facets,
+      unlist(strsplit(object$design$terms_requested, ":", fixed = TRUE), use.names = FALSE))
+    if (length(absent_facets))
+      stop("A formula cannot carry declared facets absent from the random sources: ",
+           paste(absent_facets, collapse = ", "),
+           ". Declare the new model with gt_design() and refit.", call. = FALSE)
     call[["formula"]] <- stats::update.formula(formula(object), formula.)
     # Removing an absent element from a call is an error, unlike for a list.
     for (name in intersect(c("outcomes", "design"), names(call))) call[[name]] <- NULL
@@ -205,7 +217,7 @@ gt_component_vcov <- function(fit, type = c("components", "parameters"), ...) {
 #
 # Profiling Gaussian means does not prevent their uncertainty from being
 # estimated, but this package does not implement that extractor, including for
-# the lme4 engine. Optional discrete information is on optimizer coordinates,
+# the lme4 engine. Optional discrete information is in stored parameter coordinates,
 # not the natural threshold/contrast scale returned by coef(). Rather than return a
 # different matrix under a name that promises this one, this says so and points
 # at the function that does have a covariance matrix to give. Defining the
@@ -218,7 +230,7 @@ vcov.gt_fit <- function(object, ...) {
     if (.gt_is_gaussian(object))
     paste("This package computes source-covariance uncertainty where available,",
           "but has no implemented covariance extractor for the profiled outcome means.") else
-    paste("Optional discrete information is on optimizer coordinates;",
+    paste("Optional discrete information is in stored parameter coordinates;",
           "a covariance extractor matching coef() on its location and threshold scales is not implemented.")
   stop("The sampling covariance of coef() is not available for a gt_fit: ", detail,
        " For the covariance of the estimated source covariances, which is what",

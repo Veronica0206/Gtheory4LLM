@@ -108,8 +108,17 @@ Estimated variance boundaries or failed information checks leave intervals
 unavailable with a reason. Components explicitly supplied as fixed have no
 estimated uncertainty; any resulting intervals condition on those supplied
 values. Discrete intervals inherit first-order Laplace approximation error;
-finite-sample coverage has not been established. The lme4 Gaussian routes
+general finite-sample calibration has not been established. Small-panel Wald
+intervals can be overly conservative, and unstructured models can frequently
+withhold intervals at estimated covariance boundaries. Coverage among available
+intervals must be reported separately from numerical acceptance and interval
+availability over all attempted panels. The lme4 Gaussian routes
 supply no parameter covariance matrix for these intervals.
+
+Withholding uncertainty at an estimated covariance boundary does not guarantee
+coverage at a true boundary. A sample can produce a positive interior estimate
+when the true variance is zero; its logit-Wald coefficient interval then
+excludes zero. The fitted-boundary rule does not identify every true boundary.
 
 Coefficients for discrete outcomes are identified latent-response coefficients.
 They describe the average latent response under the declared measurement

@@ -416,11 +416,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rscript", default="Rscript")
     parser.add_argument("--manifest", type=Path, default=ROOT / "artifacts/manifest.json")
-    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--output-dir", type=Path, help="New or empty directory; existing validation evidence is never replaced.")
     parser.add_argument("--verify-only", action="store_true", help="Check integrity and source correspondence without installing; this is not a smoke-test pass.")
     parser.add_argument("--check-release-identity", action="store_true", help="Also check current DESCRIPTION and release summaries against the manifest.")
     parser.add_argument("--release-tag", help="Also verify this locally available release tag, e.g. v0.1.0.")
     args = parser.parse_args(argv)
+    if args.output_dir and (args.output_dir.is_symlink() or
+            (args.output_dir.exists() and (not args.output_dir.is_dir() or any(args.output_dir.iterdir())))):
+        parser.error("--output-dir must be a new or empty directory; existing validation evidence is never replaced.")
     work = args.output_dir.resolve() if args.output_dir else Path(tempfile.mkdtemp(prefix="gtheory-committed-artifact-"))
     work.mkdir(parents=True, exist_ok=True)
     report = {"success": False, "workspace": str(work), "mode": "integrity_only" if args.verify_only else "integrity_install_smoke"}

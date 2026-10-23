@@ -2,8 +2,19 @@
 
 Version history is in [NEWS](../NEWS.md); implementation boundaries are in
 [limitations](LIMITATIONS.md). Historical checkpoints below retain their original
-evidence and time-dependent statements. Current 0.6.0 identity and gates are
-recorded here and in [the detailed qualification record](#detailed-060-qualification-record).
+evidence and time-dependent statements. The delivered 0.6.0 release is identified
+below; its earlier gates remain in [the detailed qualification record](#detailed-060-qualification-record).
+
+## Delivered 0.6.0 GitHub release
+
+[v0.6.0](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v0.6.0)
+was published on 2026-10-21 at 23:04:27 UTC. The release is immutable. Public
+downloads of its archive, reference manual and manifest matched the committed
+bundle, and GitHub's signed release and three asset attestations verified.
+The tag remains `6961e7bc37f0a73f1b544ef127f811cf166dad12`; the archive remains
+the checked build from `352468d11ee7d09d7b0fba3e97cdf167dd6a75e7`.
+No 0.6.0 CRAN submission is recorded. The 0.6.1 corrections and subsequent
+1.0 development changes are separate source revisions, absent from that archive.
 
 ## 1.0.0.9000 local development
 
@@ -24,7 +35,7 @@ unchanged. The incomplete Gaussian route is univariate and projects to an
 explicit intended balanced allocation; it does not infer reliability of the
 observed irregular allocation. Nominal outcomes have latent G/Phi as the mean
 and range of the generalized eigenvalues over their category contrasts, with a
-category-exchangeable covariance; an arbitrary numeric-score ratio is not
+category-exchangeable or unstructured source covariances; an arbitrary numeric-score ratio is not
 supported.
 
 This is continued local development, not a 1.0 publication or final-archive
@@ -43,7 +54,7 @@ names, and the Laplace check refuses a comparison whose workspace estimate
 exceeds the dense budget. No engine, tolerance or estimate changes; the 0.6.0
 qualification records below apply to the 0.6.0 archive and are not rerun here.
 
-## 0.6.0 current qualification checkpoint
+## Historical 0.6.0 qualification checkpoint
 
 Qualification checkpoint: 2026-10-20 21:00 America/New_York
 (2026-10-21 01:00 UTC). Pending items describe that checkpoint; subsequent

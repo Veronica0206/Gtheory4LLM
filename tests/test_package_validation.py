@@ -1,8 +1,11 @@
 """Package check notes are classified narrowly and reports omit local paths."""
 import importlib.util
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("package_validation", ROOT / "scripts/check_package.py")
@@ -11,6 +14,19 @@ SPEC.loader.exec_module(CHECK)
 
 
 class PackageValidationTests(unittest.TestCase):
+    def test_reusing_a_check_directory_preserves_all_prior_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            previous = {"runtime.R": b"original runtime\n", "package_validation.json": b'{"success":true}\n'}
+            for name, content in previous.items():
+                (work / name).write_bytes(content)
+            with patch.object(CHECK.subprocess, "check_output") as runtime, \
+                    self.assertRaises(SystemExit) as error:
+                CHECK.main(["--output-dir", str(work)])
+            self.assertEqual(error.exception.code, 2)
+            runtime.assert_not_called()
+            self.assertEqual({p.name: p.read_bytes() for p in work.iterdir()}, previous)
+
     MAINTENANCE_REASON = "CRAN requested correction of the 0.2.0 noLD ERROR before 2026-10-26"
 
     @staticmethod
@@ -253,6 +269,40 @@ class PackageValidationTests(unittest.TestCase):
         self.assertEqual(report["workspace"], "<validation>")
         self.assertEqual(report["log"].replace("\\", "/"), "<validation>/check.log")
         self.assertEqual(report["source"].replace("\\", "/"), "<source>/DESCRIPTION")
+
+
+@unittest.skipUnless(shutil.which("Rscript"), "Rscript is needed to exercise the manual entry point")
+class ManualEvidenceTests(unittest.TestCase):
+    def run_manual(self, output, work):
+        return subprocess.run([shutil.which("Rscript"), "--vanilla",
+            str(ROOT / "scripts/build_manual.R"), str(output), str(work)],
+            cwd=ROOT, capture_output=True, text=True, timeout=30)
+
+    def test_existing_manual_is_preserved_before_building(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            output, work = base / "manual.pdf", base / "build"
+            original = b"historical PDF evidence\n"
+            output.write_bytes(original)
+            result = self.run_manual(output, work)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Manual output already exists", result.stderr)
+            self.assertEqual(output.read_bytes(), original)
+            self.assertFalse(work.exists(), "the refused build must create no work directory")
+
+    def test_nonempty_manual_work_directory_preserves_hidden_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            output, work = base / "new-manual.pdf", base / "build"
+            work.mkdir()
+            previous = {".previous-run": b"historical run\n", "manual.log": b"prior log\n"}
+            for name, content in previous.items():
+                (work / name).write_bytes(content)
+            result = self.run_manual(output, work)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Manual build directory must be new or empty", result.stderr)
+            self.assertEqual({p.name: p.read_bytes() for p in work.iterdir()}, previous)
+            self.assertFalse(output.exists())
 
 
 if __name__ == "__main__":

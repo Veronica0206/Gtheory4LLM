@@ -52,6 +52,64 @@ expect(untouched(nlminb), "nlminb attempts are left alone")
 expect(lbfgsb$numerically_accepted && nlminb$numerically_accepted &&
          abs(lbfgsb$minus2loglik - nlminb$minus2loglik) < 1e-6, "both optimizers still reach the same accepted fit")
 
+# Local copies exercise error preservation without altering the shared functions.
+ns <- environment(gt_fit)
+internal <- function(name) get(name, envir = ns, inherits = FALSE)
+optimize <- .gt_d_optimize
+broken <- function(...) stop("injected optimizer error")
+expect_error <- function(expr, text) {
+  error <- tryCatch({ force(expr); NULL }, error = identity)
+  expect(inherits(error, "error") && grepl(text, conditionMessage(error), fixed = TRUE), text)
+}
+make_local_fit <- function() {
+  env <- new.env(parent = ns)
+  env$.gt_fit_discrete <- internal(".gt_fit_discrete")
+  environment(env$.gt_fit_discrete) <- env
+  env$gt_fit <- gt_fit
+  environment(env$gt_fit) <- env
+  env
+}
+
+# A failed coarse optimizer must not be relabeled as a collapsed finite first
+# step and replaced by an apparently clean scaled rerun. First create one
+# invalid inner evaluation, then fail the optimizer; later attempts may still
+# complete, but the original failure must keep the whole fit unaccepted.
+for (failure_kind in c("exception", "unusable_result")) {
+  local <- make_local_fit()
+  local$first_optimizer <- TRUE
+  local$force_invalid <- FALSE
+  honest_laplace <- internal(".gt_d_laplace")
+  local$.gt_d_laplace <- function(parameters, prep, groups, setup, control,
+                                 details = FALSE, ...) {
+    if (local$force_invalid) {
+      local$force_invalid <- FALSE
+      return(list(valid = FALSE, inner_converged = FALSE))
+    }
+    honest_laplace(parameters, prep, groups, setup, control, details = details, ...)
+  }
+  local$.gt_d_optimize <- function(at, objective, lower, upper, optimizer_control,
+                                   label, optimizer = "L-BFGS-B", gradient = NULL) {
+    if (local$first_optimizer) {
+      local$first_optimizer <- FALSE
+      local$force_invalid <- TRUE
+      invisible(objective(at))
+      failed_optimizer <- if (failure_kind == "exception") broken else
+        function(...) list(par = at, value = Inf, convergence = 0L)
+      return(optimize(at, objective, lower, upper, optimizer_control, label, failed_optimizer))
+    }
+    optimize(at, objective, lower, upper, optimizer_control, label, optimizer, gradient)
+  }
+  refused <- suppressWarnings(local$gt_fit(d, "y", design, gt_family("binary", "logit"),
+    control = gt_control(discrete = list(fixed_covariance = list(item = matrix(0.3))))))
+  original <- refused$diagnostics$attempts[[1L]]
+  stopifnot(!refused$numerically_accepted, is.finite(refused$minus2loglik),
+    !original$result_available, !is.null(original$error),
+    is.null(original$first_step_rescue),
+    "validation_computation_failed" %in% refused$diagnostics$acceptance_failures,
+    refused$diagnostics$evaluations$invalid >= 1L)
+  expect_error(gt_reliability(refused, scale = "latent"), "numerically converged")
+}
+
 # --- a panel whose first step collapsed ---------------------------------------
 # 100 items x 4 evaluators x 3 prompts x 3 temperatures x 2 seeds of the bundled
 # drug-review efficacy labels, fitted as ordinal with default controls. Before

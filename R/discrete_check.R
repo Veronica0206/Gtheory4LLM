@@ -228,6 +228,19 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
   if (method == "importance" && is.null(seed))
     stop("Importance sampling needs a seed so that the comparison can be reproduced.", call. = FALSE)
   dcontrol <- .gt_d_control(fit$control$discrete)
+  # A saved fit's resolved coordinates are part of its parameter identity.
+  # In particular, auto selected log-Cholesky for joint unstructured fits in
+  # 0.6.0, whereas it now selects ordinary Cholesky entries. Reapplying today's
+  # default would reinterpret the saved numbers rather than check that fit.
+  recorded_parameterization <- fit$diagnostics$covariance_parameterization
+  if (!is.null(recorded_parameterization)) {
+    if (!is.character(recorded_parameterization) || length(recorded_parameterization) != 1L ||
+        is.na(recorded_parameterization) ||
+        !recorded_parameterization %in% c("variance", "cholesky", "log_cholesky", "exchangeable", "fixed"))
+      stop("The fit records an unsupported covariance parameterization.", call. = FALSE)
+    if (recorded_parameterization %in% c("variance", "cholesky", "log_cholesky"))
+      dcontrol$covariance_parameterization <- recorded_parameterization
+  }
   resources <- .gt_laplace_resources(prep$n, prep$q, dimension, method, nodes, draws)
   resources$max_dense_bytes <- dcontrol$max_dense_bytes
   if (!is.finite(resources$total) || resources$total > dcontrol$max_dense_bytes)
@@ -236,6 +249,13 @@ gt_laplace_check <- function(fit, method = c("auto", "quadrature", "importance")
       .gt_d_format_bytes(dcontrol$max_dense_bytes),
       "). Sparse fitting does not remove this diagnostic's dense memory requirement.", call. = FALSE)
   setup <- .gt_d_covariance_setup(groups, prep$q, fit$covariance, dcontrol, prep$dimensions, prep$blocks)
+  if (!is.null(recorded_parameterization) && !identical(setup$parameterization, recorded_parameterization))
+    stop("The fitted covariance parameterization does not match its retained model controls.", call. = FALSE)
+  domain <- .gt_d_parameter_domain(prep, setup, dcontrol)
+  prep <- domain$prep; setup <- domain$setup
+  recorded_domain <- fit$diagnostics$parameter_domain$effective
+  if (!is.null(recorded_domain) && !identical(domain$record$effective, recorded_domain))
+    stop("The retained controls do not reproduce the fit's recorded parameter domain.", call. = FALSE)
   if (length(parameters) != length(prep$start) + length(setup$start))
     stop("The fitted parameters do not match this data and design.", call. = FALSE)
   factors <- .gt_d_covariance_factors(parameters[-seq_len(length(prep$start))], setup)

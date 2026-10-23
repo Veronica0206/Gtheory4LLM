@@ -130,9 +130,24 @@ scientifically sufficient. Those are separate questions with separate evidence.
   conditional modes leave uncertainty unavailable with a recorded reason.
   Components supplied as fixed have no estimated uncertainty; intervals then
   condition on those values. Available latent coefficient intervals inherit
-  first-order Laplace error and have unestablished finite-sample coverage.
+  first-order Laplace error; general finite-sample calibration remains
+  unestablished. Small-panel Wald intervals can be overly conservative, and
+  unstructured models can frequently withhold intervals at estimated covariance
+  boundaries. Report coverage among available intervals separately from the
+  fractions of all attempted panels yielding accepted fits, available intervals
+  and intervals covering the truth. Good conditional coverage alone does not
+  establish useful interval availability or unconditional coverage.
+  Withholding at an estimated boundary does not ensure coverage at a true
+  boundary: a positive interior estimate can arise when the true variance is
+  zero, and its logit-Wald coefficient interval excludes zero.
   The default does not compute information. Bootstrap and jackknife intervals
   are not implemented; `NA` means unavailable, never zero uncertainty.
+  The two central-difference Hessians require `2 * (1 + 2 * p^2)` marginal
+  likelihood evaluations for `p` stored parameters when all evaluations
+  complete. These conditional modes start cold. Full information, and pilot
+  studies that repeatedly request it, can cost much more than point estimation.
+  Sparse factorization feasibility does not qualify full-native joint fitting
+  or uncertainty; size-specific computational and statistical evidence is needed.
 - Binary and ordinal reliability is defined on an **averaged latent response**.
   It is not the reliability of observed proportions, majority votes, category
   agreement, or ordinal score averages, and must be requested explicitly with
@@ -203,6 +218,15 @@ scientifically sufficient. Those are separate questions with separate evidence.
   Targets and their Monte Carlo errors hold fitted parameters fixed. They are
   not chance-corrected agreement, parameter confidence intervals or evidence of
   annotation accuracy.
+- Weak positive object signal can produce frequent unavailable Monte Carlo
+  ratios. Available-only summaries can then be biased upward even when their
+  conditional error bands appear adequate. Retain every attempted seed and
+  refusal; do not replace refused runs or clip raw ratios into [0,1]. Increasing
+  objects per panel does not remove variation from shared instrumentation.
+  Precision planning needs independent panel pairs, an explicit budget within
+  the resource limits, and verification of both availability and numerical
+  precision at that budget. The usual inverse-square-root budget scaling is
+  a pilot approximation, not a guarantee near zero signal.
 
 ## Study planning and data retention
 
@@ -237,6 +261,9 @@ scientifically sufficient. Those are separate questions with separate evidence.
   models. They compare available estimates with one independently integrated
   scenario reference. Bias/RMSE condition on target availability and the
   recorded reference; empirical variability includes inner integration noise.
+  Near weak signals, selection of available targets can affect both bias and
+  RMSE. Interpret these with all-attempt availability, without replacing failed
+  targets with new seeds.
   Reference MC error is reported separately. They supply no parameter
   intervals or coverage, and refuse an interval-width criterion. The target
   protocol is fixed across pilots; fixed-call membership and object count

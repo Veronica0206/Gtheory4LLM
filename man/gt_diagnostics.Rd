@@ -47,6 +47,11 @@ The agreement record is \code{NULL} for engines that make no such comparison.
 }}
 \details{Gaussian diagnostics include independent likelihood reconstruction, covariance-scale stationarity, boundary components, and optional Hessian diagnostics. Discrete diagnostics include covariance- and parameter-scale stationarity, bound locations, and tighter-tolerance alternative-start stability. A discrete fit also retains \code{evaluations}: how many objective evaluations the optimizer made, how many it could not use, how many valid conditional solves ended at the inner iteration budget, and, for the first eight invalid evaluations and for later solve- or factor-validity events until eight such events are held, the parameters they were asked about and the measurements each evaluation itself reported. These counts and records cover the optimizer's logged evaluations; a final check or a stationarity probe that returns a refusal keeps its own record with that check. Matrices are never retained in the fit. Setting the environment variable \code{GTHEORY_DISCRETE_SPECIMEN_DIR} to a directory writes one specimen file per retained failure and per refused start, holding the failed operation's matrix, right-hand side, step and factor where the failure produced them, its parameters and measurements, and the numerical environment, but no observations. The conditional-mode stage reports the three counts, and the count of validity events, among its measurements. Passing these checks does not prove structural identification, a global optimum, or adequate approximation in sparse or strongly dependent data.
 
+For discrete fits, the engine detail record
+\code{diagnostics$parameter_domain} retains the requested, default and effective
+optimizer-coordinate domains described in \code{\link{gt_control}}.
+These declarations do not alter the separate artificial-contact rejection.
+
 \code{selected_attempt} identifies the returned candidate using the engine's
 recorded trial identifier. It is \code{NA} when no trial is recorded as
 having produced the returned fit. \code{acceptance_failures} gives reasons

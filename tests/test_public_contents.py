@@ -17,6 +17,20 @@ spec.loader.exec_module(module)
 
 
 class PublicContentsTests(unittest.TestCase):
+    def test_an_existing_audit_record_is_refused_before_inspection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "audit.json"
+            original = b'{"passed":true,"historical":true}\n'
+            output.write_bytes(original)
+            with patch.object(sys, "argv", ["check_public_contents.py", "--expected-data-kind", "synthetic",
+                                            "--output", str(output)]), \
+                    patch.object(module, "PublicAudit") as audit, \
+                    self.assertRaises(SystemExit) as error:
+                module.main()
+            self.assertEqual(error.exception.code, 2)
+            audit.assert_not_called()
+            self.assertEqual(output.read_bytes(), original)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="gtheory-public-tests-")
         self.addCleanup(self.temporary.cleanup)

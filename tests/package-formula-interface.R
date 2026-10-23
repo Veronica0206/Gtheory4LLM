@@ -151,6 +151,50 @@ for (blocked in list(with_replicates, with_batch))
 expect(identical(update(with_batch, estimator = "ML")$estimator, "ML"),
        "but other arguments can still be updated")
 
+# A declared replication facet without a source cannot be recovered from the
+# source formula. Reject the formula update before changing the panel cells;
+# changing an ordinary argument still preserves the original declaration.
+repeated <- expand.grid(item = 1:12, rater = 1:3, run = 1:2)
+repeated$score <- sin(repeated$item) + repeated$rater / 5 +
+  cos(repeated$item * repeated$rater + repeated$run) / 4
+replication_design <- gt_design("item", c("rater", "run"), random = ~ item + rater)
+replication_fit <- gt_fit(repeated, "score", replication_design, control = quiet)
+expect(grepl("declared facets absent from the random sources: run",
+  outcome(update(replication_fit, . ~ .)), fixed = TRUE),
+  "a formula update cannot silently discard a replication facet")
+replication_ml <- update(replication_fit, estimator = "ML")
+expect(identical(replication_ml$design$facets, c("rater", "run")),
+       "an argument-only update retains the replication facet")
+
+# Explicit parent-child declarations carry interpretation beyond the source
+# terms. An unchanged formula must not silently turn that declaration custom.
+nested_design <- gt_design("item", c("rater", "run"), crossed = "rater",
+  nested = list(run = "rater"))
+nested_fit <- gt_fit(repeated, "score", nested_design, control = quiet)
+expect(grepl("cannot carry explicit nesting metadata",
+  outcome(update(nested_fit, . ~ .)), fixed = TRUE),
+  "a formula update cannot silently discard a nesting declaration")
+nested_ml <- update(nested_fit, estimator = "ML")
+expect(identical(nested_ml$design$nested, nested_fit$design$nested),
+       "an argument-only update retains the explicit nesting declaration")
+
+# Non-syntactic names must round-trip as symbols, including characters that
+# would terminate or escape a hand-built backtick string.
+for (label in c("score`label", "score\\label")) {
+  named_data <- d
+  names(named_data)[names(named_data) == "score"] <- label
+  named_fit <- gt_fit(named_data, label, design, control = quiet)
+  recovered <- formula(named_fit)
+  expect(identical(all.vars(recovered), c(label, "item", "rater")),
+         "formula reconstruction preserves punctuation in outcome names")
+  named_updated <- update(named_fit, . ~ . + item:rater)
+  expect(identical(named_updated$outcomes, label),
+         "formula updating preserves punctuation in outcome names")
+  same(gt_components(named_updated), gt_components(gt_fit(named_data, label,
+    gt_design("item", "rater"), control = quiet)),
+    "the updated model agrees with its explicit declaration")
+}
+
 # --- Nothing in a formula is evaluated ---------------------------------------------
 probe <- new.env(parent = emptyenv())
 probe$called <- FALSE

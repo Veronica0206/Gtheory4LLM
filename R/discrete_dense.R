@@ -56,7 +56,7 @@
         for (bb in seq_along(curv$dims)) {
           ib <- (curv$dims[[bb]] - 1L) * n + seq_len(n)
           B <- W[ib, , drop = FALSE]
-          weight <- (as.integer(a == bb) * p[, a]) - p[, a] * p[, bb]
+          weight <- if (a == bb) .gt_d_nominal_diagonal(curv, a) else -p[, a] * p[, bb]
           H <- H + crossprod(A, B * weight)
         }
       }

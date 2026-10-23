@@ -247,7 +247,8 @@
                    stability_objective_tol = 1e-6,
                    stability_parameter_tol = 0.02, bound_tol = 1e-4,
                    covariance_parameterization = "auto",
-                   start = NULL, optimizer = "L-BFGS-B")
+                   start = NULL, optimizer = "L-BFGS-B", parameter_bounds = NULL,
+                   optimizer_scaling = "none")
   if (!is.list(control) || (length(control) &&
       (is.null(names(control)) || anyNA(names(control)) ||
        any(!nzchar(names(control))) || anyDuplicated(names(control)))))
@@ -288,12 +289,111 @@
   if (!is.character(defaults$optimizer) || length(defaults$optimizer) != 1L ||
       is.na(defaults$optimizer) || !defaults$optimizer %in% c("L-BFGS-B", "nlminb"))
     .gt_d_stop("discrete optimizer must be 'L-BFGS-B' or 'nlminb'.")
+  if (!is.character(defaults$optimizer_scaling) || length(defaults$optimizer_scaling) != 1L ||
+      is.na(defaults$optimizer_scaling) || !defaults$optimizer_scaling %in% c("none", "start"))
+    .gt_d_stop("optimizer_scaling must be 'none' or 'start'.")
+  if (defaults$optimizer_scaling != "none" && defaults$optimizer != "L-BFGS-B")
+    .gt_d_stop("optimizer_scaling = 'start' requires the L-BFGS-B optimizer.")
   z <- defaults$start
   if (!is.null(z) && (!is.numeric(z) || !is.null(dim(z)) || !length(z) ||
       any(!is.finite(z)) || is.null(names(z)) || anyNA(names(z)) ||
       any(!nzchar(names(z))) || anyDuplicated(names(z))))
     .gt_d_stop("discrete start must be a finite, uniquely named numeric parameter vector.")
+  defaults$parameter_bounds <- .gt_d_bounds_control(defaults$parameter_bounds)
   defaults
+}
+
+# Artificial optimizer domains can be declared before fitting. The response
+# likelihood and covariance model do not change, and natural zero boundaries
+# cannot be moved. Resolve names only after the observation/covariance model.
+.gt_d_bounds_control <- function(bounds) {
+  if (is.null(bounds)) return(NULL)
+  if (!is.list(bounds) || !length(bounds) || is.null(names(bounds)) ||
+      anyNA(names(bounds)) || anyDuplicated(names(bounds)) ||
+      any(!names(bounds) %in% c("lower", "upper")))
+    .gt_d_stop("parameter_bounds must be NULL or a named list of lower and/or upper overrides.")
+  for (side in names(bounds)) {
+    x <- bounds[[side]]
+    if (!is.numeric(x) || !is.null(dim(x)) || !length(x) ||
+        any(!is.finite(x)) || is.null(names(x)) || anyNA(names(x)) ||
+        any(!nzchar(names(x))) || anyDuplicated(names(x)))
+      .gt_d_stop("Each parameter_bounds side must be a finite, uniquely named numeric vector.")
+  }
+  bounds
+}
+
+.gt_d_parameter_domain <- function(prep, setup, control) {
+  parameter_names <- names(c(prep$start, setup$start))
+  if (anyDuplicated(parameter_names))
+    .gt_d_stop("Outcome/source labels produce ambiguous discrete parameter names; rename the labels before fitting.")
+  lower <- stats::setNames(c(prep$lower, setup$lower), parameter_names)
+  upper <- stats::setNames(c(prep$upper, setup$upper), parameter_names)
+  defaults <- list(lower = lower, upper = upper)
+  requested <- .gt_d_bounds_control(control$parameter_bounds)
+  for (side in names(requested)) {
+    unknown <- setdiff(names(requested[[side]]), parameter_names)
+    if (length(unknown)) .gt_d_stop("Unknown parameter_bounds coordinate(s): ",
+                                  paste(unknown, collapse = ", "), ".")
+    if (side == "lower") lower[names(requested[[side]])] <- requested[[side]] else
+      upper[names(requested[[side]])] <- requested[[side]]
+  }
+  if (any(lower >= upper) || any(!is.finite(upper - lower)))
+    .gt_d_stop("parameter_bounds require finite ordered domains with lower < upper.")
+  fixed <- seq_along(prep$start)
+  covariance <- length(prep$start) + seq_along(setup$start)
+  natural <- rep(FALSE, length(parameter_names))
+  if (setup$parameterization %in% c("variance", "exchangeable"))
+    natural[covariance] <- TRUE
+  if (identical(setup$parameterization, "cholesky"))
+    natural[covariance] <- rep(setup$diagpos, length(setup$sources))
+  if (any(lower[natural] != 0))
+    .gt_d_stop("parameter_bounds must preserve natural variance and Cholesky lower boundaries at zero.")
+  # Every ordered gap must remain positive and distinguishable throughout its
+  # declared domain, including after earlier, potentially much larger gaps.
+  for (b in prep$blocks) if (b$family == "ordinal" && length(b$parameters) > 1L) {
+    p <- b$parameters
+    lo <- lower[p[[1L]]]; hi <- upper[p[[1L]]]
+    for (j in p[-1L]) {
+      small <- exp(lower[[j]]); large <- exp(upper[[j]])
+      if (!is.finite(small) || small <= 0 || !is.finite(large) ||
+          !is.finite(lo + small) || !is.finite(hi + large) ||
+          lo + small <= lo || hi + small <= hi)
+        .gt_d_stop("parameter_bounds must keep ordinal gaps finite, positive and numerically distinguishable.")
+      lo <- lo + small; hi <- hi + large
+    }
+  }
+  if (length(covariance)) {
+    extremes <- pmax(abs(lower[covariance]), abs(upper[covariance]))
+    if (identical(setup$parameterization, "log_cholesky")) {
+      diagonal <- rep(setup$diagpos, length(setup$sources))
+      extremes[diagonal] <- upper[covariance][diagonal]
+      if (any(exp(lower[covariance][diagonal])^2 <= 0))
+        .gt_d_stop("parameter_bounds must keep log-Cholesky diagonals representably positive.")
+    }
+    factors <- .gt_d_covariance_factors(extremes, setup)
+    matrices <- lapply(factors, tcrossprod)
+    if (any(!is.finite(unlist(factors))) || any(!is.finite(unlist(matrices))) ||
+        !is.finite(sum(vapply(matrices, function(S) max(diag(S)), numeric(1)))))
+      .gt_d_stop("parameter_bounds must keep covariance factors and their summed variances finite.")
+  }
+  automatic_start <- c(prep$start, setup$start)
+  start <- automatic_start
+  if (!is.null(control$start)) {
+    unknown <- setdiff(names(control$start), parameter_names)
+    if (length(unknown)) .gt_d_stop("Unknown discrete start parameter(s): ",
+                                  paste(unknown, collapse = ", "), ".")
+    start[names(control$start)] <- control$start
+  }
+  if (any(!is.finite(start)) || any(start < lower | start > upper))
+    .gt_d_stop("Discrete start parameters must lie within their model bounds; check start_sd and explicit start values.")
+  prep$lower <- unname(lower[fixed]); prep$upper <- unname(upper[fixed])
+  setup$lower <- unname(lower[covariance]); setup$upper <- unname(upper[covariance])
+  list(prep = prep, setup = setup, lower = unname(lower), upper = unname(upper),
+       start = start, automatic_start = automatic_start, natural_lower = natural,
+       record = list(requested = requested, default = defaults,
+         effective = list(lower = lower, upper = upper),
+         natural_zero_coordinates = parameter_names[natural],
+         policy = "Predeclared optimizer-coordinate bounds; no automatic expansion. Artificial-bound contact still prevents numerical acceptance."))
 }
 
 # Planning estimate for the dense arrays one marginal likelihood evaluation
@@ -395,6 +495,15 @@
     }
     df
   }
+}
+
+# An optional fixed metric for each complete optimizer attempt. The objective,
+# its original-coordinate finite differences, and final validation are unchanged.
+# This rescales coordinates rather than replacing a failed attempt afterwards.
+.gt_d_optimizer_metric <- function(at, n, optimizer_control, policy) {
+  if (identical(policy, "start"))
+    optimizer_control$parscale <- pmax(1, abs(at)) / sqrt(n)
+  optimizer_control
 }
 
 .gt_d_optimize <- function(at, objective, lower, upper, optimizer_control,
@@ -623,7 +732,7 @@
                  "covariance_parameterization must be 'auto' or 'variance'.")
     structure <- .gt_d_exchangeable_blocks(blocks, q)
     start <- rep(control$start_sd^2, length(groups) * length(structure))
-    if (any(!is.finite(start)) || any(start > exp(10)))
+    if (any(!is.finite(start)) || (is.null(control$parameter_bounds) && any(start > exp(10))))
       .gt_d_stop("start_sd exceeds the variance parameterization's upper bound.")
     names(start) <- unlist(lapply(names(groups), function(s)
       vapply(structure, function(b) if (identical(b$family, "categorical"))
@@ -678,7 +787,7 @@
     if (q > 1L && covariance != "diagonal")
       .gt_d_stop("The variance parameterization requires a univariate or diagonal covariance model; unstructured joint covariance uses cholesky or log_cholesky coordinates.")
     start <- rep(control$start_sd^2, length(groups) * q)
-    if (any(!is.finite(start)) || any(start > exp(10)))
+    if (any(!is.finite(start)) || (is.null(control$parameter_bounds) && any(start > exp(10))))
       .gt_d_stop("start_sd exceeds the variance parameterization's upper bound.")
     names(start) <- unlist(lapply(names(groups), function(s)
       paste0(s, "::variance[", dimensions, "]")), use.names = FALSE)
@@ -696,7 +805,7 @@
   # exp(5), off-diagonal entries within 10 of zero. Cholesky diagonals start at
   # start_sd and may reach zero; log-Cholesky diagonals are logs.
   cholesky <- identical(parameterization, "cholesky")
-  if (cholesky && (!is.finite(control$start_sd) || control$start_sd > exp(5)))
+  if (cholesky && (!is.finite(control$start_sd) || (is.null(control$parameter_bounds) && control$start_sd > exp(5))))
     .gt_d_stop("start_sd exceeds the Cholesky parameterization's upper bound.")
   start <- rep(ifelse(diagpos, if (cholesky) control$start_sd else log(control$start_sd), 0), length(groups))
   lower <- rep(ifelse(diagpos, if (cholesky) 0 else -10, -10), length(groups))
@@ -1071,20 +1180,10 @@
     .gt_d_stop("Random-source kernels are linearly dependent in the observed data; separate source covariances are not identified.")
   if (is.null(setup$fixed) && source_residual_rank$rank < source_residual_rank$n_kernels)
     .gt_d_stop("Random-source kernels span an observation-specific component. The discrete prototype does not estimate this structure alongside its fixed observation-scale model; revise the source specification.")
-  start <- c(prep$start, setup$start)
-  lower <- c(prep$lower, setup$lower)
-  upper <- c(prep$upper, setup$upper)
-  if (anyDuplicated(names(start)))
-    .gt_d_stop("Outcome/source labels produce ambiguous discrete parameter names; rename the labels before fitting.")
-  automatic_start <- start
-  if (!is.null(control$start)) {
-    unknown <- setdiff(names(control$start), names(start))
-    if (length(unknown)) .gt_d_stop("Unknown discrete start parameter(s): ",
-                                   paste(unknown, collapse = ", "), ".")
-    start[names(control$start)] <- control$start
-  }
-  if (any(start < lower | start > upper))
-    .gt_d_stop("Discrete start parameters must lie within their model bounds; check start_sd and explicit start values.")
+  domain <- .gt_d_parameter_domain(prep, setup, control)
+  prep <- domain$prep; setup <- domain$setup
+  start <- domain$start; automatic_start <- domain$automatic_start
+  lower <- domain$lower; upper <- domain$upper
   if (length(start) > control$max_parameters)
     .gt_d_stop("Discrete prototype exceeds max_parameters (", control$max_parameters, ").")
   # Every objective evaluation is performed in detailed form and reduced to its
@@ -1145,11 +1244,19 @@
   coarse_attempt <- function(at, label) {
     invalid_before <- evaluations$summary()$invalid
     begin_attempt()
-    result <- .gt_d_optimize(at, objective, lower, upper, optimizer_control, label,
+    attempt_control <- .gt_d_optimizer_metric(at, prep$n, optimizer_control,
+                                             control$optimizer_scaling)
+    result <- .gt_d_optimize(at, objective, lower, upper, attempt_control, label,
                              optimizer = control$optimizer, gradient = coarse_gradient)
     invalid <- evaluations$summary()$invalid - invalid_before
     moved <- max(c(0, abs(result$par - at) / pmax(1, abs(at))))
-    if (!explicit_roles || invalid == 0L || moved > 1e-8) return(result)
+    # An exception or unusable optimizer result is a failed attempt, not a
+    # finite first step that collapsed. Keep that original failure so the
+    # downstream acceptance rule cannot mistake a successful rerun for clean
+    # completion of every required attempt.
+    if (!identical(control$optimizer_scaling, "none") ||
+        !explicit_roles || !isTRUE(result$result_available) ||
+        !is.null(result$attempt$error) || invalid == 0L || moved > 1e-8) return(result)
     collapsed <- result$attempt
     scaled_control <- optimizer_control
     scaled_control$parscale <- rep(1 / sqrt(prep$n), length(at))
@@ -1162,7 +1269,8 @@
       collapsed_optimizer_code = collapsed$optimizer_code,
       collapsed_optimizer_message = collapsed$optimizer_message,
       collapsed_counts = collapsed$raw_result$counts,
-      collapsed_elapsed_seconds = collapsed$elapsed_seconds)
+      collapsed_elapsed_seconds = collapsed$elapsed_seconds,
+      collapsed_attempt = collapsed)
     result
   }
   primary_fit <- coarse_attempt(start, "primary")
@@ -1190,10 +1298,12 @@
     .gt_d_numerical_gradient(tight_probe_objective, tight_steps, lower, upper)
   optimize_tight <- function(at, label) {
     begin_attempt()
-    result <- .gt_d_optimize(at, tight_attempt_objective, lower, upper,
+    attempt_control <- .gt_d_optimizer_metric(at, prep$n,
       list(maxit = control$maxit,
         factr = validation_control$reltol / .Machine$double.eps,
-        pgtol = 1e-7, ndeps = tight_steps, trace = control$trace), label,
+        pgtol = 1e-7, ndeps = tight_steps, trace = control$trace), control$optimizer_scaling)
+    result <- .gt_d_optimize(at, tight_attempt_objective, lower, upper,
+      attempt_control, label,
       optimizer = control$optimizer, gradient = tight_gradient)
     attempts[[length(attempts) + 1L]] <<- result$attempt
     result
@@ -1220,7 +1330,10 @@
         alternative[cov_index[!diagonal]] <- .1 * tier * (-1)^attempt
       }
     }
-    alternative <- pmin(upper - 1e-6, pmax(lower + 1e-6, alternative))
+    # A fixed padding can leave a narrow user-declared domain. Keep the
+    # established padding for ordinary domains and scale it only when needed.
+    padding <- pmin(1e-6, (upper - lower) / 4)
+    alternative <- pmin(upper - padding, pmax(lower + padding, alternative))
     names(alternative) <- names(start)
     # Clipping extreme user starts can collapse otherwise distinct trials.
     # Keep a distinct first fixed-effect coordinate without using the RNG.
@@ -1395,11 +1508,7 @@
                                stringsAsFactors = FALSE)
   }
   names(probabilities) <- outcomes
-  natural_lower <- rep(FALSE, length(start))
-  if (setup$parameterization %in% c("variance", "exchangeable"))
-    natural_lower[length(prep$start) + seq_along(setup$start)] <- TRUE
-  if (identical(setup$parameterization, "cholesky"))
-    natural_lower[length(prep$start) + seq_along(setup$start)] <- rep(setup$diagpos, length(groups))
+  natural_lower <- domain$natural_lower
   at_bound <- names(start)[(!natural_lower & fit$par - lower < control$bound_tol) |
                             (upper - fit$par < control$bound_tol)]
   zero_variances <- names(start)[natural_lower & fit$par == 0]
@@ -1457,6 +1566,7 @@
                        inner_warm_started = isTRUE(final$inner_warm_started),
                        random_dimension = random_dimension, parameter_count = length(start),
                        boundary_sources = boundary_sources, parameter_bounds = at_bound,
+                       parameter_domain = domain$record,
                        source_kernel_rank = kernel_rank,
                        source_residual_kernel_rank = source_residual_rank,
                        source_covariances_estimated = is.null(setup$fixed),
@@ -1465,7 +1575,7 @@
                          "Covariance-estimation rank guards bypassed because all source covariance matrices were supplied as fixed.",
                        approximation = "First-order Laplace marginal ML; accuracy is not established for sparse groups or large annotation panels.",
                        conditional_independence = TRUE,
-                       uncertainty = "Parameter standard errors and confidence intervals are not implemented in this prototype.")
+                       uncertainty = "Observed-information uncertainty is conditional on numerical acceptance, interior covariance and stable curvature.")
   # The same validated-design step the Gaussian path uses: it records the
   # scope and removes the constructor's specification-only note, which would
   # otherwise survive into gt_diagnostics() after the data checks had run.

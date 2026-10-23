@@ -26,12 +26,15 @@ into subdirectories without silently removing them from the release gate.
 | `package-retry-behavior.R` | Optimizer retry accounting, acceptance reporting, determinism |
 | `package-standard-methods.R` | `logLik`/`nobs`/`coef`/`vcov`, criteria, retention controls, and unavailable sampling uncertainty for the lme4 engine |
 | `package-discrete-controls.R` | Discrete control surface and trial budgets |
+| `package-discrete-domain.R` | Declared numerical domains, unchanged likelihood outside default bounds, natural-boundary and overflow refusals, actual artificial contact, and serialized diagnostic reconstruction |
+| `package-discrete-scaling.R` | Explicit per-attempt coordinate scaling against known curvature and independently accepted estimated dense/sparse fits |
 | `package-discrete-safety.R` | Discrete failure handling |
 | `package-discrete-backend.R` | Independent dense matrix, curvature and mode contracts |
 | `package-development.R` | Development API dispatch, fixed-zero information, categorical targets/planning, fixed call covariance and observed-row Gaussian projection |
 | `package-discrete-information.R` | Estimated interior binary/ordinal covariance and full nuisance-parameter information, with latent coefficient SEs checked against `clmm`; uses the shipped fixture in `tests/fixtures/` |
 | `package-sparse-estimated.R` | Estimated nominal and call covariance, positive and boundary components, dense likelihood parity and an independent `glmer` call reference |
 | `package-categorical-target-numerics.R` | Nonzero analytic binary-probit target and Monte Carlo precision oracles, shared-facet decision variation and nominal relabeling invariance |
+| `package-nominal-reliability.R` | Estimated exchangeable nominal coefficients against a utility-scale oracle, singular-universe eigenvalues at large finite allocations, and unavailable projections without losing other rows |
 | `package-dense-memory-guard.R` | The dense working-memory guard |
 | `package-binary-probabilities.R` | Binary tail probabilities |
 | `package-stationarity-validity.R` | Rejection of invalid stationarity probes |
@@ -65,6 +68,8 @@ into subdirectories without silently removing them from the release gate.
 | `test_gaussian_lme4_restart.R` | The lme4 restart rule: a restart counts only when it completes without a convergence warning and reproduces the solution |
 | `test_discrete.R` | Probability and derivative identities, glmer/clmm comparisons |
 | `test_discrete_acceptance.R` | Boundary, restart and stationarity acceptance |
+| `test_discrete_domain.R` | Source entrypoint for the installed numerical-domain contract |
+| `test_discrete_scaling.R` | Source entrypoint for the installed optimizer-scaling contract |
 | `test_interface.R` | Dispatch and reliability against dense aggregation |
 | `test_staged_diagnostics.R` | Staged summary reports retained evidence without changing acceptance |
 | `package-staged-diagnostics.R` | Staged summary is truthful on installed public fits |

@@ -36,17 +36,41 @@
   result
 }
 
-.gt_categorical_item_moments <- function(probability, item, n_items, scores = NULL) {
-  counts <- tabulate(item, nbins = n_items)
-  if (any(counts == 0L)) stop("Every simulated object must have observations.", call. = FALSE)
+# Sum nonnegative category contributions instead of subtracting moments near one.
+# Scratch storage is linear in rows; no row-wise covariance matrices are formed.
+.gt_categorical_probability_variance <- function(probability, scores = NULL) {
+  variance <- numeric(nrow(probability))
   if (is.null(scores)) {
-    mean <- rowsum(probability, item, reorder = FALSE) / counts
-    noise <- rowsum(matrix(1 - rowSums(probability^2)), item, reorder = FALSE)[, 1L] / counts^2
+    prefix <- numeric(nrow(probability))
+    for (category in seq_len(ncol(probability))) {
+      variance <- variance + 2 * probability[, category] * prefix
+      prefix <- prefix + probability[, category]
+    }
   } else {
     expected <- drop(probability %*% scores)
-    variance <- drop(probability %*% (scores^2)) - expected^2
-    mean <- rowsum(matrix(expected), item, reorder = FALSE) / counts
-    noise <- rowsum(matrix(variance), item, reorder = FALSE)[, 1L] / counts^2
+    for (category in seq_len(ncol(probability)))
+      variance <- variance + probability[, category] * (scores[[category]] - expected)^2
+  }
+  variance
+}
+
+.gt_categorical_item_moments <- function(probability, item, n_items, scores = NULL) {
+  if (!is.factor(item) && (!is.numeric(item) || is.complex(item) ||
+      any(!is.finite(item)) || any(item != floor(item))))
+    stop("Simulated object indices must be finite integers in 1:n_items.", call. = FALSE)
+  group <- as.integer(item)
+  if (length(group) != nrow(probability) || anyNA(group) || any(group < 1L | group > n_items))
+    stop("Simulated object indices must lie in 1:n_items.", call. = FALSE)
+  counts <- tabulate(group, nbins = n_items)
+  if (any(counts == 0L)) stop("Every simulated object must have observations.", call. = FALSE)
+  if (is.null(scores)) {
+    mean <- rowsum(probability, group, reorder = TRUE) / counts
+    noise <- rowsum(matrix(.gt_categorical_probability_variance(probability)), group, reorder = TRUE)[, 1L] / counts^2
+  } else {
+    expected <- drop(probability %*% scores)
+    variance <- .gt_categorical_probability_variance(probability, scores)
+    mean <- rowsum(matrix(expected), group, reorder = TRUE) / counts
+    noise <- rowsum(matrix(variance), group, reorder = TRUE)[, 1L] / counts^2
   }
   list(mean = mean, second = rowSums(mean^2) + noise)
 }

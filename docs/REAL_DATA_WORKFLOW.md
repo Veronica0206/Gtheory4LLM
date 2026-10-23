@@ -126,7 +126,7 @@ result$rejected_coefficient_message
 result$unsupported_observed_message
 ```
 
-For a refit of exactly the same discrete model, `fit$parameters` supplies named optimizer coordinates for `gt_control(discrete = list(start = fit$parameters, ...))`. Keep links, category coding, source covariance structure, and parameterization unchanged when reusing that vector. `optimizer`, `maxit`, and `alternative_starts` control fitting; they do not correct a misspecified model or establish Laplace adequacy. See [control details](../man/gt_control.Rd).
+For a refit of exactly the same discrete model, `fit$parameters` supplies named stored parameter coordinates for `gt_control(discrete = list(start = fit$parameters, ...))`. Keep links, category coding, source covariance structure, and parameterization unchanged when reusing that vector. `optimizer`, `maxit`, and `alternative_starts` control fitting; they do not correct a misspecified model or establish Laplace adequacy. See [control details](../man/gt_control.Rd).
 
 ## Recorded execution and sources
 

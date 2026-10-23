@@ -57,6 +57,12 @@ The default Gaussian route requires a complete coded Cartesian panel with one ob
 
 Discrete models use binary links, ordinal thresholds, or unordered reference-category softmax contrasts. They do not estimate a free Gaussian observation residual. Probit latent residual variance is identified as 1; logit as pi^2 / 3. Unsupported observation-level sources, aliased free source kernels, missing categories, and resource-limit violations are rejected.
 
+Incomplete Gaussian fitting is univariate only. Discrete designs may omit whole
+cells, including for joint outcomes, provided retained cells have the declared
+equal replication and every retained row contains all requested outcomes.
+Partially observed outcome vectors are rejected. This does not model the
+missingness mechanism or provide analytic reliability for an irregular panel.
+
 Both discrete engines can append a \code{Call} source for an eligible fixed
 batch layout. Its grouping is the batch under the complete combination of
 instrumentation facets. The call source is included in random-dimension,

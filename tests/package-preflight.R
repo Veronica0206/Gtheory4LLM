@@ -72,11 +72,30 @@ joint <- gt_preflight(d, c("binary", "ordinal", "nominal"), reduced,
 stopifnot(joint$fitting_feasible, joint$predictor_dimensions == 4,
   joint$random_dimension == 44, joint$parameters[["observation"]] == 5,
   joint$parameters[["source_covariance"]] == 20,
-  !length(joint$supported_reliability_scales))
+  identical(joint$supported_reliability_scales, "latent"),
+  grepl("generalized eigenvalues", joint$scale_interpretation, fixed = TRUE))
 diagonal <- gt_preflight(d, c("binary", "ordinal", "nominal"), reduced,
   list(binary = gt_family("binary"), ordinal = gt_family("ordinal"),
        nominal = gt_family("categorical")), covariance = "diagonal")
-stopifnot(diagonal$parameters[["source_covariance"]] == 8)
+stopifnot(diagonal$parameters[["source_covariance"]] == 8,
+          !length(diagonal$supported_reliability_scales))
+exchangeable <- gt_preflight(d, "nominal", reduced, gt_family("categorical"),
+  covariance = "exchangeable")
+stopifnot(exchangeable$fitting_feasible,
+          identical(exchangeable$supported_reliability_scales, "latent"))
+# Verify the declaration against a small accepted positive-covariance fit,
+# rather than only checking a printed capability label.
+nominal_control <- gt_control(discrete = list(fixed_covariance = list(
+  item = matrix(c(.2, .1, .1, .2), 2),
+  evaluator = matrix(c(.1, .05, .05, .1), 2))))
+nominal_check <- gt_preflight(d, "nominal", reduced, gt_family("categorical"),
+  control = nominal_control)
+nominal_fit <- gt_fit(d, "nominal", reduced, gt_family("categorical"),
+  control = nominal_control)
+nominal_result <- gt_reliability(nominal_fit, scale = "latent")
+stopifnot(gt_diagnostics(nominal_fit)$numerically_accepted,
+          identical(nominal_check$supported_reliability_scales, nominal_result$scale),
+          all(is.finite(as.data.frame(nominal_result)$Phi)))
 fixed <- gt_preflight(d, "binary", reduced, gt_family("binary"),
   control = gt_control(discrete = list(fixed_covariance =
     list(item = matrix(0, 1, 1), evaluator = matrix(0, 1, 1)))))

@@ -44,11 +44,24 @@ vectorized predictor gradient, and a curvature list. Binary and ordinal blocks
 supply their latent-dimension index and per-observation diagonal curvature.
 Categorical blocks supply nonreference probabilities and dimension indices,
 which encode the full multinomial curvature, including off-diagonal terms.
+They also retain the maximum category and its complementary probability.
+Both backends use that complement for the maximum category's diagonal
+curvature, avoiding subtraction from a probability rounded to one. Older
+curvature records without the complementary fields retain the original path.
 
 The kernel neither receives a random-effect design matrix nor allocates its
 Hessian. Nonfinite likelihood/gradient and invalid diagonal curvature retain
-the existing `list(valid = FALSE)` behavior. Stable probability calculations,
-threshold transforms, likelihood summation order, and derivatives are unchanged.
+the existing `list(valid = FALSE)` behavior. Threshold transforms and the
+first-order Laplace criterion are unchanged. Ordinal log probabilities and
+derivatives use complementary tails and factored differences. For a finite
+probit interval with half-width at most 0.5 and absolute midpoint times
+half-width at most 1, a paired 16-node Gauss-Legendre rule evaluates the
+bounded normal-density integral and its centered moments. Scratch matrices
+use at most 512 rows per block. This is a stable evaluation of the response
+probability, not a higher-order integration over the model's random effects.
+Nominal loss and score calculations retain the small complement of the
+maximum category through `log1p()` and direct complementary sums. These
+repairs do not relax the final acceptance requirements.
 
 ## Dense matrix operations
 
@@ -160,11 +173,28 @@ again from the same start at a uniform parameter scale of `1/sqrt(rows)`
 Later steps take their scale from the curvature the optimizer observes, and the
 objective is not rescaled, so the relative-reduction rule (`factr`) is
 unchanged. The rerun keeps the attempt's label; the collapsed run is recorded
-in its `first_step_rescue` entry. An attempt that moved is never rerun, so no
+in its `first_step_rescue` entry, including the complete `collapsed_attempt`.
+Only an available finite optimizer result without an error is eligible; an
+exception or unusable result remains a failed attempt and cannot be replaced
+by a successful rescaled run. An attempt that moved is never rerun, so no
 path that did not collapse changes. Scaling every attempt was rejected: it
 changes every path, and on a frozen smoke case it left a tight attempt starting
 within 1e-8 of the optimum with no representable decrease, so its line search
-ended abnormally. Tight attempts and `nlminb` attempts are not scaled.
+ended abnormally. Under the default `optimizer_scaling = "none"`, tight
+attempts and `nlminb` attempts are not scaled.
+
+An explicit `optimizer_scaling = "start"` request uses L-BFGS-B with
+`parscale = pmax(1, abs(attempt_start)) / sqrt(rows)` for every coarse and
+tight attempt. This fixed metric balances relative coordinate sizes and
+the row-summed objective; it is recomputed only when a new attempt begins.
+It is retained in each attempt's `optimizer_control$parscale`. Original-coordinate
+finite-difference steps remain unchanged because the gradient is supplied
+explicitly. The objective, tolerances, independent cold stationarity checks,
+bound-contact rules and all-candidate stability requirements are unchanged.
+The collapsed-first-step rescue is disabled under this explicit policy: a
+failed attempt remains failed rather than silently switching metrics. The
+policy is refused with `nlminb`. It is an opt-in search control, not evidence
+that a model is identified or a fit is accepted; defaults remain unchanged.
 
 A warm solve that stops short of the mode without a validity event is not the
 recorded outcome: the cold solve from zero modes runs in its place, with the
@@ -211,6 +241,21 @@ factors, constructs the backend, calls the mode solver, and inserts `factors`
 into the successful detailed result in its original position. Outer optimizers,
 restarts, bounds, stationarity probes, numerical acceptance, and public output
 assembly remain unchanged in `discrete.R`.
+
+## Declared numerical domains
+
+`parameter_bounds` optionally supplies partial named `lower` and `upper`
+overrides after observation and covariance coordinates are resolved. The
+shared resolver is used by fitting, preflight and retained Laplace checks.
+Defaults are unchanged. Natural variance and ordinary Cholesky diagonal lower
+bounds stay zero; finite ordered domains must retain distinguishable positive
+ordinal gaps and finite covariance factors and summed variances. There is no
+automatic expansion, start projection, altered likelihood or looser acceptance.
+The requested, default and effective domains are retained in
+`diagnostics$parameter_domain`. The existing `parameter_bounds` diagnostic
+continues to list artificial contacts, and any such contact prevents acceptance.
+A changed domain is a declared new numerical protocol, not evidence that a
+previously refused model is identified or its approximation adequate.
 
 ## Verification and limits
 

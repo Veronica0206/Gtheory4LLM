@@ -12,6 +12,57 @@ version does not assert that a corresponding release has been published.
 This local development version retains the formula interface and historical
 release evidence while adding the following bounded capabilities:
 
+- Ordinal interval probabilities, scores and curvature retain small tail
+  contributions and use a bounded, blocked normal-density quadrature for narrow
+  probit intervals. Nominal losses, scores and both backends' curvature retain
+  the complement of a dominant category. These arithmetic repairs leave the
+  first-order Laplace criterion and numerical acceptance tolerances unchanged.
+- Simulated score and category-vector noise use nonnegative variance sums
+  instead of subtracting nearly equal moments. Item summaries correctly align
+  shuffled groups of unequal sizes and reject invalid group identifiers. The
+  target availability rules and their weak-signal limitations remain unchanged.
+- Help now distinguishes zero Cholesky pivots from zero marginal variances,
+  defines the existing covariance-based restart comparison, and states when
+  preflight skips resolved-domain checks after an earlier refusal. Numerical
+  decisions are unchanged.
+- Interval guidance separates true from estimated boundaries, conditional
+  coverage from all-attempt availability, and covering-interval yield from
+  both. Categorical integration and pilot guidance retain weak-signal
+  refusals and explain selection bias and shared-instrumentation precision
+  limits; available-only summaries are not a calibration guarantee.
+- Alternative starts now remain inside narrowly declared categorical parameter
+  bounds. Ordinary domains retain their existing start coordinates and all
+  numerical acceptance rules remain unchanged.
+- Categorical shared-call refusals now point to the supported repeated-panel
+  target API. Help clarifies stored information coordinates, quadratic
+  information cost, and the distinction between missing cells and partially
+  observed outcome vectors.
+
+- Discrete L-BFGS-B fits offer explicit `optimizer_scaling = "start"` for
+  per-attempt coordinate preconditioning. Every metric is recorded; original
+  finite-difference steps and independent acceptance checks are unchanged.
+  The default optimizer paths remain unchanged.
+- Discrete fits accept predeclared named `parameter_bounds` overrides for
+  artificial optimizer coordinates. Fitting, preflight and saved-fit Laplace
+  checks share the domain validation; natural zero boundaries, default domains
+  and all acceptance thresholds remain unchanged. Requested and effective
+  domains are recorded, and artificial-bound contact still refuses acceptance.
+- Review corrections preserve a failed optimizer attempt when first-step
+  rescaling is ineligible, and retain the complete original attempt when a
+  finite collapsed attempt is rerun. Saved Laplace diagnostics use the fit's
+  recorded covariance coordinates rather than a newer default. Binary logit
+  losses, scores and curvature retain representable probabilities in the tails.
+- Formula reconstruction preserves unusual column names. Formula updates
+  refuse declarations whose explicit nesting or source-free facets would be
+  lost; ordinary argument updates retain the design. Preflight now identifies
+  supported nominal latent coefficients. Nominal D-studies use a symmetric
+  eigenproblem and preserve unavailable rows at unresolved allocations.
+- Validation summaries, package checks, artifact checks and public-content
+  audits refuse reused evidence destinations; the manual builder protects
+  both the existing PDF and prior build logs. New regressions ship with the
+  installed package, including a nominal fit with estimated exchangeable
+  covariance and independent coefficient checks.
+
 - Public dense/sparse selection for binary, ordinal, nominal and joint
   categorical Laplace fits, including eligible equal fixed-call effects.
   Preflight applies the selected engine's memory budget; existing default

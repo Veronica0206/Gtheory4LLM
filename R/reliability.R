@@ -47,7 +47,7 @@ print.gt_score <- function(x, ...) {
       !identical(fit$projection$target, "intended_complete_balanced")))
     stop("projection = 'balanced' requires a univariate observed-panel Gaussian fit.", call. = FALSE)
   if (is.null(scale)) {
-    if (!gaussian) stop("For binary/ordinal fits, explicitly request scale='latent'; observed-score coefficients need a separate integration method.", call. = FALSE)
+    if (!gaussian) stop("For binary, ordinal or nominal fits, explicitly request scale='latent'; use gt_categorical_target() for separately defined observed-score, category-vector or decision targets.", call. = FALSE)
     scale <- "observed"
   }
   if (!is.character(scale) || length(scale) != 1L || is.na(scale)) stop("Specify one coefficient scale.", call. = FALSE)
@@ -81,7 +81,8 @@ print.gt_score <- function(x, ...) {
   # below know nothing of that and would count it as error common to every
   # item. The separate batch-aware API requires explicit fixed-layout targets.
   if (identical(.gt_batch_status(fit$design)$status, "modelled"))
-    stop("This fit models a call effect. Use gt_batch_reliability() or gt_batch_dstudy() ",
+    stop("This fit models a call effect. Use ",
+         if (gaussian) "gt_batch_reliability() or gt_batch_dstudy() " else "gt_categorical_target() ",
          "for explicit targets conditional on its fixed batching layout. The ordinary ",
          "gt_reliability()/gt_dstudy() coefficients do not account for shared calls.", call. = FALSE)
   expected <- c(fit$design$terms, "Residual")
@@ -289,10 +290,22 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
 # Woodward, 1976). With one contrast this is the binary ratio.
 .gt_nominal_eigenvalues <- function(universe, error) {
   total <- universe + error
-  if (any(!is.finite(total)) || min(eigen(total, symmetric = TRUE, only.values = TRUE)$values) <= 0)
-    return(rep(NA_real_, nrow(universe)))
-  values <- Re(eigen(solve(total, universe), only.values = TRUE)$values)
-  sort(pmin(1, pmax(0, values)), decreasing = TRUE)
+  unavailable <- rep(NA_real_, nrow(universe))
+  if (any(!is.finite(total))) return(unavailable)
+  # Whiten the symmetric generalized eigenproblem with T = R'R. Forming
+  # solve(T, U) creates a nonsymmetric problem and rejects a finite positive
+  # definite T solely because its condition number is large. This occurs for
+  # a singular universe covariance at a large, but allowed, future allocation.
+  # Triangular whitening preserves the zero-signal directions and needs no
+  # artificial ridge; an unresolved Cholesky factor remains unavailable.
+  values <- tryCatch({
+    root <- chol(total)
+    inverse_root <- backsolve(root, diag(nrow(total)))
+    whitened <- crossprod(inverse_root, universe %*% inverse_root)
+    if (any(!is.finite(whitened))) return(unavailable)
+    eigen(whitened, symmetric = TRUE, only.values = TRUE)$values
+  }, error = function(e) unavailable)
+  sort(pmin(1, pmax(0, values)), decreasing = TRUE, na.last = TRUE)
 }
 
 # Delta-method standard error of the mean generalized eigenvalue,

@@ -17,6 +17,19 @@ SPEC.loader.exec_module(CHECK)
 
 
 class VignetteProductTests(unittest.TestCase):
+    def test_reusing_an_artifact_check_directory_cannot_replace_a_pass_with_a_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            report = output / "committed_artifact_validation.json"
+            original = b'{"success":true,"historical":true}\n'
+            report.write_bytes(original)
+            with patch.object(CHECK, "verify_bundle") as verify, \
+                    self.assertRaises(SystemExit) as error:
+                CHECK.main(["--output-dir", str(output), "--verify-only"])
+            self.assertEqual(error.exception.code, 2)
+            verify.assert_not_called()
+            self.assertEqual(report.read_bytes(), original)
+
     def test_only_declared_vignettes_excuse_inst_doc_products(self):
         # inst/doc/ is generated from vignettes/ and has no counterpart in git,
         # so its products must be derived from the source commit rather than

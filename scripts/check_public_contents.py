@@ -523,9 +523,11 @@ def main() -> int:
     parser.add_argument("--history", action="store_true", help="Inspect every Git tree reachable from the current commit; either approved public data kind is allowed in historical snapshots.")
     parser.add_argument("--expected-data-kind", choices=PUBLIC_DATA_KINDS, required=True,
                         help="Required provenance kind for current files and release archives. History permits either approved public kind.")
-    parser.add_argument("--output", type=Path, help="Optional JSON evidence file; otherwise print JSON.")
+    parser.add_argument("--output", type=Path, help="New optional JSON evidence file; otherwise print JSON.")
     parser.add_argument("--rscript", help="Interpreter that inspects serialized resources; default: Rscript on PATH.")
     args = parser.parse_args()
+    if args.output and (args.output.exists() or args.output.is_symlink()):
+        parser.error("--output already exists; choose a new path to preserve audit evidence.")
     audit = PublicAudit(args.root, args.expected_data_kind, args.rscript)
     try:
         if not args.root.is_dir() or args.root.is_symlink():
@@ -539,7 +541,8 @@ def main() -> int:
     report = audit.report()
     rendered = json.dumps(report, indent=2) + "\n"
     if args.output:
-        args.output.write_text(rendered, encoding="utf-8")
+        with args.output.open("x", encoding="utf-8") as stream:
+            stream.write(rendered)
         print("Public-content audit:", "PASS" if report["passed"] else "FAIL", "-", args.output)
     else:
         print(rendered, end="")

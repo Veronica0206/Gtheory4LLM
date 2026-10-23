@@ -139,9 +139,13 @@ allocation. A source resting on a variance boundary has no Wald standard error.
 For discrete fits, `gt_control(discrete = list(check_hessian = TRUE))` requests
 full observed information in nuisance and covariance parameters; intervals are
 available only when the accepted fit also passes the information and boundary
-checks. They remain conditional on the Laplace approximation, with coverage
-unestablished. What those intervals do and do not cover is stated once in
+checks. They remain conditional on the Laplace approximation; general
+finite-sample calibration remains unestablished. Their interpretation and
+availability limits are described in
 [docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md).
+That document also explains the quadratic evaluation cost of discrete
+information; full-panel point estimation does not qualify interval-pilot work
+at the same size.
 
 ### Fixed facets
 
@@ -309,6 +313,11 @@ incomplete allocation remains unavailable. `gt_dstudy(..., projection = "balance
 instead requires every intended facet count and projects to that complete
 future allocation with all facets random; no coefficient intervals are supplied.
 
+Discrete designs may omit whole cells, including for joint outcomes, provided
+retained cells have equal declared replication and each retained row contains
+all requested outcomes. Partially observed outcome vectors are rejected. This
+does not model missingness or give analytic reliability for an irregular panel.
+
 Discrete fits use a first-order Laplace likelihood. Select sparse algebra with
 `gt_control(discrete = list(engine = "sparse"))`; dense remains the default.
 Both routes support binary, ordinal and nominal outcomes, joint categorical
@@ -338,6 +347,11 @@ invariant to relabeling unordered categories. Decision agreement uses plurality
 votes with uniform tie-breaking and reports decision diversity: a constant label
 can have perfect agreement and no discrimination. These targets hold fitted
 parameters fixed and report simulation error, not parameter confidence intervals.
+Weak positive object signal can cause frequent unavailable ratios and upward
+bias in available-only summaries. Retain all attempted seeds and refusals, and
+check precision using independent panel pairs; more objects within one panel
+cannot remove shared-instrumentation variation. The target help page describes
+budget planning and its limits.
 They require no model refits. `gt_plan()` can compare them using
 `coefficient = "observed_score"`, `"category_vector"` or `"decision_agreement"`,
 with an explicit scale and seeded integration controls; see `help("gt_plan")`.
