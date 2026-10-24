@@ -108,7 +108,8 @@ tolerated below zero, which the Hessian assembly replaces by zero, has no
 derivative of the assembled matrix, so the block is refused with
 `clipped_curvature` rather than differentiated as if unclipped; an invalid
 kernel result refuses with `invalid_response`, a nonfinite value with
-`nonfinite_third_derivative`. No fit calls either function yet.
+`nonfinite_third_derivative`. A fit calls them only through the analytic
+gradient route described below.
 
 `tests/package-response-third.R` holds the campaign's 108 fixed intervals with
 their 160-digit references for all ten quantities, finite differences of the
@@ -343,7 +344,8 @@ every parameter derivative `H_j` and, per observation, the block
 `W_i H^{-1} W_i'`, and the dense inverse is never formed. The routines are
 reached through registered `.Call` entry points only (`useDynLib(...,
 .registration = TRUE)` with dynamic symbol lookup disabled) and wrapped by
-`R/selected_inverse.R`; no fit uses them yet.
+`R/selected_inverse.R`; a fit reaches them only through the analytic gradient
+route.
 
 Input is the permuted lower factor `L` with `H[perm, perm] = L L'`, exactly as
 `.gt_d_sparse_factor()` returns it, in compressed sparse column storage with
@@ -419,8 +421,9 @@ is refused (`unsupported_coordinate_at_zero`). The adjoint solve goes through
 the production factor and its backward-error check (`adjoint_solve_invalid`).
 Every refusal names its reason; a zero gradient never stands in for a failure.
 `.gt_d_laplace_problem()` is the fit's prologue for fixed-point tools and
-tests, without the fit's resource guards. No fit calls any of this yet; the
-objective, the conditional mode and the acceptance rules are unchanged.
+tests, without the fit's resource guards. A fit calls the assembler only
+through the optimizer route of the next section; the objective, the
+conditional mode and the acceptance rules are unchanged.
 
 `tests/package-sparse-envelope.R` checks the envelope against the preflight's
 counts, the overlay at nonzero, zero-off-diagonal and zero-pivot points, the
@@ -431,6 +434,68 @@ joint outcomes and every covariance parameterization, with three-point
 forward differences at natural boundaries, negative controls that drop the
 implicit-mode and log-determinant terms, convergence as the inner tolerance
 tightens, and the refusals.
+
+## The analytic gradient in the optimizer
+
+`gradient = "analytic"` in the discrete control replaces the finite-difference
+gradient that L-BFGS-B attempts receive with the assembler above; the default
+`"finite_difference"` leaves every fit exactly as before. The route requires
+`engine = "sparse"` and the L-BFGS-B optimizer (refused in the control
+otherwise), the sparse marginal evaluator and the compiled routines (refused
+at fit start otherwise), and natural Cholesky, log-Cholesky or fixed source
+covariance coordinates. Direct and exchangeable variances are refused at fit
+start: a variance is the square of the factor entry the gradient is computed
+in, its derivative at an exact zero needs second derivatives in that entry,
+and zero is a natural bound the optimizer reaches whenever a variance's
+optimum is zero. The structural envelope is built once per fit and the design
+is checked against the selected inverse's declared caps before any attempt
+runs (`.gt_d_gradient_feasibility()`; the recurrence and query caps are
+checked by the compiled routines at the first gradient).
+
+`.gt_d_gradient_route()` holds the route. R's L-BFGS-B evaluates the objective
+and then the gradient at the same point, so the attempt objective retains its
+detailed record, keyed by the parameters and the phase (coarse or tight)
+whose settings it ran under, replaced by every later attempt evaluation and
+cleared when an attempt begins; the gradient reuses it, and a request without
+its record evaluates the objective first as a counted attempt evaluation. At
+a point whose objective evaluation was unusable the objective has already
+returned the sentinel that makes the line search reject the point, and the
+gradient there is zero; such a point is never selected or accepted. At a
+usable point a refused gradient raises an error naming the refusal, which
+ends the attempt as an optimizer error kept in its record; there is no
+finite-difference fallback inside an attempt. `optim()` applies `parscale`
+to a supplied gradient itself, so gradients are returned in stored
+coordinates under `optimizer_scaling = "start"` and the first-step rescue
+alike.
+
+Acceptance is unchanged: the tight rerun, the alternative starts, the
+stationarity check with its own finite differences and PSD-projected
+covariance scores, restart stability and the artificial-bound rule decide as
+before. `diagnostics$gradient` (also `gt_diagnostics(fit)$gradient`) records
+the route; for the analytic route it adds the number of gradients, refusals
+with the first eight retained, zero gradients at unusable points, gradients
+whose record had to be evaluated first, seconds by stage, the envelope and
+selected-inverse sizes, the platform's long-double width, and, as a
+diagnostic only, the analytic gradient at the selected point beside the
+stationarity check's finite-difference fixed-effect score with their largest
+difference on the check's scale. `gt_preflight()` reports the route's
+coordinates and caps.
+
+In natural Cholesky coordinates the gradient of a factor entry at zero is
+exact, and for a source whose variance is zero the derivative of the
+objective along that entry vanishes, so the gradient alone cannot move the
+optimizer off a zero column. The stationarity check measures the
+covariance-direction score there and refuses a fit that stopped short; this
+is the boundary behaviour the qualification's T3 trial examines.
+
+`tests/package-discrete-gradient-fit.R` fits the discrete characterization
+panels and a joint binary-ordinal panel on both routes and requires the same
+acceptance decisions, acceptance failures and boundary sources, with the
+characterization tolerances at accepted points of the characterization panels
+and the fit's own restart-stability rule for the joint panel; it checks the
+ledger, the reuse of records, the selected-point comparison, declared scaling,
+the control and fit-start refusals, an injected refusal that ends every
+attempt, and the preflight report.
 
 ## Declared numerical domains
 

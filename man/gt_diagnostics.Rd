@@ -37,6 +37,16 @@ The reference value is stored under the name for the fitted panel:
 \item \code{exact_observed_row_deviance}: observed-row route.
 }
 The agreement record is \code{NULL} for engines that make no such comparison.
+\item \code{gradient}: the outer gradient record of a discrete fit. Its
+\code{route} names the gradient the optimizer attempts received, finite
+differences by default or the analytic gradient on request, and the analytic
+route also records
+the number of gradients, refusals with the first eight retained, zero gradients
+returned at unusable objective points, gradients whose objective record had to
+be evaluated first, seconds by stage, the structural envelope and selected-inverse
+sizes, the platform's long-double width, and, as a diagnostic that acceptance
+never reads, the analytic gradient at the selected point beside the stationarity
+check's finite-difference fixed-effect score. \code{NULL} for other engines.
 \item \code{attempt_failures}: recorded trial errors or rejections.
 \item \code{boundary_sources}: zero or nearly singular covariance sources.
 \item \code{parameter_bounds}: artificial parameter-bound contacts.

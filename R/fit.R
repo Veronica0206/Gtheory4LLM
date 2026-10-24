@@ -216,6 +216,9 @@ gt_diagnostics <- function(fit) {
        stationarity = if (!is.null(fit[["diagnostics"]][["outer_stationarity"]]))
          fit[["diagnostics"]][["outer_stationarity"]] else fit[["diagnostics"]][["covariance_stationarity"]],
        likelihood_agreement = fit[["diagnostics"]][["independent_likelihood"]],
+       # The discrete outer gradient's route and, for the analytic route, its
+       # ledger; NULL for engines without a discrete outer gradient.
+       gradient = fit[["diagnostics"]][["gradient"]],
        standard_errors_available = isTRUE(fit$uncertainty$available),
        standard_errors_unavailable_reason = fit$uncertainty$reason,
        component_standard_errors = fit$component_standard_errors,

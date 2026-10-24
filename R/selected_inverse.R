@@ -23,8 +23,9 @@
 # allocation and work before anything is allocated and are reported by
 # .gt_selected_caps(), not estimates of what a machine can afford.
 #
-# No fit uses this yet. These are the building blocks of the gradient route;
-# the objective, the conditional mode and every acceptance rule are untouched.
+# A fit reaches these only through the analytic gradient route that the
+# discrete control requests (gradient = "analytic"); the objective, the
+# conditional mode and every acceptance rule are untouched.
 
 .gt_selected_platform <- function() .Call(gt_selected_platform)
 

@@ -409,6 +409,13 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       paste("Estimated", if (sparse) "sparse" else "dense", "working memory",
         .gt_d_format_bytes(memory$total), "must not exceed",
         if (sparse) "max_sparse_bytes" else "max_dense_bytes", .gt_d_format_bytes(memory_limit)))
+    # The analytic gradient's compiled caps, read from the same structural
+    # factorization the memory estimate made when it made one.
+    gradient_feasibility <- if (identical(dc$gradient, "analytic"))
+      .gt_d_gradient_feasibility(length(groups), n, q, random_dimension,
+        if (is.numeric(memory$factor_entries) && is.finite(memory$factor_entries)) memory$factor_entries else NA_real_)
+    if (!is.null(gradient_feasibility))
+      add_check("analytic_gradient_caps", gradient_feasibility$passed, gradient_feasibility$detail)
     # Reuse fitting's covariance/kernel checks only within its size limits.
     # No random-design matrix, Hessian, likelihood or optimizer is constructed.
     if (all(checks$passed)) {
@@ -423,6 +430,11 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       })
       add_check("covariance_specification", !is.null(setup),
                 if (is.null(setup_error)) "Covariance setup succeeded." else setup_error)
+      if (!is.null(setup) && identical(dc$gradient, "analytic"))
+        add_check("analytic_gradient_coordinates",
+          setup$parameterization %in% c("cholesky", "log_cholesky", "fixed"),
+          paste("gradient = 'analytic' needs natural Cholesky, log-Cholesky or fixed source covariance",
+                "coordinates; this model resolves to", setup$parameterization, "coordinates."))
       if (!is.null(setup) && is.null(setup$fixed)) {
         rank <- .gt_d_kernel_rank(groups)
         augmented <- .gt_d_kernel_rank(c(unname(groups), list(
@@ -451,6 +463,8 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       max_random_dimension = dc$max_random_dimension, max_parameters = dc$max_parameters,
       scope = paste("Planning estimates for one dense likelihood evaluation, checked",
         "before allocation. Not peak resident memory and not a runtime prediction."))
+    if (!is.null(gradient_feasibility))
+      resources$analytic_gradient <- gradient_feasibility[c("passed", "measurements", "caps")]
   }
   sources <- data.frame(source = fitted, observed_groups = fitted_levels,
     predictor_dimensions = q, random_dimension = as.double(fitted_levels) * q,

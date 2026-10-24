@@ -33,7 +33,8 @@
 #
 # Nothing here evaluates the objective differently, forms a mode differently
 # or decides acceptance. Every refusal names its reason; a zero gradient never
-# stands in for a failure. No fit calls this yet.
+# stands in for a failed gradient. A fit calls this only when the discrete
+# control requests gradient = "analytic", through .gt_d_gradient_route() below.
 
 # The fit's prologue, for fixed-point tools and tests: the same preparation,
 # grouping, covariance setup and declared domain as .gt_fit_discrete(), without
@@ -245,4 +246,145 @@
                            scratch_bytes = contraction$scratch_bytes),
        regimes = lapply(third$blocks, function(block) if (is.null(block$regime)) NULL else table(block$regime)),
        timings = timings)
+}
+
+# Whether a design is within the compiled selected inverse's declared caps, as
+# far as they can be read before a fit: the random dimension, the number of
+# observations, the latent dimension, the local width of an observation (one
+# coordinate per source and latent dimension), the contraction work, and the
+# fill of the envelope factor when its count is known. The recurrence and
+# query caps depend on the factor's column structure and are checked by the
+# compiled routines at the first gradient, whose refusal ends that attempt.
+.gt_d_gradient_feasibility <- function(sources, n, q, random_dimension, factor_entries = NA_real_) {
+  caps <- tryCatch(.gt_selected_caps(), error = function(e) NULL)
+  if (is.null(caps))
+    return(list(passed = FALSE, measurements = NULL,
+      detail = "The compiled selected-inverse routines are not available in this session."))
+  width <- as.double(sources) * q
+  measured <- c(dimension = random_dimension, observations = n, latent = q, local_width = width,
+                contraction_work = as.double(n) * width^2, fill = factor_entries)
+  limits <- caps[names(measured)]
+  over <- names(measured)[is.finite(measured) & measured > limits]
+  list(passed = !length(over), caps = caps,
+       measurements = measured,
+       detail = if (length(over)) paste0("Exceeds the selected inverse's declared ",
+         paste(over, collapse = ", "), " cap", if (length(over) > 1L) "s" else "", ".") else
+         if (is.finite(factor_entries)) "Within the selected inverse's declared caps; recurrence and query caps are checked at the first gradient." else
+         "Within the declared dimension, observation, latent, width and contraction caps; fill, recurrence and query caps are checked when the envelope is built and at the first gradient.")
+}
+
+# The analytic route inside a fit's L-BFGS-B attempts.
+#
+# R's L-BFGS-B asks for the objective and then the gradient at the same point,
+# so the gradient reuses the detailed record of that evaluation rather than
+# solving for the mode again. The record is retained by the attempt objective,
+# keyed by the parameters and the phase whose settings it ran under (coarse or
+# tight; the geometry and the absence of a factor override are fixed within a
+# fit), replaced by every later attempt evaluation, and cleared at the start of
+# every attempt. A gradient request at a point without its record evaluates the
+# objective there first, as a counted evaluation of the attempt.
+#
+# At a point whose objective evaluation was not usable the objective has
+# already returned the sentinel value that makes the line search reject the
+# point, and the gradient returned there is zero. That point can never be
+# selected or accepted; the finite-difference route's probes around it are
+# themselves unusable and give the same zero. It is counted.
+#
+# At a usable point a refused gradient ends the attempt: the callback raises
+# an error naming the refusal, the optimizer stops, and the attempt record
+# keeps the message. There is no finite-difference fallback inside an
+# attempt, so an attempt's path is the analytic route's or it is a recorded
+# failure. Refusals are counted and the first `limit` are retained with their
+# parameters, phase and reason.
+.gt_d_gradient_route <- function(prep, groups, setup, context, envelope, parameter_names,
+                                 envelope_seconds = NA_real_, limit = 8L) {
+  state <- new.env(parent = emptyenv())
+  state$key <- NULL
+  state$record <- NULL
+  state$count <- 0L
+  state$refusals <- 0L
+  state$unusable <- 0L
+  state$evaluated_first <- 0L
+  state$retained <- list()
+  state$seconds <- 0
+  state$max_seconds <- 0
+  state$stage_seconds <- numeric()
+  state$structure <- NULL
+  retain <- function(parameters, value, phase) {
+    state$key <- list(parameters = as.numeric(parameters), phase = phase)
+    state$record <- value
+    value
+  }
+  clear <- function() {
+    state$key <- NULL
+    state$record <- NULL
+    invisible(NULL)
+  }
+  account <- function(answer) {
+    marks <- unlist(answer$timings)
+    if (length(marks)) {
+      steps <- diff(c(0, marks))
+      for (stage in names(steps)) state$stage_seconds[[stage]] <-
+        (if (is.na(state$stage_seconds[stage])) 0 else state$stage_seconds[[stage]]) + steps[[stage]]
+      total <- marks[[length(marks)]]
+      state$seconds <- state$seconds + total
+      state$max_seconds <- max(state$max_seconds, total)
+    }
+  }
+  at <- function(parameters, record, settings)
+    .gt_d_gradient(stats::setNames(as.numeric(parameters), parameter_names), prep, groups, setup,
+                   settings, context, envelope, record = record)
+  callback <- function(phase, evaluate, settings) {
+    force(phase); force(evaluate); force(settings)
+    function(p) {
+      p <- stats::setNames(as.numeric(p), parameter_names)
+      key <- state$key
+      if (is.null(key) || !identical(key$phase, phase) || !identical(key$parameters, unname(p))) {
+        state$evaluated_first <- state$evaluated_first + 1L
+        evaluate(p)
+        key <- state$key
+        if (is.null(key) || !identical(key$phase, phase) || !identical(key$parameters, unname(p)))
+          .gt_d_stop("The attempt objective did not retain its evaluation for the analytic gradient.")
+      }
+      record <- state$record
+      if (!.gt_d_evaluation_usable(record)) {
+        state$unusable <- state$unusable + 1L
+        return(numeric(length(p)))
+      }
+      answer <- .gt_d_gradient(p, prep, groups, setup, settings, context, envelope, record = record)
+      state$count <- state$count + 1L
+      account(answer)
+      if (!isTRUE(answer$valid)) {
+        state$refusals <- state$refusals + 1L
+        if (length(state$retained) < limit)
+          state$retained[[length(state$retained) + 1L]] <- list(gradient = state$count,
+            phase = phase, reason = answer$reason, detail = answer$detail, parameters = p)
+        stop(sprintf("Analytic gradient refused at gradient %d (%s)%s", state$count, answer$reason,
+                     if (length(answer$detail) && nzchar(answer$detail[[1L]]))
+                       paste0(": ", answer$detail[[1L]]) else ""), call. = FALSE)
+      }
+      if (is.null(state$structure))
+        state$structure <- list(envelope = answer$envelope, selected_inverse = answer$selected_inverse,
+                                contractions = answer$contractions)
+      unname(answer$gradient)
+    }
+  }
+  summary <- function() list(route = "analytic",
+    gradient_evaluations = state$count, refusals = state$refusals,
+    unusable_objective_points = state$unusable,
+    evaluated_before_gradient = state$evaluated_first,
+    retained_refusals = state$retained, retention_limit = limit,
+    seconds_total = state$seconds, seconds_max = state$max_seconds,
+    seconds_by_stage = state$stage_seconds, envelope_seconds = envelope_seconds,
+    envelope = list(random_dimension = envelope$dimension, hessian_entries = envelope$hessian_entries,
+                    factor_entries = envelope$factor_entries),
+    selected_inverse = state$structure$selected_inverse[c("factor_entries", "inner_products", "value_bytes")],
+    contractions = state$structure$contractions,
+    platform = .gt_selected_platform(),
+    scope = paste("Gradients requested by the L-BFGS-B attempts. The stationarity check, the",
+                  "restart comparison and observed information keep their own finite differences;",
+                  "a refused gradient ended its attempt, and a gradient at an unusable objective",
+                  "point was zero beside the sentinel value the objective returned."))
+  list(retain = retain, clear = clear, callback = callback, at = at, summary = summary,
+       context = context, envelope = envelope)
 }

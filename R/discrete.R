@@ -248,7 +248,7 @@
                    stability_parameter_tol = 0.02, bound_tol = 1e-4,
                    covariance_parameterization = "auto",
                    start = NULL, optimizer = "L-BFGS-B", parameter_bounds = NULL,
-                   optimizer_scaling = "none")
+                   optimizer_scaling = "none", gradient = "finite_difference")
   if (!is.list(control) || (length(control) &&
       (is.null(names(control)) || anyNA(names(control)) ||
        any(!nzchar(names(control))) || anyDuplicated(names(control)))))
@@ -294,6 +294,15 @@
     .gt_d_stop("optimizer_scaling must be 'none' or 'start'.")
   if (defaults$optimizer_scaling != "none" && defaults$optimizer != "L-BFGS-B")
     .gt_d_stop("optimizer_scaling = 'start' requires the L-BFGS-B optimizer.")
+  # The analytic gradient replaces only the outer optimizer's finite-difference
+  # gradient inside L-BFGS-B attempts on the sparse engine; see
+  # R/discrete_gradient.R. Acceptance is decided as before.
+  if (!is.character(defaults$gradient) || length(defaults$gradient) != 1L ||
+      is.na(defaults$gradient) || !defaults$gradient %in% c("finite_difference", "analytic"))
+    .gt_d_stop("gradient must be 'finite_difference' or 'analytic'.")
+  if (identical(defaults$gradient, "analytic") &&
+      (!identical(defaults$engine, "sparse") || !identical(defaults$optimizer, "L-BFGS-B")))
+    .gt_d_stop("gradient = 'analytic' requires engine = 'sparse' and the L-BFGS-B optimizer.")
   z <- defaults$start
   if (!is.null(z) && (!is.numeric(z) || !is.null(dim(z)) || !length(z) ||
       any(!is.finite(z)) || is.null(names(z)) || anyNA(names(z)) ||
@@ -1114,6 +1123,11 @@
     .engine <- paste0(control$engine, "_marginal_laplace")
   }
   sparse <- identical(.engine, "sparse_marginal_laplace")
+  analytic <- identical(control$gradient, "analytic")
+  if (analytic && !sparse)
+    .gt_d_stop("gradient = 'analytic' requires the sparse marginal evaluator.")
+  if (analytic && is.null(tryCatch(.gt_selected_platform(), error = function(e) NULL)))
+    .gt_d_stop("gradient = 'analytic' needs the compiled selected-inverse routines, which are not available in this session.")
   if (!is.data.frame(data) || nrow(data) > control$max_observations)
     .gt_d_stop("Discrete prototype exceeds max_observations (", control$max_observations,
                "); use a smaller validation design or explicitly revise the resource guard.")
@@ -1169,6 +1183,20 @@
       .gt_d_format_bytes(sparse_memory$total), ". Raising a resource guard ",
       "does not establish numerical acceptance or Laplace approximation accuracy.")
   setup <- .gt_d_covariance_setup(groups, prep$q, covariance, control, prep$dimensions, prep$blocks)
+  # A direct or exchangeable variance is a square of the factor entry the
+  # gradient is computed in; at an exact zero, a natural bound the optimizer
+  # reaches whenever a variance's optimum is zero, its derivative needs second
+  # derivatives in the factor and the fixed-point gradient refuses it. Natural
+  # Cholesky entries are differentiable at zero and log-Cholesky diagonals never
+  # reach it, so the route is offered on those coordinates and on fixed
+  # covariances, and refused here rather than at the first boundary gradient.
+  if (analytic && setup$parameterization %in% c("variance", "exchangeable"))
+    .gt_d_stop("gradient = 'analytic' supports natural Cholesky and log-Cholesky source covariance ",
+      "coordinates and fixed covariances. This model resolves to ", setup$parameterization,
+      " coordinates, whose derivative at an exact zero variance is not available analytically; ",
+      if (identical(setup$parameterization, "variance"))
+        "set covariance_parameterization = 'cholesky' or use the finite-difference gradient." else
+        "use the finite-difference gradient for an exchangeable covariance.")
   kernel_rank <- .gt_d_kernel_rank(groups)
   # A combination of individually repeated-group kernels can still equal I.
   # For probit responses, that permits rescaling the total latent covariance
@@ -1191,6 +1219,22 @@
   lower <- domain$lower; upper <- domain$upper
   if (length(start) > control$max_parameters)
     .gt_d_stop("Discrete prototype exceeds max_parameters (", control$max_parameters, ").")
+  # The analytic route's structural envelope is built once per fit, and the
+  # design is checked against the compiled caps before any attempt runs.
+  gradient_route <- NULL
+  if (analytic) {
+    envelope_started <- proc.time()[["elapsed"]]
+    gradient_context <- .gt_d_sparse_context(groups, prep$n, prep$q)
+    gradient_envelope <- .gt_d_sparse_envelope(gradient_context)
+    envelope_seconds <- unname(proc.time()[["elapsed"]] - envelope_started)
+    feasibility <- .gt_d_gradient_feasibility(length(groups), prep$n, prep$q, random_dimension,
+                                              gradient_envelope$factor_entries)
+    if (!isTRUE(feasibility$passed))
+      .gt_d_stop("gradient = 'analytic' cannot run on this design: ", feasibility$detail)
+    gradient_route <- .gt_d_gradient_route(prep, groups, setup, gradient_context, gradient_envelope,
+                                           names(start), envelope_seconds = envelope_seconds)
+  }
+  retain <- if (analytic) gradient_route$retain else function(parameters, value, phase) value
   # Every objective evaluation is performed in detailed form and reduced to its
   # scalar by the log, so an evaluation that fails is described by its own
   # record; see .gt_d_evaluation_log(). The arithmetic is unchanged.
@@ -1211,12 +1255,17 @@
   warm_control <- role_control(control, "warm")
   probe_control <- role_control(control, "warm_probe")
   reset_evaluator <- attr(.laplace, "reset")
-  begin_attempt <- function() if (is.function(reset_evaluator)) reset_evaluator()
+  begin_attempt <- function() {
+    if (is.function(reset_evaluator)) reset_evaluator()
+    if (analytic) gradient_route$clear()
+  }
   objective <- function(par)
-    evaluations$observe(par, .laplace(par, prep, groups, setup, warm_control, details = TRUE), "coarse")
+    evaluations$observe(par, retain(par, .laplace(par, prep, groups, setup, warm_control, details = TRUE),
+                                    "coarse"), "coarse")
   probe_objective <- function(par)
     evaluations$observe(par, .laplace(par, prep, groups, setup, probe_control, details = TRUE), "coarse")
-  coarse_gradient <- if (explicit_roles)
+  coarse_gradient <- if (analytic) gradient_route$callback("coarse", objective, warm_control) else
+    if (explicit_roles)
     .gt_d_numerical_gradient(probe_objective, rep(1e-3, length(start)), lower, upper)
   # The start is evaluated once and its record read directly. There is no
   # replay: see .gt_d_start_failure_detail. The refusal stands on the evidence
@@ -1293,13 +1342,16 @@
   tight_warm_control <- role_control(validation_control, "warm")
   tight_probe_control <- role_control(validation_control, "warm_probe")
   tight_attempt_objective <- function(par)
-    evaluations$observe(par, .laplace(par, prep, groups, setup, tight_warm_control, details = TRUE),
+    evaluations$observe(par, retain(par, .laplace(par, prep, groups, setup, tight_warm_control,
+                                                  details = TRUE), "tight"),
                         "tight", settings = validation_control)
   tight_probe_objective <- function(par)
     evaluations$observe(par, .laplace(par, prep, groups, setup, tight_probe_control, details = TRUE),
                         "tight", settings = validation_control)
   tight_steps <- rep(1e-4, length(start))
-  tight_gradient <- if (explicit_roles)
+  tight_gradient <- if (analytic) gradient_route$callback("tight", tight_attempt_objective,
+                                                          tight_warm_control) else
+    if (explicit_roles)
     .gt_d_numerical_gradient(tight_probe_objective, tight_steps, lower, upper)
   optimize_tight <- function(at, label) {
     begin_attempt()
@@ -1357,6 +1409,7 @@
     alternatives[[attempt]] <- optimize_tight(alternative_primary$par,
       paste0("alternative_", attempt, "_tight"))
   }
+  if (analytic) gradient_route$clear()
   # Return the best tight fit; retain all objective values and distances so a
   # better restart cannot erase evidence of unstable solutions.
   candidates <- c(list(fit), alternatives)
@@ -1440,6 +1493,26 @@
     error = captured_stationarity$error, tolerance = control$stationarity_tol,
     failure = stationarity_failure)
   stationarity$warnings <- captured_stationarity$warnings
+  # The gradient record. For the analytic route it also carries, as a
+  # diagnostic only, the analytic gradient at the selected point beside the
+  # stationarity check's finite-difference fixed-effect score, on the check's
+  # scale. Acceptance never reads it.
+  gradient_record <- list(route = control$gradient)
+  if (analytic) {
+    gradient_record <- gradient_route$summary()
+    gradient_record$selected_point <- tryCatch({
+      answer <- gradient_route$at(fit$par, final, validation_control)
+      if (!isTRUE(answer$valid)) list(available = FALSE, reason = answer$reason) else {
+        analytic_fixed <- answer$gradient[names(prep$start)]
+        score <- stationarity$fixed_effect_score
+        list(available = TRUE, gradient = answer$gradient,
+             finite_difference_fixed_effect_score = score,
+             max_scaled_fixed_difference = if (is.numeric(score) && identical(names(score), names(analytic_fixed)))
+               max(c(0, abs(analytic_fixed - score))) / sqrt(prep$n) else NA_real_,
+             scaling = "Fixed-effect differences divided by sqrt(number of rows), as the stationarity check scales its scores.")
+      }
+    }, error = function(e) list(available = FALSE, reason = conditionMessage(e)))
+  }
   primary_tight <- .gt_d_capture(tight_objective(primary_fit$par))
   computation_failed <- any(vapply(attempts, function(x) !is.null(x$error), logical(1))) ||
     any(vapply(final_checks, function(x) !isTRUE(x$valid), logical(1))) ||
@@ -1560,6 +1633,7 @@
                        # Original-operation evidence for the evaluations the
                        # optimizer could not use; see .gt_d_evaluation_log().
                        evaluations = evaluations$summary(),
+                       gradient = gradient_record,
                        covariance_parameterization = setup$parameterization,
                        covariance_parameterization_requested = control$covariance_parameterization,
                        zero_variance_parameters = zero_variances,

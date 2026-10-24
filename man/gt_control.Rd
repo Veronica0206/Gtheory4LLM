@@ -138,6 +138,22 @@ Discrete optimizer controls are:
   the independent stationarity and restart checks are unchanged. The automatic
   collapsed-step rescue does not replace an explicitly requested metric. Scaling
   is not supported with \code{"nlminb"}.
+\item \code{gradient}: \code{"finite_difference"}; optionally \code{"analytic"}
+  with \code{engine = "sparse"} and L-BFGS-B. Every optimizer attempt then
+  receives the analytic gradient of the first-order Laplace objective, from a
+  selected inverse of the conditional Hessian's factor in compiled code, in
+  place of finite differences; the gradient reuses the objective evaluation
+  at the same point. A gradient that cannot be computed at a usable point ends
+  its attempt as an optimizer error; there is no fallback inside an attempt.
+  Acceptance is unchanged: the tight rerun, alternative starts, the
+  stationarity check with its own finite differences, restart stability and
+  the bound rule decide as before. The route supports natural Cholesky and
+  log-Cholesky source covariance coordinates and fixed covariances; direct and
+  exchangeable variance coordinates are refused at fit start, because their
+  derivative at an exact zero variance is not available, so a univariate or
+  diagonal model needs \code{covariance_parameterization = "cholesky"}. The
+  design must also lie within the compiled routines' declared caps, which
+  \code{gt_preflight()} reports.
 \item \code{start}: NULL (automatic response and covariance starts).
 \item \code{parameter_bounds}: NULL (the default numerical domains).
 \item \code{covariance_parameterization}: \code{"auto"}.

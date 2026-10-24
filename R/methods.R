@@ -242,6 +242,10 @@ print.gt_diagnostics <- function(x, ...) {
   cat("Estimator:", x$estimator, "| approximation:",
       if (length(x$approximation)) x$approximation else "not recorded", "\n")
   .gt_print_fit_status(x)
+  gradient <- x$gradient
+  if (is.list(gradient) && identical(gradient$route, "analytic"))
+    cat("Outer gradient: analytic |", gradient$gradient_evaluations, "gradients |",
+        gradient$refusals, "refused\n")
   init <- x$initialization
   if (!is.null(init) && !identical(init$status, "not_applicable"))
     cat("Square-root initialization:", init$status,
