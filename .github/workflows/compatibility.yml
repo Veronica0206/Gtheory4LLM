@@ -91,13 +91,19 @@ jobs:
       - name: Install reference-manual tools and fonts on Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        # A stalled CTAN mirror held this step for the job's whole 90-minute
-        # budget on 2026-10-24: tlmgr's parallel prefetch stopped at its first
-        # container and never returned, so the validation step never ran. Each
-        # tlmgr command now runs under its own ten-minute limit, its process
-        # tree is stopped when it stalls, and it is retried twice; exhaustion
-        # fails the step, and the step's own limit caps the total.
+        # On 2026-10-24 this step held two jobs for their whole 90-minute budget
+        # and then failed three ten-minute attempts in a row: tlmgr's parallel
+        # container prefetch, which this runner enables (TEXLIVE_PREFETCH) and
+        # runs through aria2c on Windows, stopped at its first container every
+        # time, while the Unix runners installed the same packages without it.
+        # Prefetching is therefore turned off here, so tlmgr downloads
+        # sequentially as it does on Unix. The retries remain as the second
+        # line: each tlmgr command runs under its own ten-minute limit, its
+        # process tree is stopped when it stalls, and it is retried twice;
+        # exhaustion fails the step, and the step's own limit caps the total.
         timeout-minutes: 40
+        env:
+          TEXLIVE_PREFETCH: '0'
         run: |
           $ErrorActionPreference = 'Stop'
           function Invoke-Tlmgr {
