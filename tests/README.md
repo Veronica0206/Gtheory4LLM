@@ -23,6 +23,7 @@ into subdirectories without silently removing them from the release gate.
 | `package-planning.R` | Installed planning interface: accepted fit, public extraction, user cost model; equal final candidates keep their flags and cost |
 | `package-installed-examples.R` | Every shipped example script still runs against the installed package |
 | `package-gaussian-initialization.R` | Square-root recovery through the public interface: an accepted primary attempt is identical under both policies, the control is validated, the record is reported, and a one-iteration budget exercises a real recovery without relaxing acceptance |
+| `package-selected-inverse.R` | The compiled selected inverse: every entry, query, trace and local contraction against dense inverses on eight reference matrices under shuffled orders with and without permutation, the engine's own Hessian geometry, thirty refusals, cap boundaries and collector safety |
 | `package-sparse-resources.R` | The two-stage sparse memory estimate: complete-fill bound within budget, refusal on the exact structural count without a pattern, structural factorization containing an actual Hessian pattern, and preflight/fit refusals naming the method |
 | `package-uncertainty.R` | Standard errors, the covariance Jacobian, coefficient derivatives |
 | `package-mixed-model.R` | Brennan fixed facets, `full_cell = FALSE` |
@@ -92,6 +93,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_preflight_development.R` | Structural and resource preflight checks for the development routes, without any optimization |
 | `test_gaussian_initialization.R` | The square-root kernel against the exact and dense deviances with analytic gradients, the recovery controller with the optimizer injected, and the public policies |
 | `test_discrete_sparse_resources.R` | Source entrypoint for the installed sparse-resource contract |
+| `test_selected_inverse.R` | Source entrypoint for the installed selected-inverse contract; compiles `src/` through the loader |
 | `test_gaussian_lme4_restart.R` | The lme4 restart rule: a restart counts only when it completes without a convergence warning and reproduces the solution |
 | `test_discrete.R` | Probability and derivative identities, glmer/clmm comparisons |
 | `test_discrete_acceptance.R` | Boundary, restart and stationarity acceptance |

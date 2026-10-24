@@ -55,6 +55,7 @@ Collate:
     'discrete_response.R'
     'discrete_dense.R'
     'discrete_sparse.R'
+    'selected_inverse.R'
     'discrete_mode.R'
     'discrete_sparse_mode.R'
     'discrete.R'
