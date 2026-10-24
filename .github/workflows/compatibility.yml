@@ -89,11 +89,21 @@ jobs:
           command -v pdflatex
           command -v makeindex
       - name: Install reference-manual tools and fonts on Windows
+        id: windows-tex
         if: runner.os == 'Windows'
         shell: pwsh
+        # TeX serves one stage of this job, the reference manual's overfull
+        # gate, which the Linux locked gate and the macOS job in this workflow
+        # enforce as well; the package build, check and installed tests need
+        # no TeX. So this step may fail without failing the job: the job then
+        # validates the package without TeX, and the validation report records
+        # the manual stage as skipped. A failed setup removes whatever TinyTeX
+        # it left behind, so the gate never renders the manual with half a
+        # TeX; it cannot be skipped silently because the report says why.
+        #
         # On 2026-10-24 this step held two jobs for their whole 90-minute
         # budget. A normal run of it takes under a minute, so each tlmgr command
-        # now runs under its own five-minute limit, its process tree is stopped
+        # runs under its own five-minute limit, its process tree is stopped
         # when it stalls, and it is retried once; exhaustion fails the step and
         # the step's own limit caps the total. tlmgr's parallel container
         # prefetch, which this runner enables through TEXLIVE_PREFETCH and runs
@@ -102,11 +112,21 @@ jobs:
         # self-update pulled in (texlive.infra 80721): with it, package
         # installs hang on Windows at their first container while macOS and
         # Linux install the same packages; this step cannot repair that.
+        continue-on-error: true
         timeout-minutes: 15
         env:
           TEXLIVE_PREFETCH: '0'
         run: |
           $ErrorActionPreference = 'Stop'
+          function Remove-TinyTeX {
+            $tlmgr = Get-Command tlmgr.bat -ErrorAction SilentlyContinue
+            if ($null -eq $tlmgr) { return }
+            $root = Split-Path (Split-Path (Split-Path $tlmgr.Source -Parent) -Parent) -Parent
+            if ((Split-Path $root -Leaf) -eq 'TinyTeX') {
+              Write-Host "Removing the incomplete TeX installation at $root so the gate skips the manual stage"
+              Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
+          }
           function Invoke-Tlmgr {
             param([string] $Command)
             $tlmgr = (Get-Command tlmgr.bat -ErrorAction Stop).Source
@@ -124,10 +144,16 @@ jobs:
             }
             throw "tlmgr $Command did not complete in two attempts"
           }
-          Invoke-Tlmgr 'update --self'
-          Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier collection-latexrecommended'
-          Get-Command pdflatex -ErrorAction Stop
-          Get-Command makeindex -ErrorAction Stop
+          try {
+            Invoke-Tlmgr 'update --self'
+            Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier collection-latexrecommended'
+            Get-Command pdflatex -ErrorAction Stop
+            Get-Command makeindex -ErrorAction Stop
+          } catch {
+            Write-Host "::warning title=Windows TeX setup failed::$_ The job continues without TeX; the manual gate runs on Linux and macOS."
+            Remove-TinyTeX
+            throw
+          }
       - name: Install minimum-R compilation dependencies
         if: matrix.minimum
         run: sudo apt-get update && sudo apt-get install -y cmake libnlopt-dev libcurl4-openssl-dev libssl-dev libxml2-dev libuv1-dev libblas3 liblapack3 libblas-dev liblapack-dev
