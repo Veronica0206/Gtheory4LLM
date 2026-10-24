@@ -466,6 +466,46 @@ for (link in c("probit", "logit")) {
 stopifnot(all(c("closed", "crossing", "narrow", "tilted") %in% names(regimes$probit)),
           all(c("closed", "paired") %in% names(regimes$logit)))
 
+# Wide crossing logit intervals exposed overflow in the unscaled paired cubic:
+# (-0.5, 475) silently returned zero; (-0.5, 499.5) returned NaN. The independent
+# 180-digit references use exact hexadecimal binary64 endpoints and the identity
+# f(lo) tanh(lo/2) + f(hi) tanh(hi/2), with f(x) the logistic density. Include
+# mirrors, a nearly symmetric wide interval, and adjacent binary64 points at
+# half-width 300, plus crossing/noncrossing transitions at an endpoint of zero.
+wide_logit <- data.frame(
+  lo = c(
+    -0x1.0000000000000p-1, -0x1.0000000000000p-1, -0x1.0000000000000p-1, -0x1.0000000000000p-1,
+    -0x1.0000000000000p-1, -0x1.f3ffffffffe00p+7, -0x1.2bfd70a3d70a4p+8, -0x1.5798ee2308c3ap-27, 0x0.0p+0,
+    0x1.5798ee2308c3ap-27, -0x1.db00000000000p+8, -0x1.f380000000000p+8, -0x1.2bbffffffffffp+9,
+    -0x1.2bc0000000000p+9, -0x1.2bc0000000001p+9, -0x1.f400000000200p+7, -0x1.2bfd70a3d70a4p+8,
+    -0x1.0000000000000p+1, -0x1.0000000000000p+1, -0x1.0000000000000p+1
+  ),
+  hi = c(
+    0x1.db00000000000p+8, 0x1.f380000000000p+8, 0x1.2bbffffffffffp+9, 0x1.2bc0000000000p+9,
+    0x1.2bc0000000001p+9, 0x1.f400000000200p+7, 0x1.2bfd70a3d70a4p+8, 0x1.0000000000000p+1,
+    0x1.0000000000000p+1, 0x1.0000000000000p+1, 0x1.0000000000000p-1, 0x1.0000000000000p-1,
+    0x1.0000000000000p-1, 0x1.0000000000000p-1, 0x1.0000000000000p-1, 0x1.f3ffffffffe00p+7,
+    0x1.2bfd70a3d70a4p+8, 0x1.5798ee2308c3ap-27, -0x0.0p+0, -0x1.5798ee2308c3ap-27
+  ),
+  third = c(
+    -0.057556794852320743, -0.057556794852320743, -0.057556794852320743, -0.057556794852320743,
+    -0.057556794852320743, -7.7683659489885799e-120, 0, 0.079962499806153067, 0.07996250105615306,
+    0.079962502306153066, 0.057556794852320743, 0.057556794852320743, 0.057556794852320743,
+    0.057556794852320743, 0.057556794852320743, 7.7683659489885799e-120, 0, -0.079962499806153067,
+    -0.07996250105615306, -0.079962502306153066
+  ),
+  regime = c(
+    "paired", "paired", "paired", "closed", "closed", "paired", "paired", "paired", "closed", "closed",
+    "paired", "paired", "paired", "closed", "closed", "paired", "paired", "paired", "closed", "closed"
+  )
+)
+wide <- interval(wide_logit$lo, wide_logit$hi, "logit", third = TRUE)
+near(wide$third, wide_logit$third)
+stopifnot(identical(wide$regime, wide_logit$regime))
+wide_base <- interval(wide_logit$lo, wide_logit$hi, "logit", derivatives = TRUE)
+stopifnot(identical(wide$log_probability, wide_base$log_probability),
+          identical(wide$gradient, wide_base$gradient), identical(wide$curvature, wide_base$curvature))
+
 # Finite differences of the kernel's own curvature and of the stored threshold
 # coordinates, on a joint panel with both binary links and an ordinal block.
 set.seed(20261024)
@@ -511,6 +551,26 @@ stopifnot(identical(ordinal$loss_theta[, 1], -response$gradient[(2 * n + 1):(3 *
           all(ordinal$loss_theta[blocks[[3]]$y < 2, 2] == 0), all(ordinal$loss_theta[blocks[[3]]$y < 3, 3] == 0),
           all(ordinal$curvature_theta[blocks[[3]]$y < 3, 3] == 0))
 
+# The wide-logit correction must also reach the first-threshold curvature
+# partial used by the complete Laplace gradient. All three categories occur;
+# each reference starts from the response kernel at the perturbed parameters.
+wide_prep <- list(n = 12L, q = 1L, blocks = list(list(family = "ordinal", link = "logit",
+  dims = 1L, parameters = 1:2, y = rep(1:3, 4L), outcome = "wide")))
+wide_eta <- matrix(rep(c(-.2, 0, .3, .5), each = 3L))
+for (gap in c(475.5, 500)) {
+  wide_theta <- c(-.5, log(gap))
+  wide_response <- kernel(wide_eta, wide_theta, wide_prep)
+  wide_third <- third_of(wide_eta, wide_theta, wide_prep, wide_response)
+  stopifnot(isTRUE(wide_response$valid), isTRUE(wide_third$valid))
+  for (h in c(1e-3, 1e-4, 1e-5)) {
+    up <- down <- wide_theta
+    up[1L] <- up[1L] + h; down[1L] <- down[1L] - h
+    finite_difference <- (kernel(wide_eta, up, wide_prep)$curvature[[1L]]$diagonal -
+      kernel(wide_eta, down, wide_prep)$curvature[[1L]]$diagonal) / (2 * h)
+    stopifnot(scaled(finite_difference, wide_third$blocks[[1L]]$curvature_theta[, 1L]) < 1e-6)
+  }
+}
+
 # Binary blocks are the one-cut interval at zero. The closed logistic and
 # Mills-ratio forms agree where they are accurate; in the far tails the
 # Mills-ratio form loses the bracket 1 - (r + m)(2r + m), and 60-digit
@@ -555,4 +615,5 @@ stopifnot(identical(refused$valid, FALSE), identical(refused$reason, "clipped_cu
 invalid <- third_of(eta, theta, prep, list(valid = FALSE))
 stopifnot(identical(invalid$valid, FALSE), identical(invalid$reason, "invalid_response"))
 cat("PASS: third derivatives and threshold partials against 160-digit references in every regime,",
-    "finite differences, the binary one-cut identity with far-tail references, and refusals.\n")
+    "wide-logit overflow and branch-transition references, finite differences,",
+    "the binary one-cut identity with far-tail references, and refusals.\n")

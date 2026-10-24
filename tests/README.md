@@ -43,7 +43,7 @@ into subdirectories without silently removing them from the release gate.
 | `package-dense-memory-guard.R` | The dense working-memory guard |
 | `package-binary-probabilities.R` | Binary tail probabilities |
 | `package-ordinal-tail.R` | Ordinal interval log probabilities, scores and curvature at fixed points against independently rounded 160-digit references: far tails, narrow intervals, crossing intervals, block joins and the joint response kernel |
-| `package-response-third.R` | Third derivatives of the response loss and ordinal threshold partials against 160-digit references in every regime, finite differences of the kernel's own score and curvature, the binary one-cut identity with far-tail references, and refusals |
+| `package-response-third.R` | Third derivatives and ordinal threshold partials against high-precision references in every regime, wide-logit overflow and branch transitions, finite differences of score and curvature, the binary one-cut identity with far-tail references, and refusals |
 | `package-nominal-tails.R` | Nominal losses, scores and dominant-category complements against high-precision references where one category probability rounds to one |
 | `package-categorical-target-moments.R` | Nonnegative category-vector and score variance sums, group alignment of shuffled unequal item groups and invalid-index refusals |
 | `package-stationarity-validity.R` | Rejection of invalid stationarity probes |

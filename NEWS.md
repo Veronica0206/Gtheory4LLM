@@ -52,7 +52,11 @@ threshold was loosened; where an optimizer path changed, the change is named.
   intervals, and a tilted-exponential quadrature on same-side probit tails
   where the closed cumulant cancels. Binary blocks take the one-cut interval
   route; a clipped curvature refuses. Checked against 160-digit references on
-  108 fixed intervals. The existing outputs are unchanged; no fit calls these.
+  108 fixed intervals. The paired logistic third derivative is rescaled before
+  multiplication to avoid overflow on wide intervals admitted by explicit
+  threshold-gap overrides; installed regressions cover the finite-zero and
+  nonfinite failures, mirrored intervals and branch transitions. The existing
+  probability, score and curvature outputs are unchanged; no fit calls these.
 - Sparse conditional solves use a bounded derivative check when rounded
   function values block a full Newton step. Outside the small plateau window,
   the candidate must already meet the final score tolerance; final score,

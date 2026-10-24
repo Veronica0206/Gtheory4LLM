@@ -83,7 +83,12 @@
       t3 <- d_H * tanh(hi / 2) + d_L * tanh(lo / 2)
       crossing <- paired & lo < 0 & hi > 0
       cc <- cosh(center[crossing]); ca <- cosh(half[crossing])
-      t3[crossing] <- sinh(center[crossing]) * (2 + cc * ca - ca^2) / (cc + ca)^3
+      # Divide by ca^3 before multiplying: finite cosh arguments do not keep
+      # the unscaled cubic finite on wide, explicitly admitted intervals.
+      # Crossing intervals have abs(center) < half, so both ratios are bounded.
+      ratio <- cc / ca
+      sinh_ratio <- sinh(center[crossing]) / ca
+      t3[crossing] <- sinh_ratio * (2 / ca^2 + ratio - 1) / (1 + ratio)^3
       regime[crossing] <- "paired"
       inv <- 1 / expm1(hi - lo)
       l_lo <- F_L + inv; l_hi <- -S_H - inv

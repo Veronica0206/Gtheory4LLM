@@ -84,6 +84,14 @@ characterization baseline hold that. In the engine's convention the endpoints
 are already shifted by the linear predictor, so a partial in `lo` or `hi` is
 the partial in that cut; an infinite endpoint has none.
 
+The paired logistic third derivative divides by `cosh(half)^3` algebraically
+before multiplication. With `r = cosh(center)/cosh(half)` and
+`s = sinh(center)/cosh(half)`, it evaluates
+`s * (2/cosh(half)^2 + r - 1)/(1 + r)^3`. On the existing crossing branch,
+`abs(center) < half < 300`, so the ratios and remaining products are bounded.
+This avoids overflow on wide intervals admitted through an explicit threshold
+gap override; the default maximum gap and the branch selection are unchanged.
+
 `.gt_d_response_third(eta, parameters, prep, response)` applies this to a
 kernel result. Binary blocks are the one-cut interval at zero, `(-eta, Inf)`
 for an event and `(-Inf, -eta)` otherwise; the closed Mills-ratio form
@@ -106,7 +114,12 @@ kernel result refuses with `invalid_response`, a nonfinite value with
 their 160-digit references for all ten quantities, finite differences of the
 kernel's own score and curvature in the predictor and in each stored threshold
 coordinate, the binary one-cut identity with 60-digit far-tail references, the
-refusals, and the identity of the existing outputs.
+refusals, and the identity of the existing outputs. Twenty additional exact-double
+logistic intervals have independent 180-digit references: the finite-zero and
+nonfinite overflow witnesses, their mirrors, wide symmetric and near-symmetric
+intervals, and adjacent points across the paired-branch transitions. Wide-gap
+first-threshold curvature partials also agree with the response kernel's finite
+differences at three step sizes under the existing tolerances.
 
 ## Dense matrix operations
 
