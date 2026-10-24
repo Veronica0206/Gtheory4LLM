@@ -31,6 +31,14 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                         # stopped, exhaustion fails the step, and the step itself
                         # has a limit, so a stalled mirror cannot hold the job.
                         self.assertIn("timeout-minutes:", step)
+                        # The step may fail without failing the job, because the
+                        # manual gate also runs on Linux and macOS; a failed setup
+                        # removes its TinyTeX so the gate skips the manual stage
+                        # rather than rendering with half a TeX.
+                        self.assertIn("continue-on-error: true", step)
+                        self.assertIn("Remove-TinyTeX", step)
+                        self.assertIn("Remove-Item -LiteralPath $root -Recurse -Force", step)
+                        self.assertRegex(step, r"catch \{[^}]*Remove-TinyTeX[^}]*throw")
                         # Windows runners enable tlmgr's aria2c container prefetch,
                         # which stalled on every attempt; the step turns it off.
                         self.assertIn("TEXLIVE_PREFETCH: '0'", step)
