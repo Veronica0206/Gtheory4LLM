@@ -91,12 +91,34 @@ jobs:
       - name: Install reference-manual tools and fonts on Windows
         if: runner.os == 'Windows'
         shell: pwsh
+        # A stalled CTAN mirror held this step for the job's whole 90-minute
+        # budget on 2026-10-24: tlmgr's parallel prefetch stopped at its first
+        # container and never returned, so the validation step never ran. Each
+        # tlmgr command now runs under its own ten-minute limit, its process
+        # tree is stopped when it stalls, and it is retried twice; exhaustion
+        # fails the step, and the step's own limit caps the total.
+        timeout-minutes: 40
         run: |
           $ErrorActionPreference = 'Stop'
-          & tlmgr.bat update --self
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & tlmgr.bat install makeindex inconsolata helvetic times courier collection-latexrecommended
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          function Invoke-Tlmgr {
+            param([string] $Command)
+            $tlmgr = (Get-Command tlmgr.bat -ErrorAction Stop).Source
+            for ($attempt = 1; $attempt -le 3; $attempt++) {
+              $process = Start-Process -FilePath $tlmgr -ArgumentList $Command -NoNewWindow -PassThru
+              if ($process.WaitForExit(600000)) {
+                $process.WaitForExit()
+                if ($process.ExitCode -eq 0) { return }
+                Write-Host "tlmgr $Command exited with code $($process.ExitCode) on attempt $attempt"
+              } else {
+                Write-Host "tlmgr $Command exceeded ten minutes on attempt $attempt; stopping its process tree"
+                try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { Write-Host "taskkill: $_" }
+              }
+              if ($attempt -lt 3) { Start-Sleep -Seconds 30 }
+            }
+            throw "tlmgr $Command did not complete in three attempts"
+          }
+          Invoke-Tlmgr 'update --self'
+          Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier collection-latexrecommended'
           Get-Command pdflatex -ErrorAction Stop
           Get-Command makeindex -ErrorAction Stop
       - name: Install minimum-R compilation dependencies

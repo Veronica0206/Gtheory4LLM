@@ -26,8 +26,17 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                     if "shell: pwsh" in step:
                         self.assertIn("if: runner.os == 'Windows'", step)
                         self.assertIn("$ErrorActionPreference = 'Stop'", step)
-                        self.assertEqual(len(re.findall(
-                            r"& tlmgr\.bat [^\n]+\n\s+if \(\$LASTEXITCODE -ne 0\) \{ exit \$LASTEXITCODE \}", step)), 2)
+                        # Each tlmgr command runs under its own time limit with a
+                        # bounded number of attempts, a stalled process tree is
+                        # stopped, exhaustion fails the step, and the step itself
+                        # has a limit, so a stalled mirror cannot hold the job.
+                        self.assertIn("timeout-minutes:", step)
+                        self.assertIn("function Invoke-Tlmgr", step)
+                        self.assertIn("WaitForExit(600000)", step)
+                        self.assertIn("taskkill.exe /PID", step)
+                        self.assertIn("-le 3", step)
+                        self.assertRegex(step, r"throw \"tlmgr ")
+                        self.assertEqual(len(re.findall(r"^\s+Invoke-Tlmgr '[^']+'\s*$", step, re.M)), 2)
                         for tool in ("pdflatex", "makeindex"):
                             self.assertIn(f"Get-Command {tool} -ErrorAction Stop", step)
                     else:
