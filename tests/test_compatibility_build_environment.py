@@ -35,9 +35,9 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                         # which stalled on every attempt; the step turns it off.
                         self.assertIn("TEXLIVE_PREFETCH: '0'", step)
                         self.assertIn("function Invoke-Tlmgr", step)
-                        self.assertIn("WaitForExit(600000)", step)
+                        self.assertIn("WaitForExit(300000)", step)
                         self.assertIn("taskkill.exe /PID", step)
-                        self.assertIn("-le 3", step)
+                        self.assertIn("-le 2", step)
                         self.assertRegex(step, r"throw \"tlmgr ")
                         self.assertEqual(len(re.findall(r"^\s+Invoke-Tlmgr '[^']+'\s*$", step, re.M)), 2)
                         for tool in ("pdflatex", "makeindex"):
