@@ -127,6 +127,7 @@ jobs:
               Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
             }
           }
+          $script:TexExitCode = 1
           function Invoke-Tlmgr {
             param([string] $Command)
             $tlmgr = (Get-Command tlmgr.bat -ErrorAction Stop).Source
@@ -135,13 +136,16 @@ jobs:
               if ($process.WaitForExit(300000)) {
                 $process.WaitForExit()
                 if ($process.ExitCode -eq 0) { return }
-                Write-Host "tlmgr $Command exited with code $($process.ExitCode) on attempt $attempt"
-              } else {
-                Write-Host "tlmgr $Command exceeded five minutes on attempt $attempt; stopping its process tree"
-                try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { Write-Host "taskkill: $_" }
+                # A nonzero exit is tlmgr's own verdict: it is not retried, and
+                # its code becomes the step's, as before.
+                $script:TexExitCode = $process.ExitCode
+                throw "tlmgr $Command exited with code $($process.ExitCode)"
               }
+              Write-Host "tlmgr $Command exceeded five minutes on attempt $attempt; stopping its process tree"
+              try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { Write-Host "taskkill: $_" }
               if ($attempt -lt 2) { Start-Sleep -Seconds 30 }
             }
+            $script:TexExitCode = 1
             throw "tlmgr $Command did not complete in two attempts"
           }
           try {
@@ -152,7 +156,7 @@ jobs:
           } catch {
             Write-Host "::warning title=Windows TeX setup failed::$_ The job continues without TeX; the manual gate runs on Linux and macOS."
             Remove-TinyTeX
-            throw
+            exit $script:TexExitCode
           }
       - name: Install minimum-R compilation dependencies
         if: matrix.minimum

@@ -38,7 +38,10 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                         self.assertIn("continue-on-error: true", step)
                         self.assertIn("Remove-TinyTeX", step)
                         self.assertIn("Remove-Item -LiteralPath $root -Recurse -Force", step)
-                        self.assertRegex(step, r"catch \{[^}]*Remove-TinyTeX[^}]*throw")
+                        # A nonzero tlmgr exit is not retried and its code is the
+                        # step's; only a stall is retried.
+                        self.assertRegex(step, r"catch \{[^}]*Remove-TinyTeX[^}]*exit \$script:TexExitCode")
+                        self.assertIn("$script:TexExitCode = $process.ExitCode", step)
                         # Windows runners enable tlmgr's aria2c container prefetch,
                         # which stalled on every attempt; the step turns it off.
                         self.assertIn("TEXLIVE_PREFETCH: '0'", step)
