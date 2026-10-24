@@ -44,6 +44,15 @@ threshold was loosened; where an optimizer path changed, the change is named.
   pattern is refused, never read as zero, and every declared cap refuses by
   name. It is the first building block of the analytic Laplace gradient; no
   fit uses it yet, and the package now contains compiled code.
+- Third derivatives of the discrete response loss and the partials of loss,
+  score and curvature in stored ordinal threshold coordinates
+  (`.gt_d_ordinal_interval(third = TRUE)`, `.gt_d_response_third()`), computed
+  in the same regime as the curvature: closed forms, the paired form on
+  crossing intervals, the 16-node rule's third moment on narrow probit
+  intervals, and a tilted-exponential quadrature on same-side probit tails
+  where the closed cumulant cancels. Binary blocks take the one-cut interval
+  route; a clipped curvature refuses. Checked against 160-digit references on
+  108 fixed intervals. The existing outputs are unchanged; no fit calls these.
 - Sparse conditional solves use a bounded derivative check when rounded
   function values block a full Newton step. Outside the small plateau window,
   the candidate must already meet the final score tolerance; final score,

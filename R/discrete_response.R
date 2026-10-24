@@ -18,10 +18,38 @@
   a + log(-expm1(pmin(0, b - a)))
 }
 
+# The fixed 16-node Gauss-Legendre rule on [0, 1] used by the narrow-interval and
+# tilted-tail probit quadratures.
+.gt_d_gauss_nodes <- c(
+  0.0052995325041750333, 0.02771248846338371, 0.067184398806084122, 0.12229779582249849,
+  0.19106187779867811, 0.27099161117138632, 0.35919822461037054, 0.45249374508118129,
+  0.54750625491881877, 0.64080177538962946, 0.72900838882861374, 0.80893812220132189,
+  0.87770220417750155, 0.93281560119391582, 0.9722875115366163, 0.99470046749582497
+)
+.gt_d_gauss_weights <- c(
+  0.013576229705877048, 0.031126761969323947, 0.047579255841246393, 0.062314485627766938,
+  0.074797994408288368, 0.084578259697501268, 0.091301707522461792, 0.094725305227534251,
+  0.094725305227534251, 0.091301707522461792, 0.084578259697501268, 0.074797994408288368,
+  0.062314485627766938, 0.047579255841246393, 0.031126761969323947, 0.013576229705877048
+)
+
+# Third derivatives and endpoint partials, when asked for, come from the same
+# regime that produced the curvature, so a derivative never describes a
+# different arithmetic than the Hessian it accompanies. In the engine's
+# convention the endpoints are already shifted by the linear predictor
+# (lo = cut - eta), so a partial in lo or hi is the partial in that cut.
+# Probit same-side intervals use a tilted-exponential quadrature: the closed
+# form of the third cumulant cancels three leading orders in a far tail.
 # Stable ordinal log probabilities and location derivatives.
-.gt_d_ordinal_interval <- function(lo, hi, link, derivatives = FALSE) {
+.gt_d_ordinal_interval <- function(lo, hi, link, derivatives = FALSE, third = FALSE) {
+  if (third) derivatives <- TRUE
   n <- length(lo)
   lp <- g <- h <- numeric(n)
+  if (third) {
+    t3 <- l_lo <- l_hi <- s_lo <- s_hi <- c_lo <- c_hi <- numeric(n)
+    regime <- rep("closed", n)
+    dl <- dh <- var <- numeric(n)
+  }
   finite <- is.finite(lo) & is.finite(hi)
   lower_end <- !is.finite(lo) & is.finite(hi)
   upper_end <- is.finite(lo) & !is.finite(hi)
@@ -43,6 +71,24 @@
       paired <- finite & is.finite(center) & is.finite(half) & abs(center) < 300 & half < 300
       g[paired] <- -sinh(center[paired])/(cosh(center[paired]) + cosh(half[paired]))
       h <- plogis(lo) * plogis(lo, lower.tail = FALSE) + plogis(hi) * plogis(hi, lower.tail = FALSE)
+    }
+    if (third) {
+      # Each endpoint's logistic density d = F(1 - F) and its derivative
+      # -d tanh(x / 2); the third location derivative is the sum of the two
+      # endpoint terms, in the paired sinh/cosh form on crossing intervals so
+      # that a near-symmetric interval's small value is not a difference.
+      F_L <- plogis(lo); S_L <- plogis(lo, lower.tail = FALSE)
+      F_H <- plogis(hi); S_H <- plogis(hi, lower.tail = FALSE)
+      d_L <- F_L * S_L; d_H <- F_H * S_H
+      t3 <- d_H * tanh(hi / 2) + d_L * tanh(lo / 2)
+      crossing <- paired & lo < 0 & hi > 0
+      cc <- cosh(center[crossing]); ca <- cosh(half[crossing])
+      t3[crossing] <- sinh(center[crossing]) * (2 + cc * ca - ca^2) / (cc + ca)^3
+      regime[crossing] <- "paired"
+      inv <- 1 / expm1(hi - lo)
+      l_lo <- F_L + inv; l_hi <- -S_H - inv
+      s_lo <- -d_L; s_hi <- -d_H
+      c_lo <- -d_L * tanh(lo / 2); c_hi <- -d_H * tanh(hi / 2)
     }
   } else {
     half <- (hi - lo)/2
@@ -79,18 +125,8 @@
     }
     # The fixed16-node rule is used only on the qualified bounded exponent region.
     if (any(narrow)) {
-      nodes <- c(
-        0.0052995325041750333, 0.02771248846338371, 0.067184398806084122, 0.12229779582249849,
-        0.19106187779867811, 0.27099161117138632, 0.35919822461037054, 0.45249374508118129,
-        0.54750625491881877, 0.64080177538962946, 0.72900838882861374, 0.80893812220132189,
-        0.87770220417750155, 0.93281560119391582, 0.9722875115366163, 0.99470046749582497
-      )
-      weights <- c(
-        0.013576229705877048, 0.031126761969323947, 0.047579255841246393, 0.062314485627766938,
-        0.074797994408288368, 0.084578259697501268, 0.091301707522461792, 0.094725305227534251,
-        0.094725305227534251, 0.091301707522461792, 0.084578259697501268, 0.074797994408288368,
-        0.062314485627766938, 0.047579255841246393, 0.031126761969323947, 0.013576229705877048
-      )
+      nodes <- .gt_d_gauss_nodes
+      weights <- .gt_d_gauss_weights
       # Quadrature scratch stays bounded under arbitrary user row overrides.
       for (block_start in seq.int(1L, n, by = 512L)) {
         positions <- seq.int(block_start, min(n, block_start + 511L))
@@ -112,9 +148,95 @@
           variance <- a^2 * as.vector(even %*% (weights * nodes^2))/I0 - offset^2
           g[positions] <- -(c + offset)
           h[positions] <- 1 - variance
+          if (third) {
+            # The third central moment from the same nodes: raw moments of the
+            # offset from the centre, then the cumulant identity.
+            raw2 <- variance + offset^2
+            raw3 <- a^3 * as.vector(odd %*% (weights * nodes^3))/I0
+            t3[positions] <- -(raw3 - 3 * offset * raw2 + 2 * offset^3)
+            dl[positions] <- -a - offset
+            dh[positions] <- a - offset
+            var[positions] <- variance
+            regime[positions] <- "narrow"
+          }
         }
       }
     }
+    if (third) {
+      # Density ratios at the finite endpoints; an infinite endpoint has none.
+      r_L <- ifelse(is.finite(lo), exp(dnorm(lo, log = TRUE) - lp), 0)
+      r_H <- ifelse(is.finite(hi), exp(dnorm(hi, log = TRUE) - lp), 0)
+      mu <- -g
+      closed <- !narrow
+      # Closed forms: T = (H^2 - 1) r_H - (L^2 - 1) r_L + 3 g D + 2 g^3 with
+      # D = H r_H - L r_L; a crossing interval takes the difference of its two
+      # endpoint terms through g and 4 a c r_L so that a near-symmetric
+      # interval's small value is not a difference of two large ones.
+      D <- ifelse(is.finite(hi), hi * r_H, 0) - ifelse(is.finite(lo), lo * r_L, 0)
+      t3[closed] <- (ifelse(is.finite(hi), (hi^2 - 1) * r_H, 0) - ifelse(is.finite(lo), (lo^2 - 1) * r_L, 0) +
+                       3 * g * D + 2 * g^3)[closed]
+      t3[crossing] <- ((hi^2 - 1) * g + 4 * half * center * r_L + 3 * g * D + 2 * g^3)[crossing]
+      regime[crossing] <- "crossing"
+      dl[closed] <- (lo - mu)[closed]
+      dh[closed] <- (hi - mu)[closed]
+      var[closed] <- (1 - h)[closed]
+      # Same-side intervals and one-sided tails: mirrored so that the near
+      # endpoint L is nonnegative, the truncated density is proportional to
+      # exp(-L u / s - u^2 / (2 s^2)) in u = s (z - L) >= 0 with s = max(1, L),
+      # and its first three moments come from the 16-node rule on fixed panels
+      # of u, which the exponential factor makes negligible beyond 64.
+      same <- closed & !crossing &
+        ((is.finite(lo) & lo >= 0 & (!is.finite(hi) | hi > lo)) |
+         (is.finite(hi) & hi <= 0 & (!is.finite(lo) | lo < hi)))
+      if (any(same)) {
+        edges <- c(0, 1, 2, 4, 8, 16, 32, 64)
+        for (block_start in seq.int(1L, n, by = 512L)) {
+          positions <- seq.int(block_start, min(n, block_start + 511L))
+          positions <- positions[same[positions]]
+          if (!length(positions)) next
+          mirrored <- !(is.finite(lo[positions]) & lo[positions] >= 0)
+          L <- ifelse(mirrored, -hi[positions], lo[positions])
+          H <- ifelse(mirrored, -lo[positions], hi[positions])
+          H[!is.finite(H)] <- Inf
+          s <- pmax(1, L)
+          U <- (H - L) * s
+          m <- matrix(0, length(positions), 4L)
+          for (k in seq_len(length(edges) - 1L)) {
+            a0 <- pmin(edges[k], U)
+            a1 <- pmin(edges[k + 1L], U)
+            width <- a1 - a0
+            keep <- width > 0
+            if (!any(keep)) next
+            u <- a0[keep] + outer(width[keep], .gt_d_gauss_nodes)
+            w <- exp(-L[keep] * u / s[keep] - (u / s[keep])^2 / 2)
+            for (power in 0:3)
+              m[keep, power + 1L] <- m[keep, power + 1L] +
+                width[keep] * as.vector((u^power * w) %*% .gt_d_gauss_weights)
+          }
+          R1 <- m[, 2L] / m[, 1L]; R2 <- m[, 3L] / m[, 1L]; R3 <- m[, 4L] / m[, 1L]
+          offset <- R1 / s
+          k3 <- (R3 - 3 * R1 * R2 + 2 * R1^3) / s^3
+          t3[positions] <- ifelse(mirrored, k3, -k3)
+          dl_m <- -offset
+          dh_m <- (H - L) - offset
+          dl[positions] <- ifelse(mirrored, -dh_m, dl_m)
+          dh[positions] <- ifelse(mirrored, -dl_m, dh_m)
+          var[positions] <- (R2 - R1^2) / s^2
+          regime[positions] <- "tilted"
+        }
+      }
+      l_lo <- r_L; l_hi <- -r_H
+      s_lo <- r_L * dl; s_hi <- -r_H * dh
+      c_lo <- r_L * (dl^2 - var); c_hi <- -r_H * (dh^2 - var)
+    }
+  }
+  if (third) {
+    # An infinite endpoint has no partial: its ratio is zero and its offset infinite.
+    s_lo[!is.finite(lo)] <- 0; c_lo[!is.finite(lo)] <- 0; l_lo[!is.finite(lo)] <- 0
+    s_hi[!is.finite(hi)] <- 0; c_hi[!is.finite(hi)] <- 0; l_hi[!is.finite(hi)] <- 0
+    return(list(log_probability = lp, gradient = g, curvature = h, third = t3,
+                loss_lo = l_lo, loss_hi = l_hi, score_lo = s_lo, score_hi = s_hi,
+                curvature_lo = c_lo, curvature_hi = c_hi, regime = regime))
   }
   if (derivatives) list(log_probability = lp, gradient = g, curvature = h) else lp
 }
@@ -243,4 +365,73 @@
   }
   ans <- list(valid = TRUE, nll = nll, gradient = as.vector(gradient), curvature = curvature)
   ans
+}
+
+# Third derivatives of the response loss at a kernel result, for the analytic
+# gradient: per observation the third derivative of the loss in its linear
+# predictor for binary and ordinal blocks, and for ordinal blocks the partials
+# of loss, score and curvature in the block's stored threshold coordinates.
+# Nominal blocks carry no scalar third derivative here; their contraction uses
+# the probabilities the kernel already returns. Every value comes from the
+# arithmetic that produced the curvature the Hessian used. A row whose
+# curvature the kernel tolerated below zero, which the Hessian assembly
+# replaces by zero, has no derivative of the assembled matrix, so the block is
+# refused rather than differentiated as if it had not been clipped.
+.gt_d_response_third <- function(eta, parameters, prep, response) {
+  if (!is.list(response) || !isTRUE(response$valid))
+    return(list(valid = FALSE, reason = "invalid_response"))
+  blocks <- vector("list", length(prep$blocks))
+  for (j in seq_along(prep$blocks)) {
+    b <- prep$blocks[[j]]
+    curvature <- response$curvature[[j]]
+    if (!is.null(curvature$diagonal) && any(curvature$diagonal < 0))
+      return(list(valid = FALSE, reason = "clipped_curvature", block = b$outcome))
+    e <- as.vector(eta[, b$dims, drop = FALSE])
+    if (b$family == "binary") {
+      # A binary outcome is the one-cut interval at zero: (-eta, Inf) for an
+      # event and (-Inf, -eta) otherwise, so its third derivative is the
+      # interval kernel's in the same regimes. The closed Mills-ratio form,
+      # r [1 - (r + m)(2r + m)] in the signed margin m, is exact in algebra
+      # but loses the bracket in a far tail: it is of order 2 / m^4 and is
+      # fed by the rounding of log Phi(m), which at m = 40 costs about 2e-4
+      # of the value, where the tilted quadrature keeps twelve digits.
+      event <- b$y == 1L
+      interval <- .gt_d_ordinal_interval(ifelse(event, -e, -Inf), ifelse(event, Inf, -e), b$link, third = TRUE)
+      blocks[[j]] <- list(dims = b$dims, family = "binary", third = interval$third, regime = interval$regime)
+    } else if (b$family == "ordinal") {
+      stored <- parameters[b$parameters]
+      cuts <- c(-Inf, .gt_d_thresholds(stored), Inf)
+      interval <- .gt_d_ordinal_interval(cuts[b$y] - e, cuts[b$y + 1L] - e, b$link, third = TRUE)
+      k <- length(stored)
+      loss_theta <- score_theta <- curvature_theta <- matrix(0, length(e), k)
+      # The first stored cut shifts every finite cut, which is the opposite of
+      # shifting eta: minus the location derivatives, never a difference of
+      # two endpoint terms.
+      loss_theta[, 1L] <- -interval$gradient
+      score_theta[, 1L] <- -interval$curvature
+      curvature_theta[, 1L] <- -interval$third
+      # A log gap shifts every cut from its own onwards by exp(gap): both
+      # endpoints of the categories above it, the upper endpoint of its own
+      # category, nothing below.
+      if (k > 1L) for (gap in 2:k) {
+        scale <- exp(stored[[gap]])
+        above <- b$y > gap
+        own <- b$y == gap
+        loss_theta[above, gap] <- -scale * interval$gradient[above]
+        score_theta[above, gap] <- -scale * interval$curvature[above]
+        curvature_theta[above, gap] <- -scale * interval$third[above]
+        loss_theta[own, gap] <- scale * interval$loss_hi[own]
+        score_theta[own, gap] <- scale * interval$score_hi[own]
+        curvature_theta[own, gap] <- scale * interval$curvature_hi[own]
+      }
+      blocks[[j]] <- list(dims = b$dims, family = "ordinal", third = interval$third, regime = interval$regime,
+                          loss_theta = loss_theta, score_theta = score_theta, curvature_theta = curvature_theta)
+    } else {
+      blocks[[j]] <- list(dims = b$dims, family = "categorical", third = NULL)
+    }
+    values <- c(blocks[[j]]$third, blocks[[j]]$loss_theta, blocks[[j]]$score_theta, blocks[[j]]$curvature_theta)
+    if (length(values) && any(!is.finite(values)))
+      return(list(valid = FALSE, reason = "nonfinite_third_derivative", block = b$outcome))
+  }
+  list(valid = TRUE, blocks = blocks)
 }

@@ -63,6 +63,51 @@ Nominal loss and score calculations retain the small complement of the
 maximum category through `log1p()` and direct complementary sums. These
 repairs do not relax the final acceptance requirements.
 
+## Response third derivatives
+
+For the analytic gradient of the Laplace objective the engine needs, per
+observation, the third derivative of the loss in its linear predictor and, for
+ordinal blocks, the partials of loss, score and curvature in the block's stored
+threshold coordinates. `.gt_d_ordinal_interval(lo, hi, link, third = TRUE)`
+returns them beside the existing log probability, score and curvature, computed
+inside the same regime branch that produced the curvature: the closed logistic
+forms, with the paired `sinh`/`cosh` form on crossing intervals so that a
+near-symmetric interval's small value is not a difference; the closed probit
+forms, with a crossing interval's two endpoint terms taken through the score
+and `4 a c r_L`; the 16-node rule's third moment on narrow probit intervals;
+and, on same-side probit intervals and one-sided tails, a tilted-exponential
+quadrature of the first three moments in `u = s (z - L) >= 0`, `s = max(1, L)`,
+on fixed panels of `u` up to 64, because the closed form of the third cumulant
+cancels three leading orders in a far tail. The existing outputs are byte for
+byte what they were without the request; the tail tests and the
+characterization baseline hold that. In the engine's convention the endpoints
+are already shifted by the linear predictor, so a partial in `lo` or `hi` is
+the partial in that cut; an infinite endpoint has none.
+
+`.gt_d_response_third(eta, parameters, prep, response)` applies this to a
+kernel result. Binary blocks are the one-cut interval at zero, `(-eta, Inf)`
+for an event and `(-Inf, -eta)` otherwise; the closed Mills-ratio form
+`r [1 - (r + m)(2r + m)]` is exact in algebra but loses its bracket, of order
+`2 / m^4`, to the rounding of `log Phi(m)` in a far tail. Ordinal blocks map the
+endpoint partials to stored coordinates: the first stored cut shifts every
+finite cut, which is the opposite of shifting `eta`, so its derivatives are
+minus the location derivatives; a log gap scales the shift of every cut from
+its own onwards by `exp(gap)`, so categories above it receive the common shift,
+its own category the upper-endpoint partial, categories below nothing. Nominal
+blocks carry no scalar third derivative; their contraction uses the
+probabilities the kernel already returns. A row whose curvature the kernel
+tolerated below zero, which the Hessian assembly replaces by zero, has no
+derivative of the assembled matrix, so the block is refused with
+`clipped_curvature` rather than differentiated as if unclipped; an invalid
+kernel result refuses with `invalid_response`, a nonfinite value with
+`nonfinite_third_derivative`. No fit calls either function yet.
+
+`tests/package-response-third.R` holds the campaign's 108 fixed intervals with
+their 160-digit references for all ten quantities, finite differences of the
+kernel's own score and curvature in the predictor and in each stored threshold
+coordinate, the binary one-cut identity with 60-digit far-tail references, the
+refusals, and the identity of the existing outputs.
+
 ## Dense matrix operations
 
 `.gt_d_dense_backend(groups, factors, n, q)` validates dimensions, observed
