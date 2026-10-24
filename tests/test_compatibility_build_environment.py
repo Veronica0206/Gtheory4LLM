@@ -31,6 +31,9 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                         # stopped, exhaustion fails the step, and the step itself
                         # has a limit, so a stalled mirror cannot hold the job.
                         self.assertIn("timeout-minutes:", step)
+                        # Windows runners enable tlmgr's aria2c container prefetch,
+                        # which stalled on every attempt; the step turns it off.
+                        self.assertIn("TEXLIVE_PREFETCH: '0'", step)
                         self.assertIn("function Invoke-Tlmgr", step)
                         self.assertIn("WaitForExit(600000)", step)
                         self.assertIn("taskkill.exe /PID", step)
