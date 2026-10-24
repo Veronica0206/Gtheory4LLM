@@ -41,3 +41,4 @@
 
 ^docs$
 ^validation-studies$
+^src/.*\.(o|so|dll)$

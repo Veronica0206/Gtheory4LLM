@@ -276,6 +276,49 @@ and recorded in the fit's resource estimate. A feasible factorization
 establishes neither numerical acceptance nor approximation accuracy at that
 size.
 
+## Compiled selected inverse
+
+`src/gt_selected_inverse.c` computes selected entries of the inverse of a
+sparse conditional Hessian from its Cholesky factor, for the analytic gradient
+of the first-order Laplace objective: the gradient needs `tr(H^{-1} H_j)` for
+every parameter derivative `H_j` and, per observation, the block
+`W_i H^{-1} W_i'`, and the dense inverse is never formed. The routines are
+reached through registered `.Call` entry points only (`useDynLib(...,
+.registration = TRUE)` with dynamic symbol lookup disabled) and wrapped by
+`R/selected_inverse.R`; no fit uses them yet.
+
+Input is the permuted lower factor `L` with `H[perm, perm] = L L'`, exactly as
+`.gt_d_sparse_factor()` returns it, in compressed sparse column storage with
+each column's diagonal entry first and strictly increasing row indices. The
+compiled code validates every argument again: types, lengths against the
+declared caps in a wide integer type before any narrowing, pointer
+monotonicity, the position and positivity of each diagonal, finiteness.
+`.gt_selected_inverse()` returns the inverse's entries on the factor's own
+pattern, the permutation and its inverse, and the platform's arithmetic widths.
+`.gt_selected_entries()`, `.gt_selected_trace()` and
+`.gt_selected_contractions()` take and return original coordinates; the
+permuted positions never leave the wrapper.
+
+The recurrence visits columns from the last to the first and accumulates in
+long double in ascending neighbour order, so results agree across platforms to
+the precision the narrower long double leaves, not bit for bit; the recorded
+`long_double_mantissa` says which. An entry outside the factor's pattern is a
+refusal, never a zero: a derivative of `H` can be nonzero where `H`'s current
+entry is zero, and the structural envelope the gradient will factorize must
+cover every entry it reads. Nonpositive or nonfinite pivots, nonfinite results
+and every declared cap (dimension, fill, recurrence products, query count,
+observations, local width, latent dimensions, contraction work) refuse by name;
+`.gt_selected_caps()` reports the caps. They bound allocation and work before
+anything is allocated and are not estimates of what a machine can afford.
+
+`tests/package-selected-inverse.R` checks every selected entry, both-triangle
+queries, traces against the matrix and against derivative matrices with
+structural-zero entries, and the contractions against dense inverses on eight
+reference matrices under two coordinate orders with and without a
+fill-reducing permutation; the engine's own sparse Hessian geometry through
+`.gt_selected_local_index()` and `.gt_selected_local_design()`; thirty refusals;
+the cap boundaries; and collector safety under `gctorture()`.
+
 ## Declared numerical domains
 
 `parameter_bounds` optionally supplies partial named `lower` and `upper`

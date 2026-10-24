@@ -36,6 +36,14 @@ threshold was loosened; where an optimizer path changed, the change is named.
   still place above the 512 MiB default. Preflight records
   the method and the counts. A feasible factorization establishes neither
   acceptance nor approximation accuracy at that size.
+- A compiled selected inverse of the sparse conditional Hessian's Cholesky
+  factor (`src/gt_selected_inverse.c`, registered `.Call` entry points wrapped
+  by `R/selected_inverse.R`): the inverse's entries on the factor's pattern,
+  original-coordinate queries and traces, and per-observation local
+  contractions, accumulated in long double. An entry outside the factor's
+  pattern is refused, never read as zero, and every declared cap refuses by
+  name. It is the first building block of the analytic Laplace gradient; no
+  fit uses it yet, and the package now contains compiled code.
 - Sparse conditional solves use a bounded derivative check when rounded
   function values block a full Newton step. Outside the small plateau window,
   the candidate must already meet the final score tolerance; final score,

@@ -35,7 +35,9 @@ kept the joint native panels unfittable at their declared 8 GiB budget (dense sq
 engine recovers once, after an ordinary refusal of a multivariate unstructured
 model, from a bounded square-root search on the same deviance, which is what
 the six-flag mental-health panel needed. Neither changes an acceptance rule or
-an accepted primary attempt.
+an accepted primary attempt. The first building block of the analytic Laplace
+gradient, a compiled selected inverse of the sparse factor, is integrated with its
+tests; the gradient route itself is not, and no fit uses the compiled code.
 
 Focused synthetic reference tests and refusal tests accompany the new routes;
 they do not qualify a full native panel, establish Laplace accuracy or calibrate
