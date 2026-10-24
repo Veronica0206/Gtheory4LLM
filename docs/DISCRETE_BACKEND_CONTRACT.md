@@ -377,6 +377,61 @@ fill-reducing permutation; the engine's own sparse Hessian geometry through
 `.gt_selected_local_index()` and `.gt_selected_local_design()`; thirty refusals;
 the cap boundaries; and collector safety under `gctorture()`.
 
+## Structural envelope and the analytic gradient at a fixed point
+
+The analytic gradient of the Laplace objective reads entries of `H^{-1}`
+wherever a derivative of the conditional Hessian can be nonzero, and a
+derivative can be nonzero where `H`'s current entry is zero. The structural
+envelope (`R/discrete_sparse_envelope.R`) is the pattern of `I + W'W` with every
+factor entry set to one, built once per design by `.gt_d_sparse_envelope()`
+from the sparse context: it couples every latent dimension of an observation
+and every source's coordinates for that observation to every other's, it is
+the pattern the working-memory estimate factorizes, and it contains the pattern
+of every numeric Hessian the design can produce. At an evaluation
+`.gt_d_sparse_envelope_factor()` overlays the numeric `H` on it, explicit zeros
+kept, factorizes the overlay and checks it before it is used: `H`'s own pattern
+inside the envelope, the probe solves under the shared backward-error rule,
+and the log determinant within `1e-8 * max(1, |log det|)` of the production
+factor's. A failed check refuses by name (`envelope_mismatch`,
+`envelope_not_positive_definite`, `envelope_factor_invalid`). The production
+mode, value and factor are never replaced.
+
+`.gt_d_gradient()` (`R/discrete_gradient.R`) assembles the gradient in stored
+coordinates at a valid detailed evaluation: for coordinate `theta_j`,
+
+    L_j = f_{theta_j} + tr(H^{-1} H_{theta_j}) / 2 - a' f_{u theta_j},
+    a = H^{-1} z,  z_k = tr(H^{-1} H_{u_k}) / 2,
+
+the last term being the log determinant's dependence on the mode. Per
+observation only the block `Q_i = W_i H^{-1} W_i'` is needed, from the compiled
+selected inverse on the envelope factor and the local contractions of
+`R/selected_inverse.R`; with `v_i` the half-contraction of `Q_i` with the
+curvature's derivative in the predictor (`.gt_d_response_third()` for binary
+and ordinal rows, `C_i (diag Q_i - 2 Q_i p_i) / 2` for nominal rows), `z = W'v`,
+`t = W a` and `r_i = g_i + v_i - C_i t_i`: an intercept of dimension `d` is
+`sum_i r_i[d]`; an ordinal threshold coordinate is
+`sum_i { loss_theta - t_i[d] score_theta + Q_i[d, d] curvature_theta / 2 }`;
+a natural Cholesky entry `L_s[a, b]` with the observation's coordinate `k` is
+`sum_i { r_i[a] u[k] - g_i[a] a[k] + (C_i W_i S_i)[a, k] }`. Log-Cholesky
+diagonals, direct variances and exchangeable variances follow by the chain
+rule; at an exact zero the square-root maps are one-sided and the evaluation
+is refused (`unsupported_coordinate_at_zero`). The adjoint solve goes through
+the production factor and its backward-error check (`adjoint_solve_invalid`).
+Every refusal names its reason; a zero gradient never stands in for a failure.
+`.gt_d_laplace_problem()` is the fit's prologue for fixed-point tools and
+tests, without the fit's resource guards. No fit calls any of this yet; the
+objective, the conditional mode and the acceptance rules are unchanged.
+
+`tests/package-sparse-envelope.R` checks the envelope against the preflight's
+counts, the overlay at nonzero, zero-off-diagonal and zero-pivot points, the
+coverage of every local block, and the refusals. `tests/package-discrete-gradient.R`
+checks the gradient against central finite differences of the objective, cold
+at a tight inner tolerance, on thirteen fixtures across families, links,
+joint outcomes and every covariance parameterization, with three-point
+forward differences at natural boundaries, negative controls that drop the
+implicit-mode and log-determinant terms, convergence as the inner tolerance
+tightens, and the refusals.
+
 ## Declared numerical domains
 
 `parameter_bounds` optionally supplies partial named `lower` and `upper`

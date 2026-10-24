@@ -57,6 +57,17 @@ threshold was loosened; where an optimizer path changed, the change is named.
   threshold-gap overrides; installed regressions cover the finite-zero and
   nonfinite failures, mirrored intervals and branch transitions. The existing
   probability, score and curvature outputs are unchanged; no fit calls these.
+- The structural derivative envelope and the analytic gradient of the Laplace
+  objective at a fixed point (`R/discrete_sparse_envelope.R`,
+  `R/discrete_gradient.R`): the numeric conditional Hessian overlaid on the
+  design's all-ones pattern with explicit zeros kept, checked against the
+  production factor's log determinant and probes; the gradient in stored
+  coordinates from the compiled selected inverse, the local contractions, the
+  response third derivatives and one adjoint solve, for natural Cholesky,
+  log-Cholesky, variance, exchangeable and fixed covariance coordinates,
+  refusing at an exact zero of a square-root coordinate. Checked against
+  finite differences of the objective on thirteen fixtures with negative
+  controls. No fit calls it yet; nothing in how a fit runs has changed.
 - Sparse conditional solves use a bounded derivative check when rounded
   function values block a full Newton step. Outside the small plateau window,
   the candidate must already meet the final score tolerance; final score,

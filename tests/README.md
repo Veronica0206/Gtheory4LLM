@@ -24,6 +24,8 @@ into subdirectories without silently removing them from the release gate.
 | `package-installed-examples.R` | Every shipped example script still runs against the installed package |
 | `package-gaussian-initialization.R` | Square-root recovery through the public interface: an accepted primary attempt is identical under both policies, the control is validated, the record is reported, and a one-iteration budget exercises a real recovery without relaxing acceptance |
 | `package-selected-inverse.R` | The compiled selected inverse: every entry, query, trace and local contraction against dense inverses on eight reference matrices under shuffled orders with and without permutation, the engine's own Hessian geometry, thirty refusals, cap boundaries and collector safety |
+| `package-sparse-envelope.R` | The structural derivative envelope: the preflight's pattern, overlays with explicit zeros at nonzero, zero-off-diagonal and zero-pivot points, local-block coverage, refusals |
+| `package-discrete-gradient.R` | The analytic gradient at fixed points against finite differences of the objective on thirteen fixtures across families, links, joint outcomes and every covariance parameterization, negative controls, inner-tolerance convergence, refusals |
 | `package-sparse-resources.R` | The two-stage sparse memory estimate: complete-fill bound within budget, refusal on the exact structural count without a pattern, structural factorization containing an actual Hessian pattern, and preflight/fit refusals naming the method |
 | `package-uncertainty.R` | Standard errors, the covariance Jacobian, coefficient derivatives |
 | `package-mixed-model.R` | Brennan fixed facets, `full_cell = FALSE` |
@@ -95,6 +97,8 @@ into subdirectories without silently removing them from the release gate.
 | `test_gaussian_initialization.R` | The square-root kernel against the exact and dense deviances with analytic gradients, the recovery controller with the optimizer injected, and the public policies |
 | `test_discrete_sparse_resources.R` | Source entrypoint for the installed sparse-resource contract |
 | `test_selected_inverse.R` | Source entrypoint for the installed selected-inverse contract; compiles `src/` through the loader |
+| `test_sparse_envelope.R` | Source entrypoint for the installed structural-envelope contract |
+| `test_discrete_gradient.R` | Source entrypoint for the installed fixed-point gradient contract |
 | `test_gaussian_lme4_restart.R` | The lme4 restart rule: a restart counts only when it completes without a convergence warning and reproduces the solution |
 | `test_discrete.R` | Probability and derivative identities, glmer/clmm comparisons |
 | `test_discrete_acceptance.R` | Boundary, restart and stationarity acceptance |
