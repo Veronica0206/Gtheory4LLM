@@ -231,12 +231,18 @@ print.gt_score <- function(x, ...) {
 # fixed: Instrumentation facets treated as fixed rather than randomly
 #   sampled. Defaults to none, reproducing the fully random model.
 # level: Confidence level for the reported coefficient intervals.
+# bootstrap: Optional gt_bootstrap() result for this fit; its replicates then
+#   supply the standard errors and intervals in place of the delta method.
+# interval_type: "wald" without a bootstrap; "percentile" (default) or "bca" with one.
 gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
-                           counts = NULL, fixed = character(), level = 0.95) {
+                           counts = NULL, fixed = character(), level = 0.95,
+                           bootstrap = NULL, interval_type = NULL) {
   if (!is.null(design) && !is.null(counts))
     stop("Supply counts or its compatibility alias design, not both.", call. = FALSE)
   if (!is.null(counts)) design <- counts
   .gt_check_level(level)
+  interval <- .gt_interval_method(bootstrap, interval_type)
+  if (!is.null(bootstrap)) .gt_bootstrap_match(fit, bootstrap)
   context <- .gt_reliability_context(fit, scale)
   counts <- context$counts
   if (!is.null(design)) {
@@ -247,7 +253,12 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
     counts[names(design)] <- design
   }
   fixed <- .gt_reliability_fixed(fit, fixed, counts, context$counts)
-  .gt_reliability_kernel(fit, context, counts, score, fixed, level)
+  result <- .gt_reliability_kernel(fit, context, counts, score, fixed, level)
+  if (is.null(bootstrap)) return(result)
+  result <- .gt_bootstrap_coefficients(result, fit, context, counts, score, fixed, level,
+                                       bootstrap, interval)
+  result$uncertainty <- .gt_bootstrap_uncertainty(bootstrap, interval)
+  result
 }
 
 .gt_check_level <- function(level) {
@@ -356,9 +367,11 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
   list(lower = lower, upper = upper)
 }
 
-# Context is validated once per D study, independently of grid size.
+# Context is validated once per D study, independently of grid size. With
+# values_only, only the coefficient tables are returned, for bootstrap
+# replicates.
 .gt_reliability_kernel <- function(fit, context, counts, score, fixed = character(),
-                                   level = 0.95) {
+                                   level = 0.95, values_only = FALSE) {
   matrices <- context$components
   weights <- .gt_reliability_weights(fit, counts, context$replicates, fixed)
   combine <- function(w) Reduce(`+`, Map(function(a, M) a * M, w, matrices[names(w)]))
@@ -437,6 +450,7 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
       row.names = NULL)
   }
   rownames(per_trait) <- NULL
+  if (values_only) return(list(per_trait = per_trait, composite = composite))
   structure(list(per_trait = per_trait, composite = composite,
        universe_covariance = universe, relative_error_covariance = relative,
        absolute_error_covariance = absolute, scale = context$scale, score = score,
@@ -456,8 +470,14 @@ gt_reliability <- function(fit, scale = NULL, score = NULL, design = NULL,
 
 # Evaluate balanced allocations using the analytic coefficient definitions
 gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character(),
-                      level = 0.95, projection = NULL) {
+                      level = 0.95, projection = NULL, bootstrap = NULL, interval_type = NULL) {
   .gt_check_level(level)
+  interval <- .gt_interval_method(bootstrap, interval_type)
+  if (!is.null(bootstrap)) {
+    .gt_bootstrap_match(fit, bootstrap)
+    if (!is.null(projection))
+      stop("A bootstrap does not support projection = 'balanced' from an observed panel.", call. = FALSE)
+  }
   context <- .gt_reliability_context(fit, scale, projection)
   if (!is.data.frame(grid) || !nrow(grid) || !ncol(grid) || anyDuplicated(names(grid)) ||
       any(!names(grid) %in% names(context$counts)) ||
@@ -478,8 +498,10 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
     stop("A decision study cannot project over a fixed facet's population; remove ",
          paste(varied, collapse = ", "), " from grid or from fixed.", call. = FALSE)
   result <- lapply(seq_len(nrow(grid)), function(i) {
-    co <- .gt_reliability_kernel(fit, context,
-      unlist(allocation[i, , drop = FALSE], use.names = TRUE), score, fixed, level)
+    counts <- unlist(allocation[i, , drop = FALSE], use.names = TRUE)
+    co <- .gt_reliability_kernel(fit, context, counts, score, fixed, level)
+    if (!is.null(bootstrap))
+      co <- .gt_bootstrap_coefficients(co, fit, context, counts, score, fixed, level, bootstrap, interval)
     table <- data.frame(design_id = i, kind = "outcome", co$per_trait, stringsAsFactors = FALSE)
     if (!is.null(co$composite)) table <- rbind(table,
       data.frame(design_id = i, kind = "composite", outcome = "composite", co$composite))
@@ -489,7 +511,8 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
   rownames(results) <- NULL
   structure(list(allocations = allocation, results = results,
                  scale = context$scale, score = score, level = level,
-                 fixed_facets = fixed, uncertainty = context$uncertainty,
+                 fixed_facets = fixed, uncertainty = if (is.null(bootstrap)) context$uncertainty else
+                   .gt_bootstrap_uncertainty(bootstrap, interval),
                  projection = context$projection,
                  measurements_per_object = apply(allocation, 1L, prod) * context$replicates,
                  extrapolated = apply(allocation, 1L, function(x) any(x > context$counts)),
@@ -526,6 +549,8 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
   results$uncertainty_reason <- rep(reason, nrow(results))
   results$uncertainty_conditional <- rep(conditional, nrow(results))
   results$uncertainty_conditioning <- rep(conditioning, nrow(results))
+  results$uncertainty_method <- rep(if (length(record$method)) as.character(record$method)[1L] else
+    NA_character_, nrow(results))
   for (coefficient in c("Erho2", "Phi"))
     results[[paste0(coefficient, "_interval_available")]] <-
       is.finite(results[[coefficient]]) & is.finite(results[[paste0(coefficient, "_lower")]]) &
@@ -553,7 +578,7 @@ gt_dstudy <- function(fit, grid, scale = NULL, score = NULL, fixed = character()
   attr(results, "batch") <- batch
   attr(results, "uncertainty") <- record[intersect(names(record),
     c("available", "reason", "method", "boundary_components", "restricted_to_interior",
-      "fixed_components", "fixed_component_kinds"))]
+      "fixed_components", "fixed_component_kinds", "bootstrap"))]
   attr(results, "interpretation") <- paste("Conditional projections from fitted source covariances;",
     "intervals describe estimation uncertainty, not future-panel prediction or accuracy.")
   results
@@ -658,7 +683,13 @@ gt_dstudy_target <- function(x, target, coefficient = "Erho2", outcome = NULL,
 .gt_print_uncertainty_note <- function(x) {
   record <- x$uncertainty
   if (!is.list(record)) return(invisible(NULL))
-  if (isTRUE(record$available)) {
+  if (isTRUE(record$available) && is.list(record$bootstrap)) {
+    cat(format(100 * x$level, digits = 4), "% intervals: ",
+        if (identical(record$method, "object_bootstrap_bca")) "BCa" else "percentile", ", ",
+        record$bootstrap$unit, " bootstrap with ", record$bootstrap$accepted, " accepted refits of ",
+        record$bootstrap$attempts, " attempts.\n", sep = "")
+    cat("Instrumentation levels are held at those observed; facet sampling is not reflected.\n")
+  } else if (isTRUE(record$available)) {
     cat(format(100 * x$level, digits = 4), "% intervals: delta method on the logit scale from the fitted parameter covariance.\n", sep = "")
     if (isTRUE(record$restricted_to_interior))
       cat("Conditional on ",

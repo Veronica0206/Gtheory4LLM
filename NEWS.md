@@ -267,6 +267,26 @@ threshold was loosened; where an optimizer path changed, the change is named.
   both. Small-panel Wald intervals can be overly conservative, and neither
   conditioning nor withholding at an estimated boundary ensures coverage at a
   true one. Available-only summaries are not a calibration guarantee.
+- `gt_bootstrap()` is an object bootstrap for any accepted fit without declared
+  batches. Objects are drawn with replacement, each with its complete
+  instrumentation panel, and an object drawn twice enters as two objects. Every
+  resample is refitted under the fit's design, families, estimator, resolved
+  covariance structures and controls, and must pass the same numerical
+  acceptance; refused and failed refits are recorded with their reasons and
+  never counted. `gt_reliability()` and `gt_dstudy()` take percentile or BCa
+  intervals from it (`bootstrap =`, `interval_type =`), with the fit's own
+  point estimates, and `summary()` gives intervals for every source covariance
+  entry. BCa uses optional leave-one-object-out refits. An interval needs at
+  least 50 finite replicate values, and an endpoint beyond the replicates'
+  support is unavailable. Each attempt draws from its own seed, so the
+  replicates do not depend on `cores` or on the attempt budget; discrete refits
+  start at the original estimates, except that a boundary source starts from
+  the original starting values. The intervals describe object sampling
+  conditional on the observed instrumentation levels, not the sampling of the
+  facet levels, and their coverage has not been assessed. Tests compare
+  replicates with direct fits of independently built resamples and intervals
+  with closed-form coefficients and a hand-computed BCa, and check determinism
+  across cores and budgets and the refusal, error and guard paths.
 
 ## Planning
 

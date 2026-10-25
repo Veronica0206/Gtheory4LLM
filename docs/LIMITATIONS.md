@@ -134,6 +134,18 @@ scientifically sufficient. Those are separate questions with separate evidence.
   `gt_laplace_check()` compares the Laplace objective of one fitted model
   with a refined numerical estimate at the same parameters; it does not change
   this label, does not refit, and says nothing about bias in the estimates.
+- **Object-bootstrap intervals are conditional on the instrumentation panel.**
+  `gt_bootstrap()` resamples objects only, so its intervals reflect object
+  sampling with the observed evaluators, prompts and other facet levels held
+  in every replicate, not the sampling of those levels. Sources without the
+  object, such as a facet main effect, are re-estimated from the same levels
+  each time; absolute coefficients, which depend on them, can therefore get
+  narrower intervals than the random-facet Wald intervals. Refused refits are
+  dropped, which conditions the intervals on fitting success; the attempt
+  record keeps them. Coverage has not been assessed for any model. A fit with
+  declared batches is refused, and a balanced projection from an observed
+  panel is not supported. Each attempt is a full refit, which makes a
+  bootstrap of a large joint categorical fit a matter of days.
 - **Discrete uncertainty is optional and conditional.** Request
   `check_hessian = TRUE` in discrete controls to compute numerical observed
   information over nuisance intercepts/thresholds and covariance parameters.
@@ -158,8 +170,9 @@ scientifically sufficient. Those are separate questions with separate evidence.
   Conditioning on an estimated boundary does not ensure coverage at a true
   boundary: a positive interior estimate can arise when the true variance is
   zero, and its logit-Wald coefficient interval excludes zero.
-  The default does not compute information. Bootstrap and jackknife intervals
-  are not implemented; `NA` means unavailable, never zero uncertainty.
+  The default does not compute information. `gt_bootstrap()` gives
+  object-bootstrap intervals instead (next item); `NA` means unavailable, never
+  zero uncertainty.
   On the finite-difference route the two central-difference Hessians require
   `2 * (1 + 2 * p^2)` marginal likelihood evaluations for `p` stored
   parameters when all evaluations complete; the analytic route needs `4 * p`

@@ -309,14 +309,13 @@ gradient, with delta-method intervals conditional on numerical acceptance,
 any source on its covariance boundary held fixed, and the first-order Laplace
 approximation. The coverage of those conditional intervals is unassessed: the
 near-boundary and exact-boundary cells of the 2026-10-23 recovery campaign,
-rerun under the conditioning rule, would measure it. The rest is not
-rushed and waits until the sparse likelihood and its approximation accuracy are
-convincingly validated. Candidates: profile likelihood, parametric bootstrap,
-simulation-based propagation to reliability, and calibration of interval
-coverage across discrete models. For reliability coefficients specifically, a
-bootstrap is likely more defensible than applying a Hessian-based delta method
-to every discrete model. This remains future research; the Gaussian pilot
-helper does not implement it.
+rerun under the conditioning rule, would measure it. An object bootstrap,
+`gt_bootstrap()`, is implemented for every engine. Still open: the coverage of
+its intervals, which the Gaussian coverage settings and the discrete recovery
+cells would measure with the bootstrap run inside each replicate; resampling
+that also reflects the sampling of facet levels; profile-likelihood and
+parametric-bootstrap intervals; and simulation-based propagation to
+reliability.
 
 ## Test infrastructure
 

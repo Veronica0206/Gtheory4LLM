@@ -23,7 +23,10 @@ Description: Studies the reliability and generalizability of subjective
     for variance components and delta-method coefficient intervals when
     curvature checks permit them; the lme4 route returns point estimates only.
     Discrete fits offer optional full-information latent coefficient intervals,
-    subject to numerical and boundary checks. Provides fixed-layout call
+    subject to numerical and boundary checks. An object bootstrap refits
+    resampled objects under each fit's acceptance rule and gives percentile and
+    bias-corrected and accelerated intervals for components, coefficients and
+    decision studies. Provides fixed-layout call
     effects, categorical score and category-vector reliability projections,
     repeated-panel decision agreement, bounded cost-aware comparisons, and
     Gaussian or latent binary/ordinal pilot precision planning, and categorical
@@ -37,7 +40,7 @@ Description: Studies the reliability and generalizability of subjective
 License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 4.5.0)
-Imports: Matrix (>= 1.6.0), OpenMx (>= 2.22.11), graphics, methods, stats, utils
+Imports: Matrix (>= 1.6.0), OpenMx (>= 2.22.11), graphics, methods, parallel, stats, utils
 Suggests: lme4, ordinal, knitr, rmarkdown
 VignetteBuilder: knitr
 URL: https://github.com/Veronica0206/Gtheory4LLM
@@ -72,6 +75,7 @@ Collate:
     'batch_reliability.R'
     'planning.R'
     'simulation.R'
+    'bootstrap.R'
     'discrete_simulation.R'
     'categorical_targets.R'
     'visualization.R'

@@ -51,8 +51,10 @@ supports nominal outcomes and fixed calls. It reports acceptance, availability
 and conditional error summaries. This
 route supplies no parameter intervals or interval-width criterion.
 These functions do not provide calibrated bootstrap intervals.
-Bootstrap and jackknife intervals are not
-implemented. Discrete observed information is opt-in, and unsupported or
+\code{\link{gt_bootstrap}} resamples the objects of an accepted fit and gives
+percentile or BCa intervals for components, coefficients and D studies,
+conditional on the observed instrumentation levels; their coverage has not been
+assessed. Discrete observed information is opt-in, and unsupported or
 unusable uncertainty remains explicitly unavailable rather than imputed.
 
 \subsection{Why this package declares R (>= 4.5.0)}{
