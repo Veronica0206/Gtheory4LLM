@@ -8,7 +8,8 @@ or acceptance is asserted by this source file.
 
 The package adds the formula interface and conventional model methods, a bounded
 lme4 Gaussian route, public sparse discrete fitting, optional observed
-information, an analytic Laplace gradient and explicit projected boundary
+information including conditional calculations with boundary sources held fixed,
+an analytic Laplace gradient and explicit projected boundary
 escape, and categorical simulation/planning targets. The installed native-data
 workflow defines the two scoped whole-data joint examples and their numerical
 reproduction contract. NEWS.md and the help pages state the supported models
@@ -17,9 +18,16 @@ and numerical guards.
 Discrete estimation remains first-order Laplace. The native joint illustrations
 use efficacy/safety outcomes and three mental-health groups, not the full
 four-aspect/six-flag sets. Numerical acceptance does not establish approximation
-accuracy, general interval calibration or a global optimum. Boundary intervals
-may be unavailable, and the documented near-boundary/weak-signal limitations
-remain in force.
+accuracy, general interval calibration or a global optimum. The earlier native
+point fits lacked ordinary information; subsequent macOS calculations at their
+saved estimates supplied conditional intervals by holding the named singular
+nonzero source matrices fixed. Such intervals omit held-source estimation and
+boundary-selection uncertainty. They have no demonstrated coverage or matching
+Linux information calculation; unavailable uncertainty is still reported as
+unavailable. The documented near-boundary/weak-signal limitations remain in force.
+No additional 21,600-row optimizer fits were run for this candidate review.
+Included historical reference tables and synthetic workflow checks are not
+claimed as a fresh whole-data qualification of the final archive.
 
 ## Current CRAN state and reverse dependencies
 

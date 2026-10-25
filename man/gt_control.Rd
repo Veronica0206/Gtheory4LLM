@@ -382,9 +382,13 @@ parameter-bound contact, every estimated source on its boundary, unstable
 finite differences, or non-positive-definite information make Wald
 uncertainty unavailable. The reason is retained without changing an
 otherwise accepted point estimate.
-These are asymptotic intervals conditional on the first-order Laplace
-approximation. They do not establish approximation accuracy or finite-sample
-coverage; a dedicated simulation study is needed for those questions.
+For a restricted calculation, the resulting coefficient interval treats the
+listed matrices as known. Its uncertainty excludes both their estimation and
+the selection of which sources to hold. A singular nonzero covariance is not
+replaced by a zero matrix. These are asymptotic intervals conditional on the
+first-order Laplace approximation; calibration after boundary selection needs
+a dedicated study. Saved information-only computations verify arithmetic at
+the retained estimates, not a fresh fit or coverage on another platform.
 
 For \eqn{p} stored parameters, not counting any held fixed at a boundary,
 the two central-difference Hessians require

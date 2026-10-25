@@ -319,9 +319,11 @@ dense algebra by default and sparse algebra on request through
 `gt_control(discrete = list(engine = "sparse"))`; `gt_preflight()` reports the
 selected engine's limits, and changing the link does not remove the
 random-effects distribution assumption. Discrete fits report point estimates
-unless `check_hessian = TRUE` requests observed information; intervals are then
-available for an accepted fit, conditional on any source on its boundary held
-fixed, and they remain conditional on the Laplace approximation. Analytic reliability and D
+unless `check_hessian = TRUE` requests observed information. A boundary source
+can be held at its fitted covariance matrix to calculate conditional intervals
+from the remaining coordinates, if the information checks pass. Read the named
+conditioning sources in the result: these intervals exclude their estimation
+and boundary-selection uncertainty and retain the Laplace assumption. Analytic reliability and D
 studies require complete balanced coded panels even when discrete fitting admits
 missing whole cells; observed-score, category-vector and decision targets are
 separate simulated targets from `gt_categorical_target()`.
@@ -331,10 +333,13 @@ whole-data requests used in the version 1.0 project records: two ordinal
 drug-review outcomes (efficacy and safety), and the three binary mental-health
 groups. Both retain 21,600 rows and ten declared sources. The records report
 numerical acceptance on macOS and Linux, with sparse analytic-gradient fitting
-and projected boundary escape. Information was unavailable at covariance
-boundaries, so those reported latent coefficients have no Wald intervals.
-They do not validate the all-four-aspect or six-flag models, first-order Laplace
-accuracy, or interval coverage.
+and projected boundary escape. Those runs lacked ordinary information at
+singular sources. A later macOS analysis kept the accepted parameter estimates
+unchanged and calculated conditional intervals with the identified source
+matrices held fixed. These were nonzero singular matrices, not discarded
+sources. No long native refit has been run for this candidate review, and no
+Linux conditional-information or repeated-sampling coverage result is asserted.
+The all-four-aspect and six-flag models remain outside this two-model example.
 
 These long fits are not run while building this synthetic vignette. Sourcing
 the installed script defines a helper without starting them:
@@ -355,8 +360,10 @@ gt_native_workflow(mode = "full", output_dir = "native-1.0-results",
 
 The helper's `mode = "smoke"` uses a small synthetic fixture to check the
 workflow, not to reproduce a native fit. Its full mode retains the specified
-requests, rejected outcomes and unavailable intervals and records its
-comparison policy. Follow the
+requests and records numerical rejection, boundary conditioning and any missing
+intervals. Its comparison policy separates the historical point-fit references
+from the saved macOS conditional arithmetic. Passing a prospective interval
+comparison is not a coverage study. Follow the
 [native workflow guide](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/REAL_DATA_WORKFLOW.md)
 for the precise source models and result interpretation.
 

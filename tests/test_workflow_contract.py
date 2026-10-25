@@ -77,6 +77,33 @@ def assert_source_checkout_has_history(text):
         raise AssertionError("Source release verification requires full checkout history")
 
 
+def assert_exact_platform_candidates(text):
+    """Reject platform jobs that rebuild or fail to retain same-archive proof."""
+    match = re.search(r"(?ms)^  check-platforms:\n(.*?)(?=^  [A-Za-z][\w-]*:\n|\Z)", text)
+    if match is None:
+        raise AssertionError("Missing exact-archive platform job")
+    job = match[1]
+    required = (
+        "needs: build-release", "os: [macos-latest, windows-latest]",
+        "r-version: release", "name: cran-candidate-built-${{ github.sha }}",
+        "path: ${{ runner.temp }}/downloaded-cran-candidate",
+        'python scripts/cran_readiness.py check --expected-data-kind public_llm_annotations '
+        '--candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" '
+        '--output-dir "$RUNNER_TEMP/cran-checked"',
+        "name: cran-candidate-platform-evidence-${{ matrix.os }}-${{ github.sha }}",
+        "${{ runner.temp }}/cran-checked/*.json", "${{ runner.temp }}/cran-checked/*.Rcheck",
+        "if: always()", "TEXLIVE_PREFETCH: '0'", "$process.WaitForExit(300000)",
+        "$attempt -le 2", "taskkill.exe /PID $process.Id /T /F", "timeout-minutes: 15",
+    )
+    if any(fragment not in job for fragment in required):
+        raise AssertionError("Platform checks must preserve the bounded same-archive contract")
+    forbidden = ("cran_readiness.py build", "R CMD build", "run_validation.py",
+                 "stage_validation_bundle.py", "--require-devel", "continue-on-error:",
+                 "--no-manual", "--no-tests")
+    if any(fragment in job for fragment in forbidden):
+        raise AssertionError("Platform candidates must be checked without rebuilding or skipping gates")
+
+
 class WorkflowContractTests(unittest.TestCase):
     def test_current_workflows_cover_all_changed_files_and_pin_actions(self):
         self.assertEqual({p.name for p in WORKFLOWS.glob("*.yml")}, EXPECTED)
@@ -120,6 +147,24 @@ class WorkflowContractTests(unittest.TestCase):
                             original.replace("          fetch-depth: 0\n", "", 1)):
                 with self.subTest(workflow=name), self.assertRaisesRegex(AssertionError, "full checkout history"):
                     assert_source_checkout_has_history(changed)
+
+    def test_platform_jobs_check_the_same_archive_with_required_manual(self):
+        original = (WORKFLOWS / "cran-readiness.yml").read_text(encoding="utf-8")
+        assert_exact_platform_candidates(original)
+        mutations = [
+            original.replace("os: [macos-latest, windows-latest]", "os: [macos-latest]"),
+            original.replace("python scripts/cran_readiness.py check --expected-data-kind",
+                             "python scripts/cran_readiness.py build --expected-data-kind"),
+            original.replace('"$RUNNER_TEMP/downloaded-cran-candidate" --output-dir',
+                             '"$RUNNER_TEMP/rebuilt-candidate" --output-dir'),
+            original.replace("name: cran-candidate-platform-evidence-${{ matrix.os }}-${{ github.sha }}",
+                             "name: cran-candidate-platform-evidence-${{ github.sha }}"),
+            original.replace("$process.WaitForExit(300000)", "$process.WaitForExit()"),
+            original.replace("        timeout-minutes: 15", "        continue-on-error: true"),
+        ]
+        for changed in mutations:
+            with self.assertRaises(AssertionError):
+                assert_exact_platform_candidates(changed)
 
 
 if __name__ == "__main__":

@@ -77,7 +77,7 @@ library(Gtheory4LLM)
 The repository keeps checksummed release files in [`artifacts/`](https://github.com/Veronica0206/Gtheory4LLM/tree/main/artifacts).
 A 0.4.0 bundle, `Gtheory4LLM_0.4.0.tar.gz`, was prepared and tagged but never published; 0.4.1 supersedes it.
 To install this source version, run `R CMD build .`, then
-`R CMD INSTALL Gtheory4LLM_1.0.0.9000.tar.gz`, the archive it creates.
+`R CMD INSTALL Gtheory4LLM_1.0.0.tar.gz`, the archive it creates.
 For the exact checked release archive, use the versioned GitHub release and
 verify its accompanying manifest. Building the vignette
 needs knitr, rmarkdown, and pandoc; using the installed package does not.
@@ -142,11 +142,13 @@ logLik(fit); AIC(fit); gt_component_vcov(fit)
 These are asymptotic Wald quantities conditional on the declared model and
 allocation. A source resting on a variance boundary has no Wald standard error.
 For discrete fits, `gt_control(discrete = list(check_hessian = TRUE))` requests
-full observed information in nuisance and covariance parameters; intervals are
-available when the accepted fit also passes the information checks, and a source
-on its boundary is held fixed, as for Gaussian fits, with the conditioning
-named. They remain conditional on the Laplace approximation; general
-finite-sample calibration remains unestablished. Their interpretation and
+observed information for nuisance and covariance parameters. A source at a
+covariance boundary is held at its fitted matrix while the remaining
+coordinates are assessed. When those information checks pass, the resulting
+coefficient intervals explicitly name the held sources and are conditional on
+them; the held covariance estimates themselves receive no standard errors.
+All discrete intervals also depend on the Laplace approximation, and their
+general finite-sample calibration remains unestablished. Their interpretation and
 availability limits are described in
 [docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md).
 That document also explains the quadratic evaluation cost of discrete
@@ -475,28 +477,23 @@ for two deliberately specified joint outcome sets: the efficacy and safety
 aspects of `drug_review_4aspect`, and `mental_health_3group`. Each uses all 21,600
 rows and the ten sources declared in its recorded model. These examples do not
 establish a result for all four drug-review aspects or all six mental-health
-flags. Their observed information was unavailable at covariance boundaries, so
-their reported latent coefficients have no Wald intervals. Numerical acceptance
-and cross-platform agreement do not establish first-order Laplace accuracy or
-interval calibration; see the scoped evidence in
-[development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
+flags. Ordinary information was unavailable in those original runs. Subsequent
+macOS calculations at the saved estimates, without refitting, produced
+conditional coefficient intervals by holding three drug-review and five
+mental-health source matrices fixed. Those matrices are singular and nonzero.
+The new uncertainty calculations have no corresponding Linux record or coverage
+study, and the current release-candidate review has not repeated the long native
+fits. The [scoped evidence in development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md)
+separates these records from fresh archive checks. Numerical agreement alone
+does not establish first-order Laplace accuracy or calibrated intervals.
 
 The installed native workflow makes those two requests and their reporting
-steps explicit. Sourcing the script defines the helper; the `full` call runs
-the long fits and writes its evidence to the chosen output directory:
-
-Before starting R, set `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
-`MKL_NUM_THREADS` and `VECLIB_MAXIMUM_THREADS` to `1` in its launch environment.
-For example, on macOS or Linux:
-
-```sh
-env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-  VECLIB_MAXIMUM_THREADS=1 R --vanilla
-```
-
-On Windows, set the same four environment variables in the session that launches
-R. Full mode refuses missing or different values. Setting them after R has
-started does not reliably reconfigure an already initialized numerical library.
+steps explicit. Sourcing the script defines the helper. Its optional `full`
+mode performs new long fits using the current conditional-information rule;
+the historical point estimates and later uncertainty calculations remain
+distinct references. Follow the one-thread launch and isolated-library setup in
+[the native workflow guide](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/REAL_DATA_WORKFLOW.md)
+before choosing to run it:
 
 ```r
 source(system.file("examples", "native_1_0_workflow.R",
@@ -506,11 +503,11 @@ gt_native_workflow(mode = "full", output_dir = "native-1.0-results",
 ```
 
 Use `mode = "smoke"` for a small synthetic workflow check; its result is not a
-whole-data reproduction. The [native workflow guide](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/REAL_DATA_WORKFLOW.md)
-explains the fixed requests, comparison policy, and treatment of rejected fits
-and missing intervals. Do not remove sources or outcomes merely to obtain an
-accepted fit. The two mental-health 7L/3L sets remain Gaussian working scores
-under both coding options.
+whole-data reproduction. The supplied archive hash identifies the file passed
+to the helper; retain the installation record to establish that the loaded
+package came from those bytes. Do not remove sources or outcomes merely to
+obtain an accepted fit. The two mental-health 7L/3L sets remain Gaussian working
+scores under both coding options.
 
 Temperature-specific seed agreement is a useful descriptive diagnostic. Lower
 agreement at higher temperatures may reflect changes in category probabilities,

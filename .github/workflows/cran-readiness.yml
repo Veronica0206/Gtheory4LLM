@@ -142,6 +142,101 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+  check-platforms:
+    name: Exact archive / ${{ matrix.os }} / R release
+    needs: build-release
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - name: Keep committed line endings on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
+        with:
+          r-version: release
+          use-public-rspm: false
+          cran: https://cran.r-project.org
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - uses: r-lib/actions/setup-pandoc@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
+      - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
+        timeout-minutes: 15
+      - name: Install PDF manual tools and fonts on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          tlmgr update --self
+          tlmgr install makeindex inconsolata helvetic times courier collection-latexrecommended
+          command -v pdflatex
+          command -v makeindex
+      - name: Install PDF manual tools and fonts on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        # Match the compatibility workflow's bounded attempts, but a candidate
+        # must have a checked PDF manual: there is no optional-manual fallback.
+        timeout-minutes: 15
+        env:
+          TEXLIVE_PREFETCH: '0'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          function Invoke-Tlmgr {
+            param([string] $Command)
+            $tlmgr = (Get-Command tlmgr.bat -ErrorAction Stop).Source
+            for ($attempt = 1; $attempt -le 2; $attempt++) {
+              $process = Start-Process -FilePath $tlmgr -ArgumentList $Command -NoNewWindow -PassThru
+              if ($process.WaitForExit(300000)) {
+                $process.WaitForExit()
+                if ($process.ExitCode -eq 0) { return }
+                throw "tlmgr $Command exited with code $($process.ExitCode)"
+              }
+              Write-Host "tlmgr $Command exceeded five minutes on attempt $attempt; stopping its process tree"
+              & taskkill.exe /PID $process.Id /T /F | Out-Null
+              if ($attempt -lt 2) { Start-Sleep -Seconds 30 }
+            }
+            throw "tlmgr $Command did not complete in two attempts"
+          }
+          Invoke-Tlmgr 'update --self'
+          Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier collection-latexrecommended'
+          Get-Command pdflatex -ErrorAction Stop
+          Get-Command makeindex -ErrorAction Stop
+      - uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
+        with:
+          packages: any::OpenMx, any::lme4, any::ordinal, any::knitr, any::rmarkdown, any::V8
+          dependencies: 'c("Depends", "Imports", "LinkingTo")'
+          upgrade: 'TRUE'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: cran-candidate-built-${{ github.sha }}
+          path: ${{ runner.temp }}/downloaded-cran-candidate
+      # This checks the same release-built bytes as R-devel and noLD, including
+      # examples, installed tests and the PDF manual. It does not rebuild the
+      # archive or repeat the separate source-validation matrix.
+      - name: Check the exact downloaded archive and its PDF manual
+        shell: bash
+        run: python scripts/cran_readiness.py check --expected-data-kind public_llm_annotations --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked"
+      - name: Preserve platform check evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: cran-candidate-platform-evidence-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/cran-checked/*.json
+            ${{ runner.temp }}/cran-checked/*.log
+            ${{ runner.temp }}/cran-checked/*.Rcheck
+          if-no-files-found: ignore
+          retention-days: 30
+
   nold:
     name: R-devel without long double
     needs: build-release

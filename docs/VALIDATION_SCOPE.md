@@ -1,6 +1,6 @@
 # Validation scope
 
-This document separates implemented checks from the scientific validation still needed. The catalogue of unsupported combinations is [limitations](LIMITATIONS.md). Source version 1.0.0.9000 is unreleased development. Historical pilot results retain their recorded source versions and do not validate subsequent additions. This is not a test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
+This document separates implemented checks from the scientific validation still needed. The catalogue of unsupported combinations is [limitations](LIMITATIONS.md). The source targets the 1.0.0 release candidate; its publication status and archive checks are separate. Historical pilot results retain their recorded source versions and do not validate subsequent additions. This is not a test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
 
 ## Scoped native examples and numerical reproduction
 
@@ -9,8 +9,8 @@ report numerical acceptance on macOS and Linux for two whole-data requests:
 
 | Native request | Retained observations and model | What the reported result establishes |
 |---|---|---|
-| Drug-review efficacy and safety | All 21,600 rows, the two named ordinal aspects of `drug_review_4aspect`, and ten declared sources | Accepted point estimates and bounded cross-platform numerical agreement for this request; observed information unavailable at covariance boundaries |
-| Mental-health three groups | All 21,600 rows of `mental_health_3group`, three binary outcomes, and ten declared sources | Accepted point estimates and bounded cross-platform numerical agreement for this request; observed information unavailable at covariance boundaries |
+| Drug-review efficacy and safety | All 21,600 rows, the two named ordinal aspects of `drug_review_4aspect`, and ten declared sources | Earlier accepted point fits on macOS/Linux; a subsequent macOS information calculation held three fitted singular nonzero source matrices fixed |
+| Mental-health three groups | All 21,600 rows of `mental_health_3group`, three binary outcomes, and ten declared sources | Earlier accepted point fits on macOS/Linux; a subsequent macOS information calculation held five fitted singular nonzero source matrices fixed |
 
 The public installed [native workflow](../inst/examples/native_1_0_workflow.R)
 and [guide](REAL_DATA_WORKFLOW.md) declare these requests and retain their
@@ -19,6 +19,16 @@ the small synthetic smoke mode. A passing smoke check demonstrates the code
 path, not either native fit. New source or archive bytes require their own run
 record; the presence of the script does not transfer the project's earlier
 numerical results to a new build.
+
+The later calculations supplied conditional intervals at the original accepted
+estimates, using 25 of 34 information coordinates for drug review and 33 of 63
+for mental health. They changed neither the data nor the fitted point. The
+ordinary information refusal remains the historical result; it is not a reason
+to suppress the newly implemented conditional route. Conversely, arithmetic
+success conditional on fixed matrices does not measure uncertainty in those
+matrices or the decision to hold them. There is no corresponding Linux
+conditional-information record or coverage campaign for this extension.
+No whole-data optimizer rerun was included in the current candidate review.
 
 Neither request supplies a result for all four drug-review aspects or the six
 mental-health flags. Neither establishes first-order Laplace adequacy, a global
@@ -45,7 +55,7 @@ every future package version.
 |---|---|---|
 | Sparse categorical likelihood and calls | [Dense/sparse and independent glmer comparisons](../tests/test_discrete_sparse_joint_calls.R), [public selection and resource guards](../tests/test_discrete_sparse_public.R), [conditional-mode rounding and strict refusal](../tests/test_discrete_sparse_roundoff.R), [warm-start retry of failed cold solves](../tests/test_discrete_sparse_warm_start.R) | Full native-panel qualification, global optimality or approximation accuracy |
 | Observed-row Gaussian likelihood | [Direct covariance inverse/determinant and lme4 comparisons](../tests/test_gaussian_observed.R), [balanced projection algebra](../tests/test_gaussian_projection.R) | Joint incomplete fitting, nonignorable missingness correction or reliability of the irregular observed panel |
-| Discrete information | [Full nuisance-information and Jacobian checks](../tests/test_discrete_information.R), [independent clmm information and coefficient derivatives](../tests/test_discrete_information_reference.R), [public uncertainty contracts](../tests/test_information_public.R) | Repeated-sampling coverage or correction for Laplace approximation error |
+| Discrete information | [Full nuisance-information and Jacobian checks](../tests/test_discrete_information.R), [independent clmm information and coefficient derivatives](../tests/test_discrete_information_reference.R), [conditional information and held-source checks](../tests/package-discrete-gradient-information.R), [public uncertainty contracts](../tests/test_information_public.R) | Coverage after choosing boundary sources, unconditional inference for held matrices, or correction for Laplace approximation error |
 | Categorical targets and cost planning | [Analytic probit moments, whole-panel MC error and nominal relabeling](../tests/test_categorical_targets.R), [cost and candidate accounting](../tests/test_categorical_planning.R) | Predictive accuracy, decision discrimination, parameter confidence intervals or automatic integration precision |
 | Categorical simulation and pilots | [Shared effects, labels, RNG and calls](../tests/test_discrete_simulation.R), [latent pilot accounting](../tests/test_discrete_pilot.R), [independent point-target reference and all-attempt ledger](../tests/test_categorical_pilot_targets.R) | Broad recovery/coverage calibration, a guaranteed pilot size or qualification of full-panel refitting |
 
