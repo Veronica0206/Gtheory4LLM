@@ -5,12 +5,62 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shlex
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def macos_toolchain_environment(environment, work):
+    """Keep Apple's developer-tool cache out of R's package-test temp space.
+
+    /usr/bin compiler/binutils shims and R's SDK query invoke xcrun, which
+    writes xcrun_db even with its documented no-cache option. Resolve those
+    shims before starting R, and isolate only xcrun's own temporary files.
+    R/package TMPDIR and the detritus check are deliberately left unchanged.
+    Non-Apple tools already selected by PATH are never replaced.
+    """
+    result = environment.copy()
+    if sys.platform != 'darwin':
+        return result, {'enabled': False, 'reason': 'not macOS'}
+    selected_xcrun = shutil.which('xcrun', path=environment.get('PATH'))
+    if selected_xcrun != '/usr/bin/xcrun':
+        return result, {'enabled': False, 'reason': 'Apple xcrun is not selected by PATH'}
+    workspace = Path(work) / 'macos-toolchain'
+    binaries = workspace / 'bin'
+    cache = workspace / 'cache'
+    binaries.mkdir(parents=True)
+    cache.mkdir()
+    lookup_environment = {**environment, 'TMPDIR': str(cache.resolve())}
+    tools = {}
+    # Include make and the symbol/loader inspectors used by R CMD check, not
+    # just CC: overriding the compiler alone leaves the other Apple shims.
+    for name in ('cc', 'c++', 'gcc', 'g++', 'clang', 'clang++', 'ar', 'as',
+                 'ld', 'libtool', 'make', 'nm', 'nmedit', 'otool', 'ranlib',
+                 'size', 'strip', 'dsymutil', 'lipo'):
+        if shutil.which(name, path=environment.get('PATH')) != '/usr/bin/' + name:
+            continue
+        found = subprocess.run([selected_xcrun, '--find', name], env=lookup_environment,
+                               capture_output=True, text=True, timeout=30)
+        target = Path(found.stdout.strip())
+        if (found.returncode or not target.is_absolute() or not target.is_file()
+                or not os.access(target, os.X_OK) or target == Path('/usr/bin') / name):
+            raise RuntimeError('Could not resolve the active macOS developer tool: ' + name)
+        (binaries / name).symlink_to(target)
+        tools[name] = str(target)
+    wrapper = binaries / 'xcrun'
+    wrapper.write_text('#!/bin/sh\nTMPDIR=' + shlex.quote(str(cache.resolve())) +
+                       ' exec /usr/bin/xcrun "$@"\n', encoding='utf-8')
+    wrapper.chmod(0o755)
+    result['PATH'] = str(binaries.resolve()) + os.pathsep + environment.get('PATH', os.defpath)
+    return result, {'enabled': True, 'resolved_tools': tools,
+                    'xcrun_cache_directory': str(cache.resolve()),
+                    'package_tmpdir_changed': False, 'detritus_check_changed': False}
+
 
 def sanitize(value, work):
     if isinstance(value, dict): return {key: sanitize(item, work) for key, item in value.items()}
@@ -168,6 +218,7 @@ def main(argv=None):
         if result.returncode:
             raise RuntimeError(name + ' failed')
     try:
+        environment, report['macos_toolchain'] = macos_toolchain_environment(environment, work)
         run('package_data', [args.rscript, '--vanilla', str(ROOT / 'scripts/build_package_data.R'), '--verify-only'], directory=ROOT)
         # The distributed archive contains built vignettes, and the installed
         # tutorial script and HTML are vignette build products. Build them here

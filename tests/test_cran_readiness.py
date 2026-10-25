@@ -109,6 +109,7 @@ class CRANReadinessTests(unittest.TestCase):
         if rscript is not None:
             argv += ["--rscript", rscript]
         with patch.object(CHECK, "ROOT", self.root / "source"), patch.object(CHECK, "clean_commit", return_value=self.commit), \
+                patch.object(CHECK, "macos_toolchain_environment", side_effect=lambda env, work: (env, {'enabled': False})), \
                 patch.object(CHECK, "PublicAudit") as audit, patch.object(CHECK.subprocess, "run", side_effect=fake_run), \
                 patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
             audit.return_value.findings = []
@@ -191,6 +192,7 @@ class CRANReadinessTests(unittest.TestCase):
 
         argv = ["cran_readiness.py", "build", "--output-dir", str(output), "--rscript", "/resolved/Rscript"]
         with patch.object(CHECK, "ROOT", self.root / "source"), patch.object(CHECK, "clean_commit", return_value=self.commit), \
+                patch.object(CHECK, "macos_toolchain_environment", side_effect=lambda env, work: (env, {'enabled': False})), \
                 patch.object(CHECK, "PublicAudit") as audit, patch.object(CHECK.subprocess, "run", side_effect=fake_run), \
                 patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
             audit.return_value.findings = []

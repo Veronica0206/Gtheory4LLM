@@ -77,6 +77,25 @@ removing the intercept.
 
 An explicit retry seed preserves the caller's random-number state.
 
+\strong{Reproducibility.} Retain the exact package archive and checksum, data
+and row order, response coding, source specification, all controls and starting
+values, and the R, dependency and numerical-library versions. For Gaussian
+restarts, set \code{retry_seed} explicitly and keep the thread count fixed.
+Record separate seeds for simulation and Monte Carlo diagnostics. A seed fixes
+the random draws it controls; it does not fix platform-dependent floating-point
+arithmetic or guarantee bitwise-identical optimized estimates.
+
+Replay a request in the same recorded environment before comparing it across
+platforms. Compare matched unrounded quantities under numerical tolerances
+declared before the rerun, together with numerical-acceptance and
+uncertainty-availability decisions. A different decision is a reproduction
+failure to investigate, even if rounded coefficients look similar. Preserve
+that result instead of increasing a tolerance after seeing it. The installed
+\file{examples/native_1_0_workflow.R} records a comparison policy for its two
+specified native models; those tolerances are not general optimizer settings
+or a guarantee for other studies. See \link{gt_fit} for the distinction between
+numerical agreement, approximation adequacy and statistical calibration.
+
 Gaussian \code{start} accepts a complete named list of covariance matrices for
 all model sources, including \code{Residual}. Fully named matrix axes are matched
 independently to the outcome names; both unnamed axes use outcome order.

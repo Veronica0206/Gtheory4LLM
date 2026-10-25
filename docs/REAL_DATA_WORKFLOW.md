@@ -1,8 +1,93 @@
-# Native LLM annotations: inspect the design, then decide what can be fitted
+# Native LLM annotations and reproducible scoped fits
 
-The three bundled datasets are useful for checking a real annotation design and choosing the response model. Their full native panels cannot currently be fitted by the dense discrete engine. This tutorial demonstrates that boundary directly, then uses separate synthetic fixtures to show how to respond to structural failures and numerical rejection. It reports no fitted reliability estimate for the real datasets.
+The three bundled datasets support design audits and explicitly scoped native
+response models. The installed workflow below defines the two joint models
+reported to reach numerical acceptance with sparse fitting. The historical
+full-hierarchy audit later on this page remains a separate demonstration of
+unsupported requests; it does not fit those models.
 
-## Run the complete example
+## Run the scoped v1.0 workflow
+
+Install the exact candidate archive into a dedicated library first. The workflow
+uses only the installed package and its bundled public annotation tables:
+
+For a full run, set `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
+`MKL_NUM_THREADS` and `VECLIB_MAXIMUM_THREADS` to `1` in the environment that
+launches R, before R starts. On macOS or Linux, for example:
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+  VECLIB_MAXIMUM_THREADS=1 R --vanilla
+```
+
+On Windows, set the same four variables in the session that launches R. Full
+mode refuses missing or different values. Setting them after R starts cannot
+reliably change an already initialized numerical library. The synthetic smoke
+mode does not require these full-replay prerequisites.
+
+```r
+library(Gtheory4LLM)
+source(system.file("examples", "native_1_0_workflow.R", package = "Gtheory4LLM"))
+
+# Small independently generated joint binary/ordinal example. This checks the
+# reporting contract, not the native-data estimates or their computational cost.
+gt_native_workflow(mode = "smoke", output_dir = "native-smoke-new")
+
+# Explicit long run. Supply the same archive that was installed. The directory
+# must be new so failures and previous results cannot be silently replaced.
+gt_native_workflow(mode = "full", output_dir = "native-full-new",
+  archive_path = "Gtheory4LLM_1.0.0.tar.gz")
+```
+
+Sourcing the script defines the workflow and does not launch a fit. The repository
+wrapper is equivalent: `Rscript examples/native_1_0_workflow.R smoke NEW_DIR`;
+for a full run append the archive path and, optionally, a single model ID.
+Run full models sequentially with one numerical thread. Recorded development
+runs required about 41 minutes and 131 minutes on the original Mac, and about
+100 minutes and 426 minutes on the Linux environment, respectively. These are
+historical measurements, not promised runtimes; the declared 8 GiB sparse
+working-memory budget is a planning guard, not an operating-system memory cap.
+
+| Model ID | Public input and modeled outcomes | Model |
+|---|---|---|
+| `drug_review_efficacy_safety` | `drug_review_4aspect`, efficacy and safety only, 21,600 rows | Two probit-ordinal outcomes with unstructured source covariance |
+| `mental_health_3group` | `mental_health_3group`, all three binary groups, 21,600 rows | Three probit-binary outcomes with unstructured source covariance |
+
+Both use the ten predeclared sources in this formula; for mental health the
+left-hand side is replaced by its three group outcomes:
+
+```r
+cbind(efficacy, safety) ~ item * evaluator * prompt +
+  evaluator:prompt:temp + evaluator:prompt:temp:seed +
+  item:evaluator:prompt:temp
+```
+
+The measured object is explicitly `item`. The workflow uses native category
+order, automatic starts and one alternative start, sparse L-BFGS-B, natural
+Cholesky coordinates, analytic gradient, `optimizer_scaling = "start"`,
+`boundary_escape = "projected"`, observed-information checking and a 2,000
+iteration limit per attempt. It records the complete resolved controls instead
+of relying on these prose summaries. Its row, dimension and parameter guards
+permit these declared requests; acceptance tolerances are unchanged.
+
+The two outcome choices are the scoped examples, not evidence that all four
+drug aspects or six mental-health flags have been fitted. Their original accepted
+results have unavailable observed information at other covariance boundaries.
+The workflow retains that decision, reports point estimates through the public
+extractors, and does not invent interval endpoints. It exports preflight and
+acceptance decisions, components, latent reliability, a balanced D study and a
+portable report when supported, plus all warnings/refusals and environment and
+archive provenance. A refused fit cannot become a successful reproduction merely
+because an optimizer returned a number.
+
+Comparison uses unrounded values and the frozen numerical reference, including
+acceptance and uncertainty availability. The declared tolerances are a numerical
+reproduction contract; passing them is not evidence of a global optimum,
+Laplace-approximation accuracy or general interval coverage. They are never
+widened automatically. The original project records and their source/archive
+identities are audited separately from new run results.
+
+## Historical full-hierarchy audit and failure examples
 
 From the repository root:
 
@@ -45,10 +130,10 @@ if (!is.null(result$decision_study)) {
 }
 ```
 
-A full native binary/ordinal fit-and-report tutorial still requires
-large-panel qualification. The development version provides public sparse
-selection through `gt_control(discrete = list(engine = "sparse"))`; this
-historically recorded example retains its dense request and size guards.
+The installed scoped workflow above is the native fit-and-report entry point.
+The following historical example deliberately retains its different 31-source
+dense request and size guards; its blocked requests do not contradict the
+reported sparse ten-source fits.
 
 Category proportions describe recorded annotation rows, which are repeated measurements on the same items. They are not accuracy estimates or independent-text prevalences. The modeling tables omit original reference labels and raw text. Their preprocessing retains the source study's defaults for omitted items in successfully parsed batches; a complete table does not prove that every API response contained a usable annotation.
 

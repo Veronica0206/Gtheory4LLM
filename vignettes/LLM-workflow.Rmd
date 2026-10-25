@@ -140,6 +140,15 @@ variance, obtained from the numerically differentiated restricted-likelihood
 Hessian. A component resting on a variance boundary is flagged, because Wald
 theory does not apply there.
 
+The simulation seed and Gaussian retry seed serve different purposes. Keep
+both, together with the data order, exact package archive, controls, R and
+dependency versions, numerical libraries and thread count when saving a result.
+First replay the request in the same environment. Cross-platform replication
+uses predeclared tolerances on unrounded estimates and also compares numerical
+acceptance and interval availability; a fixed seed does not promise identical
+floating-point optimization. A changed decision or a failed tolerance check
+must remain visible rather than being removed by rounding or a relaxed bound.
+
 ```{r variances}
 summary(fit)$variances
 ```
@@ -316,6 +325,40 @@ fixed, and they remain conditional on the Laplace approximation. Analytic reliab
 studies require complete balanced coded panels even when discrete fitting admits
 missing whole cells; observed-score, category-vector and decision targets are
 separate simulated targets from `gt_categorical_target()`.
+
+For real native data, a separate installed workflow declares the two specific
+whole-data requests used in the version 1.0 project records: two ordinal
+drug-review outcomes (efficacy and safety), and the three binary mental-health
+groups. Both retain 21,600 rows and ten declared sources. The records report
+numerical acceptance on macOS and Linux, with sparse analytic-gradient fitting
+and projected boundary escape. Information was unavailable at covariance
+boundaries, so those reported latent coefficients have no Wald intervals.
+They do not validate the all-four-aspect or six-flag models, first-order Laplace
+accuracy, or interval coverage.
+
+These long fits are not run while building this synthetic vignette. Sourcing
+the installed script defines a helper without starting them:
+
+For a full run, set `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
+`MKL_NUM_THREADS` and `VECLIB_MAXIMUM_THREADS` to `1` in the environment that
+launches R, before R starts. Full mode refuses missing or different values.
+Setting them inside an existing R session does not reliably change an already
+initialized numerical library. Install the candidate archive into an isolated
+library and supply that same archive below.
+
+```{r native-workflow, eval=FALSE, purl=FALSE}
+source(system.file("examples", "native_1_0_workflow.R",
+                   package = "Gtheory4LLM", mustWork = TRUE))
+gt_native_workflow(mode = "full", output_dir = "native-1.0-results",
+  archive_path = "Gtheory4LLM_1.0.0.tar.gz")
+```
+
+The helper's `mode = "smoke"` uses a small synthetic fixture to check the
+workflow, not to reproduce a native fit. Its full mode retains the specified
+requests, rejected outcomes and unavailable intervals and records its
+comparison policy. Follow the
+[native workflow guide](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/REAL_DATA_WORKFLOW.md)
+for the precise source models and result interpretation.
 
 At one observation per object-by-facets cell, a discrete fit cannot identify the
 full-cell source that the default design requests. Declare the same design

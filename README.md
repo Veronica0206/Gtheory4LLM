@@ -15,7 +15,7 @@ quality, or a scientifically sufficient number of evaluators. Read
 validated.
 
 <!-- release-identity:start -->
-Source version: **1.0.0.9000**.
+Source version: **1.0.0**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -23,9 +23,9 @@ These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
 
-## Development toward 1.0
+## Version 1.0 scope
 
-This local development version adds sparse categorical estimation and fixed
+This version adds sparse categorical estimation and fixed
 call effects, optional information-based uncertainty, incomplete univariate
 Gaussian panels, shared categorical simulation, and explicitly named observed,
 decision and category-vector targets. Sparse categorical fits can use an opt-in
@@ -35,7 +35,7 @@ targets. Pilot planning assesses latent binary/ordinal interval precision or
 point-estimator behavior for the observed, vector and decision targets.
 The formula interface and historical release artifacts are retained.
 
-These bounded implementations are not a released or fully qualified 1.0 package.
+Publication and qualification of the selected release archive are recorded in the repository manifest.
 Full-panel solver performance, approximation accuracy, interval coverage and
 cross-platform release qualification remain separate work; see
 [development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
@@ -49,7 +49,7 @@ Declaring it here turns a later, unexplained compilation failure into a clear
 refusal. Older pairings such as R 4.3 with OpenMx 2.21.11 have been reported to
 pass these checks but are not part of the validated gate; to use one, install
 from source with a relaxed floor, or `source("load_functions.R")`, which
-imposes no version requirement. The development version contains C code, so
+imposes no version requirement. This version contains C code, so
 installing it from source, and `source("load_functions.R")`, which compiles the
 same C file, need the C toolchain R itself uses: the Xcode command-line tools
 on macOS, Rtools on Windows, or a C compiler on Linux.
@@ -123,7 +123,7 @@ absolute shifts across the declared measurement conditions. Decision studies
 average over specified random facet populations and hold fitted source
 covariances fixed. More evaluators or prompts are meaningful projections only
 if those populations and covariance assumptions remain appropriate. These are
-point estimates carrying an interval. For example, G = 0.80 describes the
+point estimates with intervals only when uncertainty is available. For example, G = 0.80 describes the
 universe-score share of variance for relative item comparisons under the
 specified model; it is not 80% labeling accuracy or agreement with a human
 reference. Phi additionally penalizes absolute panel shifts and is no larger
@@ -410,6 +410,22 @@ candidates and their reasons. `summary(fit)` reports acceptance, selected
 attempt, boundary status, and approximation status without printing model
 internals or observations; detailed records remain available.
 
+For reproducible fitting, retain the exact source archive and its checksum,
+input data and row order, response coding, source specification, controls,
+starting values and seeds, and the R, dependency and numerical-library versions.
+Use an explicit Gaussian `retry_seed` and a fixed thread count; simulation and
+Monte Carlo checks need their own recorded seeds. A seed controls random draws;
+it does not guarantee identical floating-point results across environments.
+
+In the same recorded environment, replay the same request and compare the
+estimates and numerical decisions with the saved run. Across platforms, compare
+matched, unrounded quantities under tolerances declared before seeing the new
+results. Numerical acceptance and uncertainty availability must also agree for
+a claimed successful replay. Record differences and refusals rather than
+widening tolerances after a failure. The installed native workflow below records
+its comparison policy; it does not promise bitwise-identical estimates or
+generalize its tolerances to other models.
+
 The default Gaussian route and ordinary analytic coefficients require a complete
 balanced coded panel. The explicitly selected observed-row Gaussian route and
 intended balanced projection have separate guards described above. Both discrete
@@ -453,13 +469,48 @@ chosen coding, its family specification, and provenance together with the data.
 The six discrete native outcome sets each contain 21,600 rows and exceed the
 dense discrete engine limits by more than an order of magnitude; raising the
 limits does not make the dense engine practical at that size. With the sparse
-engine, the analytic gradient and `boundary_escape = "projected"`, two joint
-outcome sets have numerically accepted whole-data fits on macOS: the efficacy
-and safety aspects of `drug_review_4aspect`, and `mental_health_3group`; see
-the development status. Whole-data discrete fits of the other sets are not
-qualified here. Do not remove item interactions merely to obtain an accepted
-fit. The two
-mental-health 7L/3L sets remain Gaussian working scores under both coding options.
+engine, the analytic gradient and `boundary_escape = "projected"`, the
+25 October 2026 project records report numerical acceptance on macOS and Linux
+for two deliberately specified joint outcome sets: the efficacy and safety
+aspects of `drug_review_4aspect`, and `mental_health_3group`. Each uses all 21,600
+rows and the ten sources declared in its recorded model. These examples do not
+establish a result for all four drug-review aspects or all six mental-health
+flags. Their observed information was unavailable at covariance boundaries, so
+their reported latent coefficients have no Wald intervals. Numerical acceptance
+and cross-platform agreement do not establish first-order Laplace accuracy or
+interval calibration; see the scoped evidence in
+[development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
+
+The installed native workflow makes those two requests and their reporting
+steps explicit. Sourcing the script defines the helper; the `full` call runs
+the long fits and writes its evidence to the chosen output directory:
+
+Before starting R, set `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
+`MKL_NUM_THREADS` and `VECLIB_MAXIMUM_THREADS` to `1` in its launch environment.
+For example, on macOS or Linux:
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+  VECLIB_MAXIMUM_THREADS=1 R --vanilla
+```
+
+On Windows, set the same four environment variables in the session that launches
+R. Full mode refuses missing or different values. Setting them after R has
+started does not reliably reconfigure an already initialized numerical library.
+
+```r
+source(system.file("examples", "native_1_0_workflow.R",
+                   package = "Gtheory4LLM", mustWork = TRUE))
+gt_native_workflow(mode = "full", output_dir = "native-1.0-results",
+  archive_path = "Gtheory4LLM_1.0.0.tar.gz")
+```
+
+Use `mode = "smoke"` for a small synthetic workflow check; its result is not a
+whole-data reproduction. The [native workflow guide](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/REAL_DATA_WORKFLOW.md)
+explains the fixed requests, comparison policy, and treatment of rejected fits
+and missing intervals. Do not remove sources or outcomes merely to obtain an
+accepted fit. The two mental-health 7L/3L sets remain Gaussian working scores
+under both coding options.
 
 Temperature-specific seed agreement is a useful descriptive diagnostic. Lower
 agreement at higher temperatures may reflect changes in category probabilities,
