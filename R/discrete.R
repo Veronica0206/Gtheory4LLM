@@ -1204,7 +1204,7 @@
   # reach it, so the route is offered on those coordinates and on fixed
   # covariances, and refused here rather than at the first boundary gradient.
   escape <- identical(control$boundary_escape, "projected")
-  if (escape && !identical(setup$parameterization, "cholesky"))
+  if (escape && !.gt_d_escape_coordinates_supported(setup$parameterization))
     .gt_d_stop("boundary_escape = 'projected' acts on natural Cholesky source covariance coordinates, ",
       "where a singular source has an exact zero factor column; this model resolves to ",
       setup$parameterization, " coordinates. Set covariance_parameterization = 'cholesky' for an ",
@@ -1388,9 +1388,12 @@
   # The boundary escape (R/discrete_boundary_escape.R): after a completed tight
   # attempt, step each singular source whose covariance-direction score points
   # inward and rerun the tight attempt from there, at most three times. Each
-  # rerun is an attempt of its own, kept in the record; a rerun that fails or
-  # does not lower the tight objective ends the escape and the earlier result
-  # stands. Acceptance is decided on the final candidates as before.
+  # rerun is an attempt of its own, kept in the record. A rerun that raises an
+  # error, returns no usable result or does not lower the tight objective ends
+  # the escape and the earlier result stands; a rerun that lowers it but stops
+  # at the iteration limit becomes the candidate and ends the escape, and
+  # acceptance refuses it as incomplete. Acceptance is decided on the final
+  # candidates as before.
   escape_records <- list()
   escape_tight <- function(result, label) {
     rounds <- list()
@@ -1671,7 +1674,9 @@
                        optimizer = control$optimizer,
                        optimizer_fixed_across_attempts = TRUE,
                        optimization_trials = length(attempts),
-                       optimization_trial_budget = 2L * (1L + control$alternative_starts),
+                       # Each start has a coarse and a tight attempt; with the
+                       # boundary escape each tight attempt may add three reruns.
+                       optimization_trial_budget = (1L + control$alternative_starts) * (2L + if (escape) 3L else 0L),
                        starting_parameters = start, automatic_starting_parameters = automatic_start,
                        supplied_start_parameters = control$start,
                        tight_final_mode = tight_final_mode,

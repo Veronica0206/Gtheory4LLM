@@ -83,6 +83,16 @@ check(identical(record$route, "projected") && identical(first$reason, "stepped")
       "the record names the singular source, its score, the step and its objective change")
 step_record <- escaped$diagnostics$attempts[[3L]]$boundary_escape
 check(identical(step_record$reason, "stepped"), "the rerun attempt carries the step that started it")
+# The reported allowance covers every retained attempt: a coarse and a tight
+# attempt per start, plus three possible reruns per tight attempt with the
+# escape on; the staged diagnostics report the same allowance.
+staged_budget <- function(fit) unlist(lapply(gt_diagnostics(fit)$stages, function(s) s$measurements$optimization_trial_budget))
+check(escaped$diagnostics$optimization_trials == 5L && escaped$diagnostics$optimization_trial_budget == 10L &&
+        escaped$diagnostics$optimization_trials <= escaped$diagnostics$optimization_trial_budget &&
+        identical(as.integer(staged_budget(escaped)), 10L),
+      "the escaped fit's trials lie within its reported budget, also in the staged diagnostics")
+check(reference$diagnostics$optimization_trials == 4L && reference$diagnostics$optimization_trial_budget == 4L,
+      "a fit without the escape keeps its budget of two attempts per start")
 last <- record$attempts$primary_tight$rounds[[length(record$attempts$primary_tight$rounds)]]
 check(identical(last$reason, "every singular source is stationary"), "the escape ends when every singular source is stationary")
 cat(sprintf("PASS: stuck fixture (score %.3g, alpha %g, objective change %.4f; -2 log L difference %.2e)\n",
@@ -129,4 +139,18 @@ expect_error(suppressWarnings(gt_fit(d, c("label", "grade"), design, families,
   control = gt_control(discrete = list(engine = "sparse", covariance_parameterization = "log_cholesky",
                                        boundary_escape = "projected")))),
   "natural Cholesky", "log-Cholesky coordinates are refused")
-cat("PASS: refusals\n")
+# Preflight applies the fit's coordinate rule before fitting.
+escape_row <- function(pre) pre$checks[pre$checks$check == "boundary_escape_coordinates", , drop = FALSE]
+for (case in list(list(outcomes = "label", family = gt_family("binary"), parameterization = "auto", passes = FALSE),
+                  list(outcomes = c("label", "grade"), family = families, parameterization = "log_cholesky", passes = FALSE),
+                  list(outcomes = c("label", "grade"), family = families, parameterization = "cholesky", passes = TRUE))) {
+  pre <- gt_preflight(d, case$outcomes, design, case$family, control = gt_control(discrete = list(engine = "sparse",
+    covariance_parameterization = case$parameterization, boundary_escape = "projected")))
+  row <- escape_row(pre)
+  check(nrow(row) == 1L && identical(row$passed, case$passes) && identical(isTRUE(pre$fitting_feasible), case$passes),
+        paste("preflight reports the escape's coordinate rule for", case$parameterization, "coordinates"))
+}
+plain <- gt_preflight(d, c("label", "grade"), design, families,
+  control = gt_control(discrete = list(engine = "sparse", covariance_parameterization = "cholesky")))
+check(nrow(escape_row(plain)) == 0L, "preflight without the escape has no escape check")
+cat("PASS: refusals and preflight\n")

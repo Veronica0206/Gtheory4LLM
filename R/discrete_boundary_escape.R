@@ -19,6 +19,12 @@
 # new point. Nothing here decides acceptance: the stationarity check, restart
 # stability and every other rule run on the final candidates as before.
 
+# The coordinates the escape acts on: natural Cholesky, where a singular source
+# has an exact zero factor column. The fit-start guard and the preflight check
+# share this rule.
+.gt_d_escape_coordinates_supported <- function(parameterization)
+  identical(parameterization, "cholesky")
+
 # A lower-triangular factor of a positive semidefinite matrix whose
 # nonpositive pivots are kept at zero; NULL when it does not reproduce S.
 .gt_d_psd_cholesky <- function(S) {

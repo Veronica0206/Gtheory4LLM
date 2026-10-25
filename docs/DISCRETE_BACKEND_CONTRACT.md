@@ -553,9 +553,14 @@ arithmetic, never an acceptance decision). A source whose projected score
 matrices for `alpha` in `(0, 1]`, with `alpha` the best of a fixed grid by the
 objective, and written back in natural Cholesky coordinates with zero pivots
 kept. The tight attempt is rerun from the stepped point under the same
-controls, at most three times. A rerun is an attempt of its own; one that
-fails or does not lower the tight objective ends the escape and the earlier
-result stands; an attempt error blocks acceptance as any attempt error does.
+controls, at most three times. A rerun is an attempt of its own. One that
+raises an error, returns no usable result or does not lower the tight objective
+ends the escape and the earlier result stands; an attempt error blocks
+acceptance as any attempt error does. One that lowers the objective but stops at
+the iteration limit becomes the candidate and ends the escape, and acceptance
+refuses it as incomplete. The fit's `optimization_trial_budget` counts the three
+possible reruns of every tight attempt, and the preflight check
+`boundary_escape_coordinates` applies the fit's coordinate rule.
 The fit records each step's singular sources, scores, step lengths, objective
 changes and evaluation count. Acceptance runs on the final candidates as
 before. Other coordinates are refused at fit start.
