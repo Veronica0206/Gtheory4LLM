@@ -142,7 +142,10 @@ scientifically sufficient. Those are separate questions with separate evidence.
   each time; absolute coefficients, which depend on them, can therefore get
   narrower intervals than the random-facet Wald intervals. Refused refits are
   dropped, which conditions the intervals on fitting success; the attempt
-  record keeps them. Coverage has not been assessed for any model. A fit with
+  record keeps them. Coverage was assessed only in a Gaussian pilot of 24
+  items, where percentile and BCa intervals covered 89–94% of panels at a
+  nominal 95% ([results](../validation-studies/bootstrap-coverage/README.md));
+  it is unassessed for discrete and multivariate fits. A fit with
   declared batches is refused, and a balanced projection from an observed
   panel is not supported. Each attempt is a full refit, which makes a
   bootstrap of a large joint categorical fit a matter of days.
