@@ -29,7 +29,7 @@ gt_reliability(fit, scale = NULL, score = NULL, design = NULL, counts = NULL,
 always preserved without syntactic name repair.}
 \item{...}{Reserved for additional print or data-frame arguments.}
 }
-\value{A \code{gt_reliability} list containing per-outcome \code{Erho2} and \code{Phi} with their standard errors and interval bounds, optional composite coefficients, for a fit with a nominal outcome the number of contrast dimensions and the smallest and largest generalized eigenvalue of each coefficient (see Details), universe, relative-error and absolute-error covariance matrices on the latent dimensions, the role each source played in the decomposition, coefficient scale, allocation, fixed facets, extrapolation flag, the uncertainty record, and fit diagnostics. Standard errors and bounds are \code{NA} whenever the fit carries no usable parameter covariance matrix. Printing shows a concise coefficient table, omits all-missing interval columns, and returns the complete object invisibly.}
+\value{A \code{gt_reliability} list containing per-outcome \code{Erho2} and \code{Phi} with their standard errors and interval bounds, optional composite coefficients, for a fit with a nominal outcome the number of contrast dimensions and the smallest and largest generalized eigenvalue of each coefficient (see Details), universe, relative-error and absolute-error covariance matrices on the latent dimensions, the role each source played in the decomposition, coefficient scale, allocation, fixed facets, extrapolation flag, the uncertainty record, and fit diagnostics. With the default delta method, standard errors and bounds are \code{NA} whenever the fit carries no usable parameter covariance matrix; with \code{bootstrap}, they come from the accepted replicates and do not need that matrix. Printing shows a concise coefficient table, omits all-missing interval columns, and returns the complete object invisibly.}
 \details{\strong{Tabular export.} \code{as.data.frame()} returns an ordinary
 data frame with one row per outcome and an additional row for a requested
 weighted composite. \code{design_id} is 1 for this single allocation.
@@ -45,7 +45,7 @@ It maps exported names back to the original facets, protecting coefficient
 fields from similarly named facets. The table also includes:
 \itemize{
 \item \code{scale} and \code{interval_level}: coefficient interpretation.
-\item \code{uncertainty_available}: covariance availability.
+\item \code{uncertainty_available}: availability under the selected method.
 \item \code{uncertainty_reason}: the recorded reason.
 \item \code{uncertainty_conditional}: the conditional-inference flag.
 \item \code{uncertainty_conditioning}: what was held fixed.
@@ -59,9 +59,12 @@ fields from similarly named facets. The table also includes:
 \item \code{extrapolated}: extension beyond fitted facet counts.
 \item \code{batch_status}: whether the design declared batches.
 }
-\code{uncertainty_available} describes availability of the fitted covariance
-used for propagation; individual intervals can still be missing, for example
-at a coefficient boundary. The conditional flag records inference restricted
+\code{uncertainty_available} describes availability under the method in
+\code{uncertainty_method}: for the delta method, a usable fitted parameter
+covariance; for a bootstrap, enough accepted replicates and, for BCa, a
+complete set of leave-one-out refits. Individual intervals can still be
+missing, for example at a coefficient boundary or, for a bootstrap, beyond
+the replicates' support. The conditional flag records inference restricted
 to the interior parameter block, and the conditioning text identifies what
 was held fixed, distinguishing zero from singular nonzero covariance.
 The per-coefficient availability flags indicate that the estimate and both

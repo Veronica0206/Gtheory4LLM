@@ -311,8 +311,8 @@ approximation. The coverage of those conditional intervals is unassessed: the
 near-boundary and exact-boundary cells of the 2026-10-23 recovery campaign,
 rerun under the conditioning rule, would measure it. An object bootstrap,
 `gt_bootstrap()`, is implemented for every engine, and a frozen pilot in the
-four Gaussian coverage settings found its percentile and BCa intervals covering
-89–94% of panels at a nominal 95%. Still open: its coverage for discrete fits,
+four Gaussian coverage settings measured nominal 95% percentile intervals at
+89.5–94.0% coverage and BCa intervals at 89.1–93.8% among those available. Still open: its coverage for discrete fits,
 which the discrete recovery cells would measure with the bootstrap run inside
 each replicate, and for larger Gaussian panels; resampling
 that also reflects the sampling of facet levels; profile-likelihood and

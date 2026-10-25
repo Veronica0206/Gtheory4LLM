@@ -1,13 +1,24 @@
 # Rebuild the replicate table and its summary from the retained rows; never
-# fits or resamples data.
-summarize_run <- function(output_dir) {
+# fits or resamples data. The rows are the per-replicate files of a run
+# (input_dir/rows/*.csv) or, as committed, their consolidated replicates.csv.
+# Writing to a separate output_dir leaves the retained records untouched.
+summarize_run <- function(input_dir, output_dir = input_dir) {
+  if (!dir.exists(output_dir)) stop("output_dir does not exist: ", output_dir, call. = FALSE)
   save_csv <- function(x, name) write.csv(x, file.path(output_dir, name), row.names = FALSE, na = "NA")
-  files <- sort(list.files(file.path(output_dir, "rows"), pattern = "[.]csv$", full.names = TRUE))
-  rows <- lapply(files, read.csv, stringsAsFactors = FALSE)
-  columns <- unique(unlist(lapply(rows, names)))
-  results <- do.call(rbind, lapply(rows, function(r) { r[setdiff(columns, names(r))] <- NA; r[columns] }))
-  schedule <- read.csv(file.path(output_dir, "schedule.csv"), stringsAsFactors = FALSE)
-  config <- read.csv(file.path(output_dir, "config.csv"), stringsAsFactors = FALSE)
+  files <- sort(list.files(file.path(input_dir, "rows"), pattern = "[.]csv$", full.names = TRUE))
+  consolidated <- file.path(input_dir, "replicates.csv")
+  if (length(files)) {
+    rows <- lapply(files, read.csv, stringsAsFactors = FALSE)
+    columns <- unique(unlist(lapply(rows, names)))
+    results <- do.call(rbind, lapply(rows, function(r) { r[setdiff(columns, names(r))] <- NA; r[columns] }))
+  } else if (file.exists(consolidated)) {
+    results <- read.csv(consolidated, stringsAsFactors = FALSE)
+  } else {
+    stop("No retained rows in ", input_dir, ": expected rows/*.csv or replicates.csv.", call. = FALSE)
+  }
+  if (!nrow(results)) stop("The retained rows in ", input_dir, " are empty.", call. = FALSE)
+  schedule <- read.csv(file.path(input_dir, "schedule.csv"), stringsAsFactors = FALSE)
+  config <- read.csv(file.path(input_dir, "config.csv"), stringsAsFactors = FALSE)
   results <- results[order(match(results$scenario, config$scenario), results$replicate), ]
   save_csv(results, "replicates.csv")
   proportion <- function(successes, n, prefix) {

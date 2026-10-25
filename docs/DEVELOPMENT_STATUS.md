@@ -26,8 +26,10 @@ categorical simulation, explicitly named observed-score, category-vector and
 decision-agreement targets, cost screening for those targets, and binary/ordinal
 pilot precision planning. `gt_bootstrap()` adds object-bootstrap percentile and BCa intervals to
 `gt_reliability()` and `gt_dstudy()`; in a frozen Gaussian pilot of 24 items, 200
-REML panels in each of four settings, they covered the population coefficients
-in 89–94% of panels at a nominal 95%, against 95–97% for the delta method
+REML panels in each of four settings, percentile intervals covered the population
+coefficients in 89.5–94.0% of panels at a nominal 95%, BCa intervals in
+89.1–93.8% of the 85–99% of panels where they were available, and delta-method
+intervals in 95.0–97.0%
 ([results](../validation-studies/bootstrap-coverage/README.md)). A separate categorical point-estimator pilot route
 includes nominal outcomes and eligible fixed calls, with all-attempt
 availability and conditional error summaries. The formula interface is retained. The help pages

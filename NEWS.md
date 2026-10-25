@@ -286,8 +286,9 @@ threshold was loosened; where an optimizer path changed, the change is named.
   facet levels. In a frozen Gaussian pilot of 24 items with three or six
   raters, 200 REML panels per setting, percentile intervals covered the
   population coefficients in 92.0–94.0% of panels for Erho2 and 89.5–92.5%
-  for Phi, BCa intervals in 89.1–93.8% where available, and delta-method
-  intervals in 95.0–97.0% (`validation-studies/bootstrap-coverage`); coverage
+  for Phi, BCa intervals in 89.1–93.8% of the panels where they were
+  available (85–99%), and delta-method intervals in 95.0–97.0%
+  (`validation-studies/bootstrap-coverage`); coverage
   for other designs and for discrete fits is unassessed. Tests compare
   replicates with direct fits of independently built resamples and intervals
   with closed-form coefficients and a hand-computed BCa, and check determinism

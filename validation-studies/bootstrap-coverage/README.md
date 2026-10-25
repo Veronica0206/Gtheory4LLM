@@ -36,13 +36,29 @@ multivariate models.
 The run executed a frozen copy of source commit `a962a4d`, recorded in
 [run-metadata.csv](results/run-metadata.csv) with the
 [source fingerprints](results/source-files.csv). That commit preceded the
-release history and is not published. Against the 1.0.0 source, its
-fingerprinted R files are identical except `R/discrete.R`,
-`R/discrete_boundary_escape.R` and `R/preflight.R`, which differ only by the
-discrete boundary-escape trial budget and preflight coordinate check; Gaussian
-fits do not reach those lines. `DESCRIPTION` differs in its version.
+release history and is not published. Of its 41 fingerprinted files, 33 are
+identical in the 1.0.0 source. The eight that differ lie outside the pilot's
+Gaussian execution path or changed after the run:
+
+- `R/discrete.R`, `R/discrete_boundary_escape.R` and `R/preflight.R`: the
+  discrete boundary-escape trial budget and preflight coordinate check, which
+  Gaussian fits do not reach;
+- `R/bootstrap.R`: refits of discrete fits restore labeled binary responses,
+  which changes nothing for Gaussian outcomes;
+- `R/report.R`: report validation of bootstrap results; the runner builds no
+  report;
+- `R/examples.R`: the `numeric` coding name and its `manuscript` alias; the
+  runner loads no bundled dataset;
+- `DESCRIPTION`: the version;
+- `summarize.R`: extended after the run to read the consolidated
+  `replicates.csv`; the summarizer that ran is retained as
+  [summarize-executed.R](results/summarize-executed.R).
+
 The executed runner, [run-executed.R](results/run-executed.R), is identical to
 [run.R](run.R). [summarize.R](summarize.R) rebuilds `replicates.csv` and
-`summary.csv` byte for byte from the retained per-replicate rows. The run used
-R 4.5.3 and OpenMx 2.22.11 on macOS (arm64) with 13 worker processes; fitting
-took 714 cumulative seconds and bootstrapping 68,028.
+`summary.csv` byte for byte, either from the committed `replicates.csv` or from
+a run's per-replicate rows. From this directory,
+`summarize_run("results", "summary-check")` writes into an existing empty
+`summary-check` directory and leaves the records unchanged. The run used R 4.5.3
+and OpenMx 2.22.11 on macOS (arm64) with 13 worker processes; fitting took 714
+cumulative seconds and bootstrapping 68,028.
