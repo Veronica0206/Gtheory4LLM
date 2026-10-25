@@ -168,6 +168,18 @@ jobs:
         with:
           python-version: '3.12'
       - uses: r-lib/actions/setup-pandoc@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
+      - name: Install current HTML Tidy on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          brew install tidy-html5
+          tidy_bin="$(brew --prefix tidy-html5)/bin"
+          tidy_version="$("$tidy_bin/tidy" --version)"
+          printf '%s\n' "$tidy_version"
+          python -c 'import re, sys; match = re.search(r"\bversion\s+(\d+)\.", sys.argv[1], re.I); sys.exit(0 if match and int(match.group(1)) >= 5 else "HTML Tidy >= 5 is required")' "$tidy_version"
+          echo "$tidy_bin" >> "$GITHUB_PATH"
       - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         timeout-minutes: 15
       - name: Install PDF manual tools and fonts on macOS
@@ -206,6 +218,9 @@ jobs:
             }
             throw "tlmgr $Command did not complete in two attempts"
           }
+          # The default TinyTeX repository stalled at the first package on
+          # Windows; use this official HTTPS CTAN mirror for the whole update.
+          Invoke-Tlmgr 'option repository https://ctan.math.illinois.edu/systems/texlive/tlnet'
           Invoke-Tlmgr 'update --self'
           Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier collection-latexrecommended'
           Get-Command pdflatex -ErrorAction Stop
