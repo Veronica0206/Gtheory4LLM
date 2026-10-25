@@ -31,17 +31,20 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                         # stopped, exhaustion fails the step, and the step itself
                         # has a limit, so a stalled mirror cannot hold the job.
                         self.assertIn("timeout-minutes:", step)
-                        # The step may fail without failing the job, because the
-                        # manual gate also runs on Linux and macOS; a failed setup
-                        # removes its TinyTeX so the gate skips the manual stage
-                        # rather than rendering with half a TeX.
-                        self.assertIn("continue-on-error: true", step)
-                        self.assertIn("Remove-TinyTeX", step)
-                        self.assertIn("Remove-Item -LiteralPath $root -Recurse -Force", step)
-                        # A nonzero tlmgr exit is not retried and its code is the
-                        # step's; only a stall is retried.
-                        self.assertRegex(step, r"catch \{[^}]*Remove-TinyTeX[^}]*exit \$script:TexExitCode")
-                        self.assertIn("$script:TexExitCode = $process.ExitCode", step)
+                        if filename == "compatibility.yml":
+                            # Source compatibility may report its manual skipped
+                            # after removing an incomplete TinyTeX installation.
+                            self.assertIn("continue-on-error: true", step)
+                            self.assertIn("Remove-TinyTeX", step)
+                            self.assertIn("Remove-Item -LiteralPath $root -Recurse -Force", step)
+                            self.assertRegex(step, r"catch \{[^}]*Remove-TinyTeX[^}]*exit \$script:TexExitCode")
+                            self.assertIn("$script:TexExitCode = $process.ExitCode", step)
+                        else:
+                            # The exact candidate requires a manual on every OS;
+                            # failure must stop its job instead of skipping it.
+                            self.assertNotIn("continue-on-error:", step)
+                            self.assertNotIn("Remove-TinyTeX", step)
+                            self.assertIn('throw "tlmgr $Command exited with code $($process.ExitCode)"', step)
                         # Windows runners enable tlmgr's aria2c container prefetch,
                         # which stalled on every attempt; the step turns it off.
                         self.assertIn("TEXLIVE_PREFETCH: '0'", step)
@@ -62,7 +65,7 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                     self.assertLess(step.index("update --self"), step.index("install makeindex"))
                     self.assertNotIn("|| true", step)
                     checked += 1
-        self.assertEqual(checked, 5, "locked, Unix/Windows compatibility, ordinary R-devel, and noLD need TeX")
+        self.assertEqual(checked, 7, "locked, Unix/Windows compatibility, R-devel, macOS/Windows candidates, and noLD need TeX")
 
     @unittest.skipUnless(os.name != "nt" and shutil.which("bash"),
                          "Unix Bash is needed to exercise the Unix-only setup step")
@@ -93,10 +96,6 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == "nt" and shutil.which("pwsh"), "Windows PowerShell is needed to execute tlmgr.bat")
     def test_windows_manual_setup_propagates_both_native_exit_codes(self):
-        step = next(step for step in re.findall(r"(?ms)^      - name: .*?(?=^      - |\Z)", WORKFLOW.read_text())
-                    if "tlmgr.bat" in step)
-        script = "\n".join(line[10:] for line in step.split("        run: |\n", 1)[1].splitlines()
-                           if line.startswith("          "))
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "tlmgr.bat").write_bytes(b'@echo off\r\n'
@@ -104,17 +103,27 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                 b'if "%1"=="update" exit /b %TEX_UPDATE_STATUS%\r\n'
                 b'exit /b %TEX_INSTALL_STATUS%\r\n')
             setup = root / "setup.ps1"
-            setup.write_text(script)
-            for update, install, calls in ((29, 0, 1), (0, 37, 2)):
-                log = root / "calls"
-                log.write_text("")
-                environment = {**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
-                               "TEX_TEST_LOG": str(log), "TEX_UPDATE_STATUS": str(update),
-                               "TEX_INSTALL_STATUS": str(install)}
-                result = subprocess.run(["pwsh", "-NoProfile", "-File", str(setup)], env=environment,
-                                        capture_output=True, text=True)
-                self.assertEqual(result.returncode, update or install, result.stderr)
-                self.assertEqual(len(log.read_text().splitlines()), calls)
+            for filename in ("compatibility.yml", "cran-readiness.yml"):
+                workflow = ROOT / ".github/workflows" / filename
+                step = next(step for step in re.findall(r"(?ms)^      - name: .*?(?=^      - |\Z)", workflow.read_text())
+                            if "tlmgr.bat" in step)
+                script = "\n".join(line[10:] for line in step.split("        run: |\n", 1)[1].splitlines()
+                                   if line.startswith("          "))
+                setup.write_text(script)
+                for update, install, calls in ((29, 0, 1), (0, 37, 2)):
+                    with self.subTest(workflow=filename, update=update, install=install):
+                        log = root / "calls"
+                        log.write_text("")
+                        environment = {**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
+                                       "TEX_TEST_LOG": str(log), "TEX_UPDATE_STATUS": str(update),
+                                       "TEX_INSTALL_STATUS": str(install)}
+                        result = subprocess.run(["pwsh", "-NoProfile", "-File", str(setup)], env=environment,
+                                                capture_output=True, text=True)
+                        if filename == "compatibility.yml":
+                            self.assertEqual(result.returncode, update or install, result.stderr)
+                        else:
+                            self.assertNotEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(len(log.read_text().splitlines()), calls)
 
     def test_minimum_documentation_is_verified_and_restored_before_build(self):
         text = WORKFLOW.read_text()

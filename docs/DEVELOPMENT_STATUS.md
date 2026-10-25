@@ -19,7 +19,8 @@ No 0.6.0 CRAN submission is recorded. The 0.6.1 corrections and subsequent
 ## 1.0.0 release candidate
 
 The candidate source adds public dense/sparse categorical fitting, eligible
-equal fixed-call effects, optional full observed information, and a bounded
+equal fixed-call effects, optional observed information with boundary-conditional
+inference, and a bounded
 univariate observed-row Gaussian route through lme4. It also adds shared
 categorical simulation, explicitly named observed-score, category-vector and
 decision-agreement targets, cost screening for those targets, and binary/ordinal
@@ -45,21 +46,24 @@ recorded below.
 
 ## Analytic gradient qualification, 2026-10-25
 
-The route's checks against the plan of 2026-10-24, through installed archives
-of the merged units, on one core. Q1, Q2, Q4 and Q5 are reported completed from
-the project's run records; those records (requests, controls, attempts, saved
-fits and comparison tables) are not yet in the repository, so an independent
-evidence audit is pending.
+The table preserves the project's earlier campaign records against the plan
+of 2026-10-24, using the indicated archives and one core. Aggregate Q4/Q5 point
+references and subsequent macOS conditional-information outputs are now included
+in [the installed reference](../inst/examples/native_1_0_reference.R), with
+source/archive, driver and input hashes. Their retained raw requests, fits and
+calculation records remain separate project evidence. Q1/Q2 are historical
+campaign reports; they were not rerun during this candidate review. Neither
+reference extraction nor source tests constitute a new full-data fit.
 
 | Step | Scope | Result |
 |---|---|---|
 | Unit tests | Fixed-point gradient against finite differences on thirteen fixtures; the route on the discrete characterization panels and a joint panel; gradient-difference information against second differences | Pass on macOS and in the offline Linux container (R 4.5.2); full source gate and `R CMD check --as-cran` with only the development-version NOTE |
 | Q1, fixed points on the native panels | Drug-review ordinal (four points) and mental-health binary (three points), four declared directions, two steps, criterion `3e-4 + 3e-7 * abs(g)` | 56/56 comparisons pass on macOS and on Linux; the two platforms' gradients agree within 1e-11 although long double is 53-bit on Apple Silicon macOS and 113-bit on aarch64 Linux |
 | Q2, the T3 drug-review trial | 1,200 rows, four probit-ordinal outcomes, six sources, 68 parameters, automatic start, one alternative start, 600 iterations per attempt, `optimizer_scaling = "start"`, information off | Not accepted, as on 2026-10-23: every attempt reached the iteration cap still descending, the largest stationarity scores are on interior sources (item, item by evaluator, item by prompt), and evaluator, prompt and evaluator by prompt are singular with nonzero projected scores. The gradient itself was clean: 2,662 gradients, none refused, and agreement with the finite-difference fixed-effect score within 4e-9 at the selected point |
-| Q3, the decision | Read with Q4 | Decided 2026-10-25. Version 1.0.0 qualifies the two reduced joint outcome sets of Q4, with all ten sources, as the whole-data joint categorical illustrations: the efficacy and safety aspects of `drug_review_4aspect` (the two best-balanced aspects; cost is neutral in 95.7% of rows) and `mental_health_3group`. Whole-data fits of all four drug-review aspects and of the six mental-health flags are not required for 1.0.0 and are listed in the roadmap |
-| Q4, whole-data fits | All 21,600 rows, the requests' models and controls with the analytic route, observed information on and 2,000 iterations per attempt; macOS, one core | `drug_review_efficacy_safety` (the efficacy and safety aspects, two ordinal outcomes, 34 parameters) and `mental_health_3group` (three binary outcomes, 63 parameters) were refused on stationarity alone: every interior source passed, and two singular call-level sources (evaluator by prompt by temperature, and its seed source) had inward covariance scores. With `boundary_escape = "projected"` both are numerically accepted. Each start escaped in one round, the restarts agree within 1.6e-7 and 8.0e-11, and the deviances are 25904.024 and 30383.853, against 25911.346 and 30385.231 refused. Observed information is unavailable, because other sources are legitimately at zero. The four-aspect `drug_review_ordinal` fit, run without the escape, was stopped at iteration 240 of its first attempt (about 16 s per iteration); the six-flag `mental_health_binary` fit has not been run |
+| Q3, the decision | Read with Q4 | Decided 2026-10-25. Version 1.0.0 selects the two reduced joint outcome sets of Q4, with all ten sources, as the whole-data joint categorical illustrations: the efficacy and safety aspects of `drug_review_4aspect` (the two best-balanced aspects; cost is neutral in 95.7% of rows) and `mental_health_3group`. Whole-data fits of all four drug-review aspects and of the six mental-health flags are not required for 1.0.0 and are listed in the roadmap |
+| Q4, whole-data fits | All 21,600 rows, the requests' models and controls with the analytic route, observed information on and 2,000 iterations per attempt; macOS, one core | `drug_review_efficacy_safety` (the efficacy and safety aspects, two ordinal outcomes, 34 parameters) and `mental_health_3group` (three binary outcomes, 63 parameters) were refused on stationarity alone: every interior source passed, and two singular call-level sources (evaluator by prompt by temperature, and its seed source) had inward covariance scores. With `boundary_escape = "projected"` both are numerically accepted. Each start escaped in one round, the restarts agree within 1.6e-7 and 8.0e-11, and the deviances are 25904.024 and 30383.853, against 25911.346 and 30385.231 refused. In this original run, ordinary information was unavailable at other singular covariance sources; the later conditional calculation is recorded separately below. The four-aspect `drug_review_ordinal` fit, run without the escape, was stopped at iteration 240 of its first attempt (about 16 s per iteration); the six-flag `mental_health_binary` fit has not been run |
 | Q5, cross-platform | The two accepted fits repeated from the gate's archive of the same commit in the offline Linux container (aarch64, R 4.5.2, long double 113-bit against 53-bit on macOS) | Both numerically accepted on Linux with the same selected attempts. `drug_review_efficacy_safety`: deviance within 1.5e-5, variance components within 0.0033 of entries up to 13.8, latent coefficients within 1.2e-5. `mental_health_3group`: deviance equal to six decimals, components within 6.0e-7, latent coefficients within 1.2e-9. These are within the campaign's cross-platform tolerances (deviance 0.01, scaled components 0.02) |
-| Information at a boundary source | The accepted whole-data joint categorical fits and the hate-speech nominal fit (unstructured, all 21,600 rows), information formed at their recorded estimates with the analytic route under the boundary-conditional rule, without refitting; macOS, one core | All three now have conditional intervals. `drug_review_efficacy_safety`: prompt, item by prompt and evaluator by prompt by temperature held at their fitted singular covariances; 25 of 34 coordinates, 100 gradients, 7.6 min; Erho2 0.967 [0.954, 0.976] and 0.963 [0.949, 0.973]. `mental_health_3group`: five sources held; 33 of 63 coordinates, 132 gradients, 23 min; Erho2 0.940 [0.913, 0.959], 0.969 [0.954, 0.978] and 0.982 [0.972, 0.989]. Hate-speech nominal: evaluator, prompt and item by evaluator by prompt by temperature held; 23 of 32 coordinates, 92 gradients, 17 min; mean Erho2 0.921 [0.891, 0.944]. Asymmetry at most 2.7e-5 and step discrepancy at most 3.2e-5 against 0.05; condition numbers 743 to 3,555. The objective at each recorded estimate reproduced the fit's value exactly, and the interior hate-speech ordinal fit's information was reproduced bit for bit. The coverage of these conditional intervals is unassessed |
+| Information at a boundary source | The accepted whole-data joint categorical fits and the hate-speech nominal fit (unstructured, all 21,600 rows), information formed at their recorded estimates with the analytic route under the boundary-conditional rule, without refitting; macOS, one core | Saved-point calculations produced conditional intervals for all three; these are macOS arithmetic records rather than refits of the present candidate. `drug_review_efficacy_safety`: prompt, item by prompt and evaluator by prompt by temperature held at their fitted singular covariances; 25 of 34 coordinates, 100 gradients, 7.6 min; Erho2 0.967 [0.954, 0.976] and 0.963 [0.949, 0.973]. `mental_health_3group`: five sources held; 33 of 63 coordinates, 132 gradients, 23 min; Erho2 0.940 [0.913, 0.959], 0.969 [0.954, 0.978] and 0.982 [0.972, 0.989]. Hate-speech nominal: evaluator, prompt and item by evaluator by prompt by temperature held; 23 of 32 coordinates, 92 gradients, 17 min; mean Erho2 0.921 [0.891, 0.944]. Asymmetry at most 2.7e-5 and step discrepancy at most 3.2e-5 against 0.05; condition numbers 743 to 3,555. The objective at each recorded estimate reproduced the fit's value exactly, and the interior hate-speech ordinal fit's information was reproduced bit for bit. The coverage of these conditional intervals is unassessed |
 
 
 Focused synthetic reference tests and refusal tests accompany the new routes;
@@ -75,11 +79,14 @@ supported.
 The source version is 1.0.0; publication and the selected archive's qualification
 are separate states recorded in the release manifest. A development archive is
 not substituted for the final candidate. The installed native-data workflow
-now makes the two scoped requests and their comparison policy executable; its
-fresh run evidence remains distinct from the historical campaign below.
-The historical checkpoints that follow retain their original source, archive,
-platform and run identities; their passing results do not apply to this
-development checkout.
+now makes the two scoped requests and their comparison policy executable.
+No fresh 21,600-row optimizer run was performed for this candidate review.
+The long workflow is an opt-in reproduction entry point; its installed smoke
+check is synthetic. Saved-point conditional intervals are a separate numerical
+extension, with no Linux information result or coverage qualification inferred
+from Q5. The historical checkpoints that follow retain their original source,
+archive, platform and run identities; their passes cannot certify a different
+release archive.
 
 ## Statistical qualification record, 2026-10-23
 

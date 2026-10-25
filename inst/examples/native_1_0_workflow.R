@@ -39,7 +39,9 @@
 }
 
 .gt_native_compare <- function(deviance, components, reliability, single, numerically_accepted,
-                               information_available, reference, tolerance) {
+                               reference, tolerance) {
+  if (!is.list(reference$platforms) || !identical(sort(names(reference$platforms)), c("linux", "mac")))
+    stop("Both distinct historical platform references are required.", call. = FALSE)
   do.call(rbind, lapply(names(reference$platforms), function(platform) {
     r <- reference$platforms[[platform]]
     component <- .gt_native_difference(components, r$components,
@@ -50,26 +52,59 @@
       is.numeric(r$deviance) && length(r$deviance) == 1L && is.finite(r$deviance)
     difference <- if (valid_deviance) abs(deviance - r$deviance) else NA_real_
     acceptance_matches <- isTRUE(numerically_accepted) && isTRUE(r$accepted)
-    information_matches <- is.logical(information_available) && length(information_available) == 1L &&
-      !is.na(information_available) && identical(information_available, r$information_available)
     valid <- valid_deviance && component$valid && coefficient$valid && one$valid
-    passed <- valid && acceptance_matches && information_matches && difference <= tolerance$deviance_absolute &&
+    passed <- valid && acceptance_matches && difference <= tolerance$deviance_absolute &&
       component$difference <= tolerance$component_scaled &&
       coefficient$difference <= tolerance$reliability_absolute &&
       one$difference <= tolerance$reliability_absolute
     data.frame(reference_platform = platform, valid = valid, passed = passed,
-      numerical_acceptance_matches = acceptance_matches, information_availability_matches = information_matches,
+      numerical_acceptance_matches = acceptance_matches,
       deviance_absolute_difference = difference, component_scaled_difference = component$difference,
       reliability_absolute_difference = coefficient$difference,
       single_reliability_absolute_difference = one$difference,
       reason = if (passed) "complete historical platform reference matched" else
         if (!acceptance_matches) "numerical acceptance differs or is unavailable" else
-        if (!information_matches) "observed-information availability differs or is unavailable" else
         if (valid) "tolerance exceeded" else
         paste(c(if (!valid_deviance) "non-finite deviance", component$reason, coefficient$reason, one$reason)[
           nzchar(c(if (!valid_deviance) "non-finite deviance", component$reason, coefficient$reason, one$reason))], collapse = "; "),
       stringsAsFactors = FALSE)
   }))
+}
+
+.gt_native_uncertainty_compare <- function(uncertainty, reliability, single, reference, tolerance) {
+  expected <- reference$conditional
+  available <- isTRUE(uncertainty$available) && isTRUE(expected$available)
+  conditional <- isTRUE(uncertainty$conditional) && isTRUE(expected$conditional)
+  fixed <- uncertainty$fixed_components
+  held <- is.character(fixed) && !anyNA(fixed) && !anyDuplicated(fixed) &&
+    setequal(fixed, expected$fixed_components)
+  columns <- c("Erho2_se", "Erho2_lower", "Erho2_upper", "Phi_se", "Phi_lower", "Phi_upper")
+  full <- .gt_native_difference(reliability, expected$reliability, "outcome", columns)
+  one <- .gt_native_difference(single, expected$reliability_single, "outcome", columns)
+  metadata <- function(x) {
+    flags <- c("uncertainty_available", "uncertainty_conditional", "Erho2_interval_available", "Phi_interval_available")
+    is.data.frame(x) && all(flags %in% names(x)) && nrow(x) > 0L &&
+      all(vapply(x[flags], function(v) is.logical(v) && !anyNA(v) && all(v), logical(1)))
+  }
+  coherent <- function(x) is.data.frame(x) && all(c(columns, "Erho2", "Phi") %in% names(x)) &&
+    all(vapply(x[c(columns, "Erho2", "Phi")], function(v) is.numeric(v) && all(is.finite(v)), logical(1))) &&
+    all(x$Erho2_se > 0 & x$Phi_se > 0 & x$Erho2_lower <= x$Erho2 & x$Erho2 <= x$Erho2_upper &
+      x$Phi_lower <= x$Phi & x$Phi <= x$Phi_upper & x$Erho2_lower >= 0 & x$Phi_lower >= 0 &
+      x$Erho2_upper <= 1 & x$Phi_upper <= 1)
+  intervals <- metadata(reliability) && metadata(single) && coherent(reliability) && coherent(single)
+  passed <- available && conditional && held && intervals && full$valid && one$valid &&
+    full$difference <= tolerance$conditional_interval_absolute && one$difference <= tolerance$conditional_interval_absolute
+  data.frame(available_matches = available, conditional_matches = conditional,
+    held_sources_match = held, finite_intervals_and_metadata = intervals,
+    full_interval_absolute_difference = full$difference, single_interval_absolute_difference = one$difference,
+    tolerance = tolerance$conditional_interval_absolute, passed = passed,
+    expected_held_sources = paste(expected$fixed_components, collapse = ";"),
+    reference_held_kinds = paste(expected$fixed_component_kinds, collapse = ";"),
+    actual_held_sources = paste(fixed, collapse = ";"),
+    reference_scope = "Saved macOS information-only arithmetic; coverage and Linux information unassessed.",
+    reason = if (passed) "conditional arithmetic reference matched" else
+      "Conditional availability, held sources, interval metadata or numerical comparison did not match.",
+    stringsAsFactors = FALSE)
 }
 
 .gt_native_smoke <- function() {
@@ -165,6 +200,7 @@ gt_native_workflow <- function(mode = c("smoke", "full"), output_dir,
     archive_identity_scope = "Supplied bytes only; install this archive into an isolated library before starting R. This field alone cannot prove namespace/archive correspondence.",
     installed_description_sha256 = hash(file.path(installed, "DESCRIPTION")),
     installed_example_sha256 = hash(system.file("examples", "native_1_0_workflow.R", package = "Gtheory4LLM")),
+    installed_reference_sha256 = hash(system.file("examples", "native_1_0_reference.R", package = "Gtheory4LLM")),
     threads = stats::setNames(threads, thread_names), R = R.version.string,
     platform = R.version$platform, BLAS = session$BLAS, LAPACK = session$LAPACK,
     reference = reference$provenance, tolerance = reference$tolerance,
@@ -172,7 +208,8 @@ gt_native_workflow <- function(mode = c("smoke", "full"), output_dir,
   dput(provenance, file.path(output_dir, "provenance.R"))
   writeLines(capture.output(session), file.path(output_dir, "session-info.txt"))
   status <- data.frame(model = models, mode = mode, status = "not_started", numerical_acceptance = NA,
-    observed_information = "unavailable", reference_comparison = if (mode == "full") "unavailable" else "not_applicable_synthetic",
+    observed_information = "unavailable", uncertainty_scope = "unavailable",
+    uncertainty_reference_comparison = if (mode == "full") "unavailable" else "not_applicable_synthetic", reference_comparison = if (mode == "full") "unavailable" else "not_applicable_synthetic",
     matched_reference_platform = NA_character_, deviance = NA_real_, elapsed_seconds = NA_real_, reason = "",
     stringsAsFactors = FALSE)
   write_csv(status, "status.csv")
@@ -233,7 +270,7 @@ gt_native_workflow <- function(mode = c("smoke", "full"), output_dir,
       status$numerical_acceptance[[i]] <- accepted
       status$observed_information[[i]] <- if (isTRUE(diagnostics$standard_errors_available)) "available" else "unavailable"
       status$deviance[[i]] <- stats::deviance(fit)
-      rel <- NULL; dstudy <- NULL; comparison <- NULL
+      rel <- NULL; dstudy <- NULL; comparison <- NULL; uncertainty_comparison <- NULL
       if (accepted) {
         components <- .gt_native_table(Gtheory4LLM::gt_components(fit))
         rel <- Gtheory4LLM::gt_reliability(fit, scale = "latent")
@@ -246,7 +283,7 @@ gt_native_workflow <- function(mode = c("smoke", "full"), output_dir,
         utils::write.csv(as.data.frame(dstudy), file.path(model_dir, "dstudy.csv"), row.names = FALSE)
         if (mode == "full") {
           comparison <- .gt_native_compare(status$deviance[[i]], components, rel_table, single,
-            diagnostics$numerically_accepted, diagnostics$standard_errors_available, r, reference$tolerance)
+            diagnostics$numerically_accepted, r, reference$tolerance)
           utils::write.csv(comparison, file.path(model_dir, "reference-comparison.csv"), row.names = FALSE)
           status$reference_comparison[[i]] <- if (all(comparison$passed)) "matched" else "failed"
           status$matched_reference_platform[[i]] <- paste(comparison$reference_platform[comparison$passed], collapse = ";")
@@ -254,12 +291,23 @@ gt_native_workflow <- function(mode = c("smoke", "full"), output_dir,
       }
       # Public reports preserve numerical refusal and unavailable intervals.
       report <- Gtheory4LLM::gt_report(fit, preflight = preflight, reliability = rel, dstudy = dstudy)
+      status$uncertainty_scope[[i]] <- if (!isTRUE(report$uncertainty$available)) "unavailable" else
+        if (isTRUE(report$uncertainty$conditional)) "boundary_conditional" else "ordinary_information"
+      if (mode == "full" && accepted) {
+        uncertainty_comparison <- .gt_native_uncertainty_compare(report$uncertainty, rel_table, single, r, reference$tolerance)
+        utils::write.csv(uncertainty_comparison, file.path(model_dir, "uncertainty-comparison.csv"), row.names = FALSE)
+        status$uncertainty_reference_comparison[[i]] <- if (isTRUE(uncertainty_comparison$passed)) "matched" else "failed"
+      }
       Gtheory4LLM::gt_export_report(report, file.path(model_dir, "report.html"))
       reason <- c(if (!accepted) diagnostics$acceptance_failures,
         if (!isTRUE(diagnostics$standard_errors_available)) diagnostics$standard_errors_unavailable_reason,
-        if (mode == "full" && accepted && !all(comparison$passed)) "Both complete historical platform references must pass; at least one did not.")
+        if (isTRUE(report$uncertainty$conditional)) "Boundary-conditional intervals; coverage remains unassessed.",
+        if (mode == "full" && accepted && !all(comparison$passed)) "Both complete historical platform references must pass; at least one did not.",
+        if (mode == "full" && accepted && !isTRUE(uncertainty_comparison$passed)) "Current conditional-information contract did not match the saved macOS arithmetic reference.")
       status$reason[[i]] <- paste(reason, collapse = "; ")
-      status$status[[i]] <- if (!accepted) "refused" else if (mode == "full" && !all(comparison$passed)) "reference_mismatch" else "accepted"
+      status$status[[i]] <- if (!accepted) "refused" else
+        if (mode == "full" && !all(comparison$passed)) "reference_mismatch" else
+        if (mode == "full" && !isTRUE(uncertainty_comparison$passed)) "uncertainty_mismatch" else "accepted"
       TRUE
     }, warning = function(w) { warnings <<- c(warnings, conditionMessage(w)); invokeRestart("muffleWarning") }),
       error = function(e) { status$status[[i]] <<- "failed"; status$reason[[i]] <<- conditionMessage(e); FALSE })
@@ -272,7 +320,9 @@ gt_native_workflow <- function(mode = c("smoke", "full"), output_dir,
     "A successful smoke run is synthetic integration evidence only.",
     "A matching full run supports point-estimate numerical reproducibility for the two listed models on this environment.",
     "It does not establish higher-order Laplace accuracy, interval calibration, the full four/six-outcome models, or another platform/archive.",
-    "Unavailable observed information means no supported ordinary Wald intervals at that fit.",
+    "Boundary-conditional intervals hold the listed sources at their fitted covariance matrices; coverage is unassessed.",
+    "The .001 interval tolerance is a prospective replay gate. Saved conditional references cover macOS arithmetic only.",
+    "Unavailable observed information means supported fitted intervals are unavailable at that fit.",
     "Archive identity requires an independently retained installation record; provenance.R records the supplied archive hash.",
     capture.output(print(status, row.names = FALSE))), file.path(output_dir, "summary.txt"))
   invisible(list(status = status, output_dir = output_dir, provenance = provenance))

@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -117,19 +118,30 @@ class ValidationRunnerTests(unittest.TestCase):
         self.assertEqual(select.call_args.kwargs["rscript"], "/r")
 
     def test_a_development_run_succeeds_with_the_temporary_base_inside_the_checkout(self):
-        # The entry point on this development checkout, unmodified apart from
-        # the stage plan: the retained manifest is selected and verified for
-        # real while every temporary directory would have to be created inside
-        # the checkout. Nothing is staged, so nothing is rejected.
-        base = tempfile.gettempdir()
-        probe = ROOT / "gtheory-tmp-inside-checkout-probe"
+        # Use a genuine development fixture regardless of this repository's
+        # current version: a final release correctly needs a new bundle when
+        # artifacts/ still holds the preceding release. The retained archive
+        # and its Git identity are still verified for real in the fixture.
+        base = external_temporary_base()
         self.addCleanup(setattr, tempfile, "tempdir", tempfile.tempdir)
-        tempfile.tempdir = str(probe)
-        # The stage launcher is replaced, not subprocess.run: staging verifies
-        # the retained bundle for real, with git.
         with tempfile.TemporaryDirectory(dir=base) as directory:
+            fixture = Path(directory) / "development"
+            subprocess.run(["git", "clone", "--quiet", "--shared", str(ROOT), str(fixture)],
+                           check=True, capture_output=True, text=True)
+            description = fixture / "DESCRIPTION"
+            current = re.search(r"(?m)^Version: (.+)$", description.read_text()).group(1)
+            development = current if re.search(r"\.9[0-9]{3,}$", current) else current + ".9000"
+            description.write_text(re.sub(r"(?m)^Version: .+$", "Version: " + development,
+                                          description.read_text()))
+            for name in ("README.md", "NEWS.md"):
+                path = fixture / name
+                path.write_text(re.sub(r"Source version: \*\*[^*]+\*\*\.",
+                                       "Source version: **" + development + "**.", path.read_text(), count=1))
+            probe = fixture / "gtheory-tmp-inside-checkout-probe"
+            tempfile.tempdir = str(probe)
             output = Path(directory) / "report.json"
-            with patch.object(RUNNER.shutil, "which", return_value="/resolved/Rscript"), \
+            with patch.object(RUNNER, "ROOT", fixture), \
+                 patch.object(RUNNER.shutil, "which", return_value="/resolved/Rscript"), \
                  patch.object(RUNNER, "commands", return_value=[("first", ["first"])]) as plan, \
                  patch.object(RUNNER, "launch", return_value=subprocess.CompletedProcess(["first"], 0)) as run:
                 status = RUNNER.main(["--scope", "source", "--compatibility", "--output", str(output)])
@@ -137,13 +149,13 @@ class ValidationRunnerTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(run.call_count, 1)
         self.assertFalse(probe.exists())
-        self.assertEqual(report["release_manifest"], str(ROOT / "artifacts/manifest.json"))
+        self.assertEqual(report["release_manifest"], str(fixture / "artifacts/manifest.json"))
         self.assertFalse(report["release_manifest_staged"])
         staging, first = report["stages"]
         self.assertEqual((staging["name"], staging["exit_code"]), ("release_manifest_staging", 0))
         self.assertIn("Retained manifest", staging["detail"])
         self.assertEqual(first["name"], "first")
-        self.assertEqual(plan.call_args.args[7], ROOT / "artifacts/manifest.json")
+        self.assertEqual(plan.call_args.args[7], fixture / "artifacts/manifest.json")
         self.assertFalse(plan.call_args.args[9])
 
     def test_staging_runs_with_the_resolved_interpreter_library_and_timeout(self):

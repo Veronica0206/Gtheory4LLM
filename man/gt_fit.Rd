@@ -81,17 +81,24 @@ probabilities.
 
 The OpenMx Gaussian engine also computes asymptotic Wald standard errors for source variance components. These use a numerical Hessian of the restricted or profile likelihood. These are large-sample quantities conditional on the declared model; they do not establish coverage in small designs and do not apply to a component resting on a variance boundary. \code{check_hessian = FALSE} disables them along with the other derivative diagnostics on that engine. The lme4 engine returns estimated source covariance matrices but does not compute their sampling covariance or source-variance standard errors.
 
-Discrete \code{check_hessian = TRUE} requests the full observed information
-of the Laplace negative log likelihood after acceptance. Nuisance intercepts
-and thresholds remain in the information matrix when covariance-parameter
-uncertainty is extracted. Step-size instability, unusable conditional modes,
-parameter bounds, covariance boundaries, or non-positive-definite information
-make Wald uncertainty unavailable with a recorded reason. When available,
-delta-method source-covariance errors and latent coefficient intervals are
-asymptotic and conditional on the Laplace approximation, with no finite-sample
-coverage claim. On the analytic route the information matrix is formed from
-differences of the analytic gradient rather than of the objective, under the
-same checks. See \code{\link{gt_control}} for the defaults and limits.
+Discrete \code{check_hessian = TRUE} requests observed information of the
+Laplace negative log likelihood after acceptance. Nuisance intercepts and
+thresholds are included when covariance-parameter uncertainty is extracted.
+If an estimated source covariance lies on its boundary, the entire source
+matrix is held at its fitted value, which may be zero or singular and nonzero;
+information is then computed over the remaining coordinates. The resulting
+latent coefficient intervals are conditional on those held matrices, whose
+own standard errors remain unavailable. The uncertainty record names the
+held sources and their kinds. This does not account for uncertainty in
+selecting the boundary sources or estimating their held values.
+
+Step-size instability, unusable conditional modes, parameter-bound contact,
+all estimated sources at their boundaries, or non-positive-definite information
+still withhold uncertainty with a reason. Where available, the delta-method
+errors and intervals are asymptotic and depend on the first-order Laplace
+likelihood; coverage after boundary selection has not been established.
+The analytic route differences gradients rather than objectives to form the
+information matrix. See \code{\link{gt_control}} for its coordinates and checks.
 
 Numerical acceptance includes optimizer completion and independent stationarity, bound, and tighter-tolerance restart checks. First-order stationarity does not establish a global optimum. A numerically accepted Laplace fit still requires an assessment of approximation adequacy for the intended analysis. Reliability and decision studies reject fits that fail numerical acceptance.
 
@@ -108,9 +115,13 @@ two specified native examples: efficacy and safety from
 \code{gt_example("mental_health_3group", coding = "native")}. Each full request
 retains 21,600 rows and ten declared sources. The project records report
 numerical acceptance on macOS and Linux for those requests, with sparse
-analytic-gradient fitting and projected boundary escape; observed information
-was unavailable at covariance boundaries. These are point-estimation examples,
-not interval-coverage validation, higher-order likelihood fits, or results for
+analytic-gradient fitting and projected boundary escape. Their original
+ordinary information was unavailable. Later macOS information-only computations
+at those saved estimates produced conditional intervals while holding named
+singular nonzero source matrices fixed. That evidence does not include a new
+optimizer run, Linux conditional information, or interval-coverage assessment.
+The current 1.0.0 release-candidate review has not repeated the 21,600-row fits.
+These records do not establish higher-order likelihood accuracy or results for
 the four-aspect drug-review and six-flag mental-health models. Sourcing the
 script does not fit the native panels; its helper requires an explicit
 \code{mode = "full"} call. Its small synthetic \code{mode = "smoke"} checks

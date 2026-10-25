@@ -71,21 +71,48 @@ of relying on these prose summaries. Its row, dimension and parameter guards
 permit these declared requests; acceptance tolerances are unchanged.
 
 The two outcome choices are the scoped examples, not evidence that all four
-drug aspects or six mental-health flags have been fitted. Their original accepted
-results have unavailable observed information at other covariance boundaries.
-The workflow retains that decision, reports point estimates through the public
-extractors, and does not invent interval endpoints. It exports preflight and
-acceptance decisions, components, latent reliability, a balanced D study and a
-portable report when supported, plus all warnings/refusals and environment and
-archive provenance. A refused fit cannot become a successful reproduction merely
-because an optimizer returned a number.
+drug aspects or six mental-health flags have been fitted. The original macOS
+and Linux point fits lacked ordinary information at singular covariance
+sources. The current implementation can instead form information on the
+remaining coordinates while holding each affected source at its fitted matrix.
+It names that conditioning explicitly and withholds standard errors for the
+held matrices. A separate, later macOS computation applied this rule at the
+saved estimates without refitting. Its three held drug-review sources and
+five held mental-health sources were all singular and nonzero.
 
-Comparison uses unrounded values and the frozen numerical reference, including
-acceptance and uncertainty availability. The declared tolerances are a numerical
-reproduction contract; passing them is not evidence of a global optimum,
-Laplace-approximation accuracy or general interval coverage. They are never
-widened automatically. The original project records and their source/archive
-identities are audited separately from new run results.
+The helper uses public extractors to write preflight and acceptance decisions,
+component and reliability tables, a balanced D study, a fitted object and an
+HTML report. Warnings, refusals, missing information and conditional inference
+remain visible. Supplying `archive_path` checks its package/version and records
+its digest; the installation log and isolated-library record are still needed
+to prove that this archive produced the loaded namespace.
+
+The two numerical comparisons deliberately have different evidence scopes:
+
+- Point estimates must pass **both** historical platform references, matching
+  source/outcome keys and numerical acceptance. Absolute deviance error must be
+  at most `0.01`; each component error is divided by `max(1, abs(reference))`
+  and must be at most `0.02`. G and Phi at both observed and single-measurement
+  allocations use an absolute tolerance of `1e-4`.
+- Conditional uncertainty is checked separately against the saved **macOS
+  information-only** reference. Availability, conditional status, held-source
+  membership and finite interval metadata must agree; SEs and interval endpoints
+  at both allocations use an absolute tolerance of `0.001`. This is a
+  prospective replay criterion, not a previously demonstrated Linux agreement
+  or coverage result.
+
+The coefficient and interval limits were declared for this public replay; only
+the deviance/component limits belonged to the original Q5 comparison. The
+script never widens any limit after a failure. A new optimizer run can match
+the point references while missing the conditional-information reference, and
+that difference is reported as `uncertainty_mismatch` rather than success.
+
+For this release-candidate review, no additional 21,600-row optimizer fits were
+run. The included references document earlier calculations and do not certify
+these new archive bytes. Full mode is available for a later explicit replay;
+smoke mode and saved-point arithmetic do not replace it. Neither comparison
+demonstrates a global optimum, integration accuracy or calibrated confidence
+intervals after boundary selection.
 
 ## Historical full-hierarchy audit and failure examples
 

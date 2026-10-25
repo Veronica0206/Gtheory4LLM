@@ -11,8 +11,8 @@ r <- refs$.gt_native_reference$models$drug_review_efficacy_safety
 m <- r$platforms$mac
 tol <- refs$.gt_native_reference$tolerance
 compare <- function(components = m$components, reliability = m$reliability,
-                    single = m$reliability_single, deviance = m$deviance, accepted = TRUE, information = FALSE)
-  e$.gt_native_compare(deviance, components, reliability, single, accepted, information, r, tol)
+                    single = m$reliability_single, deviance = m$deviance, accepted = TRUE)
+  e$.gt_native_compare(deviance, components, reliability, single, accepted, r, tol)
 check(all(compare()$passed), "Both historical platforms agree within the declared gates.")
 check(all(compare(components = m$components[nrow(m$components):1L, ])$passed), "Component matching uses keys, not row order.")
 check(!any(compare(components = m$components[-1L, ])$passed), "Missing components cannot pass.")
@@ -32,14 +32,42 @@ artificial$platforms$linux <- m
 artificial$platforms$linux$deviance <- m$deviance + 10
 artificial$platforms$linux$components$covariance <- m$components$covariance + 10
 mixed <- e$.gt_native_compare(m$deviance, artificial$platforms$linux$components,
-  m$reliability, m$reliability_single, TRUE, FALSE, artificial, tol)
+  m$reliability, m$reliability_single, TRUE, artificial, tol)
 check(!any(mixed$passed), "Fields cannot be mixed across reference platforms.")
 check(!any(compare(accepted = FALSE)$passed), "A refused fit cannot pass numerical replay.")
-check(!any(compare(information = TRUE)$passed), "Changed information availability cannot pass historical replay.")
-check(!any(compare(information = NA)$passed), "Unavailable information status cannot pass historical replay.")
 one_platform <- e$.gt_native_compare(m$deviance, m$components, m$reliability, m$reliability_single,
-  TRUE, FALSE, artificial, tol)
+  TRUE, artificial, tol)
 check(any(one_platform$passed) && !all(one_platform$passed), "A match on only one platform is insufficient.")
+missing_platform <- r; missing_platform$platforms$linux <- NULL
+missing_error <- tryCatch(e$.gt_native_compare(m$deviance, m$components, m$reliability,
+  m$reliability_single, TRUE, missing_platform, tol), error = identity)
+check(inherits(missing_error, "error"), "An incomplete platform reference set cannot pass vacuously.")
+
+# The new conditional-information contract is a separate reference, not a
+# rewrite of the historical unavailable-information point-fit record.
+with_intervals <- function(point, intervals) {
+  x <- merge(point, intervals, by = "outcome")
+  for (flag in c("uncertainty_available", "uncertainty_conditional", "Erho2_interval_available", "Phi_interval_available")) x[[flag]] <- TRUE
+  x
+}
+rel <- with_intervals(m$reliability, r$conditional$reliability)
+one <- with_intervals(m$reliability_single, r$conditional$reliability_single)
+u <- r$conditional[c("available", "conditional", "fixed_components")]
+conditional <- function(uncertainty = u, full = rel, single = one)
+  e$.gt_native_uncertainty_compare(uncertainty, full, single, r, tol)
+check(isTRUE(conditional()$passed), "Saved conditional contract and intervals pass independently of old point-fit information.")
+bad <- u; bad$available <- FALSE
+check(!conditional(bad)$passed, "Unavailable current information cannot satisfy the conditional contract.")
+bad <- u; bad$conditional <- FALSE
+check(!conditional(bad)$passed, "Unconditional information cannot masquerade as conditional information.")
+bad <- u; bad$fixed_components <- bad$fixed_components[-1L]
+check(!conditional(bad)$passed, "Missing held sources cannot pass.")
+bad <- rel; bad$Erho2_lower[[1L]] <- NA_real_
+check(!conditional(full = bad)$passed, "Non-finite conditional intervals cannot pass.")
+bad <- rel; bad$uncertainty_conditional[[1L]] <- FALSE
+check(!conditional(full = bad)$passed, "Coefficient conditioning metadata must match the report.")
+bad <- rel; bad$Erho2_se[[1L]] <- bad$Erho2_se[[1L]] + 0.01
+check(!conditional(full = bad)$passed, "Interval arithmetic outside the prospective tolerance cannot pass.")
 
 # Construct native protocols without fitting: full rows, exact source/formula
 # requests and probit coding remain inspectable through public APIs.
