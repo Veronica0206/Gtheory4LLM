@@ -430,6 +430,10 @@ gt_preflight <- function(data, outcomes, design = NULL, family = gt_family("gaus
       })
       add_check("covariance_specification", !is.null(setup),
                 if (is.null(setup_error)) "Covariance setup succeeded." else setup_error)
+      if (!is.null(setup) && identical(dc$boundary_escape, "projected"))
+        add_check("boundary_escape_coordinates", .gt_d_escape_coordinates_supported(setup$parameterization),
+          paste("boundary_escape = 'projected' needs natural Cholesky source covariance coordinates;",
+                "this model resolves to", setup$parameterization, "coordinates."))
       if (!is.null(setup) && identical(dc$gradient, "analytic"))
         add_check("analytic_gradient_coordinates",
           setup$parameterization %in% c("cholesky", "log_cholesky", "fixed"),

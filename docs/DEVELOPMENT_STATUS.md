@@ -46,7 +46,10 @@ recorded below.
 ## Analytic gradient qualification, 2026-10-25
 
 The route's checks against the plan of 2026-10-24, through installed archives
-of the merged units, on one core.
+of the merged units, on one core. Q1, Q2, Q4 and Q5 are reported completed from
+the project's run records; those records (requests, controls, attempts, saved
+fits and comparison tables) are not yet in the repository, so an independent
+evidence audit is pending.
 
 | Step | Scope | Result |
 |---|---|---|

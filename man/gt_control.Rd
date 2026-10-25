@@ -162,12 +162,17 @@ Discrete optimizer controls are:
   moved by a projected step that keeps it positive semidefinite, with the
   step length chosen by the objective, and the tight attempt is rerun from
   there, at most three times. In natural Cholesky coordinates the derivative
-  along an exact zero factor column vanishes, so without this step a
-  gradient-based optimizer cannot leave such a boundary. Each rerun is an
+  along an exact zero factor column vanishes, so the analytic route's L-BFGS-B
+  attempts cannot leave such a boundary by their gradient alone; the
+  finite-difference route's one-sided difference at the bound can. Each rerun is an
   attempt of its own in the record, and \code{fit$diagnostics$boundary_escape}
   keeps every step's singular sources, scores, step length, objective change
-  and evaluation count. A rerun that fails or does not lower the tight
-  objective ends the escape, and the earlier result stands. Acceptance is
+  and evaluation count. A rerun that raises an error, returns no usable result
+  or does not lower the tight objective ends the escape, and the earlier result
+  stands. A rerun that lowers the objective but stops at the iteration limit
+  becomes the candidate and also ends the escape; acceptance then refuses it as
+  incomplete. \code{optimization_trial_budget} in the diagnostics counts the
+  three possible reruns of every tight attempt. Acceptance is
   unchanged, and a source legitimately at zero, whose score does not point
   inward, is left alone. Other coordinates are refused at fit start.
 \item \code{start}: NULL (automatic response and covariance starts).

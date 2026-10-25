@@ -267,12 +267,14 @@ threshold was loosened; where an optimizer path changed, the change is named.
 
 ## Numerical acceptance and optimizer controls
 
-- `boundary_escape = "projected"` in the discrete control lets a fit leave a
-  singular source covariance that it cannot leave by gradient steps. In
-  natural Cholesky coordinates the derivative along an exact zero factor column
-  vanishes, so an optimizer stays on such a boundary even when the
-  covariance-direction score says that adding variance in the missing
-  direction improves the fit; the stationarity check then refuses the point.
+- `boundary_escape = "projected"` in the discrete control lets an
+  analytic-route fit leave a singular source covariance that its gradient steps
+  cannot leave. In natural Cholesky coordinates the derivative along an exact
+  zero factor column vanishes, so the analytic route's optimizer stays on such a
+  boundary even when the covariance-direction score says that adding variance in
+  the missing direction improves the fit, and the stationarity check then
+  refuses the point; the finite-difference route's one-sided difference at the
+  bound can move off it.
   After each completed tight attempt, every singular source whose projected
   score points inward has its covariance moved by a projected step that stays
   positive semidefinite, with the step length chosen by the objective, and
