@@ -297,6 +297,11 @@ threshold was loosened; where an optimizer path changed, the change is named.
   "0" and "1"; the codes are returned to the recorded labels in their recorded
   order first, so labeled, reversed-level and mixed binary/ordinal fits no
   longer need `data =`.
+- `gt_report()` takes `bootstrap =` and accepts reliability and D-study tables
+  with object-bootstrap intervals, recalculating them with that bootstrap after
+  checking that it belongs to the fit. Edited tables, unrelated bootstraps and
+  bootstrap tables without their bootstrap are still refused, and the report
+  keeps only the bootstrap's aggregate counts.
 
 ## Planning
 

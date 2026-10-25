@@ -309,3 +309,50 @@ check(mixed_retained$accepted == 1L && identical(mixed_retained$components, mixe
       "joint labeled-binary and ordinal refits match the original data")
 cat("PASS: labeled binary outcomes\n")
 
+# --- reports with bootstrap intervals --------------------------------------------
+# A report recalculates bootstrap intervals with the bootstrap that made them,
+# refuses tables without it, edited tables and unrelated bootstraps, and keeps
+# only the bootstrap's aggregate counts.
+boot_rel <- gt_reliability(fit, bootstrap = boot)
+boot_ds <- gt_dstudy(fit, data.frame(rater = c(4, 8)), bootstrap = boot)
+report <- gt_report(fit, reliability = boot_rel, dstudy = boot_ds, bootstrap = boot)
+check(all(report$reliability$uncertainty_method == "object_bootstrap_percentile") &&
+        all(report$dstudy$uncertainty_method == "object_bootstrap_percentile") &&
+        identical(report$bootstrap$methods, "object_bootstrap_percentile") &&
+        identical(report$bootstrap$unit, "item") && report$bootstrap$accepted == 60 &&
+        report$bootstrap$attempts == 60 && report$bootstrap$requested == 60 &&
+        isTRUE(all.equal(report$reliability$Erho2_lower, as.data.frame(boot_rel)$Erho2_lower)),
+      "a report carries the bootstrap intervals and the bootstrap's counts")
+bca_report <- gt_report(fit, reliability = gt_reliability(fit, bootstrap = boot, interval_type = "bca"),
+                        bootstrap = boot)
+check(identical(bca_report$bootstrap$methods, "object_bootstrap_bca"), "BCa intervals are reported as BCa")
+page <- tempfile(fileext = ".html")
+gt_export_report(report, page)
+html <- paste(readLines(page, warn = FALSE), collapse = "\n")
+check(grepl("Object-bootstrap intervals", html, fixed = TRUE) && grepl("60 accepted refits of 60 attempts", html, fixed = TRUE) &&
+        !grepl("seed", html, ignore.case = TRUE), "the exported report states the bootstrap without its seeds")
+check(is.null(gt_report(fit, reliability = gt_reliability(fit), bootstrap = boot)$bootstrap),
+      "a delta-method table is checked as before when a matching bootstrap is supplied")
+expect_error(gt_report(fit, reliability = boot_rel), "supply that gt_bootstrap() result",
+             "a bootstrap reliability table needs its bootstrap")
+expect_error(gt_report(fit, dstudy = boot_ds), "supply that gt_bootstrap() result",
+             "a bootstrap D-study table needs its bootstrap")
+other <- gt_bootstrap(fit, replicates = 60, seed = 12)
+expect_error(gt_report(fit, reliability = boot_rel, bootstrap = other), "does not agree",
+             "another bootstrap of the same fit is refused")
+expect_error(gt_report(fit, reliability = boot_rel, bootstrap = joint_boot), "not made from this fit",
+             "a bootstrap of another fit is refused")
+expect_error(gt_report(fit, reliability = gt_reliability(fit), bootstrap = joint_boot), "not made from this fit",
+             "a bootstrap of another fit is refused beside a delta-method table")
+edited <- boot_rel
+edited$per_trait$Erho2_upper <- edited$per_trait$Erho2_upper + .01
+expect_error(gt_report(fit, reliability = edited, bootstrap = boot), "does not agree", "an edited interval is refused")
+recounted <- boot_rel
+recounted$uncertainty$bootstrap$accepted <- 59L
+expect_error(gt_report(fit, reliability = recounted, bootstrap = boot), "does not agree",
+             "an edited replicate count is refused")
+relabeled <- boot_rel
+relabeled$uncertainty$method <- "object_bootstrap_bca"
+expect_error(gt_report(fit, reliability = relabeled, bootstrap = boot), "does not agree",
+             "a relabeled interval method is refused")
+cat("PASS: reports with bootstrap intervals\n")

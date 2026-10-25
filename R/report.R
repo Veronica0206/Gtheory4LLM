@@ -34,14 +34,32 @@
     scope = "Versions in the retained fitting session; not an archive or source-commit identity.")
 }
 
-.gt_report_coefficients <- function(fit, object, kind) {
+# A supplied table is recalculated from the fit, including its intervals. A
+# table whose intervals come from an object bootstrap is recalculated with the
+# same bootstrap, which must have been made from this fit.
+.gt_report_resampled <- function(object) {
+  method <- object$uncertainty$method
+  is.character(method) && length(method) == 1L && !is.na(method) &&
+    startsWith(method, "object_bootstrap_")
+}
+
+.gt_report_coefficients <- function(fit, object, kind, bootstrap = NULL) {
   if (is.null(object)) return(NULL)
   expected_class <- paste0("gt_", kind)
   if (!inherits(object, expected_class))
     stop(kind, " must be a ", expected_class, " object.", call. = FALSE)
+  resampled <- .gt_report_resampled(object)
+  if (resampled && is.null(bootstrap))
+    stop(kind, " takes its intervals from an object bootstrap; supply that gt_bootstrap() result ",
+         "as bootstrap = so they can be recalculated from the fit.", call. = FALSE)
+  interval <- if (resampled) sub("^object_bootstrap_", "", object$uncertainty$method) else NULL
+  if (resampled && !interval %in% c("percentile", "bca"))
+    stop(kind, " records an unsupported interval method.", call. = FALSE)
+  if (!resampled) bootstrap <- NULL
   if (kind == "reliability") {
     expected <- gt_reliability(fit, scale = object$scale, score = object$score,
-      counts = object$design, fixed = object$fixed_facets, level = object$level)
+      counts = object$design, fixed = object$fixed_facets, level = object$level,
+      bootstrap = bootstrap, interval_type = interval)
   } else {
     grid <- object$allocations[setdiff(names(object$allocations), object$fixed_facets)]
     projection <- if (is.null(object$projection)) NULL else {
@@ -50,7 +68,8 @@
       "balanced"
     }
     expected <- gt_dstudy(fit, grid, scale = object$scale, score = object$score,
-      fixed = object$fixed_facets, level = object$level, projection = projection)
+      fixed = object$fixed_facets, level = object$level, projection = projection,
+      bootstrap = bootstrap, interval_type = interval)
   }
   supplied <- as.data.frame(object)
   verified <- as.data.frame(expected)
@@ -60,7 +79,8 @@
                      tolerance = 1e-12, check.attributes = FALSE)) &&
     identical(attr(supplied, "allocation_columns"), attr(verified, "allocation_columns")) &&
     identical(object$score, expected$score) &&
-    identical(object$fixed_facets, expected$fixed_facets)
+    identical(object$fixed_facets, expected$fixed_facets) &&
+    identical(object$uncertainty$bootstrap, expected$uncertainty$bootstrap)
   if (!consistent)
     stop(kind, " does not agree with projections from the supplied fit; do not combine unrelated or edited results.",
          call. = FALSE)
@@ -154,8 +174,9 @@
 }
 
 # Construct an explicitly versioned, serializable snapshot without fitting.
-gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) {
+gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL, bootstrap = NULL) {
   if (!inherits(fit, "gt_fit")) stop("fit must be a gt_fit object.", call. = FALSE)
+  if (!is.null(bootstrap)) .gt_bootstrap_match(fit, bootstrap)
   family_names <- vapply(fit$families, `[[`, character(1), "family")
   gaussian <- all(family_names == "gaussian")
   families <- data.frame(outcome = fit$outcomes, family = unname(family_names),
@@ -212,7 +233,7 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
     conditional = isTRUE(fit$uncertainty$restricted_to_interior),
     fixed_components = as.character(fit$uncertainty$fixed_components),
     scope = if (!isTRUE(fit$uncertainty$available))
-      "No usable fitted parameter covariance is recorded; intervals are unavailable."
+      "No usable fitted parameter covariance is recorded; model-based intervals are unavailable."
       else if (!gaussian)
         "Asymptotic source-covariance and latent-coefficient uncertainty conditional on first-order Laplace, any specified fixed source covariances and any boundary source held fixed; finite-sample coverage is not established."
       else "Asymptotic estimation intervals under the declared model; not future-panel prediction intervals.")
@@ -237,8 +258,9 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
     retention = retention,
     provenance = list(fitting_session = .gt_report_session(fit$session), report_runtime = runtime),
     preflight = .gt_report_preflight(preflight, fit),
-    reliability = .gt_report_coefficients(fit, reliability, "reliability"),
-    dstudy = .gt_report_coefficients(fit, dstudy, "dstudy"),
+    reliability = .gt_report_coefficients(fit, reliability, "reliability", bootstrap),
+    dstudy = .gt_report_coefficients(fit, dstudy, "dstudy", bootstrap),
+    bootstrap = .gt_report_bootstrap(bootstrap, reliability, dstudy),
     association = paste("Supplied coefficient tables agree with recalculated projections from the supplied fit",
       "under their declared scale, allocation, fixed facets, score and uncertainty settings.",
       "This checks numerical compatibility, not original-object or original-data identity."),
@@ -253,6 +275,21 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
       "Only recorded scalar requested controls are shown. Omitted defaults are not reconstructed.",
       "A missing fitting session or retention record stays unknown; report-generation versions do not fill that gap."))
   structure(report, class = "gt_report")
+}
+
+# Aggregate counts only: the bootstrap's replicate covariances, attempt
+# records and seeds stay out of the snapshot.
+.gt_report_bootstrap <- function(bootstrap, reliability, dstudy) {
+  used <- Filter(function(object) !is.null(object) && .gt_report_resampled(object), list(reliability, dstudy))
+  if (!length(used)) return(NULL)
+  methods <- unique(vapply(used, function(object) object$uncertainty$method, character(1)))
+  list(methods = methods, unit = .gt_report_scalar(bootstrap$unit),
+    accepted = .gt_report_scalar(bootstrap$accepted, "numeric"),
+    attempts = .gt_report_scalar(bootstrap$attempts, "numeric"),
+    requested = .gt_report_scalar(bootstrap$replicates, "numeric"),
+    scope = paste("Object-bootstrap intervals: objects resampled with their complete panels and every",
+      "resample refitted under the fit's acceptance rule. They describe object sampling conditional",
+      "on the observed instrumentation levels and on numerical acceptance, not the sampling of facet levels."))
 }
 
 print.gt_report <- function(x, ...) {
@@ -457,6 +494,10 @@ gt_export_report <- function(report, path, overwrite = FALSE) {
     paragraph(report$uncertainty$scope),
     paragraph(if (isTRUE(report$uncertainty$conditional)) paste("Inference conditions on fixed covariance components:",
       paste(report$uncertainty$fixed_components, collapse = ", ")) else "No interior-block conditioning is recorded."),
+    if (!is.null(report$bootstrap)) paragraph(paste0(report$bootstrap$scope, " Methods: ",
+      paste(report$bootstrap$methods, collapse = ", "), "; resampled unit: ", report$bootstrap$unit,
+      "; ", report$bootstrap$accepted, " accepted refits of ", report$bootstrap$attempts,
+      " attempts (", report$bootstrap$requested, " requested).")),
     paragraph(report$association), heading("Reliability"),
     .gt_report_svg(report$reliability, coefficient = "Erho2"),
     .gt_report_svg(report$reliability, coefficient = "Phi"), table(report$reliability),

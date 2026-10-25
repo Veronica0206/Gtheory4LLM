@@ -8,7 +8,8 @@ projections in a versioned snapshot, then exports a self-contained HTML report
 with aggregate tables, inline figures, limitations, and provenance. No model
 fitting, network access, external assets, or additional packages are needed.}
 \usage{
-gt_report(fit, preflight = NULL, reliability = NULL, dstudy = NULL)
+gt_report(fit, preflight = NULL, reliability = NULL, dstudy = NULL,
+  bootstrap = NULL)
 gt_export_report(report, path, overwrite = FALSE)
 \method{print}{gt_report}(x, ...)
 }
@@ -21,6 +22,10 @@ grouping and counts. Outcome and category coding must also match.}
 the supplied fit under its declared allocation, scale, fixed facets, score,
 and uncertainty settings.}
 \item{dstudy}{Optional \code{gt_dstudy} checked against the supplied fit.}
+\item{bootstrap}{The \code{\link{gt_bootstrap}} result whose replicates gave
+\code{reliability} or \code{dstudy} their object-bootstrap intervals. It must
+have been made from \code{fit}; it is required when either table uses it and
+otherwise only checked against the fit.}
 \item{report, x}{A \code{gt_report} snapshot.}
 \item{path}{Destination \code{.html} or \code{.htm} file. The parent directory
 must already exist. The report embeds its styles, tables and SVG figures.}
@@ -44,6 +49,9 @@ The main fields are:
 \item \code{uncertainty}: interval scope and availability.
 \item \code{retention} and \code{provenance}: retained context.
 \item Optional \code{preflight}, \code{reliability} and \code{dstudy} tables.
+\item \code{bootstrap}: when a table uses object-bootstrap intervals, their
+methods, the resampled unit, the accepted, attempted and requested refit counts,
+and their scope; \code{NULL} otherwise.
 \item \code{association}, \code{privacy} and \code{limitations}: scope text.
 }
 Tables have atomic columns; absent optional sections are \code{NULL}.
@@ -54,7 +62,10 @@ The print method returns the snapshot invisibly.}
 recalculating their declared projections from the supplied fit. This reuses
 stored covariance estimates and uncertainty; it does not rerun an optimizer.
 Coefficient values, intervals, scales, allocations, fixed facets, composite
-weights and uncertainty context must agree. Legitimately reordered result
+weights and uncertainty context must agree. A table with object-bootstrap
+intervals is recalculated with the supplied bootstrap, which must belong to
+the fit; the snapshot keeps only its aggregate counts, never its replicate
+covariances, attempt records or seeds. Legitimately reordered result
 rows are accepted. This verifies numerical compatibility, not historical
 object identity or a shared original data file.
 
