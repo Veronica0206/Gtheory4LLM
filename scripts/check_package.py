@@ -20,7 +20,8 @@ def macos_toolchain_environment(environment, work):
 
     /usr/bin compiler/binutils shims and R's SDK query invoke xcrun, which
     writes xcrun_db even with its documented no-cache option. Resolve those
-    shims before starting R, and isolate only xcrun's own temporary files.
+    shims before starting R. Compiler shims retain Apple's SDK selection with
+    their cache isolated; other tools use their resolved binaries directly.
     R/package TMPDIR and the detritus check are deliberately left unchanged.
     Non-Apple tools already selected by PATH are never replaced.
     """
@@ -37,6 +38,7 @@ def macos_toolchain_environment(environment, work):
     cache.mkdir()
     lookup_environment = {**environment, 'TMPDIR': str(cache.resolve())}
     tools = {}
+    compiler_shims = []
     # Include make and the symbol/loader inspectors used by R CMD check, not
     # just CC: overriding the compiler alone leaves the other Apple shims.
     for name in ('cc', 'c++', 'gcc', 'g++', 'clang', 'clang++', 'ar', 'as',
@@ -50,7 +52,18 @@ def macos_toolchain_environment(environment, work):
         if (found.returncode or not target.is_absolute() or not target.is_file()
                 or not os.access(target, os.X_OK) or target == Path('/usr/bin') / name):
             raise RuntimeError('Could not resolve the active macOS developer tool: ' + name)
-        (binaries / name).symlink_to(target)
+        if name in ('cc', 'c++', 'gcc', 'g++', 'clang', 'clang++'):
+            # Compiler shims inject the active SDK for standalone R CMD SHLIB.
+            # Keep that behavior (including SDKROOT/DEVELOPER_DIR overrides),
+            # isolating only the compiler process's cache. Do not wrap make
+            # this way: it may launch R/package tests that must retain TMPDIR.
+            wrapper = binaries / name
+            wrapper.write_text('#!/bin/sh\nTMPDIR=' + shlex.quote(str(cache.resolve())) +
+                               ' exec /usr/bin/' + name + ' "$@"\n', encoding='utf-8')
+            wrapper.chmod(0o755)
+            compiler_shims.append(name)
+        else:
+            (binaries / name).symlink_to(target)
         tools[name] = str(target)
     wrapper = binaries / 'xcrun'
     wrapper.write_text('#!/bin/sh\nTMPDIR=' + shlex.quote(str(cache.resolve())) +
@@ -58,6 +71,7 @@ def macos_toolchain_environment(environment, work):
     wrapper.chmod(0o755)
     result['PATH'] = str(binaries.resolve()) + os.pathsep + environment.get('PATH', os.defpath)
     return result, {'enabled': True, 'resolved_tools': tools,
+                    'compiler_shims': compiler_shims,
                     'xcrun_cache_directory': str(cache.resolve()),
                     'package_tmpdir_changed': False, 'detritus_check_changed': False}
 

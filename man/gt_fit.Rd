@@ -110,9 +110,12 @@ uncertainty-availability decisions. Identical printed coefficients alone do not
 establish reproducibility, and bitwise-identical optimization is not promised.
 
 The installed \file{examples/native_1_0_workflow.R} defines a public workflow for
-two specified native examples: efficacy and safety from
-\code{gt_example("drug_review_4aspect", coding = "native")} and
-\code{gt_example("mental_health_3group", coding = "native")}. Each full request
+two specified native examples:
+\itemize{
+\item Efficacy and safety from \code{drug_review_4aspect}.
+\item The three groups in \code{mental_health_3group}.
+}
+Both are loaded with \code{gt_example()} and \code{coding = "native"}. Each full request
 retains 21,600 rows and ten declared sources. The project records report
 numerical acceptance on macOS and Linux for those requests, with sparse
 analytic-gradient fitting and projected boundary escape. Their original
