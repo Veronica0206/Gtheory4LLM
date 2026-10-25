@@ -2,6 +2,16 @@
 # intercepts/threshold coordinates remain in this Hessian; they are not fixed
 # while extracting the covariance block. This is approximation-conditional
 # asymptotic uncertainty, not a coverage or Laplace-accuracy guarantee.
+#
+# Two methods form the Hessian. The finite-difference route uses second
+# differences of the objective, 2p^2 + O(p) evaluations per step. The analytic
+# route (gradient = "analytic") uses central differences of the analytic
+# gradient, 2p gradients per step, each at a cold tight conditional mode; the
+# difference matrix is symmetrized after its asymmetry is checked against
+# hessian_tolerance. Both run at hessian_step and hessian_step / 2 under the
+# same step-discrepancy, eigenvalue and inverse-validity checks. A refused
+# gradient makes information unavailable with its reason; there is no fallback
+# to the other method.
 
 .gt_d_information_unavailable <- function(reason, boundary_components = character()) {
   list(available = FALSE, reason = reason, method = NA_character_,
@@ -40,6 +50,33 @@
   }
   if (any(!is.finite(H))) stop("Information differences are nonfinite.", call. = FALSE)
   H
+}
+
+# Central differences of a gradient in stored coordinates: column j is
+# (g(theta + h_j e_j) - g(theta - h_j e_j)) / (2 h_j), with the scalar method's
+# steps and bound rule. The asymmetry is measured on the scale the step
+# discrepancy uses before the matrix is symmetrized.
+.gt_d_information_gradient_hessian <- function(parameters, gradient, step, lower, upper) {
+  p <- length(parameters)
+  h <- step * pmax(1, abs(parameters))
+  if (any(parameters - h <= lower | parameters + h >= upper))
+    stop("Central information differences contact a parameter bound.", call. = FALSE)
+  value <- function(at) {
+    g <- gradient(at)
+    if (!is.numeric(g) || length(g) != p || !identical(names(g), names(parameters)) || any(!is.finite(g)))
+      stop("An information gradient is unavailable.", call. = FALSE)
+    g
+  }
+  H <- matrix(0, p, p, dimnames = list(names(parameters), names(parameters)))
+  for (j in seq_len(p)) {
+    plus <- minus <- parameters
+    plus[[j]] <- plus[[j]] + h[[j]]
+    minus[[j]] <- minus[[j]] - h[[j]]
+    H[, j] <- (value(plus) - value(minus)) / (2 * h[[j]])
+  }
+  if (any(!is.finite(H))) stop("Information differences are nonfinite.", call. = FALSE)
+  scale <- pmax(1, sqrt(outer(abs(diag(H)), abs(diag(H)))))
+  list(hessian = (H + t(H)) / 2, asymmetry = max(abs(H - t(H)) / scale), gradients = 2L * p)
 }
 
 # Analytic source-covariance map, independently checked against differences of
@@ -83,7 +120,8 @@
 
 .gt_d_information <- function(parameters, prep, groups, setup, control,
                               laplace = .gt_d_laplace, lower, upper,
-                              numerically_accepted, boundary_components = character()) {
+                              numerically_accepted, boundary_components = character(),
+                              gradient = NULL) {
   unavailable <- function(reason) .gt_d_information_unavailable(reason, boundary_components)
   if (!isTRUE(control$check_hessian))
     return(unavailable("Observed information was not requested; use discrete check_hessian=TRUE."))
@@ -98,8 +136,22 @@
         stop("A conditional mode failed during information evaluation.", call. = FALSE)
       ans$nll
     }
-    coarse <- .gt_d_information_hessian(parameters, objective, control$hessian_step, lower, upper)
-    fine <- .gt_d_information_hessian(parameters, objective, control$hessian_step / 2, lower, upper)
+    asymmetry <- NA_real_
+    gradient_evaluations <- 0L
+    if (is.null(gradient)) {
+      coarse <- .gt_d_information_hessian(parameters, objective, control$hessian_step, lower, upper)
+      fine <- .gt_d_information_hessian(parameters, objective, control$hessian_step / 2, lower, upper)
+    } else {
+      coarse <- .gt_d_information_gradient_hessian(parameters, gradient, control$hessian_step, lower, upper)
+      fine <- .gt_d_information_gradient_hessian(parameters, gradient, control$hessian_step / 2, lower, upper)
+      asymmetry <- max(coarse$asymmetry, fine$asymmetry)
+      gradient_evaluations <- coarse$gradients + fine$gradients
+      if (asymmetry > control$hessian_tolerance)
+        stop("Observed information from analytic gradient differences is not symmetric within hessian_tolerance.",
+             call. = FALSE)
+      coarse <- coarse$hessian
+      fine <- fine$hessian
+    }
     scale <- pmax(1, sqrt(outer(abs(diag(fine)), abs(diag(fine)))))
     discrepancy <- max(abs(coarse - fine) / scale)
     if (discrepancy > control$hessian_tolerance)
@@ -122,6 +174,8 @@
          method = "full_observed_laplace_information_delta_method",
          parameter_covariance = covariance, parameter_standard_errors = sqrt(diag(covariance)),
          hessian = fine, hessian_scale = "negative_log_likelihood",
+         hessian_method = if (is.null(gradient)) "objective_second_differences" else "analytic_gradient_differences",
+         hessian_asymmetry = asymmetry, information_gradient_evaluations = gradient_evaluations,
          hessian_step = control$hessian_step / 2,
          step_discrepancy = discrepancy, step_tolerance = control$hessian_tolerance,
          condition_number = max(eigenvalues) / min(eigenvalues),

@@ -1668,10 +1668,21 @@
     design$batch_model$item_levels <- item_levels
     design$batch_model$item_batches <- unname(call$batch[first_item_rows])
   }
+  # On the analytic route the information differences the analytic gradient,
+  # each at a cold conditional mode under the validation settings.
+  information_gradient <- if (analytic) function(at) {
+    record <- .laplace(at, prep, groups, setup, validation_control, details = TRUE)
+    if (!.gt_d_evaluation_usable(record) || !isTRUE(record$inner_converged))
+      stop("A conditional mode failed during information evaluation.", call. = FALSE)
+    answer <- gradient_route$at(at, record, validation_control)
+    if (!isTRUE(answer$valid))
+      stop("An information gradient was refused (", answer$reason, ").", call. = FALSE)
+    answer$gradient
+  }
   information <- if (isTRUE(control$check_hessian))
     .gt_d_information(fit$par, prep, groups, setup, validation_control, laplace = .laplace,
       lower = lower, upper = upper, numerically_accepted = converged,
-      boundary_components = boundary_sources) else
+      boundary_components = boundary_sources, gradient = information_gradient) else
     list(available = FALSE,
          reason = "Observed-information calculation was not requested; coefficients are point estimates only.",
          method = NA_character_, boundary_components = boundary_sources)

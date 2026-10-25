@@ -26,6 +26,7 @@ into subdirectories without silently removing them from the release gate.
 | `package-selected-inverse.R` | The compiled selected inverse: every entry, query, trace and local contraction against dense inverses on eight reference matrices under shuffled orders with and without permutation, the engine's own Hessian geometry, thirty refusals, cap boundaries and collector safety |
 | `package-sparse-envelope.R` | The structural derivative envelope: the preflight's pattern, overlays with explicit zeros at nonzero, zero-off-diagonal and zero-pivot points, local-block coverage, refusals |
 | `package-discrete-gradient.R` | The analytic gradient at fixed points against finite differences of the objective on thirteen fixtures across families, links, joint outcomes and every covariance parameterization, negative controls, inner-tolerance convergence, refusals |
+| `package-discrete-gradient-information.R` | Observed information from analytic gradient differences against the objective-difference Hessian at the same parameters on the information panels and a joint panel; uncertainty and coefficient standard errors across routes; gradient count, method record, injected refusal and asymmetry, boundary and acceptance refusals |
 | `package-discrete-gradient-fit.R` | The analytic route inside L-BFGS-B attempts: the discrete characterization panels and a joint panel reach the same decisions and points as the finite-difference route; ledger, record reuse, selected-point comparison, scaling, refusals, an injected refusal ending every attempt, preflight |
 | `package-sparse-resources.R` | The two-stage sparse memory estimate: complete-fill bound within budget, refusal on the exact structural count without a pattern, structural factorization containing an actual Hessian pattern, and preflight/fit refusals naming the method |
 | `package-uncertainty.R` | Standard errors, the covariance Jacobian, coefficient derivatives |
@@ -100,6 +101,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_selected_inverse.R` | Source entrypoint for the installed selected-inverse contract; compiles `src/` through the loader |
 | `test_sparse_envelope.R` | Source entrypoint for the installed structural-envelope contract |
 | `test_discrete_gradient.R` | Source entrypoint for the installed fixed-point gradient contract |
+| `test_discrete_gradient_information.R` | Source entrypoint for the installed gradient-difference information contract |
 | `test_discrete_gradient_fit.R` | Source entrypoint for the installed analytic-route fit contract |
 | `test_gaussian_lme4_restart.R` | The lme4 restart rule: a restart counts only when it completes without a convergence warning and reproduces the solution |
 | `test_discrete.R` | Probability and derivative identities, glmer/clmm comparisons |

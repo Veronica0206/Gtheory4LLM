@@ -84,6 +84,16 @@ threshold was loosened; where an optimizer path changed, the change is named.
   coordinates and caps. On the characterization panels the two routes reach
   the same accepted points with between six and seventeen times fewer
   objective evaluations.
+- With `check_hessian = TRUE` on the analytic route, observed information is
+  formed from central differences of the analytic gradient, `4p` gradients,
+  instead of second differences of the objective, about `4p^2` evaluations.
+  The asymmetry of the difference matrix is checked against
+  `hessian_tolerance` before it is symmetrized; the step-discrepancy,
+  eigenvalue and inverse checks and the boundary and acceptance refusals are
+  unchanged, and a refused gradient makes information unavailable without
+  falling back. On the information reference panels the two methods agree
+  within 2e-7 at the same parameters on macOS and Linux. `fit$uncertainty`
+  names the method.
 - Sparse conditional solves use a bounded derivative check when rounded
   function values block a full Newton step. Outside the small plateau window,
   the candidate must already meet the final score tolerance; final score,

@@ -39,8 +39,9 @@ an accepted primary attempt. The analytic Laplace gradient is integrated with it
 tests: the compiled selected inverse, the response third derivatives, the
 fixed-point assembler on the structural envelope, and an opt-in optimizer route
 (`gradient = "analytic"`) for sparse L-BFGS-B fits in natural Cholesky or
-log-Cholesky coordinates. The default fit is unchanged, and the route's
-whole-panel qualification has not run.
+log-Cholesky coordinates, whose observed information differences the analytic
+gradient. The default fit is unchanged, and the route's whole-panel
+qualification has not run.
 
 Focused synthetic reference tests and refusal tests accompany the new routes;
 they do not qualify a full native panel, establish Laplace accuracy or calibrate

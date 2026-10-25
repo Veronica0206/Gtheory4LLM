@@ -497,6 +497,36 @@ ledger, the reuse of records, the selected-point comparison, declared scaling,
 the control and fit-start refusals, an injected refusal that ends every
 attempt, and the preflight report.
 
+## Observed information from gradient differences
+
+With `check_hessian = TRUE` on the analytic route, `.gt_d_information()`
+forms the Hessian from central differences of the analytic gradient instead
+of second differences of the objective: column `j` is
+`(g(theta + h_j e_j) - g(theta - h_j e_j)) / (2 h_j)` with the same steps
+`h_j = step * max(1, |theta_j|)` and the same refusal at a parameter bound
+(`.gt_d_information_gradient_hessian()`). Each gradient is computed at a cold
+conditional mode under the validation settings, by the fixed-point assembler
+through the route's `at()`; a mode that does not converge or a refused
+gradient makes information unavailable with its reason, and the
+objective-difference method is not substituted. The difference matrix's
+asymmetry, `max |H - H'| / max(1, sqrt(|H_ii H_jj|))`, is checked against
+`hessian_tolerance` at both steps before it is symmetrized; then the step
+discrepancy, the eigenvalue and condition rules and the inverse-validity
+check apply unchanged. The cost is `4p` gradients against about `4p^2`
+objective evaluations for the second differences. `fit$uncertainty` records
+`hessian_method` (`"analytic_gradient_differences"` or
+`"objective_second_differences"`), `hessian_asymmetry` and
+`information_gradient_evaluations`; the boundary and acceptance refusals
+precede either method.
+
+`tests/package-discrete-gradient-information.R` compares the two methods at
+the same parameters on the frozen binary and ordinal information panels and a
+joint binary-ordinal panel (within `1e-6` on the step-discrepancy scale),
+compares the fitted source-covariance uncertainty and latent coefficient
+standard errors across routes, and checks the gradient count, the recorded
+method, an injected refusal, an injected asymmetry and the boundary and
+acceptance refusals.
+
 ## Declared numerical domains
 
 `parameter_bounds` optionally supplies partial named `lower` and `upper`

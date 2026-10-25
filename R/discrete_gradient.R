@@ -381,10 +381,11 @@
     selected_inverse = state$structure$selected_inverse[c("factor_entries", "inner_products", "value_bytes")],
     contractions = state$structure$contractions,
     platform = .gt_selected_platform(),
-    scope = paste("Gradients requested by the L-BFGS-B attempts. The stationarity check, the",
-                  "restart comparison and observed information keep their own finite differences;",
-                  "a refused gradient ended its attempt, and a gradient at an unusable objective",
-                  "point was zero beside the sentinel value the objective returned."))
+    scope = paste("Gradients requested by the L-BFGS-B attempts. The stationarity check and the",
+                  "restart comparison keep their own finite differences; observed information, when",
+                  "requested, differences this route's gradient and records its own count. A refused",
+                  "gradient ended its attempt, and a gradient at an unusable objective point was zero",
+                  "beside the sentinel value the objective returned."))
   list(retain = retain, clear = clear, callback = callback, at = at, summary = summary,
        context = context, envelope = envelope)
 }

@@ -315,6 +315,17 @@ Optional discrete information controls are:
 \item \code{hessian_step}: \code{1e-3}, the finite-difference step multiplier in stored parameter coordinates, scaled by \code{max(1, abs(parameter))}. These coordinates include ordinal log gaps and are unaffected by optimizer scaling.
 \item \code{hessian_tolerance}: \code{0.05}, the maximum normalized disagreement between Hessians computed at the requested step and half that step.
 }
+On the finite-difference route the Hessian is formed from second differences
+of the objective, about \eqn{2p^2} evaluations per step for \eqn{p} free
+parameters. With \code{gradient = "analytic"} it is formed instead from central
+differences of the analytic gradient, \eqn{2p} gradients per step at cold
+conditional modes under the validation settings, and the difference matrix is
+symmetrized after its asymmetry, measured on the same normalized scale, is
+checked against \code{hessian_tolerance}. Both methods use the same steps and
+the same step-discrepancy, eigenvalue and inverse checks. A refused gradient
+makes information unavailable with its reason; the other method is not
+substituted. \code{fit$uncertainty} records \code{hessian_method},
+\code{hessian_asymmetry} and the number of information gradients.
 The Hessian is for the full Laplace negative log likelihood, including nuisance
 intercepts and threshold coordinates together with covariance parameters.
 Source-covariance sampling uncertainty is obtained from the inverse of this
