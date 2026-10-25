@@ -532,6 +532,41 @@ standard errors across routes, and checks the gradient count, the recorded
 method, an injected refusal, an injected asymmetry and the boundary and
 acceptance refusals.
 
+## Boundary escape
+
+In natural Cholesky coordinates a source covariance `S = L L'` is singular
+when a factor column is zero, and along that column `S` changes only to
+second order in `L`: the objective's derivative in those coordinates is
+exactly zero, so the analytic route's L-BFGS-B attempts cannot leave such a
+point even when the stationarity check's covariance-direction score points
+inward. (The finite-difference route's one-sided difference at the bound sees
+the second-order change and can move off it.) `boundary_escape = "projected"`
+acts on such points (`R/discrete_boundary_escape.R`). After every completed
+tight attempt it evaluates the point's cold conditional mode under the
+validation settings and checks each source whose smallest covariance
+eigenvalue is below `1e-6`, the fit's own boundary rule. For those sources it
+computes the stationarity check's covariance scores
+(`.gt_d_stationarity(fixed_effects = FALSE, sources = ...)`, the same
+arithmetic, never an acceptance decision). A source whose projected score
+`P = S_n - Proj_PSD(S_n - G_n)` exceeds `stationarity_tol` is moved to
+`S - alpha * scale * P`, a convex combination of two positive semidefinite
+matrices for `alpha` in `(0, 1]`, with `alpha` the best of a fixed grid by the
+objective, and written back in natural Cholesky coordinates with zero pivots
+kept. The tight attempt is rerun from the stepped point under the same
+controls, at most three times. A rerun is an attempt of its own; one that
+fails or does not lower the tight objective ends the escape and the earlier
+result stands; an attempt error blocks acceptance as any attempt error does.
+The fit records each step's singular sources, scores, step lengths, objective
+changes and evaluation count. Acceptance runs on the final candidates as
+before. Other coordinates are refused at fit start.
+
+`tests/package-discrete-boundary-escape.R` fits a joint binary-ordinal panel
+from a start with an exact zero item factor column: the analytic route is
+refused on restart stability without the step and accepted with it at the
+reference optimum. It checks the records, that fits at a legitimate boundary
+are unchanged on both routes, that the partial covariance scores equal the full
+check's, the factor helper and the refusals.
+
 ## Declared numerical domains
 
 `parameter_bounds` optionally supplies partial named `lower` and `upper`

@@ -154,6 +154,22 @@ Discrete optimizer controls are:
   diagonal model needs \code{covariance_parameterization = "cholesky"}. The
   design must also lie within the compiled routines' declared caps, which
   \code{gt_preflight()} reports.
+\item \code{boundary_escape}: \code{"none"}; optionally \code{"projected"} for
+  natural Cholesky source covariance coordinates. After each completed tight
+  attempt, every source whose covariance is singular is checked in covariance
+  coordinates, as the stationarity check does. A source whose projected score
+  points into the interior, beyond \code{stationarity_tol}, has its covariance
+  moved by a projected step that keeps it positive semidefinite, with the
+  step length chosen by the objective, and the tight attempt is rerun from
+  there, at most three times. In natural Cholesky coordinates the derivative
+  along an exact zero factor column vanishes, so without this step a
+  gradient-based optimizer cannot leave such a boundary. Each rerun is an
+  attempt of its own in the record, and \code{fit$diagnostics$boundary_escape}
+  keeps every step's singular sources, scores, step length, objective change
+  and evaluation count. A rerun that fails or does not lower the tight
+  objective ends the escape, and the earlier result stands. Acceptance is
+  unchanged, and a source legitimately at zero, whose score does not point
+  inward, is left alone. Other coordinates are refused at fit start.
 \item \code{start}: NULL (automatic response and covariance starts).
 \item \code{parameter_bounds}: NULL (the default numerical domains).
 \item \code{covariance_parameterization}: \code{"auto"}.

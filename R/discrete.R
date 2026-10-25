@@ -248,7 +248,8 @@
                    stability_parameter_tol = 0.02, bound_tol = 1e-4,
                    covariance_parameterization = "auto",
                    start = NULL, optimizer = "L-BFGS-B", parameter_bounds = NULL,
-                   optimizer_scaling = "none", gradient = "finite_difference")
+                   optimizer_scaling = "none", gradient = "finite_difference",
+                   boundary_escape = "none")
   if (!is.list(control) || (length(control) &&
       (is.null(names(control)) || anyNA(names(control)) ||
        any(!nzchar(names(control))) || anyDuplicated(names(control)))))
@@ -303,6 +304,11 @@
   if (identical(defaults$gradient, "analytic") &&
       (!identical(defaults$engine, "sparse") || !identical(defaults$optimizer, "L-BFGS-B")))
     .gt_d_stop("gradient = 'analytic' requires engine = 'sparse' and the L-BFGS-B optimizer.")
+  # The boundary escape acts after tight attempts that end at a singular
+  # source; see R/discrete_boundary_escape.R. It never runs by default.
+  if (!is.character(defaults$boundary_escape) || length(defaults$boundary_escape) != 1L ||
+      is.na(defaults$boundary_escape) || !defaults$boundary_escape %in% c("none", "projected"))
+    .gt_d_stop("boundary_escape must be 'none' or 'projected'.")
   z <- defaults$start
   if (!is.null(z) && (!is.numeric(z) || !is.null(dim(z)) || !length(z) ||
       any(!is.finite(z)) || is.null(names(z)) || anyNA(names(z)) ||
@@ -910,7 +916,12 @@
 # Richardson extrapolation and bounded step halving check truncation stability.
 # Refinement changes the numerical resolution, never the acceptance tolerance.
 .gt_d_stationarity <- function(parameters, prep, groups, setup, control, final,
-                              laplace = .gt_d_laplace) {
+                              laplace = .gt_d_laplace, fixed_effects = TRUE, sources = NULL) {
+  # The boundary escape asks only for the covariance scores of named sources:
+  # fixed_effects = FALSE skips the fixed-effect scores and `sources` limits the
+  # covariance loop. Such a partial record is never an acceptance decision. The
+  # fit's own check passes neither argument, and its arithmetic is unchanged.
+  partial <- !isTRUE(fixed_effects) || !is.null(sources)
   # Optimizers may use a finite penalty for a failed conditional mode, but
   # finite differences must never subtract those penalties. Require the
   # detailed validity record at every center and perturbation, stopping at
@@ -977,6 +988,7 @@
   fixed_score <- fixed_disagreement <- fixed_steps <- numeric(length(prep$start))
   fixed_refinements <- integer(length(prep$start))
   for (j in seq_along(prep$start)) {
+    if (!isTRUE(fixed_effects)) break
     h <- 1e-4 * max(1, abs(parameters[[j]]))
     derivative <- function(step) {
       plus <- minus <- parameters
@@ -997,6 +1009,7 @@
   cov_disagreement <- cov_steps <- numeric()
   cov_refinements <- integer()
   if (is.null(setup$fixed)) for (s in seq_along(final$factors)) {
+    if (!is.null(sources) && !names(final$factors)[[s]] %in% sources) next
     S <- tcrossprod(final$factors[[s]])
     scale <- max(1, max(diag(S)))
     h <- 1e-4 * scale
@@ -1066,7 +1079,7 @@
   covariance_norm <- max(abs(c(0, unlist(projected))))
   finite_difference_disagreement <- max(c(0, fixed_disagreement, cov_disagreement))
   checked <- all(is.finite(c(base, fixed_norm, covariance_norm, finite_difference_disagreement))) && base < 1e99
-  accepted <- checked && max(fixed_norm, covariance_norm) <= control$stationarity_tol &&
+  accepted <- !partial && checked && max(fixed_norm, covariance_norm) <= control$stationarity_tol &&
     finite_difference_disagreement <= control$stationarity_tol / 2
   list(stationary_within_tolerance = accepted, fixed_effect_score = fixed_score,
        covariance_gradients = cov_gradients, covariance_projected_scores = projected,
@@ -1190,6 +1203,12 @@
   # Cholesky entries are differentiable at zero and log-Cholesky diagonals never
   # reach it, so the route is offered on those coordinates and on fixed
   # covariances, and refused here rather than at the first boundary gradient.
+  escape <- identical(control$boundary_escape, "projected")
+  if (escape && !identical(setup$parameterization, "cholesky"))
+    .gt_d_stop("boundary_escape = 'projected' acts on natural Cholesky source covariance coordinates, ",
+      "where a singular source has an exact zero factor column; this model resolves to ",
+      setup$parameterization, " coordinates. Set covariance_parameterization = 'cholesky' for an ",
+      "unstructured or diagonal covariance.")
   if (analytic && setup$parameterization %in% c("variance", "exchangeable"))
     .gt_d_stop("gradient = 'analytic' supports natural Cholesky and log-Cholesky source covariance ",
       "coordinates and fixed covariances. This model resolves to ", setup$parameterization,
@@ -1363,6 +1382,41 @@
       attempt_control, label,
       optimizer = control$optimizer, gradient = tight_gradient)
     attempts[[length(attempts) + 1L]] <<- result$attempt
+    if (escape) result <- escape_tight(result, label)
+    result
+  }
+  # The boundary escape (R/discrete_boundary_escape.R): after a completed tight
+  # attempt, step each singular source whose covariance-direction score points
+  # inward and rerun the tight attempt from there, at most three times. Each
+  # rerun is an attempt of its own, kept in the record; a rerun that fails or
+  # does not lower the tight objective ends the escape and the earlier result
+  # stands. Acceptance is decided on the final candidates as before.
+  escape_records <- list()
+  escape_tight <- function(result, label) {
+    rounds <- list()
+    for (round in seq_len(3L)) {
+      if (!isTRUE(result$result_available) || !is.null(result$attempt$error) ||
+          !identical(result$convergence, 0L)) break
+      step <- .gt_d_boundary_escape_step(result$par, prep, groups, setup, validation_control, .laplace,
+                                         lower, upper)
+      rounds[[length(rounds) + 1L]] <- step$record
+      if (!isTRUE(step$moved)) break
+      begin_attempt()
+      attempt_control <- .gt_d_optimizer_metric(step$parameters, prep$n,
+        list(maxit = control$maxit,
+          factr = validation_control$reltol / .Machine$double.eps,
+          pgtol = 1e-7, ndeps = tight_steps, trace = control$trace), control$optimizer_scaling)
+      moved <- .gt_d_optimize(step$parameters, tight_attempt_objective, lower, upper,
+        attempt_control, paste0(label, "_escape_", round),
+        optimizer = control$optimizer, gradient = tight_gradient)
+      moved$attempt$boundary_escape <- step$record
+      attempts[[length(attempts) + 1L]] <<- moved$attempt
+      if (!isTRUE(moved$result_available) || !is.null(moved$attempt$error) ||
+          !(moved$value < result$value)) break
+      result <- moved
+    }
+    escape_records[[label]] <<- list(rounds = rounds, final_label = result$attempt$label,
+                                     final_objective = result$value)
     result
   }
   fit <- optimize_tight(primary_fit$par, "primary_tight")
@@ -1634,6 +1688,8 @@
                        # optimizer could not use; see .gt_d_evaluation_log().
                        evaluations = evaluations$summary(),
                        gradient = gradient_record,
+                       boundary_escape = if (escape) list(route = "projected", attempts = escape_records) else
+                         list(route = "none"),
                        covariance_parameterization = setup$parameterization,
                        covariance_parameterization_requested = control$covariance_parameterization,
                        zero_variance_parameters = zero_variances,

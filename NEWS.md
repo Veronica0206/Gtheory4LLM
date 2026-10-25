@@ -268,6 +268,20 @@ threshold was loosened; where an optimizer path changed, the change is named.
 
 ## Numerical acceptance and optimizer controls
 
+- `boundary_escape = "projected"` in the discrete control lets a fit leave a
+  singular source covariance that it cannot leave by gradient steps. In
+  natural Cholesky coordinates the derivative along an exact zero factor column
+  vanishes, so an optimizer stays on such a boundary even when the
+  covariance-direction score says that adding variance in the missing
+  direction improves the fit; the stationarity check then refuses the point.
+  After each completed tight attempt, every singular source whose projected
+  score points inward has its covariance moved by a projected step that stays
+  positive semidefinite, with the step length chosen by the objective, and
+  the tight attempt is rerun from there, at most three times, each rerun kept
+  as an attempt. The default `"none"` leaves fits unchanged, a source
+  legitimately at zero is left alone, and acceptance is unchanged. On a joint
+  panel fitted from a start with an exact zero column the analytic route is
+  refused without the step and accepted with it at the reference optimum.
 - A coarse L-BFGS-B attempt whose first step collapses is rerun at the
   per-row scale. Every discrete coordinate has two finite bounds, so
   L-BFGS-B's first trial point is the start minus the raw gradient, a sum over

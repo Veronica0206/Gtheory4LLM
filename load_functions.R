@@ -7,7 +7,7 @@ if (!length(.gt_loader_files)) stop("Load these functions with source('path/to/l
 for (.gt_loader_name in c("design.R", "batch.R", "family.R", "gaussian_retry.R", "gaussian_initializer.R", "gaussian_engine.R",
                           "gaussian_observed.R", "gaussian.R", "gaussian_lme4.R",
                           "discrete_response.R", "discrete_dense.R", "discrete_sparse.R", "selected_inverse.R",
-                          "discrete_sparse_envelope.R", "discrete_gradient.R",
+                          "discrete_sparse_envelope.R", "discrete_gradient.R", "discrete_boundary_escape.R",
                           "discrete_mode.R", "discrete_sparse_mode.R", "discrete.R",
                           "discrete_check.R", "discrete_information.R",
                           "preflight.R",

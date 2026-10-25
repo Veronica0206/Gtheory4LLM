@@ -58,6 +58,7 @@ Collate:
     'selected_inverse.R'
     'discrete_sparse_envelope.R'
     'discrete_gradient.R'
+    'discrete_boundary_escape.R'
     'discrete_mode.R'
     'discrete_sparse_mode.R'
     'discrete.R'
