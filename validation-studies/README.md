@@ -45,6 +45,13 @@ establish general finite-sample calibration, performance for other outcome
 families or designs, or coverage of fitted model-parameter intervals. The
 protocol, all attempts, source identity and environment accompany the results.
 
+## Object-bootstrap coverage, 2026-10-25
+
+The [object-bootstrap coverage pilot](bootstrap-coverage/PROTOCOL.md) was
+frozen before execution: 200 REML replicates in each of the Gaussian coverage
+pilot's four item-by-rater settings, with percentile, BCa and delta-method
+intervals on the same panels. Its results are reported with the run.
+
 ## Reproduce without overwriting evidence
 
 The [Gaussian pilot sensitivity illustration](gaussian-pilot-sensitivity/README.md)
