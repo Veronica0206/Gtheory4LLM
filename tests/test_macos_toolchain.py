@@ -36,7 +36,8 @@ class ToolchainEnvironmentTests(unittest.TestCase):
             actual_nm.write_text('#!/bin/sh\nexit 0\n')
             actual_nm.chmod(0o755)
             selected = {'xcrun': '/usr/bin/xcrun', 'clang': '/custom/bin/clang', 'nm': '/usr/bin/nm'}
-            original = {'PATH': '/custom/bin:/usr/bin', 'TMPDIR': '/package/tmp', 'DEVELOPER_DIR': '/selected/sdk'}
+            original = {'PATH': '/custom/bin:/usr/bin', 'TMPDIR': '/package/tmp',
+                        'DEVELOPER_DIR': '/selected/developer', 'SDKROOT': '/selected/sdk'}
             with patch.object(CHECK.sys, 'platform', 'darwin'), \
                     patch.object(CHECK.shutil, 'which', side_effect=lambda name, path=None: selected.get(name)), \
                     patch.object(CHECK.subprocess, 'run', return_value=subprocess.CompletedProcess(
@@ -44,6 +45,8 @@ class ToolchainEnvironmentTests(unittest.TestCase):
                 environment, report = CHECK.macos_toolchain_environment(original, work)
             self.assertEqual(environment['TMPDIR'], original['TMPDIR'])
             self.assertEqual(environment['DEVELOPER_DIR'], original['DEVELOPER_DIR'])
+            self.assertEqual(environment['SDKROOT'], original['SDKROOT'])
+            self.assertEqual(report['compiler_shims'], [])
             self.assertNotIn('_R_CHECK_THINGS_IN_TEMP_DIR_EXCLUDE_', environment)
             self.assertEqual(report['resolved_tools'], {'nm': str(actual_nm)})
             self.assertFalse((work / 'macos-toolchain/bin/clang').exists())
@@ -54,13 +57,37 @@ class ToolchainEnvironmentTests(unittest.TestCase):
             self.assertIn('exec /usr/bin/xcrun "$@"', (work / 'macos-toolchain/bin/xcrun').read_text())
             self.assertEqual(original['PATH'], '/custom/bin:/usr/bin')
 
+    def test_apple_compiler_shim_preserves_sdk_selection_without_changing_parent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            compiler = work / 'clang'
+            compiler.write_text('#!/bin/sh\nexit 0\n')
+            compiler.chmod(0o755)
+            original = {'PATH': '/usr/bin', 'TMPDIR': '/package/tmp',
+                        'DEVELOPER_DIR': '/selected/developer', 'SDKROOT': '/selected/sdk'}
+            with patch.object(CHECK.sys, 'platform', 'darwin'), \
+                    patch.object(CHECK.shutil, 'which', side_effect=lambda name, path=None:
+                                 '/usr/bin/' + name if name in ('xcrun', 'clang') else None), \
+                    patch.object(CHECK.subprocess, 'run', return_value=subprocess.CompletedProcess(
+                        [], 0, stdout=str(compiler) + '\n', stderr='')):
+                environment, report = CHECK.macos_toolchain_environment(original, work)
+            for name in ('SDKROOT', 'DEVELOPER_DIR', 'TMPDIR'):
+                self.assertEqual(environment[name], original[name])
+            self.assertEqual(report['compiler_shims'], ['clang'])
+            wrapper = work / 'macos-toolchain/bin/clang'
+            self.assertFalse(wrapper.is_symlink())
+            self.assertIn('exec /usr/bin/clang "$@"', wrapper.read_text())
+            self.assertIn(report['xcrun_cache_directory'], wrapper.read_text())
+            self.assertNotIn('SDKROOT=', wrapper.read_text())
+            self.assertNotIn('DEVELOPER_DIR=', wrapper.read_text())
+
     def test_failed_tool_lookup_is_not_silently_ignored(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(CHECK.sys, 'platform', 'darwin'), \
                 patch.object(CHECK.shutil, 'which', side_effect=lambda name, path=None: '/usr/bin/' + name), \
                 patch.object(CHECK.subprocess, 'run', return_value=subprocess.CompletedProcess(
                     [], 1, stdout='', stderr='developer tools unavailable')):
             with self.assertRaisesRegex(RuntimeError, 'Could not resolve'):
-                CHECK.macos_toolchain_environment({'PATH': '/usr/bin'}, Path(directory))
+                CHECK.macos_toolchain_environment({'PATH': '/usr/bin', 'SDKROOT': '/selected/sdk'}, Path(directory))
 
     def test_detritus_notes_remain_substantive(self):
         for filename in ('xcrun_db', 'package-canary'):
@@ -102,10 +129,20 @@ class CompiledPackageIntegrationTests(unittest.TestCase):
                 '\\description{Compiles a small registered routine to check temporary file isolation.}\n')
             original = {**os.environ, 'R_PROFILE_USER': os.devnull, 'R_ENVIRON_USER': os.devnull,
                         '_R_CHECK_CRAN_INCOMING_REMOTE_': 'false', '_R_CHECK_SYSTEM_CLOCK_': 'false'}
+            original.pop('SDKROOT', None)
             r = subprocess.check_output([shutil.which('Rscript'), '--vanilla', '-e',
                                          'cat(file.path(R.home("bin"), "R"))'], env=original, text=True).strip()
             environment, report = CHECK.macos_toolchain_environment(original, root)
             self.assertTrue(report['enabled'])
+            # The source loader uses standalone SHLIB before R CMD check has
+            # selected an SDK. Compile R.h here so missing SDK headers fail.
+            standalone = root / 'standalone'
+            standalone.mkdir()
+            shutil.copyfile(package / 'src/probe.c', standalone / 'probe.c')
+            compiled = subprocess.run([r, 'CMD', 'SHLIB', 'probe.c'], cwd=standalone,
+                                      env=environment, capture_output=True, text=True, timeout=90)
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            self.assertTrue((standalone / 'probe.so').is_file())
             built = subprocess.run([r, 'CMD', 'build', str(package)], cwd=root, env=environment,
                                    capture_output=True, text=True, timeout=90)
             self.assertEqual(built.returncode, 0, built.stdout + built.stderr)

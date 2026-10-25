@@ -272,13 +272,17 @@ package metadata; findings remain subject to the strict NOTE policy above.
 ## macOS developer-tool cache
 
 The package and exact-candidate check entrypoints resolve Apple developer-tool
-shims to the active toolchain and retain the remaining `xcrun` cache in their
-own `macos-toolchain/cache` directory. Apple's launcher can otherwise create
+shims to the active toolchain. Compiler launchers retain Apple's SDK selection,
+including explicit `SDKROOT` and `DEVELOPER_DIR`, while their own temporary files
+and the `xcrun` cache use `macos-toolchain/cache`. Other tools use the resolved
+binaries directly, so `make` does not change its package subprocesses' temporary
+directory. Apple's launcher can otherwise create
 `xcrun_db` in the directory R audits for package detritus, even when only asked
 for its version. The check report records the resolved tools and cache path.
 Custom compiler selections are preserved. Linux and Windows are unchanged.
 
 The package's `TMPDIR` and R's detritus check remain unchanged. No NOTE is
 allowlisted and no file is deleted to obtain a passing result. A compiled
-regression package checks both the clean path and a deliberately left-behind
-package file, which must still trigger a substantive NOTE.
+regression package first compiles an `R.h` routine with standalone `R CMD SHLIB`,
+then checks both the clean path and a deliberately left-behind package file,
+which must still trigger a substantive NOTE.
