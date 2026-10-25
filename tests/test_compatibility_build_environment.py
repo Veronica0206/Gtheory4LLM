@@ -15,6 +15,19 @@ WORKFLOW = ROOT / ".github/workflows/compatibility.yml"
 
 
 class CompatibilityBuildEnvironmentTests(unittest.TestCase):
+    def test_windows_uses_prebuilt_manual_tools_without_changing_unix_bundle(self):
+        selected = "TINYTEX_INSTALLER: ${{ runner.os == 'Windows' && 'TinyTeX' || 'TinyTeX-1' }}"
+        for filename in ("compatibility.yml", "cran-readiness.yml"):
+            with self.subTest(workflow=filename):
+                text = (ROOT / ".github/workflows" / filename).read_text()
+                if filename == "cran-readiness.yml":
+                    text = re.search(r"(?ms)^  check-platforms:\n(.*?)(?=^  [A-Za-z][\w-]*:\n|\Z)", text).group(1)
+                setup = re.search(r"(?ms)^      - uses: r-lib/actions/setup-tinytex@[^\n]+\n(.*?)(?=^      - |\Z)", text)
+                self.assertIsNotNone(setup)
+                self.assertIn(selected, setup.group(1))
+                self.assertIn("timeout-minutes: 15", setup.group(1))
+                self.assertNotIn("continue-on-error:", setup.group(1))
+
     def test_every_manual_environment_updates_tlmgr_and_installs_makeindex(self):
         checked = 0
         for filename in ("full-validation.yml", "compatibility.yml", "cran-readiness.yml"):
@@ -56,12 +69,15 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                         mirror = "Invoke-Tlmgr 'option repository https://ctan.math.illinois.edu/systems/texlive/tlnet'"
                         self.assertIn(mirror, step)
                         self.assertLess(step.index(mirror), step.index("Invoke-Tlmgr 'update --self'"))
+                        self.assertIn("Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier'", step)
+                        self.assertNotIn("collection-latexrecommended", step)
                         self.assertEqual(len(re.findall(r"^\s+Invoke-Tlmgr '[^']+'\s*$", step, re.M)), 3)
                         for tool in ("pdflatex", "makeindex"):
                             self.assertIn(f"Get-Command {tool} -ErrorAction Stop", step)
                     else:
                         self.assertIn("shell: bash", step)
                         self.assertIn("set -euo pipefail", step)
+                        self.assertIn("install makeindex inconsolata helvetic times courier collection-latexrecommended", step)
                         self.assertTrue("command -v makeindex" in step or "for executable in pdflatex makeindex" in step)
                         if filename == "compatibility.yml":
                             self.assertIn("if: runner.os != 'Windows'", step)
