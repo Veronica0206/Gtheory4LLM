@@ -214,7 +214,7 @@ gt_report <- function(fit, preflight = NULL, reliability = NULL, dstudy = NULL) 
     scope = if (!isTRUE(fit$uncertainty$available))
       "No usable fitted parameter covariance is recorded; intervals are unavailable."
       else if (!gaussian)
-        "Asymptotic source-covariance and latent-coefficient uncertainty conditional on first-order Laplace and any specified fixed source covariances; finite-sample coverage is not established."
+        "Asymptotic source-covariance and latent-coefficient uncertainty conditional on first-order Laplace, any specified fixed source covariances and any boundary source held fixed; finite-sample coverage is not established."
       else "Asymptotic estimation intervals under the declared model; not future-panel prediction intervals.")
   batch <- .gt_batch_status(fit$design)
   report <- list(schema_version = "1.0",

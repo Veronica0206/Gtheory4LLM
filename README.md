@@ -143,8 +143,9 @@ These are asymptotic Wald quantities conditional on the declared model and
 allocation. A source resting on a variance boundary has no Wald standard error.
 For discrete fits, `gt_control(discrete = list(check_hessian = TRUE))` requests
 full observed information in nuisance and covariance parameters; intervals are
-available only when the accepted fit also passes the information and boundary
-checks. They remain conditional on the Laplace approximation; general
+available when the accepted fit also passes the information checks, and a source
+on its boundary is held fixed, as for Gaussian fits, with the conditioning
+named. They remain conditional on the Laplace approximation; general
 finite-sample calibration remains unestablished. Their interpretation and
 availability limits are described in
 [docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md).

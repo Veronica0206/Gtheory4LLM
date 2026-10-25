@@ -57,8 +57,8 @@ threshold was loosened; where an optimizer path changed, the change is named.
     instead of second differences of the objective, about `4p^2` evaluations.
     The asymmetry of the difference matrix is checked against
     `hessian_tolerance` before it is symmetrized; the step-discrepancy,
-    eigenvalue and inverse checks and the boundary and acceptance refusals are
-    unchanged, and a refused gradient makes information unavailable without
+    eigenvalue and inverse checks, the acceptance refusal and the boundary rule
+    are those of the other method, and a refused gradient makes information unavailable without
     falling back. On the information reference panels the two methods agree
     within 2e-7 at the same parameters on macOS and Linux. `fit$uncertainty`
     names the method.
@@ -224,18 +224,35 @@ threshold was loosened; where an optimizer path changed, the change is named.
 
 - Optional discrete observed information includes nuisance intercepts or
   thresholds and covariance parameters. Component uncertainty and latent
-  coefficient intervals require acceptance, interior estimated components,
-  stable numerical differentiation and positive definite information.
+  coefficient intervals require acceptance, stable numerical differentiation
+  and positive definite information.
   Unavailable results retain their reason; intervals inherit Laplace error.
   The two central-difference Hessians need `2 * (1 + 2 * p^2)` marginal
   likelihood evaluations for `p` stored parameters, all from cold conditional
   modes, so information can cost much more than point estimation.
+- A source covariance on or near its boundary (smallest eigenvalue below
+  `1e-6`, the fit's rule) no longer makes discrete observed information
+  unavailable. Such a source has no ordinary Wald error: its stored
+  coordinates sit on or within a difference step of their natural bound, and
+  along a zero factor column the covariance moves only to second order. It is
+  held fixed at its fitted covariance and the information is inverted over the
+  remaining coordinates, nuisance ones included, which is the Gaussian
+  engine's interior-block estimand. `fit$uncertainty` records
+  `restricted_to_interior`, `fixed_components`, `fixed_component_kinds`
+  (`"zero"` or `"singular_nonzero"`) and `information_coordinates`; the held
+  source has no standard error, and reliability tables, prints and reports name
+  the conditioning. Information is unavailable when every estimated source is
+  on its boundary. Fits without a boundary source are unchanged. Held at zero,
+  the information equals that of the model without the source at the same
+  parameters; at a zero and at a rank-one source the two Hessian methods agree
+  within 5e-7 at the same parameters. The 2026-10-23 recovery campaign
+  predates this rule and counted such fits as having no interval, so the
+  coverage of conditional discrete intervals has not been assessed.
 - Interval guidance separates true from estimated boundaries, conditional
   coverage from all-attempt availability, and covering-interval yield from
-  both. Small-panel Wald intervals can be overly conservative, unstructured
-  models can frequently withhold intervals at estimated covariance boundaries,
-  and withholding at an estimated boundary does not ensure coverage at a true
-  one. Available-only summaries are not a calibration guarantee.
+  both. Small-panel Wald intervals can be overly conservative, and neither
+  conditioning nor withholding at an estimated boundary ensures coverage at a
+  true one. Available-only summaries are not a calibration guarantee.
 
 ## Planning
 

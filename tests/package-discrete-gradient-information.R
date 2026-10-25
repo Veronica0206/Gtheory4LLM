@@ -6,8 +6,10 @@
 # on the step-discrepancy scale. Fits on the two routes must agree on the
 # source-covariance uncertainty and the latent coefficient standard errors;
 # the analytic route must use 4p gradients, record its method and asymmetry,
-# refuse an asymmetric or refused gradient without falling back, and keep the
-# boundary and acceptance refusals.
+# and refuse an asymmetric or refused gradient without falling back. At a
+# boundary source both routes hold that source fixed and invert the rest; held
+# at zero, the result must equal the information of the model without the
+# source. An unaccepted fit is refused.
 if (identical(Sys.getenv("GT_GRADIENT_INFORMATION_TEST_SOURCE"), "true")) {
   source("load_functions.R")
   internal <- function(name) get(name, envir = .GlobalEnv, inherits = FALSE)
@@ -52,10 +54,10 @@ problem_for <- function(data, outcomes, design, families) {
   problem$validation$reltol <- min(problem$control$reltol, problem$control$validation_reltol)
   problem
 }
-information_at <- function(problem, parameters, gradient = NULL)
+information_at <- function(problem, parameters, gradient = NULL, boundary = character())
   internal(".gt_d_information")(parameters, problem$prep, problem$groups, problem$setup, problem$validation,
     laplace = internal(".gt_d_sparse_evaluator")(), lower = problem$lower, upper = problem$upper,
-    numerically_accepted = TRUE, gradient = gradient)
+    numerically_accepted = TRUE, boundary_components = boundary, gradient = gradient)
 normalized <- function(A, B) max(abs(A - B) / pmax(1, sqrt(outer(abs(diag(B)), abs(diag(B))))))
 
 compare <- function(label, data, outcomes, family, families, design = gt_design("item", "rater", random = "item"),
@@ -136,21 +138,83 @@ skewed <- function(x) {
 asymmetric <- information_at(problem, at, skewed)
 check(!isTRUE(asymmetric$available) && grepl("not symmetric", asymmetric$reason, fixed = TRUE),
       "an asymmetric gradient-difference matrix is refused")
-# The boundary and acceptance refusals are those of the finite-difference route.
+unaccepted <- fit_route(binary$data, "y", binary$family, "analytic", alternative_starts = 0L)$uncertainty
+check(!unaccepted$available && grepl("numerically accepted", unaccepted$reason, fixed = TRUE),
+      "an unaccepted fit refuses information on the analytic route")
+cat("PASS: refusals\n")
+
+# --- a source on its boundary ------------------------------------------------------
 seeded <- function(seed) {
   suppressWarnings(RNGkind("Mersenne-Twister", "Inversion", "Rejection"))
   set.seed(seed)
 }
+conditional <- function(label, fits, held, kind, data, outcomes, families) {
+  for (route in names(fits)) {
+    u <- fits[[route]]$uncertainty
+    errors <- fits[[route]]$component_standard_errors
+    check(isTRUE(fits[[route]]$numerically_accepted) && identical(fits[[route]]$diagnostics$boundary_sources, held) &&
+            isTRUE(u$available) && isTRUE(u$restricted_to_interior) && identical(u$fixed_components, held) &&
+            identical(u$fixed_component_kinds, stats::setNames(kind, held)),
+          paste(label, "holds", held, "fixed as", kind, "on the", route, "route"))
+    coordinates <- names(fits[[route]]$parameters)
+    owned <- startsWith(coordinates, paste0(held, "::"))
+    check(identical(u$information_coordinates, coordinates[!owned]) && all(is.na(u$parameter_standard_errors[owned])) &&
+            all(u$parameter_covariance[owned, ] == 0) && all(u$entry_covariance[u$entries$component == held, ] == 0) &&
+            all(is.na(errors$std_error[errors$component == held])) && all(is.finite(errors$std_error[errors$component != held])),
+          paste(label, "gives the held source no sampling variance and no standard error on the", route, "route"))
+    table <- as.data.frame(gt_reliability(fits[[route]], scale = "latent"))
+    check(all(table$Erho2_interval_available & table$Phi_interval_available) && all(table$uncertainty_conditional) &&
+            all(table$uncertainty_conditioning == internal(".gt_conditioning_clause")(held, u$fixed_component_kinds)),
+          paste(label, "has latent intervals that name the conditioning on the", route, "route"))
+  }
+  # The two methods at the same parameters, as for interior fits; the two
+  # routes' fits stop at slightly different points, so they agree more loosely.
+  problem <- problem_for(data, outcomes, gt_design("item", "rater", full_cell = FALSE), families)
+  scalar <- information_at(problem, fits$analytic$parameters, boundary = held)
+  difference <- normalized(fits$analytic$uncertainty$hessian, scalar$hessian)
+  check(isTRUE(scalar$restricted_to_interior) && identical(rownames(scalar$hessian), rownames(fits$analytic$uncertainty$hessian)) &&
+          difference < 1e-6,
+        sprintf("%s: at the same parameters the two methods' conditional Hessians differ by %.3g", label, difference))
+  vcov_difference <- max(abs(gt_component_vcov(fits$analytic) - gt_component_vcov(fits$finite_difference)) /
+                           pmax(abs(gt_component_vcov(fits$finite_difference)), 1e-12))
+  check(vcov_difference < 1e-3, sprintf("%s: the routes' fitted conditional uncertainty differs by %.3g relative", label, vcov_difference))
+  difference
+}
+
+# A rater variance fitted at exactly zero is held at zero. There the objective
+# is that of the model without a rater source, so the conditional information
+# must equal that model's information at the same parameters.
 seeded(9001L)
 zero <- expand.grid(rater = factor(1:6), item = factor(1:18))
 zero$label <- rbinom(nrow(zero), 1L, plogis(.3 + rnorm(18, sd = .9)[zero$item] + rnorm(6, sd = .5)[zero$rater]))
-boundary <- lapply(c("analytic", "finite_difference"), function(route)
-  fit_route(zero, "label", gt_family("binary"), route, gt_design("item", "rater", full_cell = FALSE))$uncertainty)
-check(!boundary[[1L]]$available && identical(boundary[[1L]]$reason, boundary[[2L]]$reason) &&
-        grepl("boundary", boundary[[1L]]$reason, fixed = TRUE),
-      "a boundary source refuses information on both routes with the same reason")
-unaccepted <- fit_route(zero, "label", gt_family("binary"), "analytic", gt_design("item", "rater", full_cell = FALSE),
-                        alternative_starts = 0L)$uncertainty
-check(!unaccepted$available && grepl("numerically accepted", unaccepted$reason, fixed = TRUE),
-      "an unaccepted fit refuses information on the analytic route")
-cat("PASS: refusals\n")
+zero_fits <- lapply(c(analytic = "analytic", finite_difference = "finite_difference"), function(route)
+  fit_route(zero, "label", gt_family("binary"), route, gt_design("item", "rater", full_cell = FALSE)))
+zero_routes <- conditional("a zero rater variance", zero_fits, "rater", "zero", zero, "label", list(label = gt_family("binary")))
+without <- problem_for(zero, "label", gt_design("item", "rater", random = "item"), list(label = gt_family("binary")))
+check(identical(names(without$start), zero_fits$finite_difference$uncertainty$information_coordinates),
+      "the model without the rater source has the held fit's remaining coordinates")
+reference <- information_at(without, zero_fits$finite_difference$parameters[names(without$start)])
+held_difference <- max(abs(zero_fits$finite_difference$uncertainty$parameter_covariance[names(without$start), names(without$start)] -
+                             reference$parameter_covariance) / abs(reference$parameter_covariance))
+check(isTRUE(reference$available) && held_difference < 1e-6,
+      sprintf("held at zero, the information equals the model without the source (relative difference %.3g)", held_difference))
+
+# A rank-one rater covariance in a joint binary-ordinal panel is held fixed at
+# its fitted, singular but nonzero value.
+seeded(9001L)
+joint_panel <- expand.grid(rater = factor(1:6), item = factor(1:18))
+joint_panel$label <- rbinom(nrow(joint_panel), 1L,
+  plogis(.3 + rnorm(18, sd = .9)[joint_panel$item] + rnorm(6, sd = .5)[joint_panel$rater]))
+seeded(4242L)
+eta <- rnorm(18, sd = .8)[joint_panel$item] + rnorm(6, sd = .4)[joint_panel$rater] + rnorm(nrow(joint_panel))
+joint_panel$grade <- ordered(c("low", "mid", "high")[1L + (eta > -.7) + (eta > .6)], levels = c("low", "mid", "high"))
+joint_panel_families <- list(label = gt_family("binary"), grade = gt_family("ordinal"))
+singular_fits <- lapply(c(analytic = "analytic", finite_difference = "finite_difference"), function(route)
+  fit_route(joint_panel, c("label", "grade"), joint_panel_families, route, gt_design("item", "rater", full_cell = FALSE)))
+singular_routes <- conditional("a rank-one rater covariance", singular_fits, "rater", "singular_nonzero",
+                               joint_panel, c("label", "grade"), joint_panel_families)
+check(min(eigen(singular_fits$analytic$covariance_components$rater, symmetric = TRUE, only.values = TRUE)$values) < 1e-6 &&
+        max(eigen(singular_fits$analytic$covariance_components$rater, symmetric = TRUE, only.values = TRUE)$values) > 1e-2,
+      "the joint panel's rater covariance is singular but nonzero")
+cat(sprintf("PASS: boundary sources held fixed (same-point Hessian differences %.2e and %.2e; held at zero vs. the model without it %.2e)\n",
+            zero_routes, singular_routes, held_difference))

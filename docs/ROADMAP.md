@@ -306,7 +306,10 @@ Observed-information uncertainty is implemented and optional
 (`check_hessian = TRUE`): the full Laplace information, from second differences
 of the objective or, on the analytic route, from differences of the analytic
 gradient, with delta-method intervals conditional on numerical acceptance,
-interior covariance and the first-order Laplace approximation. The rest is not
+any source on its covariance boundary held fixed, and the first-order Laplace
+approximation. The coverage of those conditional intervals is unassessed: the
+near-boundary and exact-boundary cells of the 2026-10-23 recovery campaign,
+rerun under the conditioning rule, would measure it. The rest is not
 rushed and waits until the sparse likelihood and its approximation accuracy are
 convincingly validated. Candidates: profile likelihood, parametric bootstrap,
 simulation-based propagation to reliability, and calibration of interval

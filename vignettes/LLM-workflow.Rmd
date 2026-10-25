@@ -311,8 +311,8 @@ dense algebra by default and sparse algebra on request through
 selected engine's limits, and changing the link does not remove the
 random-effects distribution assumption. Discrete fits report point estimates
 unless `check_hessian = TRUE` requests observed information; intervals are then
-available only for an accepted fit with interior estimated components, and they
-remain conditional on the Laplace approximation. Analytic reliability and D
+available for an accepted fit, conditional on any source on its boundary held
+fixed, and they remain conditional on the Laplace approximation. Analytic reliability and D
 studies require complete balanced coded panels even when discrete fitting admits
 missing whole cells; observed-score, category-vector and decision targets are
 separate simulated targets from `gt_categorical_target()`.

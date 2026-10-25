@@ -75,7 +75,8 @@ gt_pilot_plan(fit, grid, nsim, seed, coefficient = "Erho2", outcome = NULL,
   the original fit's controls. No numerical acceptance rule or limit is relaxed.
   Categorical intervals require a fit with available full observed information;
   request \code{discrete = list(check_hessian = TRUE)} when appropriate.
-  Information failures and boundary fits remain explicitly unavailable.
+  Information failures remain explicitly unavailable; a refit with a source on
+  its boundary has conditional intervals, flagged as such.
   Any supplied fixed-covariance controls remain fixed during refitting.}
   \item{max_rows}{Maximum generated rows per replicate, as for
   \code{\link{gt_simulate}}, and in the print method the number of
