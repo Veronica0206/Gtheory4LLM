@@ -53,7 +53,10 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                         self.assertIn("taskkill.exe /PID", step)
                         self.assertIn("-le 2", step)
                         self.assertRegex(step, r"throw \"tlmgr ")
-                        self.assertEqual(len(re.findall(r"^\s+Invoke-Tlmgr '[^']+'\s*$", step, re.M)), 2)
+                        mirror = "Invoke-Tlmgr 'option repository https://ctan.math.illinois.edu/systems/texlive/tlnet'"
+                        self.assertIn(mirror, step)
+                        self.assertLess(step.index(mirror), step.index("Invoke-Tlmgr 'update --self'"))
+                        self.assertEqual(len(re.findall(r"^\s+Invoke-Tlmgr '[^']+'\s*$", step, re.M)), 3)
                         for tool in ("pdflatex", "makeindex"):
                             self.assertIn(f"Get-Command {tool} -ErrorAction Stop", step)
                     else:
@@ -100,6 +103,7 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
             root = Path(directory)
             (root / "tlmgr.bat").write_bytes(b'@echo off\r\n'
                 b'echo %*>> "%TEX_TEST_LOG%"\r\n'
+                b'if "%1"=="option" exit /b %TEX_REPO_STATUS%\r\n'
                 b'if "%1"=="update" exit /b %TEX_UPDATE_STATUS%\r\n'
                 b'exit /b %TEX_INSTALL_STATUS%\r\n')
             setup = root / "setup.ps1"
@@ -110,17 +114,17 @@ class CompatibilityBuildEnvironmentTests(unittest.TestCase):
                 script = "\n".join(line[10:] for line in step.split("        run: |\n", 1)[1].splitlines()
                                    if line.startswith("          "))
                 setup.write_text(script)
-                for update, install, calls in ((29, 0, 1), (0, 37, 2)):
-                    with self.subTest(workflow=filename, update=update, install=install):
+                for repository, update, install, calls in ((23, 0, 0, 1), (0, 29, 0, 2), (0, 0, 37, 3)):
+                    with self.subTest(workflow=filename, repository=repository, update=update, install=install):
                         log = root / "calls"
                         log.write_text("")
                         environment = {**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
                                        "TEX_TEST_LOG": str(log), "TEX_UPDATE_STATUS": str(update),
-                                       "TEX_INSTALL_STATUS": str(install)}
+                                       "TEX_INSTALL_STATUS": str(install), "TEX_REPO_STATUS": str(repository)}
                         result = subprocess.run(["pwsh", "-NoProfile", "-File", str(setup)], env=environment,
                                                 capture_output=True, text=True)
                         if filename == "compatibility.yml":
-                            self.assertEqual(result.returncode, update or install, result.stderr)
+                            self.assertEqual(result.returncode, repository or update or install, result.stderr)
                         else:
                             self.assertNotEqual(result.returncode, 0, result.stderr)
                         self.assertEqual(len(log.read_text().splitlines()), calls)

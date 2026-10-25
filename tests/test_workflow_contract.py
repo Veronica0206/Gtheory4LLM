@@ -1,6 +1,11 @@
 """Guard CI coverage and immutable actions without running hosted jobs or fits."""
 from pathlib import Path
+import os
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
 
 
@@ -94,6 +99,8 @@ def assert_exact_platform_candidates(text):
         "${{ runner.temp }}/cran-checked/*.json", "${{ runner.temp }}/cran-checked/*.Rcheck",
         "if: always()", "TEXLIVE_PREFETCH: '0'", "$process.WaitForExit(300000)",
         "$attempt -le 2", "taskkill.exe /PID $process.Id /T /F", "timeout-minutes: 15",
+        "brew install tidy-html5", 'tidy_bin="$(brew --prefix tidy-html5)/bin"',
+        'echo "$tidy_bin" >> "$GITHUB_PATH"', "HTML Tidy >= 5 is required",
     )
     if any(fragment not in job for fragment in required):
         raise AssertionError("Platform checks must preserve the bounded same-archive contract")
@@ -161,10 +168,51 @@ class WorkflowContractTests(unittest.TestCase):
                              "name: cran-candidate-platform-evidence-${{ github.sha }}"),
             original.replace("$process.WaitForExit(300000)", "$process.WaitForExit()"),
             original.replace("        timeout-minutes: 15", "        continue-on-error: true"),
+            original.replace("brew install tidy-html5", "brew install tidy"),
+            original.replace('echo "$tidy_bin" >> "$GITHUB_PATH"', "true"),
         ]
         for changed in mutations:
             with self.assertRaises(AssertionError):
                 assert_exact_platform_candidates(changed)
+
+    @unittest.skipUnless(os.name != "nt" and shutil.which("bash"), "Unix Bash is needed for the macOS tool setup")
+    def test_macos_tidy_setup_selects_modern_tool_and_stops_on_failure(self):
+        text = (WORKFLOWS / "cran-readiness.yml").read_text(encoding="utf-8")
+        step = next(step for step in re.findall(r"(?ms)^      - name: .*?(?=^      - |\Z)", text)
+                    if "name: Install current HTML Tidy on macOS" in step)
+        self.assertIn("if: runner.os == 'macOS'", step)
+        self.assertIn("timeout-minutes: 10", step)
+        script = "\n".join(line[10:] for line in step.split("        run: |\n", 1)[1].splitlines()
+                           if line.startswith("          "))
+        with tempfile.TemporaryDirectory(prefix="tidy setup ") as directory:
+            root = Path(directory)
+            binaries = root / "bin"
+            binaries.mkdir()
+            prefix = root / "tidy formula"
+            (prefix / "bin").mkdir(parents=True)
+            brew = binaries / "brew"
+            brew.write_text('#!/bin/sh\nif [ "$1" = install ]; then exit "$TIDY_INSTALL_STATUS"; fi\n'
+                            'printf "%s\\n" "$TIDY_PREFIX"\n')
+            brew.chmod(0o755)
+            (binaries / "python").symlink_to(sys.executable)
+            tidy = prefix / "bin/tidy"
+            tidy.write_text('#!/bin/sh\nprintf "%s\\n" "$TIDY_VERSION"\n')
+            tidy.chmod(0o755)
+            cases = ((29, "HTML Tidy version 5.8.0", False),
+                     (0, "HTML Tidy released on 31 October 2006", False),
+                     (0, "HTML Tidy version 5.8.0", True),
+                     (0, "HTML Tidy version 10.0.0", True))
+            for install, version, success in cases:
+                with self.subTest(install=install, version=version):
+                    github_path = root / "github-path"
+                    github_path.write_text("")
+                    environment = {**os.environ, "PATH": str(binaries) + os.pathsep + os.environ["PATH"],
+                                   "TIDY_INSTALL_STATUS": str(install), "TIDY_VERSION": version,
+                                   "TIDY_PREFIX": str(prefix), "GITHUB_PATH": str(github_path)}
+                    result = subprocess.run(["bash", "-c", script], env=environment,
+                                            capture_output=True, text=True)
+                    self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
+                    self.assertEqual(github_path.read_text(), str(prefix / "bin") + "\n" if success else "")
 
 
 if __name__ == "__main__":

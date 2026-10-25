@@ -149,6 +149,9 @@ jobs:
             throw "tlmgr $Command did not complete in two attempts"
           }
           try {
+            # Select the official HTTPS CTAN mirror before both self-update
+            # and package installation; the default TinyTeX mirror stalled.
+            Invoke-Tlmgr 'option repository https://ctan.math.illinois.edu/systems/texlive/tlnet'
             Invoke-Tlmgr 'update --self'
             Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier collection-latexrecommended'
             Get-Command pdflatex -ErrorAction Stop
