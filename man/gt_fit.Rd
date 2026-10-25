@@ -93,8 +93,29 @@ coverage claim. On the analytic route the information matrix is formed from
 differences of the analytic gradient rather than of the objective, under the
 same checks. See \code{\link{gt_control}} for the defaults and limits.
 
-Numerical acceptance includes optimizer completion and independent stationarity, bound, and tighter-tolerance restart checks. First-order stationarity does not establish a global optimum. A numerically accepted Laplace fit still requires an assessment of approximation adequacy for the intended analysis. Reliability and decision studies reject fits that fail numerical acceptance.}
-\seealso{\code{\link{gt_design}}, \code{\link{gt_control}}, \code{\link{gt_diagnostics}}. The package installs a worked first discrete fit as \code{discrete-first.R}; the example below shows how to source it.}
+Numerical acceptance includes optimizer completion and independent stationarity, bound, and tighter-tolerance restart checks. First-order stationarity does not establish a global optimum. A numerically accepted Laplace fit still requires an assessment of approximation adequacy for the intended analysis. Reliability and decision studies reject fits that fail numerical acceptance.
+
+\strong{Reproduction and empirical scope.} Repeating the same request requires
+the recorded data and coding, source archive, controls, seeds and numerical
+environment; see \link{gt_control}. Across platforms, compare unrounded estimates
+under declared tolerances and require agreement in numerical-acceptance and
+uncertainty-availability decisions. Identical printed coefficients alone do not
+establish reproducibility, and bitwise-identical optimization is not promised.
+
+The installed \file{examples/native_1_0_workflow.R} defines a public workflow for
+two specified native examples: efficacy and safety from
+\code{gt_example("drug_review_4aspect", coding = "native")} and
+\code{gt_example("mental_health_3group", coding = "native")}. Each full request
+retains 21,600 rows and ten declared sources. The project records report
+numerical acceptance on macOS and Linux for those requests, with sparse
+analytic-gradient fitting and projected boundary escape; observed information
+was unavailable at covariance boundaries. These are point-estimation examples,
+not interval-coverage validation, higher-order likelihood fits, or results for
+the four-aspect drug-review and six-flag mental-health models. Sourcing the
+script does not fit the native panels; its helper requires an explicit
+\code{mode = "full"} call. Its small synthetic \code{mode = "smoke"} checks
+the reporting path only.}
+\seealso{\code{\link{gt_design}}, \code{\link{gt_control}}, \code{\link{gt_diagnostics}}. The package installs a worked first discrete fit as \code{discrete-first.R}, and the scoped native workflow as \code{native_1_0_workflow.R}.}
 \examples{
 d <- expand.grid(item = 1:12, rater = 1:3)
 d$score <- sin(d$item) + d$rater / 5 + cos(d$item * d$rater) / 4
@@ -105,7 +126,7 @@ print(fit)
 deviance(fit)
 # The same model as a formula: outcomes on the left, random sources on the
 # right with the object of measurement first.
-formula_fit <- gt_fit(score ~ item + rater, d,
+formula_fit <- gt_fit(score ~ item + rater, d, measured = "item",
   control = gt_control(gaussian = list(check_hessian = FALSE, retry_seed = 42)))
 all.equal(gt_components(formula_fit), gt_components(fit))
 summary(formula_fit)
@@ -129,7 +150,8 @@ binary_fit <- gt_fit(b, "label", gt_design("item", "rater", full_cell = FALSE),
   gt_family("binary"))
 gt_diagnostics(binary_fit)$numerically_accepted
 # As a formula, with the family following it as in glm().
-binary_formula <- gt_fit(label ~ item + rater, b, gt_family("binary"))
+binary_formula <- gt_fit(label ~ item + rater, b, gt_family("binary"),
+  measured = "item")
 all.equal(gt_components(binary_formula), gt_components(binary_fit))
 # The installed worked example, start to finish:
 script <- system.file("examples", "discrete-first.R",

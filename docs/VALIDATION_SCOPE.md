@@ -2,6 +2,43 @@
 
 This document separates implemented checks from the scientific validation still needed. The catalogue of unsupported combinations is [limitations](LIMITATIONS.md). Source version 1.0.0.9000 is unreleased development. Historical pilot results retain their recorded source versions and do not validate subsequent additions. This is not a test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
 
+## Scoped native examples and numerical reproduction
+
+The [25 October 2026 project records](DEVELOPMENT_STATUS.md#analytic-gradient-qualification-2026-10-25)
+report numerical acceptance on macOS and Linux for two whole-data requests:
+
+| Native request | Retained observations and model | What the reported result establishes |
+|---|---|---|
+| Drug-review efficacy and safety | All 21,600 rows, the two named ordinal aspects of `drug_review_4aspect`, and ten declared sources | Accepted point estimates and bounded cross-platform numerical agreement for this request; observed information unavailable at covariance boundaries |
+| Mental-health three groups | All 21,600 rows of `mental_health_3group`, three binary outcomes, and ten declared sources | Accepted point estimates and bounded cross-platform numerical agreement for this request; observed information unavailable at covariance boundaries |
+
+The public installed [native workflow](../inst/examples/native_1_0_workflow.R)
+and [guide](REAL_DATA_WORKFLOW.md) declare these requests and retain their
+diagnostics and comparison policy. The full mode is explicit and separate from
+the small synthetic smoke mode. A passing smoke check demonstrates the code
+path, not either native fit. New source or archive bytes require their own run
+record; the presence of the script does not transfer the project's earlier
+numerical results to a new build.
+
+Neither request supplies a result for all four drug-review aspects or the six
+mental-health flags. Neither establishes first-order Laplace adequacy, a global
+optimum, repeated-sampling interval coverage, or a general operating range for
+other datasets. Unavailable intervals stay unavailable. The statistical campaign
+records in [development status](DEVELOPMENT_STATUS.md#statistical-qualification-record-2026-10-23)
+also retain failed and poorly calibrated scenarios; successful interior cases
+must not be generalized to boundaries, weak signals or other outcome models.
+
+Reproduction has two levels. First, replay the exact data, coding, model,
+controls and seeds with the recorded source archive and numerical environment.
+Second, compare another platform using tolerances specified before the rerun
+on matched unrounded quantities. Preserve numerical-acceptance and
+uncertainty-availability decisions as well as estimates. Any changed decision
+or failed comparison must be reported, even when rounded values agree. Record
+R, package and dependency versions, BLAS/LAPACK, platform and thread settings;
+seeds alone do not guarantee identical floating-point optimization. The native
+workflow's tolerances apply only to its declared comparison, not every model or
+every future package version.
+
 ## Development additions and their checks
 
 | Area | Independent or refusal checks | What they do not establish |

@@ -18,7 +18,7 @@ import tarfile
 import time
 
 sys.dont_write_bytecode = True
-from check_package import check_status, maintenance_reason, sanitize
+from check_package import check_status, macos_toolchain_environment, maintenance_reason, sanitize
 from check_public_contents import PublicAudit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,6 +108,7 @@ def main() -> int:
         return result.stdout
 
     try:
+        environment, report['macos_toolchain'] = macos_toolchain_environment(environment, work)
         source_commit = clean_commit(ROOT)
         report["source_commit"] = source_commit
         runtime_script = work / "runtime.R"

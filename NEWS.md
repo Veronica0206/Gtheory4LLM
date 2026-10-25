@@ -1,7 +1,7 @@
-# Gtheory4LLM 1.0.0.9000 — Development
+# Gtheory4LLM 1.0.0
 
 <!-- release-identity:start -->
-Source version: **1.0.0.9000**.
+Source version: **1.0.0**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
@@ -9,9 +9,23 @@ These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
 
-This local development version retains the formula interface and historical
+This version retains the formula interface and historical
 release evidence while adding the capabilities below. No numerical acceptance
 threshold was loosened; where an optimizer path changed, the change is named.
+
+## Reproduction and release review
+
+- An installed native-data workflow defines the two scoped joint examples from
+  their frozen public-data requests, with explicit fitting controls, output
+  tables, refusal handling and numerical comparison tolerances. Sourcing the
+  script defines its functions; full-data fitting is an explicit long-running
+  action. Its small synthetic mode checks the same reporting contract.
+- Reproducibility guidance distinguishes exact inputs and settings from
+  floating-point equality. Cross-platform comparisons retain acceptance and
+  uncertainty decisions and compare unrounded quantities to declared tolerances.
+- The scope of the two joint examples and unavailable boundary intervals is
+  explicit in the introduction and help. First-order Laplace approximation and
+  near-boundary/weak-signal statistical limitations remain unchanged.
 
 ## Engines
 

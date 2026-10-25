@@ -15,6 +15,7 @@ into subdirectories without silently removing them from the release gate.
 
 | File | Area |
 |---|---|
+| `package-native-workflow.R` | Installed native workflow: bounded synthetic fit/report, provenance and comparison guards |
 | `package-smoke.R` | Exports, S3 registration, bundled resources |
 | `package-characterization.R` | Frozen numerical baseline for ten canonical cases |
 | `package-properties.R` | Invariance, equivariance and monotonicity properties |
@@ -143,6 +144,7 @@ into subdirectories without silently removing them from the release gate.
 
 `test_committed_artifact.py`, `test_release_identity.py`, `test_prepare_release.py`,
 `test_public_contents.py`, `test_cran_readiness.py`, `test_package_validation.py`,
+`test_macos_toolchain.py` (Apple tool caches are isolated while package detritus still fails),
 `test_validation_runner.py`, `test_validation_bundle.py`, `test_workflow_contract.py`,
 `test_documentation_lock.py`, `test_dependency_bootstrap.py`,
 `test_branch_protection.py`, `test_documentation_consistency.py`, `test_style.py`,

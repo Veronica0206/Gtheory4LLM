@@ -1,3 +1,54 @@
+# Gtheory4LLM 1.0.0 submission preparation
+
+This record concerns the 1.0.0 release candidate. Publication, CRAN upload,
+maintainer confirmation and CRAN acceptance are separate steps. No submission
+or acceptance is asserted by this source file.
+
+## Changes since the CRAN release
+
+The package adds the formula interface and conventional model methods, a bounded
+lme4 Gaussian route, public sparse discrete fitting, optional observed
+information, an analytic Laplace gradient and explicit projected boundary
+escape, and categorical simulation/planning targets. The installed native-data
+workflow defines the two scoped whole-data joint examples and their numerical
+reproduction contract. NEWS.md and the help pages state the supported models
+and numerical guards.
+
+Discrete estimation remains first-order Laplace. The native joint illustrations
+use efficacy/safety outcomes and three mental-health groups, not the full
+four-aspect/six-flag sets. Numerical acceptance does not establish approximation
+accuracy, general interval calibration or a global optimum. Boundary intervals
+may be unavailable, and the documented near-boundary/weak-signal limitations
+remain in force.
+
+## Current CRAN state and reverse dependencies
+
+Read from the official CRAN package page, check page and PACKAGES.gz on
+2026-10-25 at 18:47 UTC (14:47 America/New_York). CRAN lists version 0.5.0,
+published 2026-10-11, with all thirteen check flavors OK and no Additional
+issues section. This describes the currently listed version, not acceptance of
+1.0.0 or administrative closure of earlier correspondence.
+
+The source package index contained 25,559 records (25,529 distinct package
+names). No package named Gtheory4LLM in its Depends, Imports, LinkingTo,
+Suggests or Enhances fields. Thus there were zero listed reverse dependencies
+across those five fields at this checkpoint. Repeat the survey if submission
+occurs after this record becomes outdated.
+
+## Exact candidate evidence
+
+The submission copy of this file is completed after the final candidate has
+been checked, using its recorded source commit, archive size and SHA-256, R
+versions and dependency sessions, ordinary R-devel and no-long-double results,
+PDF manual and vignette outcomes, platform compatibility, reverse dependencies
+and any remaining NOTE dispositions. Development archives and older release
+checks below are not substituted for those final records.
+
+## Historical records
+
+The following source and submission records are preserved as dated historical
+evidence. Their versions, scope and checks do not describe the 1.0.0 candidate.
+
 ## Compiled code, for the next submission draft
 
 Development since 0.6.0 adds the package's first compiled code. These facts

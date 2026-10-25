@@ -267,3 +267,18 @@ The required API is declared in the exact
 [R 4.5.0 release header](https://svn.r-project.org/R/tags/R-4-5-0/src/include/Rinternals.h).
 The Linux CRAN checks install Pandoc to check Markdown documentation as well as
 package metadata; findings remain subject to the strict NOTE policy above.
+
+
+## macOS developer-tool cache
+
+The package and exact-candidate check entrypoints resolve Apple developer-tool
+shims to the active toolchain and retain the remaining `xcrun` cache in their
+own `macos-toolchain/cache` directory. Apple's launcher can otherwise create
+`xcrun_db` in the directory R audits for package detritus, even when only asked
+for its version. The check report records the resolved tools and cache path.
+Custom compiler selections are preserved. Linux and Windows are unchanged.
+
+The package's `TMPDIR` and R's detritus check remain unchanged. No NOTE is
+allowlisted and no file is deleted to obtain a passing result. A compiled
+regression package checks both the clean path and a deliberately left-behind
+package file, which must still trigger a substantive NOTE.

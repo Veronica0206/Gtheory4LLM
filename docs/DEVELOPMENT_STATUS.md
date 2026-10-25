@@ -16,9 +16,9 @@ the checked build from `352468d11ee7d09d7b0fba3e97cdf167dd6a75e7`.
 No 0.6.0 CRAN submission is recorded. The 0.6.1 corrections and subsequent
 1.0 development changes are separate source revisions, absent from that archive.
 
-## 1.0.0.9000 local development
+## 1.0.0 release candidate
 
-The development checkout adds public dense/sparse categorical fitting, eligible
+The candidate source adds public dense/sparse categorical fitting, eligible
 equal fixed-call effects, optional full observed information, and a bounded
 univariate observed-row Gaussian route through lme4. It also adds shared
 categorical simulation, explicitly named observed-score, category-vector and
@@ -72,8 +72,11 @@ and range of the generalized eigenvalues over their category contrasts, with a
 category-exchangeable or unstructured source covariances; an arbitrary numeric-score ratio is not
 supported.
 
-This is continued local development, not a 1.0 publication or final-archive
-qualification. Qualification gaps are listed under current priorities below.
+The source version is 1.0.0; publication and the selected archive's qualification
+are separate states recorded in the release manifest. A development archive is
+not substituted for the final candidate. The installed native-data workflow
+now makes the two scoped requests and their comparison policy executable; its
+fresh run evidence remains distinct from the historical campaign below.
 The historical checkpoints that follow retain their original source, archive,
 platform and run identities; their passing results do not apply to this
 development checkout.
