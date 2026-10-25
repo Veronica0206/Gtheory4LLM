@@ -36,64 +36,63 @@ threshold was loosened; where an optimizer path changed, the change is named.
   still place above the 512 MiB default. Preflight records
   the method and the counts. A feasible factorization establishes neither
   acceptance nor approximation accuracy at that size.
-- A compiled selected inverse of the sparse conditional Hessian's Cholesky
-  factor (`src/gt_selected_inverse.c`, registered `.Call` entry points wrapped
-  by `R/selected_inverse.R`): the inverse's entries on the factor's pattern,
-  original-coordinate queries and traces, and per-observation local
-  contractions, accumulated in long double. An entry outside the factor's
-  pattern is refused, never read as zero, and every declared cap refuses by
-  name. It is the first building block of the analytic Laplace gradient; a
-  fit reaches it only through the analytic route below, and the package now
-  contains compiled code.
-- Third derivatives of the discrete response loss and the partials of loss,
-  score and curvature in stored ordinal threshold coordinates
-  (`.gt_d_ordinal_interval(third = TRUE)`, `.gt_d_response_third()`), computed
-  in the same regime as the curvature: closed forms, the paired form on
-  crossing intervals, the 16-node rule's third moment on narrow probit
-  intervals, and a tilted-exponential quadrature on same-side probit tails
-  where the closed cumulant cancels. Binary blocks take the one-cut interval
-  route; a clipped curvature refuses. Checked against 160-digit references on
-  108 fixed intervals. The paired logistic third derivative is rescaled before
-  multiplication to avoid overflow on wide intervals admitted by explicit
-  threshold-gap overrides; installed regressions cover the finite-zero and
-  nonfinite failures, mirrored intervals and branch transitions. The existing
-  probability, score and curvature outputs are unchanged; a fit calls these
-  only through the analytic route below.
-- The structural derivative envelope and the analytic gradient of the Laplace
-  objective at a fixed point (`R/discrete_sparse_envelope.R`,
-  `R/discrete_gradient.R`): the numeric conditional Hessian overlaid on the
-  design's all-ones pattern with explicit zeros kept, checked against the
-  production factor's log determinant and probes; the gradient in stored
-  coordinates from the compiled selected inverse, the local contractions, the
-  response third derivatives and one adjoint solve, for natural Cholesky,
-  log-Cholesky, variance, exchangeable and fixed covariance coordinates,
-  refusing at an exact zero of a square-root coordinate. Checked against
-  finite differences of the objective on thirteen fixtures with negative
-  controls. A fit calls it only on request, through the route below.
-- `gradient = "analytic"` in the discrete control gives sparse L-BFGS-B fits
-  the analytic gradient in place of the finite-difference gradient inside
-  every attempt; `"finite_difference"` stays the default and leaves fits
-  unchanged. The gradient reuses the objective's record at the same point; a
-  refused gradient ends its attempt with no finite-difference fallback; the
-  stationarity check, restart stability and every other acceptance rule are
-  unchanged. Natural Cholesky, log-Cholesky and fixed covariances are
-  supported; direct and exchangeable variances are refused at fit start,
-  because their derivative at an exact zero is not available. The fit records
-  the route's ledger and the analytic gradient at the selected point beside
-  the stationarity check's score, and `gt_preflight()` reports the route's
-  coordinates and caps. On the characterization panels the two routes reach
-  the same accepted points with between six and seventeen times fewer
-  objective evaluations.
-- With `check_hessian = TRUE` on the analytic route, observed information is
-  formed from central differences of the analytic gradient, `4p` gradients,
-  instead of second differences of the objective, about `4p^2` evaluations.
-  The asymmetry of the difference matrix is checked against
-  `hessian_tolerance` before it is symmetrized; the step-discrepancy,
-  eigenvalue and inverse checks and the boundary and acceptance refusals are
-  unchanged, and a refused gradient makes information unavailable without
-  falling back. On the information reference panels the two methods agree
-  within 2e-7 at the same parameters on macOS and Linux. `fit$uncertainty`
-  names the method.
+- An opt-in analytic Laplace gradient for sparse fits.
+  - `gradient = "analytic"` in the discrete control gives sparse L-BFGS-B fits
+    the analytic gradient of the first-order Laplace objective in place of
+    the finite-difference gradient inside every attempt;
+    `"finite_difference"` stays the default and leaves fits unchanged. The
+    gradient reuses the objective's record at the same point, and a refused
+    gradient ends its attempt with no finite-difference fallback. The
+    stationarity check, restart stability and every other acceptance rule are
+    unchanged. Natural Cholesky, log-Cholesky and fixed covariances are
+    supported; direct and exchangeable variances are refused at fit start,
+    because their derivative at an exact zero is not available. The fit records
+    the route's ledger and the analytic gradient at the selected point beside
+    the stationarity check's score, and `gt_preflight()` reports the route's
+    coordinates and compiled caps. On the characterization panels the two
+    routes reach the same accepted points with between six and seventeen
+    times fewer objective evaluations.
+  - With `check_hessian = TRUE` on the analytic route, observed information is
+    formed from central differences of the analytic gradient, `4p` gradients,
+    instead of second differences of the objective, about `4p^2` evaluations.
+    The asymmetry of the difference matrix is checked against
+    `hessian_tolerance` before it is symmetrized; the step-discrepancy,
+    eigenvalue and inverse checks and the boundary and acceptance refusals are
+    unchanged, and a refused gradient makes information unavailable without
+    falling back. On the information reference panels the two methods agree
+    within 2e-7 at the same parameters on macOS and Linux. `fit$uncertainty`
+    names the method.
+  - The gradient at a fixed point (`R/discrete_gradient.R`) comes from the
+    compiled selected inverse, per-observation local contractions, the
+    response third derivatives and one adjoint solve, in stored coordinates,
+    for natural Cholesky, log-Cholesky, variance, exchangeable and fixed
+    covariance coordinates, refusing at an exact zero of a square-root
+    coordinate. Its selected inverse runs on the structural derivative
+    envelope (`R/discrete_sparse_envelope.R`): the numeric conditional Hessian
+    overlaid on the design's all-ones pattern with explicit zeros kept,
+    checked against the production factor's log determinant and probes.
+    Checked against finite differences of the objective on thirteen fixtures
+    with negative controls.
+  - Third derivatives of the discrete response loss and the partials of loss,
+    score and curvature in stored ordinal threshold coordinates
+    (`.gt_d_ordinal_interval(third = TRUE)`, `.gt_d_response_third()`) are
+    computed in the same regime as the curvature: closed forms, the paired
+    form on crossing intervals, rescaled before multiplication so that wide
+    intervals admitted by explicit threshold-gap overrides do not overflow,
+    the 16-node rule's third moment on narrow probit intervals, and a
+    tilted-exponential quadrature on same-side probit tails where the closed
+    cumulant cancels. Binary blocks take the one-cut interval route; a clipped
+    curvature refuses. Checked against 160-digit references on 108 fixed
+    intervals, with installed regressions for the finite-zero and nonfinite
+    failures, mirrored intervals and branch transitions. The existing
+    probability, score and curvature outputs are unchanged.
+  - The package now contains compiled code: a selected inverse of the sparse
+    conditional Hessian's Cholesky factor (`src/gt_selected_inverse.c`,
+    registered `.Call` entry points wrapped by `R/selected_inverse.R`), giving
+    the inverse's entries on the factor's pattern, original-coordinate queries
+    and traces, and per-observation local contractions, accumulated in long
+    double where the platform has it. An entry outside the factor's pattern is
+    refused, never read as zero, and every declared cap refuses by name.
 - Sparse conditional solves use a bounded derivative check when rounded
   function values block a full Newton step. Outside the small plateau window,
   the candidate must already meet the final score tolerance; final score,

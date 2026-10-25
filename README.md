@@ -28,7 +28,9 @@ version does not assert that a corresponding release has been published.
 This local development version adds sparse categorical estimation and fixed
 call effects, optional information-based uncertainty, incomplete univariate
 Gaussian panels, shared categorical simulation, and explicitly named observed,
-decision and category-vector targets. Cost planning can screen those simulated
+decision and category-vector targets. Sparse categorical fits can use an opt-in
+analytic Laplace gradient, computed in compiled code, and observed information
+from its differences. Cost planning can screen those simulated
 targets. Pilot planning assesses latent binary/ordinal interval precision or
 point-estimator behavior for the observed, vector and decision targets.
 The formula interface and historical release artifacts are retained.
@@ -323,7 +325,13 @@ Discrete fits use a first-order Laplace likelihood. Select sparse algebra with
 Both routes support binary, ordinal and nominal outcomes, joint categorical
 models and eligible equal fixed-call layouts. Shared row, dimension and parameter
 guards still apply, alongside the selected engine's memory guard. Sparse algebra
-does not by itself qualify a large model or improve the approximation. An integrated external
+does not by itself qualify a large model or improve the approximation.
+`gt_control(discrete = list(engine = "sparse", gradient = "analytic"))` gives
+the L-BFGS-B attempts the analytic gradient of the Laplace objective in place
+of finite differences, for natural Cholesky, log-Cholesky or fixed source
+covariances; with `check_hessian = TRUE` the observed information then differences
+that gradient. The route changes the search, not the objective or the acceptance
+rules, and a refused gradient ends its attempt without a fallback. An integrated external
 engine adapter for these outcomes is not implemented. `gt_laplace_check(fit)`
 compares its objective at the fitted parameters with numerical quadrature or
 importance sampling. The latter uses a defensive mixture of 90% Laplace

@@ -1,3 +1,28 @@
+## Compiled code, for the next submission draft
+
+Development since 0.6.0 adds the package's first compiled code. These facts
+describe the source; they are not check results, and the next submission draft
+records its own evidence.
+
+- One C file, `src/gt_selected_inverse.c`, with no C++, Fortran, OpenMP or
+  external library; it includes R's headers and the standard C headers
+  `float.h`, `math.h`, `string.h` and `stdint.h`.
+- Five routines are registered through `R_registerRoutines()` and reached
+  only by `.Call` symbols; `R_useDynamicSymbols(FALSE)` and
+  `R_forceSymbols(TRUE)` are set, and `NAMESPACE` uses
+  `useDynLib(Gtheory4LLM, .registration = TRUE)`.
+- Every input is validated in C (types, lengths, a lower-triangular sparse
+  factor with sorted row indices, positive finite pivots), and declared caps on
+  dimension, fill, recurrence work, queries, observations, local width, latent
+  dimension and contraction work are checked before any allocation. Errors go
+  through `Rf_error()`; no routine exits or prints.
+- Accumulation uses `long double` where the platform provides it and is
+  correct in double where it does not: the R-devel job without long double
+  runs the compiled tests, and the macOS (53-bit) and aarch64 Linux (113-bit)
+  results agree within 1e-11 on the native fixed-point checks.
+- During development the compiled tests also ran under
+  `-fsanitize=undefined -fno-sanitize-recover=all` on Linux without a report.
+
 ## Gtheory4LLM 0.6.0 — submission draft, not submitted
 
 This draft records qualification as of 2026-10-20 21:00 America/New_York

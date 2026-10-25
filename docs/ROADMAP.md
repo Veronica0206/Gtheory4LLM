@@ -191,7 +191,9 @@ For the outer problem, prefer automatic differentiation or verified analytic
 gradients over hand-maintained finite differences. Finite-difference
 stationarity then survives as an *independent* check rather than as the
 optimizer's own machinery: optimize with AD, verify locally with a finite
-difference that shares none of its code.
+difference that shares none of its code. The verified analytic route now
+exists for sparse fits (`gradient = "analytic"`), with the stationarity check
+keeping its own finite differences.
 
 ### External comparison suite
 

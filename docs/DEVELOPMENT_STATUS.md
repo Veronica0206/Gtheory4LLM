@@ -40,8 +40,22 @@ tests: the compiled selected inverse, the response third derivatives, the
 fixed-point assembler on the structural envelope, and an opt-in optimizer route
 (`gradient = "analytic"`) for sparse L-BFGS-B fits in natural Cholesky or
 log-Cholesky coordinates, whose observed information differences the analytic
-gradient. The default fit is unchanged, and the route's whole-panel
-qualification has not run.
+gradient. The default fit is unchanged; the route's qualification so far is
+recorded below.
+
+## Analytic gradient qualification, 2026-10-25
+
+The route's checks against the plan of 2026-10-24, through installed archives
+of the merged units, on one core.
+
+| Step | Scope | Result |
+|---|---|---|
+| Unit tests | Fixed-point gradient against finite differences on thirteen fixtures; the route on the discrete characterization panels and a joint panel; gradient-difference information against second differences | Pass on macOS and in the offline Linux container (R 4.5.2); full source gate and `R CMD check --as-cran` with only the development-version NOTE |
+| Q1, fixed points on the native panels | Drug-review ordinal (four points) and mental-health binary (three points), four declared directions, two steps, criterion `3e-4 + 3e-7 * abs(g)` | 56/56 comparisons pass on macOS and on Linux; the two platforms' gradients agree within 1e-11 although long double is 53-bit on Apple Silicon macOS and 113-bit on aarch64 Linux |
+| Q2, the T3 drug-review trial | 1,200 rows, four probit-ordinal outcomes, six sources, 68 parameters, automatic start, one alternative start, 600 iterations per attempt, `optimizer_scaling = "start"`, information off | Not accepted, as on 2026-10-23: every attempt reached the iteration cap still descending, the largest stationarity scores are on interior sources (item, item by evaluator, item by prompt), and evaluator, prompt and evaluator by prompt are singular with nonzero projected scores. The gradient itself was clean: 2,662 gradients, none refused, and agreement with the finite-difference fixed-effect score within 4e-9 at the selected point |
+| Q3, the decision | Read with Q4 | Pending |
+| Q4, whole-data fits | `drug_review_ordinal` and `mental_health_3group`, all 21,600 rows, the requests' models and controls with the analytic route, information on and 2,000 iterations per attempt | Running since 2026-10-25 |
+
 
 Focused synthetic reference tests and refusal tests accompany the new routes;
 they do not qualify a full native panel, establish Laplace accuracy or calibrate

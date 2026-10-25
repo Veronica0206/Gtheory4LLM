@@ -156,12 +156,34 @@ scientifically sufficient. Those are separate questions with separate evidence.
   zero, and its logit-Wald coefficient interval excludes zero.
   The default does not compute information. Bootstrap and jackknife intervals
   are not implemented; `NA` means unavailable, never zero uncertainty.
-  The two central-difference Hessians require `2 * (1 + 2 * p^2)` marginal
-  likelihood evaluations for `p` stored parameters when all evaluations
-  complete. These conditional modes start cold. Full information, and pilot
+  On the finite-difference route the two central-difference Hessians require
+  `2 * (1 + 2 * p^2)` marginal likelihood evaluations for `p` stored
+  parameters when all evaluations complete; the analytic route needs `4 * p`
+  gradients instead. These conditional modes start cold. Full information, and pilot
   studies that repeatedly request it, can cost much more than point estimation.
   Sparse factorization feasibility does not qualify full-native joint fitting
   or uncertainty; size-specific computational and statistical evidence is needed.
+- **The analytic outer gradient is opt-in and bounded.**
+  `gradient = "analytic"` requires the sparse engine, L-BFGS-B and the
+  package's compiled routines. It supports natural Cholesky, log-Cholesky and
+  fixed source covariances; direct and exchangeable variance coordinates are
+  refused at fit start, so a univariate or diagonal model needs
+  `covariance_parameterization = "cholesky"` and an exchangeable nominal
+  covariance stays on finite differences. The design must lie within the
+  compiled selected inverse's declared caps: 60,000 random-effect dimensions,
+  25,000 observations, 8 latent dimensions, 128 local coordinates per
+  observation (sources times latent dimensions), 15 million factor entries and
+  stated recurrence, query and contraction work; `gt_preflight()` reports the
+  caps it can read before fitting, and the rest refuse at the first gradient.
+  A refused gradient ends its attempt; there is no finite-difference fallback.
+  The route changes only the optimizer's search direction. Acceptance is still
+  decided by the finite-difference stationarity check, restarts and bounds, so
+  a faster search does not make a fit acceptable. In natural Cholesky
+  coordinates the derivative along an exact zero factor column vanishes, so
+  neither gradient route can move the optimizer off a singular source whose
+  covariance-direction score still points into the interior; such a fit ends
+  refused by the stationarity check rather than accepted. A covariance-space
+  optimization method is not implemented.
 - Binary and ordinal reliability is defined on an **averaged latent response**.
   It is not the reliability of observed proportions, majority votes, category
   agreement, or ordinal score averages, and must be requested explicitly with

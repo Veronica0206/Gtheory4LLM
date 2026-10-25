@@ -41,7 +41,11 @@ The discrete controls default to \code{engine = "dense"}; use
 \code{engine = "sparse"} for sparse algebra. Both calculate the same first-order
 Laplace objective for binary, ordinal and nominal outcomes, separately or
 jointly, and use the same acceptance policy. Sparse algebra does not refine
-the likelihood approximation or certify large-panel performance.
+the likelihood approximation or certify large-panel performance. Sparse
+L-BFGS-B fits can request \code{gradient = "analytic"}, which replaces the
+optimizer's finite-difference gradient with the analytic gradient of the same
+objective; the acceptance policy is unchanged, and \code{\link{gt_control}}
+lists the supported covariance coordinates and the refusals.
 
 \code{\link{gt_laplace_check}} attempts a fixed-parameter numerical comparison
 with a refined marginal likelihood and reports diagnostic precision and
@@ -85,7 +89,9 @@ parameter bounds, covariance boundaries, or non-positive-definite information
 make Wald uncertainty unavailable with a recorded reason. When available,
 delta-method source-covariance errors and latent coefficient intervals are
 asymptotic and conditional on the Laplace approximation, with no finite-sample
-coverage claim. See \code{\link{gt_control}} for the defaults and limits.
+coverage claim. On the analytic route the information matrix is formed from
+differences of the analytic gradient rather than of the objective, under the
+same checks. See \code{\link{gt_control}} for the defaults and limits.
 
 Numerical acceptance includes optimizer completion and independent stationarity, bound, and tighter-tolerance restart checks. First-order stationarity does not establish a global optimum. A numerically accepted Laplace fit still requires an assessment of approximation adequacy for the intended analysis. Reliability and decision studies reject fits that fail numerical acceptance.}
 \seealso{\code{\link{gt_design}}, \code{\link{gt_control}}, \code{\link{gt_diagnostics}}. The package installs a worked first discrete fit as \code{discrete-first.R}; the example below shows how to source it.}
