@@ -337,19 +337,20 @@ and projected boundary escape. Those runs lacked ordinary information at
 singular sources. A later macOS analysis kept the accepted parameter estimates
 unchanged and calculated conditional intervals with the identified source
 matrices held fixed. These were nonzero singular matrices, not discarded
-sources. No long native refit has been run for this candidate review, and no
-Linux conditional-information or repeated-sampling coverage result is asserted.
+sources. The point fits come from development source 2fc771b, not from a refit
+of the 1.0.0 archive, and no Linux conditional-information or repeated-sampling
+coverage result is asserted.
 The all-four-aspect and six-flag models remain outside this two-model example.
 
-These long fits are not run while building this synthetic vignette. Sourcing
-the installed script defines a helper without starting them:
+These long fits are not run while building this synthetic vignette.
 
 For a full run, set `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
 `MKL_NUM_THREADS` and `VECLIB_MAXIMUM_THREADS` to `1` in the environment that
 launches R, before R starts. Full mode refuses missing or different values.
 Setting them inside an existing R session does not reliably change an already
-initialized numerical library. Install the candidate archive into an isolated
-library and supply that same archive below.
+initialized numerical library. Install the package archive into an isolated
+library and supply that same archive below. Sourcing the installed script
+defines a helper without starting the fits:
 
 ```{r native-workflow, eval=FALSE, purl=FALSE}
 source(system.file("examples", "native_1_0_workflow.R",
