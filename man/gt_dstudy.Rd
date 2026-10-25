@@ -8,7 +8,7 @@
 \description{Computes supported G and Phi coefficients over a grid of instrumentation counts, validating the fitted context once.}
 \usage{
 gt_dstudy(fit, grid, scale = NULL, score = NULL, fixed = character(),
-  level = 0.95, projection = NULL)
+  level = 0.95, projection = NULL, bootstrap = NULL, interval_type = NULL)
 \method{print}{gt_dstudy}(x, ..., digits = 4L, max_rows = 12L)
 \method{as.data.frame}{gt_dstudy}(x, row.names = NULL, optional = FALSE, ...)
 gt_dstudy_target(x, target, coefficient = "Erho2", outcome = NULL,
@@ -32,6 +32,8 @@ averages.
 The \code{projection_target} export identifies the future allocation.
 
 The \code{projection_assumptions} export states its assumptions.}
+\item{bootstrap}{Optional \code{\link{gt_bootstrap}} result for this fit. Each allocation's standard errors and intervals then come from the replicates' projections to that allocation, as in \code{\link{gt_reliability}}. It cannot be combined with \code{projection}.}
+\item{interval_type}{\code{"wald"} without a bootstrap; \code{"percentile"} (default) or \code{"bca"} with one.}
 \item{x}{A \code{gt_dstudy} object.}
 \item{coefficient}{Plot or screen \code{"Erho2"} (default) or \code{"Phi"}.}
 \item{interval}{Draw the interval bounds as vertical segments when the fit supplies them.}

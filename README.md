@@ -148,7 +148,11 @@ coordinates are assessed. When those information checks pass, the resulting
 coefficient intervals explicitly name the held sources and are conditional on
 them; the held covariance estimates themselves receive no standard errors.
 All discrete intervals also depend on the Laplace approximation, and their
-general finite-sample calibration remains unestablished. Their interpretation and
+general finite-sample calibration remains unestablished. `gt_bootstrap(fit, replicates,
+seed)` resamples the objects instead, refitting each resample under the fit's
+own acceptance rule, and `gt_reliability(fit, bootstrap = boot)` and
+`gt_dstudy()` then report percentile or BCa intervals conditional on the
+observed instrumentation levels. Their interpretation and
 availability limits are described in
 [docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md).
 That document also explains the quadratic evaluation cost of discrete

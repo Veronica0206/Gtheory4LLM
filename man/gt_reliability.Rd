@@ -6,7 +6,7 @@
 \description{Forms universe-score, relative-error, and absolute-error covariance matrices under a declared balanced averaging design.}
 \usage{
 gt_reliability(fit, scale = NULL, score = NULL, design = NULL, counts = NULL,
-  fixed = character(), level = 0.95)
+  fixed = character(), level = 0.95, bootstrap = NULL, interval_type = NULL)
 \method{print}{gt_reliability}(x, ..., digits = 4L, max_rows = 12L)
 \method{as.data.frame}{gt_reliability}(x, row.names = NULL,
   optional = FALSE, ...)
@@ -19,6 +19,8 @@ gt_reliability(fit, scale = NULL, score = NULL, design = NULL, counts = NULL,
 \item{design}{Compatibility alias for \code{counts}. Supply only one of these arguments.}
 \item{fixed}{Instrumentation facets whose universe of generalization is exactly their observed levels. Defaults to none, which is the fully random model. A fixed facet's count cannot be changed, and at least one facet must remain random.}
 \item{level}{Confidence level for the reported coefficient intervals.}
+\item{bootstrap}{Optional \code{\link{gt_bootstrap}} result for this fit. Its accepted replicates then supply the standard errors and intervals in place of the delta method; the point estimates remain the fit's.}
+\item{interval_type}{\code{"wald"}, the default without a bootstrap; \code{"percentile"}, the default with one; or \code{"bca"}, which needs the bootstrap's leave-one-out refits.}
 \item{x}{A \code{gt_reliability} object.}
 \item{digits}{Significant digits used when printing.}
 \item{max_rows}{Maximum number of outcome rows to print.}
@@ -47,6 +49,7 @@ fields from similarly named facets. The table also includes:
 \item \code{uncertainty_reason}: the recorded reason.
 \item \code{uncertainty_conditional}: the conditional-inference flag.
 \item \code{uncertainty_conditioning}: what was held fixed.
+\item \code{uncertainty_method}: how the standard errors and intervals were obtained, for example the delta method or \code{"object_bootstrap_percentile"}.
 \item \code{Erho2_interval_available}: relative interval availability.
 \item \code{Phi_interval_available}: absolute interval availability.
 \item \code{fixed_facets}: the declared fixed universe.
@@ -114,6 +117,14 @@ Small-panel Wald intervals can be overly conservative. Coverage among available
 intervals must be reported separately from numerical acceptance and interval
 availability over all attempted panels. The lme4 Gaussian routes
 supply no parameter covariance matrix for these intervals.
+
+With \code{bootstrap}, each coefficient is recomputed from every accepted
+replicate's source covariance matrices under the same counts, fixed facets and
+weights, and its standard error and interval come from those values; see
+\code{\link{gt_bootstrap}}. These intervals describe object sampling
+conditional on the observed instrumentation levels, not the sampling of the
+facet levels. They use neither the delta method nor the logit scale, and they
+do not condition on boundary sources, which every replicate re-estimates.
 
 Conditioning on an estimated covariance boundary does not guarantee coverage
 at a true boundary. A sample can produce a positive interior estimate
