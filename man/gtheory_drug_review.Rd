@@ -22,7 +22,7 @@ source CSV calls its score column \code{severity}.}
 levels NEGATIVE, NEUTRAL, POSITIVE under native coding.}
 }
 The native families are ordinal with probit links. For either set,
-\code{coding = "manuscript"} returns numerical Gaussian working scores:
+\code{coding = "numeric"} returns numerical Gaussian working scores:
 1--5 for holistic sentiment and 1--3 for each aspect.
 The loader also returns outcome names, families, design roles, coding, source,
 and notes; installed resources include \code{source_provenance}.}

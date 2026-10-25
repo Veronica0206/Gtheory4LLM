@@ -376,6 +376,11 @@ threshold was loosened; where an optimizer path changed, the change is named.
 
 ## Interface, documentation and tooling
 
+- `gt_example(coding = "numeric")` names the coding that returns the category
+  codes as numbers with Gaussian working-score families. `coding = "manuscript"`
+  still returns the same tables, with a deprecation warning; the bundled data
+  files are unchanged.
+
 - Formula reconstruction preserves unusual column names. Formula updates
   refuse declarations whose explicit nesting or source-free facets would be
   lost; ordinary argument updates retain the design.

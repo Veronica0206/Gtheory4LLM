@@ -4,13 +4,13 @@
 \title{Load Modeling Tables from Three LLM-Annotated Datasets}
 \description{Lists eight documented outcome sets or loads their design columns and modeled outcomes. Installed resources omit raw text and API metadata.}
 \usage{
-gt_example(name = NULL, coding = c("native", "manuscript"),
+gt_example(name = NULL, coding = c("native", "numeric", "manuscript"),
   directory = NULL)
 \method{print}{gt_example}(x, ...)
 }
 \arguments{
 \item{name}{Outcome-set name, or NULL to list available sets.}
-\item{coding}{Use \code{"native"} to preserve response types. Use \code{"manuscript"} for the seven original Gaussian working-score codings.}
+\item{coding}{Use \code{"native"} to preserve response types. Use \code{"numeric"} for the category codes as numbers with Gaussian working-score families, available for seven sets. \code{"manuscript"} is the deprecated name of \code{"numeric"}: it returns the same tables with a warning.}
 \item{directory}{Optional directory containing example RDS resources or source CSV files, supplied explicitly as one nonempty path. A file named \code{<name>.rds} takes precedence over CSV loading. An installed package always loads bundled RDS resources when this argument is omitted, regardless of workspace variables.}
 \item{x}{A \code{gt_example} object for the print method.}
 \item{...}{Further print arguments; currently unused.}
@@ -33,7 +33,7 @@ Available outcome sets are:
 \item \code{drug_review_4aspect}: four ordinal aspects.
 \item \code{mental_health_nominal}: seven unordered categories.
 }
-The nominal set has no manuscript-score coding. Detailed variable definitions,
+The nominal set has no numeric coding. Detailed variable definitions,
 category mappings, preprocessing notes, and the corresponding annotation-paper
 and original-corpus references are provided in
 the \link[=gtheory_hate_speech]{Hate-Speech},

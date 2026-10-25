@@ -46,7 +46,7 @@ for (name in catalog$name) {
   counts <- vapply(native$data[dimensions], function(x) length(unique(x)), integer(1))
   stopifnot(nrow(native$data) == prod(counts), !anyDuplicated(native$data[dimensions]))
   if (name != "mental_health_nominal") {
-    scored <- gt_example(name, coding = "manuscript")
+    scored <- gt_example(name, coding = "numeric")
     stopifnot(all(vapply(scored$data[scored$outcomes], is.numeric, logical(1))),
       identical(native$data[c(native$object, native$facets)], scored$data[c(scored$object, scored$facets)]))
   }

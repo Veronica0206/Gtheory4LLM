@@ -526,7 +526,7 @@ possible model and does not generalize across temperatures automatically.
 See `help("gtheory_datasets")`.
 
 Other native codings preserve binary, ordinal, or unordered categorical outcomes;
-`coding = "manuscript"` reproduces the seven historical Gaussian working-score
+`coding = "numeric"` reproduces the seven historical Gaussian working-score
 codings. Mental-health 7L/3L values are working scores, not established clinical
 severity scales. The installed manual documents variables, category mappings,
 preprocessing, source corpora, and the corresponding annotation studies. In
