@@ -84,7 +84,8 @@
 
 # trace(H^{-1} D) for a symmetric derivative matrix D in original coordinates
 # whose nonzero support lies in the factor's pattern. The inverse is symmetric,
-# so the trace is the sum over D's stored entries of S_ij D_ij.
+# so the trace is the sum over D's stored entries of S_ij D_ij. Finite inputs
+# can still overflow in that sum, and a nonfinite trace is refused by name.
 .gt_selected_trace <- function(object, derivative) {
   .gt_selected_check(object)
   n <- object$dimension
@@ -96,7 +97,10 @@
   stored <- Matrix::summary(D)
   keep <- stored$x != 0
   if (!any(keep)) return(0)
-  sum(.gt_selected_entries(object, stored$i[keep], stored$j[keep]) * stored$x[keep])
+  value <- sum(.gt_selected_entries(object, stored$i[keep], stored$j[keep]) * stored$x[keep])
+  if (!is.finite(value))
+    .gt_d_stop("Selected inverse: the trace is not finite; the products of inverse entries and derivative values overflow.")
+  value
 }
 
 # Local contractions for observations that share one local design. `index` is

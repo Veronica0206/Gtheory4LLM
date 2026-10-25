@@ -373,7 +373,8 @@ anything is allocated and are not estimates of what a machine can afford.
 
 `tests/package-selected-inverse.R` checks every selected entry, both-triangle
 queries, traces against the matrix and against derivative matrices with
-structural-zero entries, and the contractions against dense inverses on eight
+structural-zero entries, the refusal of a trace that overflows from finite
+inputs, and the contractions against dense inverses on eight
 reference matrices under two coordinate orders with and without a
 fill-reducing permutation; the engine's own sparse Hessian geometry through
 `.gt_selected_local_index()` and `.gt_selected_local_design()`; thirty refusals;
@@ -432,8 +433,12 @@ checks the gradient against central finite differences of the objective, cold
 at a tight inner tolerance, on thirteen fixtures across families, links,
 joint outcomes and every covariance parameterization, with three-point
 forward differences at natural boundaries, negative controls that drop the
-implicit-mode and log-determinant terms, convergence as the inner tolerance
-tightens, and the refusals.
+implicit-mode and log-determinant terms, the complete gradient at the two wide
+logistic witnesses of the third derivative's paired form on an explicitly
+widened threshold domain, convergence as the inner tolerance tightens, and the
+refusals. The negative controls use `.gt_d_gradient()`'s `parts`, which can
+omit either correction term; the explicit term cannot be omitted, and a
+selection without it is refused.
 
 ## The analytic gradient in the optimizer
 

@@ -88,8 +88,15 @@
   mark <- function(name) timings[[name]] <<- proc.time()[["elapsed"]] - started
   refusal <- function(reason, detail = NULL)
     list(valid = FALSE, reason = reason, detail = detail, timings = timings)
+  # `parts` exists for the negative controls: the two corrections, the
+  # log-determinant term and the implicit-mode term, can each be dropped to
+  # show that the gradient is wrong without it. The explicit term is the
+  # gradient's base and is always computed, so a selection without it is
+  # refused rather than silently answered with it.
   if (!is.character(parts) || !all(parts %in% c("explicit", "log_determinant", "implicit")))
     .gt_d_stop("parts must name a subset of explicit, log_determinant and implicit.")
+  if (!"explicit" %in% parts)
+    .gt_d_stop("parts must include explicit; only the log_determinant and implicit corrections can be omitted.")
   with_log_determinant <- "log_determinant" %in% parts
   with_implicit <- "implicit" %in% parts
   if (is.null(record)) {

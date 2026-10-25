@@ -117,6 +117,39 @@ covariance <- matrix(c(.3, .05, .05, .25), 2)
 check("fixed covariance, fixed-effect gradient only", c("binary", "ordinal"),
       control = list(fixed_covariance = list(item = covariance, rater = covariance / 2)))
 
+# The complete gradient on an explicitly widened ordinal domain, at the two
+# witnesses of the paired logistic third derivative: before it was rescaled,
+# the middle interval (-0.5, 475) gave a silently zero derivative and
+# (-0.5, 499.5) a nonfinite one. Twelve rows, three categories, the first cut
+# at -0.5 and the log gap at log(475.5) or log(500), declared within an upper
+# bound of log(600); natural Cholesky coordinates at three covariance sizes.
+# The reference is the objective's central differences at three steps.
+wide <- data.frame(item = rep(seq_len(4L), each = 3L), rater = rep(seq_len(3L), 4L))
+wide$grade <- ordered(c("low", "mid", "high")[c(2, 2, 1, 2, 2, 2, 3, 2, 2, 2, 1, 2)],
+                      levels = c("low", "mid", "high"))
+wide_family <- list(grade = gt_family("ordinal", "logit", levels = c("low", "mid", "high")))
+wide_control <- c(tight, list(covariance_parameterization = "cholesky",
+  parameter_bounds = list(upper = stats::setNames(log(600), "grade::threshold_parameter2"))))
+for (gap in c(475.5, 500)) for (variance in c(0.05, 0.5, 2)) {
+  problem <- problem_of(wide, "grade", design, wide_family, "unstructured", wide_control)
+  at <- problem$start
+  at[["grade::threshold_parameter1"]] <- -0.5
+  at[["grade::threshold_parameter2"]] <- log(gap)
+  at[length(problem$prep$start) + seq_along(problem$setup$start)] <- sqrt(variance)
+  result <- gradient_of(at, problem$prep, problem$groups, problem$setup, problem$control, problem$context,
+                        problem$envelope)
+  label <- sprintf("wide logistic gap %.1f, variance %.2f", gap, variance)
+  if (!isTRUE(result$valid)) stop(label, ": the analytic gradient was refused (", result$reason, ")")
+  stopifnot(identical(names(result$gradient), names(at)), result$regimes[[1L]][["paired"]] > 0)
+  for (step in c(1e-4, 5e-5, 1e-5)) {
+    reference <- finite_difference(objective_of(problem), at, problem$lower, step)
+    if (!within(result$gradient, reference))
+      stop(sprintf("%s: analytic gradient differs from finite differences at step %g by %.3g", label, step,
+                   max(abs(result$gradient - reference))))
+  }
+}
+cat("PASS: complete gradient at the two wide logistic witnesses, three covariance sizes, three steps\n")
+
 # The derivative is exact at the stationary conditional mode: its error
 # against a tight reference shrinks as the inner tolerance tightens.
 problem <- joint$problem
@@ -148,5 +181,12 @@ stopifnot(inherits(got, "error") || identical(got$valid, FALSE))
 got <- tryCatch(gradient_of(joint$at, problem$prep, problem$groups, problem$setup, problem$control, problem$context,
                             problem$envelope, parts = "everything"), error = identity)
 stopifnot(inherits(got, "error"))
+# The explicit term cannot be omitted: a selection without it is refused,
+# never answered with the explicit term anyway.
+for (parts in list(character(), c("log_determinant", "implicit"), "implicit")) {
+  got <- tryCatch(gradient_of(joint$at, problem$prep, problem$groups, problem$setup, problem$control,
+                              problem$context, problem$envelope, parts = parts), error = identity)
+  stopifnot(inherits(got, "error"), grepl("must include explicit", conditionMessage(got), fixed = TRUE))
+}
 cat("PASS: analytic gradients against finite differences on thirteen fixtures, negative controls,",
     "inner-tolerance convergence and refusals.\n")

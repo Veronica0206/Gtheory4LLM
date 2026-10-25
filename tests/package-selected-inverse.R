@@ -120,6 +120,13 @@ for (name in case_names) for (shuffle in c(FALSE, TRUE)) for (permute in c(FALSE
             near(entries(S, ocol, orow), dense[cbind(orow, ocol)]))
   # trace(H^{-1} H) is the dimension.
   stopifnot(near(trace_of(S, H), n))
+  # Finite derivative values whose products with the inverse overflow give a
+  # named refusal, not a nonfinite trace.
+  huge <- methods::as(methods::as(H, "generalMatrix"), "CsparseMatrix")
+  stored <- Matrix::summary(huge)
+  huge <- Matrix::sparseMatrix(i = stored$i, j = stored$j, dims = dim(H),
+    x = .Machine$double.xmax * ifelse(dense[cbind(stored$i, stored$j)] < 0, -1, 1))
+  refused(trace_of(S, huge), "trace is not finite")
   # Row contractions over the largest clique against the dense block.
   largest <- which.max(diff(S$p))
   slots <- seq.int(S$p[largest] + 1L, S$p[largest + 1L])
