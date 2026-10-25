@@ -265,6 +265,20 @@ Every study distinguishes four different things that are easy to conflate:
 campaigns must follow: predeclared generating model and estimand, retained
 attempts, acceptance rates reported before bias, and Monte Carlo standard errors.
 
+### Larger whole-data joint categorical fits
+
+Version 1.0.0 qualifies two reduced joint outcome sets on the native panels:
+the efficacy and safety aspects of `drug_review_4aspect` and
+`mental_health_3group`, each with all ten sources and the boundary escape.
+Whole-data fits of all four drug-review aspects and of the six mental-health
+flags are outside that scope. The open questions are whether the boundary escape
+reaches numerical acceptance there, where the six-flag covariance of sources with
+three or four levels is singular in several directions and two flags are rare;
+how the larger outcome sets change the reduced sets' latent coefficients; and
+whether one covariance structure per source, unstructured for the object and
+diagonal elsewhere as in the Gaussian engine, is the better categorical model for
+them.
+
 ### Unbalanced designs
 
 Only after the Gaussian engine is modular. The exact balanced decomposition is
