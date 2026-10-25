@@ -29,8 +29,8 @@ This local development version adds sparse categorical estimation and fixed
 call effects, optional information-based uncertainty, incomplete univariate
 Gaussian panels, shared categorical simulation, and explicitly named observed,
 decision and category-vector targets. Sparse categorical fits can use an opt-in
-analytic Laplace gradient, computed in compiled code, and observed information
-from its differences. Cost planning can screen those simulated
+analytic Laplace gradient, whose selected inverse and local contractions run in
+compiled code, and observed information from its differences. Cost planning can screen those simulated
 targets. Pilot planning assesses latent binary/ordinal interval precision or
 point-estimator behavior for the observed, vector and decision targets.
 The formula interface and historical release artifacts are retained.
@@ -49,7 +49,10 @@ Declaring it here turns a later, unexplained compilation failure into a clear
 refusal. Older pairings such as R 4.3 with OpenMx 2.21.11 have been reported to
 pass these checks but are not part of the validated gate; to use one, install
 from source with a relaxed floor, or `source("load_functions.R")`, which
-imposes no version requirement.
+imposes no version requirement. The development version contains C code, so
+installing it from source, and `source("load_functions.R")`, which compiles the
+same C file, need the C toolchain R itself uses: the Xcode command-line tools
+on macOS, Rtools on Windows, or a C compiler on Linux.
 
 The current CRAN release, which can be older than this source version, installs
 with its dependencies:

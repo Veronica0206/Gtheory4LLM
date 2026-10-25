@@ -288,12 +288,18 @@ screening of inherited pointwise intervals does not complete those tasks.
 
 ### Discrete uncertainty
 
-Not rushed. Only after the sparse likelihood and its approximation accuracy are
-convincingly validated. Candidates: observed-information/Hessian uncertainty,
-profile likelihood, parametric bootstrap, and simulation-based propagation to
-reliability. For reliability coefficients specifically, a bootstrap is likely
-more defensible than applying a Hessian-based delta method to every discrete
-model. This remains future research; the Gaussian pilot helper does not implement it.
+Observed-information uncertainty is implemented and optional
+(`check_hessian = TRUE`): the full Laplace information, from second differences
+of the objective or, on the analytic route, from differences of the analytic
+gradient, with delta-method intervals conditional on numerical acceptance,
+interior covariance and the first-order Laplace approximation. The rest is not
+rushed and waits until the sparse likelihood and its approximation accuracy are
+convincingly validated. Candidates: profile likelihood, parametric bootstrap,
+simulation-based propagation to reliability, and calibration of interval
+coverage across discrete models. For reliability coefficients specifically, a
+bootstrap is likely more defensible than applying a Hessian-based delta method
+to every discrete model. This remains future research; the Gaussian pilot
+helper does not implement it.
 
 ## Test infrastructure
 

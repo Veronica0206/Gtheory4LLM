@@ -72,7 +72,7 @@ report <- gt_preflight(x$data, x$outcomes, design, family = x$families)
 print(report)
 ```
 
-The script sources the checkout's functions locally. For these standalone snippets, first run `source("load_functions.R")`, or attach the installed package with `library(Gtheory4LLM)`.
+The script sources the checkout's functions locally. For these standalone snippets, first run `source("load_functions.R")`, which compiles the package's C code and so needs a C toolchain (Rtools on Windows, the Xcode command-line tools on macOS), or attach the installed package with `library(Gtheory4LLM)`.
 
 The `mental_health_7L` and `mental_health_3L` variants are numeric working scores, not established clinical severity scales. Replacing the nominal response with either score changes the scientific question; it is not a workaround for a blocked categorical model. The six native outcome sets above are alternative views of three datasets, not six independent datasets.
 
