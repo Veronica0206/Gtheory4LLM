@@ -180,10 +180,15 @@ scientifically sufficient. Those are separate questions with separate evidence.
   decided by the finite-difference stationarity check, restarts and bounds, so
   a faster search does not make a fit acceptable. In natural Cholesky
   coordinates the derivative along an exact zero factor column vanishes, so
-  neither gradient route can move the optimizer off a singular source whose
-  covariance-direction score still points into the interior; such a fit ends
-  refused by the stationarity check rather than accepted. A covariance-space
-  optimization method is not implemented.
+  the analytic route cannot move the optimizer off a singular source whose
+  covariance-direction score still points into the interior (the
+  finite-difference route's one-sided difference at the bound can); such a fit
+  ends refused by the stationarity check rather than accepted. The opt-in
+  `boundary_escape = "projected"` steps such sources off the boundary along the
+  projected covariance score and reruns the tight attempt, at most three times
+  per attempt. It is not a general covariance-space optimizer: a fit whose
+  escape does not reach a stationary point, or whose starts escape to
+  different points, is still refused.
 - Binary and ordinal reliability is defined on an **averaged latent response**.
   It is not the reliability of observed proportions, majority votes, category
   agreement, or ordinal score averages, and must be requested explicitly with

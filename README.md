@@ -451,9 +451,13 @@ chosen coding, its family specification, and provenance together with the data.
 
 The six discrete native outcome sets each contain 21,600 rows and exceed the
 dense discrete engine limits by more than an order of magnitude; raising the
-limits does not make the dense engine practical at that size. They are data resources, not full-panel discrete
-fitting examples. Use a scientifically justified small design for this backend;
-do not remove item interactions merely to obtain an accepted fit. The two
+limits does not make the dense engine practical at that size. With the sparse
+engine, the analytic gradient and `boundary_escape = "projected"`, two joint
+outcome sets have numerically accepted whole-data fits on macOS: the efficacy
+and safety aspects of `drug_review_4aspect`, and `mental_health_3group`; see
+the development status. Whole-data discrete fits of the other sets are not
+qualified here. Do not remove item interactions merely to obtain an accepted
+fit. The two
 mental-health 7L/3L sets remain Gaussian working scores under both coding options.
 
 Temperature-specific seed agreement is a useful descriptive diagnostic. Lower
