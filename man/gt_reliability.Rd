@@ -96,27 +96,27 @@ In the fully random model, the object main-effect covariance defines universe-sc
 
 Declaring a facet \code{fixed} selects the mixed model of Brennan (2001). The universe of generalization then contains exactly that facet's observed levels: an object interaction containing only fixed instrumentation facets is averaged over those levels and added to universe-score variance; a source built only from fixed instrumentation facets shifts every object equally and leaves the comparison; every remaining source keeps its usual divisor. With no fixed facet this reduces exactly to the fully random decomposition. \code{$source_roles} records which role each source took. Fixed versus random treatment follows the intended universe of generalization, not a facet name or whether its levels were researcher-selected. The option changes coefficient aggregation after fitting; it does not repair a misspecified G-study covariance model.
 
-Intervals use the delta method on the logit scale, propagating the fitted parameter covariance matrix through the source covariance entries. They are asymptotic Wald intervals for estimation uncertainty under the declared random-effects model and allocation. Finite sampling of facet levels is part of that model; the intervals are not prediction intervals for the realized scores of a new panel and do not quantify misspecification of the facet populations. Wald theory does not generally apply to a source resting on a variance boundary. When Gaussian inference uses an interior parameter block, the remaining intervals condition on the listed fixed components, and the fit says which way: a source whose fitted covariance is entirely zero is held at zero, and a singular but nonzero source is held fixed at its fitted covariance, which is a different statement. Unconditional coverage after that selection has not been established.
+Intervals use the delta method on the logit scale, propagating the fitted parameter covariance matrix through the source covariance entries. They are asymptotic Wald intervals for estimation uncertainty under the declared random-effects model and allocation. Finite sampling of facet levels is part of that model; the intervals are not prediction intervals for the realized scores of a new panel and do not quantify misspecification of the facet populations. Wald theory does not generally apply to a source resting on a variance boundary. When inference uses an interior parameter block (a Gaussian fit whose joint curvature is indefinite at a boundary, or a discrete fit with any source on or near its boundary), the remaining intervals condition on the listed fixed components, and the fit says which way: a source whose fitted covariance is entirely zero is held at zero, and a singular but nonzero source is held fixed at its fitted covariance, which is a different statement. Unconditional coverage after that selection has not been established.
 
 Discrete information is opt-in through
 \code{gt_control(discrete = list(check_hessian = TRUE))}. The covariance
-calculation inverts the full negative-log-likelihood information matrix,
+calculation inverts the negative-log-likelihood information matrix,
 including intercepts or thresholds, before propagating covariance-parameter
 uncertainty. It requires an accepted fit, stable finite differences and positive
-definite information at an interior estimated covariance configuration.
-Estimated variance boundaries or failed information checks leave intervals
-unavailable with a reason. Components explicitly supplied as fixed have no
+definite information. A source on or near its estimated covariance boundary is
+held fixed at its fitted covariance, as above; failed information checks leave
+intervals unavailable with a reason. Components explicitly supplied as fixed have no
 estimated uncertainty; any resulting intervals condition on those supplied
 values. Discrete intervals inherit first-order Laplace approximation error;
-general finite-sample calibration has not been established. Small-panel Wald
-intervals can be overly conservative, and unstructured models can frequently
-withhold intervals at estimated covariance boundaries. Coverage among available
+general finite-sample calibration has not been established, and the coverage
+of discrete intervals conditional on a boundary source has not been assessed.
+Small-panel Wald intervals can be overly conservative. Coverage among available
 intervals must be reported separately from numerical acceptance and interval
 availability over all attempted panels. The lme4 Gaussian routes
 supply no parameter covariance matrix for these intervals.
 
-Withholding uncertainty at an estimated covariance boundary does not guarantee
-coverage at a true boundary. A sample can produce a positive interior estimate
+Conditioning on an estimated covariance boundary does not guarantee coverage
+at a true boundary. A sample can produce a positive interior estimate
 when the true variance is zero; its logit-Wald coefficient interval then
 excludes zero. The fitted-boundary rule does not identify every true boundary.
 

@@ -35,8 +35,9 @@ row number referring to \code{as.data.frame(x)}. Full outcome names remain in
 that table. Margins are restored after plotting.
 
 Discrete fits have intervals only when optional full observed information was
-requested and passed its acceptance, interior, step-stability and curvature
-checks. These asymptotic intervals are conditional on first-order Laplace;
+requested and passed its acceptance, step-stability and curvature checks; at
+a boundary source they condition on that source held fixed. These asymptotic
+intervals are conditional on first-order Laplace;
 finite-sample coverage is not established. Latent-response coefficients do not
 describe observed label proportions or majority votes. Interval and boundary
 qualifications are described in \code{\link{gt_reliability}}.

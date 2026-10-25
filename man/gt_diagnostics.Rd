@@ -82,9 +82,11 @@ returns source covariance estimates but does not compute their sampling
 covariance or source-variance standard errors. Optional discrete full observed
 information uses \code{H^-1} on the negative-log-likelihood scale, retaining
 nuisance intercepts and thresholds when extracting source-covariance
-uncertainty. It requires numerical acceptance, interior estimated components,
-stable finite differences, and positive-definite, sufficiently conditioned
-information. Otherwise the recorded reason explains why it is unavailable.
+uncertainty. It requires numerical acceptance, stable finite differences, and
+positive-definite, sufficiently conditioned information; a source on or near
+its boundary is held fixed at its fitted covariance and the information is
+formed over the remaining parameters. Otherwise the recorded reason explains
+why it is unavailable.
 Its asymptotic intervals remain conditional on first-order Laplace and do not
 establish finite-sample coverage. A component at
 a variance boundary is flagged in \code{component_standard_errors}: Wald theory

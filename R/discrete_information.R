@@ -12,6 +12,17 @@
 # same step-discrepancy, eigenvalue and inverse-validity checks. A refused
 # gradient makes information unavailable with its reason; there is no fallback
 # to the other method.
+#
+# A source whose covariance is on or near its boundary (smallest eigenvalue
+# below 1e-6, the fit's rule) has no ordinary Wald error: its stored
+# coordinates sit on or within a difference step of their natural bound, and
+# along a zero factor column the covariance moves only to second order. Such a
+# source is held fixed at its fitted covariance and the information is formed
+# over the remaining coordinates, nuisance ones included, as the Gaussian
+# engine inverts its interior block. The record says so and names each held
+# source as zero or as singular but nonzero; its entries carry no sampling
+# variance. When every estimated source is on its boundary nothing remains to
+# condition on, and information is unavailable.
 
 .gt_d_information_unavailable <- function(reason, boundary_components = character()) {
   list(available = FALSE, reason = reason, method = NA_character_,
@@ -127,23 +138,51 @@
     return(unavailable("Observed information was not requested; use discrete check_hessian=TRUE."))
   if (!isTRUE(numerically_accepted))
     return(unavailable("Observed information requires a numerically accepted fit."))
-  if (length(boundary_components) && is.null(setup$fixed))
-    return(unavailable("A source covariance is on or near its boundary; ordinary Wald errors are unavailable."))
+  # Each stored coordinate's source; nuisance coordinates have none.
+  owner <- rep(NA_character_, length(parameters))
+  if (is.null(setup$fixed))
+    owner[length(prep$start) + seq_len(length(setup$sources) * setup$per)] <- rep(setup$sources, each = setup$per)
+  held <- if (is.null(setup$fixed)) intersect(setup$sources, boundary_components) else character()
+  interior <- !owner %in% held
+  if (length(held) && !any(interior & !is.na(owner)))
+    return(unavailable("Every estimated source covariance is on or near its boundary; no interior block remains for Wald errors."))
+  # A held source is zero when its largest eigenvalue is negligible on the
+  # latent scale, whose residual variance is 1 (probit) or about 3.3 (logit).
+  held_kinds <- if (length(held)) {
+    factors <- .gt_d_covariance_factors(parameters[-seq_len(length(prep$start))], setup)
+    vapply(held, function(s) if (max(eigen(tcrossprod(factors[[s]]), symmetric = TRUE,
+                                           only.values = TRUE)$values) <= 1e-8) "zero" else "singular_nonzero",
+           character(1))
+  } else character()
   attempt <- tryCatch({
-    objective <- function(at) {
-      ans <- laplace(at, prep, groups, setup, control, details = TRUE)
+    complete <- function(x) {
+      at <- parameters
+      at[interior] <- x
+      at
+    }
+    objective <- function(x) {
+      ans <- laplace(complete(x), prep, groups, setup, control, details = TRUE)
       if (!isTRUE(ans$valid) || !isTRUE(ans$inner_converged) || !is.finite(ans$nll))
         stop("A conditional mode failed during information evaluation.", call. = FALSE)
       ans$nll
     }
+    block_gradient <- if (!is.null(gradient)) function(x) {
+      g <- gradient(complete(x))
+      if (!is.numeric(g) || length(g) != length(parameters))
+        stop("An information gradient is unavailable.", call. = FALSE)
+      g[interior]
+    }
+    at <- parameters[interior]
     asymmetry <- NA_real_
     gradient_evaluations <- 0L
     if (is.null(gradient)) {
-      coarse <- .gt_d_information_hessian(parameters, objective, control$hessian_step, lower, upper)
-      fine <- .gt_d_information_hessian(parameters, objective, control$hessian_step / 2, lower, upper)
+      coarse <- .gt_d_information_hessian(at, objective, control$hessian_step, lower[interior], upper[interior])
+      fine <- .gt_d_information_hessian(at, objective, control$hessian_step / 2, lower[interior], upper[interior])
     } else {
-      coarse <- .gt_d_information_gradient_hessian(parameters, gradient, control$hessian_step, lower, upper)
-      fine <- .gt_d_information_gradient_hessian(parameters, gradient, control$hessian_step / 2, lower, upper)
+      coarse <- .gt_d_information_gradient_hessian(at, block_gradient, control$hessian_step,
+                                                   lower[interior], upper[interior])
+      fine <- .gt_d_information_gradient_hessian(at, block_gradient, control$hessian_step / 2,
+                                                 lower[interior], upper[interior])
       asymmetry <- max(coarse$asymmetry, fine$asymmetry)
       gradient_evaluations <- coarse$gradients + fine$gradients
       if (asymmetry > control$hessian_tolerance)
@@ -159,21 +198,28 @@
     eigenvalues <- eigen(fine, symmetric = TRUE, only.values = TRUE)$values
     if (min(eigenvalues) <= 0 || max(eigenvalues) / min(eigenvalues) > 1e12)
       stop("Observed information is nonpositive or too ill-conditioned for Wald errors.", call. = FALSE)
-    covariance <- chol2inv(chol(fine))
-    dimnames(covariance) <- dimnames(fine)
+    block <- chol2inv(chol(fine))
     identity <- diag(nrow(fine))
     inverse_checks <- lapply(seq_len(nrow(fine)), function(j)
-      .gt_d_solve_check(fine, identity[, j], covariance[, j]))
+      .gt_d_solve_check(fine, identity[, j], block[, j]))
     if (!all(vapply(inverse_checks, function(x) isTRUE(x$valid), logical(1))))
       stop("The information inverse failed its numerical solve-validity check.", call. = FALSE)
+    # Held coordinates have no sampling covariance; their standard errors are
+    # NA, not a zero that would read as an estimate known without error.
+    covariance <- matrix(0, length(parameters), length(parameters),
+                         dimnames = list(names(parameters), names(parameters)))
+    covariance[interior, interior] <- block
+    standard_errors <- sqrt(diag(covariance))
+    standard_errors[!interior] <- NA_real_
     mapping <- .gt_d_information_mapping(parameters, prep, groups, setup)
     entry_covariance <- mapping$jacobian %*% covariance %*% t(mapping$jacobian)
     if (any(!is.finite(entry_covariance)))
       stop("The source-covariance uncertainty map is nonfinite.", call. = FALSE)
     list(available = TRUE, reason = NA_character_,
          method = "full_observed_laplace_information_delta_method",
-         parameter_covariance = covariance, parameter_standard_errors = sqrt(diag(covariance)),
+         parameter_covariance = covariance, parameter_standard_errors = standard_errors,
          hessian = fine, hessian_scale = "negative_log_likelihood",
+         information_coordinates = names(parameters)[interior],
          hessian_method = if (is.null(gradient)) "objective_second_differences" else "analytic_gradient_differences",
          hessian_asymmetry = asymmetry, information_gradient_evaluations = gradient_evaluations,
          hessian_step = control$hessian_step / 2,
@@ -183,10 +229,14 @@
          inverse_validity_bound = inverse_checks[[1L]]$solve_validity_bound,
          entries = mapping$entries, entry_covariance = entry_covariance,
          entry_jacobian = mapping$jacobian, boundary_components = boundary_components,
-         restricted_to_interior = FALSE,
-         fixed_components = if (!is.null(setup$fixed)) names(groups) else character(),
+         restricted_to_interior = length(held) > 0L,
+         fixed_components = if (!is.null(setup$fixed)) names(groups) else held,
          fixed_component_kinds = if (!is.null(setup$fixed))
-           stats::setNames(rep("specified_fixed_covariance", length(groups)), names(groups)) else character(),
+           stats::setNames(rep("specified_fixed_covariance", length(groups)), names(groups)) else held_kinds,
+         interpretation = if (length(held)) paste("Asymptotic Wald standard errors conditional on",
+           paste0(.gt_conditioning_clause(held, held_kinds), ","),
+           "because a source covariance on or near its boundary has no ordinary Wald error.",
+           "They describe the remaining components only.") else NA_character_,
          approximation = "Conditional on first-order Laplace and asymptotic information; coverage not established.")
   }, error = function(e) unavailable(conditionMessage(e)))
   attempt

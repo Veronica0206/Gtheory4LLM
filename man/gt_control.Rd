@@ -351,15 +351,24 @@ The Hessian is for the full Laplace negative log likelihood, including nuisance
 intercepts and threshold coordinates together with covariance parameters.
 Source-covariance sampling uncertainty is obtained from the inverse of this
 full information matrix through the covariance-parameter Jacobian; nuisance
-parameters are not held fixed. Unusable conditional modes, parameter-bound
-contact, a source covariance near its boundary, unstable finite differences,
-or non-positive-definite information make Wald uncertainty unavailable.
-The reason is retained without changing an otherwise accepted point estimate.
+parameters are not held fixed. A source covariance on or near its boundary
+(smallest eigenvalue below \code{1e-6}) has no ordinary Wald error. That
+source is held fixed at its fitted covariance and the information is formed
+over the remaining coordinates, as the Gaussian engine does when its joint
+curvature is indefinite. \code{fit$uncertainty} then records
+\code{restricted_to_interior}, \code{fixed_components} and
+\code{fixed_component_kinds} (\code{"zero"} or \code{"singular_nonzero"}), and
+the held source reports no standard error. Unusable conditional modes,
+parameter-bound contact, every estimated source on its boundary, unstable
+finite differences, or non-positive-definite information make Wald
+uncertainty unavailable. The reason is retained without changing an
+otherwise accepted point estimate.
 These are asymptotic intervals conditional on the first-order Laplace
 approximation. They do not establish approximation accuracy or finite-sample
 coverage; a dedicated simulation study is needed for those questions.
 
-For \eqn{p} stored parameters, the two central-difference Hessians require
+For \eqn{p} stored parameters, not counting any held fixed at a boundary,
+the two central-difference Hessians require
 \eqn{2(1+2p^2)} marginal likelihood evaluations when all evaluations complete.
 These evaluations start their conditional modes cold. Information can therefore
 cost much more than point estimation, particularly for joint categorical models.
