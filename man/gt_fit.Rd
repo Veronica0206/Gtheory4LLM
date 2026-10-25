@@ -123,7 +123,8 @@ ordinary information was unavailable. Later macOS information-only computations
 at those saved estimates produced conditional intervals while holding named
 singular nonzero source matrices fixed. That evidence does not include a new
 optimizer run, Linux conditional information, or interval-coverage assessment.
-The current 1.0.0 release-candidate review has not repeated the 21,600-row fits.
+The point fits come from development source 2fc771b; the 1.0.0 archive itself
+has not been refit on the 21,600-row panels.
 These records do not establish higher-order likelihood accuracy or results for
 the four-aspect drug-review and six-flag mental-health models. Sourcing the
 script does not fit the native panels; its helper requires an explicit

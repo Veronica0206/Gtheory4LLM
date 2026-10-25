@@ -28,7 +28,7 @@ to suppress the newly implemented conditional route. Conversely, arithmetic
 success conditional on fixed matrices does not measure uncertainty in those
 matrices or the decision to hold them. There is no corresponding Linux
 conditional-information record or coverage campaign for this extension.
-No whole-data optimizer rerun was included in the current candidate review.
+These fits predate the 1.0.0 archive, which has not repeated them.
 
 Neither request supplies a result for all four drug-review aspects or the six
 mental-health flags. Neither establishes first-order Laplace adequacy, a global

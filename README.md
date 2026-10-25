@@ -485,9 +485,9 @@ flags. Ordinary information was unavailable in those original runs. Subsequent
 macOS calculations at the saved estimates, without refitting, produced
 conditional coefficient intervals by holding three drug-review and five
 mental-health source matrices fixed. Those matrices are singular and nonzero.
-The new uncertainty calculations have no corresponding Linux record or coverage
-study, and the current release-candidate review has not repeated the long native
-fits. The [scoped evidence in development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md)
+The conditional intervals have no Linux counterpart or coverage study. The point
+fits come from development source `2fc771b`; the 1.0.0 archive itself has not
+been refit on these panels. The [scoped evidence in development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md)
 separates these records from fresh archive checks. Numerical agreement alone
 does not establish first-order Laplace accuracy or calibrated intervals.
 

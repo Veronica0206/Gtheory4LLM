@@ -23,8 +23,8 @@ threshold was loosened; where an optimizer path changed, the change is named.
 - Reproducibility guidance distinguishes exact inputs and settings from
   floating-point equality. Cross-platform comparisons retain acceptance and
   uncertainty decisions and compare unrounded quantities to declared tolerances.
-- The scope of the two joint examples and unavailable boundary intervals is
-  explicit in the introduction and help. First-order Laplace approximation and
+- The introduction and help state the scope of the two joint examples and
+  when intervals are unavailable or conditional on held boundary sources. First-order Laplace approximation and
   near-boundary/weak-signal statistical limitations remain unchanged.
 
 ## Engines

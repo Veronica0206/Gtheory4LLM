@@ -4,7 +4,7 @@
 # CLI: Rscript examples/native_1_0_workflow.R full NEW_OUTPUT_DIRECTORY ARCHIVE [MODEL]
 local({
   script <- system.file("examples", "native_1_0_workflow.R", package = "Gtheory4LLM")
-  if (!nzchar(script)) stop("Install the v1.0 candidate archive before running this workflow.")
+  if (!nzchar(script)) stop("Install Gtheory4LLM 1.0.0 before running this workflow.")
   source(script, local = .GlobalEnv)
 })
 if (sys.nframe() == 0L) {

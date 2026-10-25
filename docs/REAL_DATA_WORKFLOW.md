@@ -8,7 +8,7 @@ unsupported requests; it does not fit those models.
 
 ## Run the scoped v1.0 workflow
 
-Install the exact candidate archive into a dedicated library first. The workflow
+Install the exact package archive into a dedicated library first. The workflow
 uses only the installed package and its bundled public annotation tables:
 
 For a full run, set `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
@@ -107,9 +107,9 @@ script never widens any limit after a failure. A new optimizer run can match
 the point references while missing the conditional-information reference, and
 that difference is reported as `uncertainty_mismatch` rather than success.
 
-For this release-candidate review, no additional 21,600-row optimizer fits were
-run. The included references document earlier calculations and do not certify
-these new archive bytes. Full mode is available for a later explicit replay;
+The included references document calculations on earlier source revisions;
+they do not certify the release archive's bytes, which have not yet been run in
+full mode. Full mode is available for a later explicit replay;
 smoke mode and saved-point arithmetic do not replace it. Neither comparison
 demonstrates a global optimum, integration accuracy or calibrated confidence
 intervals after boundary selection.

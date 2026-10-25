@@ -10,7 +10,10 @@ The package adds the formula interface and conventional model methods, a bounded
 lme4 Gaussian route, public sparse discrete fitting, optional observed
 information including conditional calculations with boundary sources held fixed,
 an analytic Laplace gradient and explicit projected boundary
-escape, and categorical simulation/planning targets. The installed native-data
+escape, an object bootstrap with percentile and BCa intervals, and categorical
+simulation/planning targets. `gt_example()` names its numeric coding
+`"numeric"`; the former name `"manuscript"` still works with a deprecation
+warning. The installed native-data
 workflow defines the two scoped whole-data joint examples and their numerical
 reproduction contract. NEWS.md and the help pages state the supported models
 and numerical guards.
@@ -25,7 +28,7 @@ nonzero source matrices fixed. Such intervals omit held-source estimation and
 boundary-selection uncertainty. They have no demonstrated coverage or matching
 Linux information calculation; unavailable uncertainty is still reported as
 unavailable. The documented near-boundary/weak-signal limitations remain in force.
-No additional 21,600-row optimizer fits were run for this candidate review.
+The 1.0.0 archive itself was not refit on the 21,600-row panels.
 Included historical reference tables and synthetic workflow checks are not
 claimed as a fresh whole-data qualification of the final archive.
 
