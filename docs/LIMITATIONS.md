@@ -137,21 +137,25 @@ scientifically sufficient. Those are separate questions with separate evidence.
 - **Discrete uncertainty is optional and conditional.** Request
   `check_hessian = TRUE` in discrete controls to compute numerical observed
   information over nuisance intercepts/thresholds and covariance parameters.
-  The full negative-log-likelihood Hessian is inverted before propagating
-  covariance uncertainty. Availability requires numerical acceptance, interior
-  estimated covariance components, positive definite information and agreement
-  between finite-difference steps. Boundaries, unstable curvature or failed
-  conditional modes leave uncertainty unavailable with a recorded reason.
-  Components supplied as fixed have no estimated uncertainty; intervals then
-  condition on those values. Available latent coefficient intervals inherit
-  first-order Laplace error; general finite-sample calibration remains
-  unestablished. Small-panel Wald intervals can be overly conservative, and
-  unstructured models can frequently withhold intervals at estimated covariance
-  boundaries. Report coverage among available intervals separately from the
+  The negative-log-likelihood Hessian is inverted before propagating
+  covariance uncertainty. Availability requires numerical acceptance, positive
+  definite information and agreement between finite-difference steps. A source
+  covariance on or near its boundary has no Wald standard error: it is held
+  fixed at its fitted covariance and the remaining intervals are conditional on
+  it, as for Gaussian fits, and say whether it is held at zero or at a singular
+  but nonzero value. With every estimated source on its boundary, or with
+  unstable curvature or failed conditional modes, uncertainty is unavailable
+  with a recorded reason. Components supplied as fixed have no estimated
+  uncertainty; intervals then condition on those values. Available latent
+  coefficient intervals inherit first-order Laplace error; general
+  finite-sample calibration remains unestablished, and the coverage of
+  intervals conditional on a boundary source has not been assessed: the
+  2026-10-23 recovery campaign predates them. Small-panel Wald intervals can be
+  overly conservative. Report coverage among available intervals separately from the
   fractions of all attempted panels yielding accepted fits, available intervals
   and intervals covering the truth. Good conditional coverage alone does not
   establish useful interval availability or unconditional coverage.
-  Withholding at an estimated boundary does not ensure coverage at a true
+  Conditioning on an estimated boundary does not ensure coverage at a true
   boundary: a positive interior estimate can arise when the true variance is
   zero, and its logit-Wald coefficient interval excludes zero.
   The default does not compute information. Bootstrap and jackknife intervals
@@ -210,8 +214,9 @@ scientifically sufficient. Those are separate questions with separate evidence.
   coordinates for univariate or diagonal models and Cholesky coordinates, whose
   nonnegative factor diagonal can reach zero, for joint unstructured models, so
   a singular source covariance is represented exactly. Explicit log-Cholesky
-  coordinates can only approach one. Boundary estimates carry no Wald
-  intervals. The exchangeable nominal covariance uses variance
+  coordinates can only approach one. A boundary source carries no Wald
+  interval, and the others' intervals condition on it. The exchangeable
+  nominal covariance uses variance
   coordinates and keeps outcomes independent within each source.
 - Rejected fits cannot produce coefficients. `gt_reliability()` and
   `gt_dstudy()` require `gt_diagnostics(fit)$numerically_accepted`, and there is

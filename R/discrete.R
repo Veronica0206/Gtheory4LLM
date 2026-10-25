@@ -1715,7 +1715,7 @@
                          "Covariance-estimation rank guards bypassed because all source covariance matrices were supplied as fixed.",
                        approximation = "First-order Laplace marginal ML; accuracy is not established for sparse groups or large annotation panels.",
                        conditional_independence = TRUE,
-                       uncertainty = "Observed-information uncertainty is conditional on numerical acceptance, interior covariance and stable curvature.")
+                       uncertainty = "Observed-information uncertainty is conditional on numerical acceptance, stable curvature and any boundary source held fixed.")
   # The same validated-design step the Gaussian path uses: it records the
   # scope and removes the constructor's specification-only note, which would
   # otherwise survive into gt_diagnostics() after the data checks had run.
@@ -1755,6 +1755,10 @@
     component_errors <- data.frame(component = entries$component, trait = entries$row,
       std_error = sqrt(pmax(0, diag(information$entry_covariance)[diagonal])),
       at_boundary = entries$component %in% boundary_sources, stringsAsFactors = FALSE)
+    # A source held fixed at its boundary has no Wald standard error; its zero
+    # entry covariance is the conditioning, not an estimate known exactly.
+    if (isTRUE(information$restricted_to_interior))
+      component_errors$std_error[component_errors$component %in% information$fixed_components] <- NA_real_
   }
   list(engine = .gt_d_engine_label(.engine), estimator = "ML_Laplace", method = "ML_Laplace",
        means = means, coefficients = means, thresholds = thresholds,

@@ -521,16 +521,52 @@ check apply unchanged. The cost is `4p` gradients against about `4p^2`
 objective evaluations for the second differences. `fit$uncertainty` records
 `hessian_method` (`"analytic_gradient_differences"` or
 `"objective_second_differences"`), `hessian_asymmetry` and
-`information_gradient_evaluations`; the boundary and acceptance refusals
-precede either method.
+`information_gradient_evaluations`; the acceptance refusal and the boundary
+rule of the next section apply to either method.
 
 `tests/package-discrete-gradient-information.R` compares the two methods at
 the same parameters on the frozen binary and ordinal information panels and a
 joint binary-ordinal panel (within `1e-6` on the step-discrepancy scale),
 compares the fitted source-covariance uncertainty and latent coefficient
 standard errors across routes, and checks the gradient count, the recorded
-method, an injected refusal, an injected asymmetry and the boundary and
-acceptance refusals.
+method, an injected refusal, an injected asymmetry and the acceptance refusal.
+
+## Information at a boundary source
+
+A source whose fitted covariance has smallest eigenvalue below `1e-6`, the
+fit's boundary rule, has no ordinary Wald error. Its stored coordinates sit on
+or within a difference step of their natural bound, and along a zero natural
+Cholesky factor column the covariance moves only to second order, so those
+coordinates carry no first-order information. `.gt_d_information()` holds
+every such source fixed at its fitted covariance and forms the Hessian over
+the remaining coordinates, the nuisance intercepts and thresholds included, by
+either method and under every check above. The parameter covariance is the
+inverse of that block, with zero rows and columns for the held coordinates,
+whose standard errors are `NA`; the held sources' entries carry no sampling
+variance, and `component_standard_errors` reports `NA` for them. The record
+sets `restricted_to_interior = TRUE`, names the held sources in
+`fixed_components` and gives each a kind in `fixed_component_kinds`: `"zero"`
+when its largest eigenvalue is at most `1e-8`, otherwise `"singular_nonzero"`,
+held at its fitted value. `information_coordinates` lists the differenced
+coordinates, and `interpretation` states the conditioning in the clause the
+Gaussian engine and the reliability tables share (`.gt_conditioning_clause()`).
+This is the Gaussian engine's interior-block estimand. That engine first tries
+the full Hessian and conditions only where it is indefinite; here no full
+matrix is formed at a boundary source, whose coordinates would step outside
+their domain or carry no first-order information. With every estimated source
+on its boundary nothing remains and information is unavailable. Fits without a
+boundary source, and specified fixed covariances, are unchanged.
+
+`tests/test_discrete_information.R` checks the block inverse, the held
+coordinates and entries, both kinds and the refusal on a quadratic objective.
+`tests/package-discrete-gradient-information.R` fits, on both routes, a binary
+panel whose rater variance is exactly zero and a joint binary-ordinal panel
+whose rater covariance has rank one. Held at zero, the information must equal
+within `1e-6` relative that of the model without the rater source at the same
+parameters, a separate problem whose objective is the same function there; at
+both panels the two methods' conditional Hessians must agree within `1e-6` at
+the same parameters; the held source's coordinates, entries, standard errors
+and the reliability tables' conditioning are checked.
 
 ## Boundary escape
 

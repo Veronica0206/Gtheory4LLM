@@ -20,9 +20,33 @@ stopifnot(info$available, max(abs(info$parameter_covariance - solve(H))) < 1e-7,
   max(abs(info$entry_covariance - solve(H)[2:3, 2:3])) < 1e-7,
   max(abs(info$entry_covariance - solve(H[2:3, 2:3]))) > 1e-3)
 stopifnot(!.gt_d_information(at, prep, groups, setup, control, oracle,
-  c(-15, 0, 0), rep(15, 3), FALSE)$available,
-  !.gt_d_information(at, prep, groups, setup, control, oracle,
-  c(-15, 0, 0), rep(15, 3), TRUE, "item")$available)
+  c(-15, 0, 0), rep(15, 3), FALSE)$available)
+
+# A boundary source is held fixed and the rest of the information inverted:
+# its coordinate and entries get no sampling covariance and no standard error.
+held <- .gt_d_information(at, prep, groups, setup, control, oracle,
+  c(-15, 0, 0), rep(15, 3), TRUE, "item")
+block <- solve(H[c(1, 3), c(1, 3)])
+stopifnot(held$available, held$restricted_to_interior, identical(held$fixed_components, "item"),
+  identical(held$fixed_component_kinds, c(item = "singular_nonzero")),
+  identical(held$information_coordinates, c("intercept", "rater")),
+  max(abs(held$parameter_covariance[c(1, 3), c(1, 3)] - block)) < 1e-7,
+  all(held$parameter_covariance[2, ] == 0), all(held$parameter_covariance[, 2] == 0),
+  is.na(held$parameter_standard_errors[["item"]]), all(held$entry_covariance[1, ] == 0),
+  abs(held$entry_covariance[2, 2] - block[2, 2]) < 1e-7, grepl("item held fixed", held$interpretation, fixed = TRUE))
+at_zero <- replace(at, "item", 0)
+held_zero <- .gt_d_information(at_zero, prep, groups, setup, control, oracle,
+  c(-15, 0, 0), rep(15, 3), TRUE, "item")
+stopifnot(held_zero$available, identical(held_zero$fixed_component_kinds, c(item = "zero")),
+  grepl("item held at zero", held_zero$interpretation, fixed = TRUE))
+# Zero means negligible on the latent scale, at most 1e-8, not exactly zero.
+kind_at <- function(variance) .gt_d_information(replace(at, "item", variance), prep, groups, setup, control,
+  oracle, c(-15, 0, 0), rep(15, 3), TRUE, "item")$fixed_component_kinds[["item"]]
+stopifnot(identical(kind_at(1e-9), "zero"), identical(kind_at(1e-7), "singular_nonzero"))
+# With every source on its boundary nothing remains to condition on.
+every <- .gt_d_information(at, prep, groups, setup, control, oracle,
+  c(-15, 0, 0), rep(15, 3), TRUE, c("item", "rater"))
+stopifnot(!every$available, grepl("no interior block remains", every$reason, fixed = TRUE))
 
 # A native inverse returning without error is not evidence it solves H X=I.
 # Inject a positive definite but wrong inverse; no uncertainty may escape.
