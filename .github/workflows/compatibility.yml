@@ -79,6 +79,11 @@ jobs:
       # platform in this matrix rather than whatever the runner image ships.
       - uses: r-lib/actions/setup-pandoc@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
       - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
+        timeout-minutes: 15
+        env:
+          # The community bundle already includes makeindex and courier on
+          # Windows, avoiding the stalled per-package downloader there.
+          TINYTEX_INSTALLER: ${{ runner.os == 'Windows' && 'TinyTeX' || 'TinyTeX-1' }}
       - name: Install reference-manual tools and fonts on Unix
         if: runner.os != 'Windows'
         shell: bash
@@ -92,14 +97,12 @@ jobs:
         id: windows-tex
         if: runner.os == 'Windows'
         shell: pwsh
-        # TeX serves one stage of this job, the reference manual's overfull
-        # gate, which the Linux locked gate and the macOS job in this workflow
-        # enforce as well; the package build, check and installed tests need
-        # no TeX. So this step may fail without failing the job: the job then
-        # validates the package without TeX, and the validation report records
-        # the manual stage as skipped. A failed setup removes whatever TinyTeX
-        # it left behind, so the gate never renders the manual with half a
-        # TeX; it cannot be skipped silently because the report says why.
+        # A development checkout or matching retained bundle can continue
+        # after this step fails, recording the manual stage as skipped. A
+        # frozen final-version rehearsal still requires a PDF during bundle
+        # staging and fails if TeX is missing. The Linux locked and macOS jobs
+        # also enforce the manual's overfull gate. A failed setup removes its
+        # incomplete TinyTeX so no manual is rendered with a partial toolchain.
         #
         # On 2026-10-24 this step held two jobs for their whole 90-minute
         # budget. A normal run of it takes under a minute, so each tlmgr command
@@ -153,7 +156,9 @@ jobs:
             # and package installation; the default TinyTeX mirror stalled.
             Invoke-Tlmgr 'option repository https://ctan.math.illinois.edu/systems/texlive/tlnet'
             Invoke-Tlmgr 'update --self'
-            Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier collection-latexrecommended'
+            # Install the manual's named tools/fonts, without expanding an
+            # unrelated 108-package collection. Actual PDF checks remain required.
+            Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier'
             Get-Command pdflatex -ErrorAction Stop
             Get-Command makeindex -ErrorAction Stop
           } catch {

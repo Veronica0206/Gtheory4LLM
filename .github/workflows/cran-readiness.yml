@@ -182,6 +182,9 @@ jobs:
           echo "$tidy_bin" >> "$GITHUB_PATH"
       - uses: r-lib/actions/setup-tinytex@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         timeout-minutes: 15
+        env:
+          # Bundle the named Windows tools/fonts; Unix retains TinyTeX-1.
+          TINYTEX_INSTALLER: ${{ runner.os == 'Windows' && 'TinyTeX' || 'TinyTeX-1' }}
       - name: Install PDF manual tools and fonts on macOS
         if: runner.os == 'macOS'
         shell: bash
@@ -222,7 +225,9 @@ jobs:
           # Windows; use this official HTTPS CTAN mirror for the whole update.
           Invoke-Tlmgr 'option repository https://ctan.math.illinois.edu/systems/texlive/tlnet'
           Invoke-Tlmgr 'update --self'
-          Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier collection-latexrecommended'
+          # Install the manual's named tools/fonts, without expanding an
+          # unrelated 108-package collection. Actual PDF checks remain required.
+          Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier'
           Get-Command pdflatex -ErrorAction Stop
           Get-Command makeindex -ErrorAction Stop
       - uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
