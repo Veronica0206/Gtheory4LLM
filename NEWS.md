@@ -292,6 +292,11 @@ threshold was loosened; where an optimizer path changed, the change is named.
   replicates with direct fits of independently built resamples and intervals
   with closed-form coefficients and a hand-computed BCa, and check determinism
   across cores and budgets and the refusal, error and guard paths.
+- `gt_bootstrap()` refits labeled binary outcomes from the fit's retained data.
+  The retained frame holds them as 0/1 codes, which refits read as the labels
+  "0" and "1"; the codes are returned to the recorded labels in their recorded
+  order first, so labeled, reversed-level and mixed binary/ordinal fits no
+  longer need `data =`.
 
 ## Planning
 

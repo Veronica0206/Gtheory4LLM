@@ -119,7 +119,7 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
     if (!is.data.frame(fit$data))
       stop("This fit was stored without its data (retain = list(data = FALSE)); supply data =, ",
            "the data frame it was fitted to.", call. = FALSE)
-    return(fit$data)
+    return(.gt_bootstrap_labels(fit, fit$data))
   }
   columns <- c(fit$design$object, fit$design$facets, fit$outcomes)
   if (!is.data.frame(data) || !all(columns %in% names(data)))
@@ -130,6 +130,21 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
       !identical(panel$rows, recorded$rows) || !identical(panel$observed_cells, recorded$observed_cells))
     stop("data does not describe the panel this fit was made from.", call. = FALSE)
   data[columns]
+}
+
+# The retained frame holds each binary outcome as its 0/1 code over the
+# recorded levels. Refits go through gt_fit(), which reads numeric binary input
+# as the labels "0" and "1", so codes over any other labels are returned to
+# those labels, in the recorded order; the second level stays the coded 1.
+.gt_bootstrap_labels <- function(fit, data) {
+  for (outcome in fit$outcomes) {
+    spec <- fit$families[[outcome]]
+    x <- data[[outcome]]
+    if (identical(spec$family, "binary") && !identical(spec$levels, c("0", "1")) &&
+        is.numeric(x) && all(x %in% c(0, 1)))
+      data[[outcome]] <- factor(spec$levels[x + 1L], levels = spec$levels)
+  }
+  data
 }
 
 # One resample: the drawn objects' rows, each draw a distinct object.

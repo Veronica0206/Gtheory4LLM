@@ -272,3 +272,40 @@ check(grepl("Object bootstrap of 30 items | 60 accepted of 60 requested | 60 att
         grepl("BCa acceleration available", printed, fixed = TRUE) && identical(as.data.frame(boot), boot$records),
       "the bootstrap prints its counts and returns its records")
 cat("PASS: guards\n")
+
+# --- labeled binary outcomes from the retained data ------------------------------
+# The fit retains binary outcomes as 0/1 codes over their recorded labels. The
+# retained-data route must give exactly the replicates of the original labeled
+# data, preserving which label is coded 1, for the leave-one-out refits and for
+# joint outcomes too.
+seeded(9001L)
+bd <- expand.grid(rater = factor(1:6), item = factor(1:18))
+eta <- .3 + rnorm(18, sd = .9)[bd$item] + rnorm(6, sd = .5)[bd$rater]
+coded <- rbinom(nrow(bd), 1L, plogis(eta))
+grade <- ordered(c("low", "mid", "high")[1L + (eta + rnorm(nrow(bd)) > -.2) + (eta + rnorm(nrow(bd)) > 1)],
+                 levels = c("low", "mid", "high"))
+binary_design <- gt_design("item", "rater", full_cell = FALSE)
+labeled <- list(numeric = transform(bd, label = coded),
+  labels = transform(bd, label = factor(ifelse(coded == 1L, "yes", "no"), levels = c("no", "yes"))),
+  reversed = transform(bd, label = factor(as.character(coded), levels = c("1", "0"))))
+for (name in names(labeled)) {
+  frame <- labeled[[name]]
+  binary_fit <- gt_fit(frame, "label", binary_design, gt_family("binary"))
+  check(isTRUE(gt_diagnostics(binary_fit)$numerically_accepted), paste("the", name, "binary fit is accepted"))
+  retained <- gt_bootstrap(binary_fit, replicates = 3, max_attempts = 3, seed = 8, jackknife = TRUE)
+  supplied <- gt_bootstrap(binary_fit, replicates = 3, max_attempts = 3, seed = 8, jackknife = TRUE,
+                           data = frame)
+  check(retained$accepted == 3L && retained$attempts == 3L && isTRUE(retained$jackknife$complete) &&
+          identical(retained$components, supplied$components) &&
+          identical(retained$jackknife$components, supplied$jackknife$components),
+        paste("the retained", name, "binary data gives the replicates and leave-one-out refits of the original data"))
+}
+mixed <- transform(labeled$labels, grade = grade)
+mixed_fit <- gt_fit(mixed, c("label", "grade"), binary_design,
+  list(label = gt_family("binary"), grade = gt_family("ordinal")))
+mixed_retained <- gt_bootstrap(mixed_fit, replicates = 1, max_attempts = 1, seed = 8)
+mixed_supplied <- gt_bootstrap(mixed_fit, replicates = 1, max_attempts = 1, seed = 8, data = mixed)
+check(mixed_retained$accepted == 1L && identical(mixed_retained$components, mixed_supplied$components),
+      "joint labeled-binary and ordinal refits match the original data")
+cat("PASS: labeled binary outcomes\n")
+
