@@ -50,7 +50,13 @@ protocol, all attempts, source identity and environment accompany the results.
 The [object-bootstrap coverage pilot](bootstrap-coverage/PROTOCOL.md) was
 frozen before execution: 200 REML replicates in each of the Gaussian coverage
 pilot's four item-by-rater settings, with percentile, BCa and delta-method
-intervals on the same panels. Its results are reported with the run.
+intervals on the same panels. All 800 fits and bootstraps completed. Percentile
+intervals covered the population coefficients in 92.0–94.0% of panels for Erho2
+and 89.5–92.5% for Phi, BCa intervals in 92.4–93.8% and 89.1–92.6% of the
+panels where they were available (85–99%), and delta-method intervals in
+96.0–97.0% and 95.0–96.5%; the [results](bootstrap-coverage/README.md) give each
+setting with its Monte Carlo uncertainty. The pilot covers one Gaussian design
+with 24 items; it does not establish coverage for discrete or multivariate fits.
 
 ## Reproduce without overwriting evidence
 

@@ -283,7 +283,12 @@ threshold was loosened; where an optimizer path changed, the change is named.
   start at the original estimates, except that a boundary source starts from
   the original starting values. The intervals describe object sampling
   conditional on the observed instrumentation levels, not the sampling of the
-  facet levels, and their coverage has not been assessed. Tests compare
+  facet levels. In a frozen Gaussian pilot of 24 items with three or six
+  raters, 200 REML panels per setting, percentile intervals covered the
+  population coefficients in 92.0–94.0% of panels for Erho2 and 89.5–92.5%
+  for Phi, BCa intervals in 89.1–93.8% where available, and delta-method
+  intervals in 95.0–97.0% (`validation-studies/bootstrap-coverage`); coverage
+  for other designs and for discrete fits is unassessed. Tests compare
   replicates with direct fits of independently built resamples and intervals
   with closed-form coefficients and a hand-computed BCa, and check determinism
   across cores and budgets and the refusal, error and guard paths.

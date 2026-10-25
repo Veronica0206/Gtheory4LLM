@@ -129,8 +129,12 @@ STUDY_CSV_FILES = {
     for kind in ("panels", "worker") for panel in range(1, 41)
 } | {"validation-studies/gaussian-pilot-sensitivity/config.csv"} | {
     # The object-bootstrap coverage pilot, frozen before execution; its results
-    # are admitted path by path once they exist.
+    # are admitted path by path.
     "validation-studies/bootstrap-coverage/config.csv"
+} | {
+    "validation-studies/bootstrap-coverage/results/" + name for name in (
+        "schedule.csv", "config.csv", "source-files.csv", "environment.csv",
+        "run-metadata.csv", "replicates.csv", "summary.csv", "completion.csv")
 } | {
     # Synthetic four-cell pilot illustration; exact evidence paths only.
     f"validation-studies/gaussian-pilot-sensitivity/results/{name}" for name in (

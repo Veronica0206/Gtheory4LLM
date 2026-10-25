@@ -53,8 +53,8 @@ route supplies no parameter intervals or interval-width criterion.
 These functions do not provide calibrated bootstrap intervals.
 \code{\link{gt_bootstrap}} resamples the objects of an accepted fit and gives
 percentile or BCa intervals for components, coefficients and D studies,
-conditional on the observed instrumentation levels; their coverage has not been
-assessed. Discrete observed information is opt-in, and unsupported or
+conditional on the observed instrumentation levels; their coverage has been
+assessed only in a Gaussian pilot, where it fell below the nominal level. Discrete observed information is opt-in, and unsupported or
 unusable uncertainty remains explicitly unavailable rather than imputed.
 
 \subsection{Why this package declares R (>= 4.5.0)}{

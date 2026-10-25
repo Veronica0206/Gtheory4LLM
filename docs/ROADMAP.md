@@ -310,9 +310,11 @@ any source on its covariance boundary held fixed, and the first-order Laplace
 approximation. The coverage of those conditional intervals is unassessed: the
 near-boundary and exact-boundary cells of the 2026-10-23 recovery campaign,
 rerun under the conditioning rule, would measure it. An object bootstrap,
-`gt_bootstrap()`, is implemented for every engine. Still open: the coverage of
-its intervals, which the Gaussian coverage settings and the discrete recovery
-cells would measure with the bootstrap run inside each replicate; resampling
+`gt_bootstrap()`, is implemented for every engine, and a frozen pilot in the
+four Gaussian coverage settings found its percentile and BCa intervals covering
+89–94% of panels at a nominal 95%. Still open: its coverage for discrete fits,
+which the discrete recovery cells would measure with the bootstrap run inside
+each replicate, and for larger Gaussian panels; resampling
 that also reflects the sampling of facet levels; profile-likelihood and
 parametric-bootstrap intervals; and simulation-based propagation to
 reliability.
