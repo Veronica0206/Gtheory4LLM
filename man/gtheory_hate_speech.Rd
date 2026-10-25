@@ -17,15 +17,15 @@ stored levels and interpretation are documented in
 the \link[=gtheory_datasets]{dataset overview}.}
 \item{score}{With \code{coding = "native"}, an ordered factor with levels
 \code{1}, \code{2}, \code{3}: NORMAL, OFFENSIVE, and HATE, respectively.
-With \code{coding = "manuscript"}, the same values are numeric Gaussian
+With \code{coding = "numeric"}, the same values are numeric Gaussian
 working scores.}
 }
 The remaining list elements identify the outcome, family, object, facets,
 coding, source, and interpretation notes; installed resources also provide
 \code{source_provenance}.}
 \details{The native family is ordinal with a probit link. The category order
-expresses the study's normal/offensive/hate distinction; using numeric
-manuscript scores additionally treats the category steps as equally spaced.
+expresses the study's normal/offensive/hate distinction; using the numeric
+scores additionally treats the category steps as equally spaced.
 
 These outcomes are the repeated LLM annotations used in the G-theory study,
 not the original HateXplain crowdworker labels. The data table contains design
@@ -68,7 +68,7 @@ str(hate$data)
 table(hate$data$score)
 
 # The historical numeric coding represents the same stored judgments.
-working <- gt_example("hate_speech", coding = "manuscript")
+working <- gt_example("hate_speech", coding = "numeric")
 str(working$data$score)
 }
 \keyword{datasets}

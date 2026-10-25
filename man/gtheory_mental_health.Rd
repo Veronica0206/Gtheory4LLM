@@ -59,7 +59,7 @@ identity. The six flags describe requested textual evidence and are not
 clinical diagnoses or a set of mutually exclusive classifications. The
 three-group binary set differs from the single-outcome 3L working score.
 
-For the six-flag and three-group sets, \code{coding = "manuscript"} retains
+For the six-flag and three-group sets, \code{coding = "numeric"} retains
 the same 0/1 values but declares Gaussian working-score families. The two
 working-score sets remain Gaussian even with \code{coding = "native"}.
 

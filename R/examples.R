@@ -6,12 +6,13 @@
 
 # Load a documented outcome set without raw text or API metadata
 # name: Outcome-set name; NULL lists the available sets.
-# coding: native retains binary/ordinal/nominal observation types;
-#   manuscript is the legacy name for seven Gaussian numeric-score codings.
+# coding: native retains binary/ordinal/nominal observation types; numeric
+#   returns the category codes as numbers with Gaussian working-score
+#   families. manuscript is the deprecated name of numeric.
 # directory: Directory containing example RDS resources or source CSVs. The
 #   installed package uses bundled modeling tables when directory is omitted.
 #   Standalone use requires installed resources or an explicit local directory.
-gt_example <- function(name = NULL, coding = c("native", "manuscript"), directory = NULL) {
+gt_example <- function(name = NULL, coding = c("native", "numeric", "manuscript"), directory = NULL) {
   catalog <- data.frame(
     name = c("hate_speech", "mental_health_7L", "mental_health_3L", "mental_health_6flag",
              "mental_health_3group", "drug_review", "drug_review_4aspect", "mental_health_nominal"),
@@ -21,7 +22,12 @@ gt_example <- function(name = NULL, coding = c("native", "manuscript"), director
   if (!is.character(name) || length(name) != 1L || is.na(name) || !name %in% catalog$name)
     stop("Unknown example name; call gt_example() for the available sets.", call. = FALSE)
   coding <- match.arg(coding)
-  if (name == "mental_health_nominal" && coding == "manuscript")
+  if (identical(coding, "manuscript")) {
+    warning("coding = \"manuscript\" is deprecated; use coding = \"numeric\", which returns the same tables.",
+            call. = FALSE)
+    coding <- "numeric"
+  }
+  if (name == "mental_health_nominal" && coding == "numeric")
     stop("The nominal example has native unordered coding only; choose an explicitly named 7L/3L set for numeric-score coding.", call. = FALSE)
   # A standalone loader may configure its own enclosing environment. Never
   # search callers, attached environments, or the global workspace on behalf
@@ -39,10 +45,13 @@ gt_example <- function(name = NULL, coding = c("native", "manuscript"), director
     stop("Supply directory, source load_functions.R, or install Gtheory4LLM to use bundled modeling tables.", call. = FALSE)
   if (file.exists(bundled)) {
     resource <- readRDS(bundled)
+    # The bundled resources keep the numeric coding under its original key.
+    stored <- if (identical(coding, "numeric")) "manuscript" else coding
     if (!identical(resource$schema_version, 1L) || !identical(resource$name, name) ||
-        is.null(resource$codings[[coding]]))
+        is.null(resource$codings[[stored]]))
       stop("The example resource has an unsupported schema or coding.", call. = FALSE)
-    result <- resource$codings[[coding]]
+    result <- resource$codings[[stored]]
+    result$coding <- coding
     result$source <- normalizePath(bundled, mustWork = TRUE)
     result$source_provenance <- resource$source_provenance
     return(structure(result, class = "gt_example"))

@@ -107,7 +107,7 @@ The default \code{coding = "native"} preserves the binary, ordinal, or
 unordered categorical endpoint where defined. The Mental-Health 7L and 3L
 variants remain explicitly Gaussian working scores under both coding options;
 they are not established clinical severity scales. Seven outcome sets also
-support \code{coding = "manuscript"}, which reproduces the original Gaussian
+support \code{coding = "numeric"}, which reproduces the original Gaussian
 working-score analysis. The nominal Mental-Health set has native coding only.
 The eight sets are alternative views of three panels, not eight independent
 datasets.

@@ -37,7 +37,14 @@ for (name in catalog$name) {
   }
   .gt_resolve_families(native$data, native$outcomes, native$families)
   if (name != "mental_health_nominal") {
-    scored <- gt_example(name, coding = "manuscript")
+    scored <- gt_example(name, coding = "numeric")
+    assert(identical(scored$coding, "numeric"), "The numeric coding is labelled numeric")
+    legacy <- withCallingHandlers(gt_example(name, coding = "manuscript"), warning = function(w) {
+      assert(grepl("deprecated", conditionMessage(w), fixed = TRUE), "The legacy name warns that it is deprecated")
+      invokeRestart("muffleWarning")
+    })
+    assert(identical(legacy$data, scored$data) && identical(legacy$families, scored$families) &&
+             identical(legacy$coding, "numeric"), "The legacy name returns the numeric tables")
     assert(identical(native$data[dimensions], scored$data[dimensions]), "Alternate scoring changed the panel")
     for (outcome in native$outcomes) {
       value <- native$data[[outcome]]
