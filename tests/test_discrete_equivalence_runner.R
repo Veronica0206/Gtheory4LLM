@@ -7,12 +7,15 @@
 # deliberately planted result stands in where the counterexample needs one,
 # and each check asserts that the judge gives the intended verdict:
 #
-#   * a required latent G/Phi comparison that cannot be made is a failure;
+#   * a required latent G/Phi comparison that cannot be made is a failure, and
+#     a parent-scoped nested design is eligible when its panel is complete;
 #   * an overlay whose named condition did not occur is not a pass, and a
 #     produced condition needs each backend's own non-acceptance;
 #   * an unconverged reference records no approximation error;
 #   * an R1 event, including a non-finite witness, or a failed stage stops the
-#     case, and the later stages are recorded as not run.
+#     case, and the later stages are recorded as not run;
+#   * a case outside the sparse support envelope stays unsupported when a
+#     dense-only check fails, and is never counted as compared.
 STUDY <- file.path("validation-studies", "discrete-sparse-equivalence")
 source(file.path(STUDY, "cases.R"))
 for (f in c("design", "discrete_response", "discrete_dense", "discrete_mode",
@@ -43,7 +46,8 @@ rows <- function(result, ...) {
 }
 verdict <- function(result, kind, id) result$summary$verdict[result$summary$kind == kind & result$summary$id == id]
 original <- list(public = .eqr_public_fit, fit = .eqr_fit, reference = .eqr_reference_fit,
-                 dense_at_mode = .eqr_dense_at_mode, evaluator = .gt_d_sparse_evaluator)
+                 dense_at_mode = .eqr_dense_at_mode, evaluator = .gt_d_sparse_evaluator,
+                 reference_change = .eqr_reference_change)
 restore <- function() {
   .eqr_public_fit <<- original$public; .eqr_fit <<- original$fit; .eqr_reference_fit <<- original$reference
   .eqr_dense_at_mode <<- original$dense_at_mode; .gt_d_sparse_evaluator <<- original$evaluator
@@ -75,6 +79,19 @@ restore()
 ok(identical(verdict(shifted, "case", "K02"), "fail") &&
      nrow(rows(shifted, stage = 4L, quantity = "latent_g_phi", disposition = "fail")) == 1L,
    "a sparse G increased by 0.1 fails the latent G/Phi comparison")
+# The nested design's `rater` is an alias for (site, nested_rater). With every
+# site carrying both rater codes the panel is complete and G/Phi is required;
+# with three raters the second site has one code and the panel is incomplete.
+nested <- run(case("X07"))
+ok(identical(verdict(nested, "case", "X07"), "pass") &&
+     nrow(rows(nested, stage = 4L, quantity = "latent_g_phi", disposition = "pass")) == 1L &&
+     nrow(rows(nested, stage = 4L, quantity = "public_fit_disposition", disposition = "accepted")) == 2L,
+   "a complete nested panel is eligible and its latent G/Phi comparison is made")
+incomplete <- run(case("X13"))
+reason <- incomplete$detail$message[incomplete$detail$quantity == "latent_g_phi"]
+ok(nrow(rows(incomplete, stage = 4L, quantity = "latent_g_phi", disposition = "not_applicable")) == 1L &&
+     identical(reason, "the panel is not a complete balanced coded panel"),
+   "an incomplete nested panel is ineligible for the incomplete panel, not for its source names")
 single <- run(case("K01"))
 ok(identical(verdict(single, "case", "K01"), "pass") &&
      nrow(rows(single, stage = 4L, quantity = "latent_g_phi", disposition = "not_applicable")) == 1L,
@@ -149,6 +166,16 @@ ok(identical(verdict(s3, "case", "K02"), "fail") &&
      identical(verdict(s3, "transform", "T1:K02"), c("not_run", "not_run")),
    "a stage 3 failure stops the fitted comparison and the transforms")
 
+# ---- rule R3 ---------------------------------------------------------------------------
+.eqr_reference_change <- function(...) c(marginal_nll = 1)
+t3 <- run(case("X14"), transforms = data.frame(transform = "T3", base_case = "X14"))
+.eqr_reference_change <- original$reference_change
+case_row <- t3$summary[t3$summary$kind == "case" & t3$summary$id == "X14", ]
+ok(identical(case_row$verdict, "unsupported") && identical(verdict(t3, "transform", "T3:X14"), "fail") &&
+     !case_row$verdict %in% c("pass", "fail"),
+   "a failed dense-only T3 keeps its case unsupported and out of the compared count, and stays visible itself")
+
 if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
-cat("Equivalence runner regressions verified: required G/Phi comparisons, overlay conditions and ",
-    "per-backend non-acceptance, unconverged references, R1 and failed-stage stopping.\n", sep = "")
+cat("Equivalence runner regressions verified: required G/Phi comparisons including nested designs, ",
+    "overlay conditions and per-backend non-acceptance, unconverged references, R1 and failed-stage ",
+    "stopping, and unsupported cases under rule R3.\n", sep = "")

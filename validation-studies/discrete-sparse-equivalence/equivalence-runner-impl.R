@@ -397,29 +397,36 @@ suppressMessages(library(Matrix))
 
 # Whether latent G and Phi are DEFINED for a case is decided from its structure
 # before anything is fitted: a binary or ordinal outcome, at least one facet, a
-# public design that reproduces the frozen sources exactly, and a complete
-# balanced coded panel. For an eligible case the comparison is required, so a
-# public fit that is refused, rejected or not computable leaves the quantity
-# unmeasured, which fails the stage. An ineligible case is recorded as not
-# applicable, with its reason.
+# complete balanced coded panel, and a public design that reproduces the frozen
+# sources. For an eligible case the comparison is required, so a public fit
+# that is refused, rejected or not computable leaves the quantity unmeasured,
+# which fails the stage. An ineligible case is recorded as not applicable, with
+# its reason.
+#
+# The frozen designs name their sources by alias: the nested design's `rater`
+# is the pair (site, nested_rater), not a column. The public random terms are
+# therefore built from each source's member columns, a several-column source
+# being their interaction, which for parent-scoped codes is the child within
+# its parent; for the nested design this is the documented
+# ~ item + site/nested_rater. Sources are matched by their member sets, not by
+# name, and the replication declared is the panel's actual equal count per
+# coded cell.
 .eqr_latent_eligibility <- function(row, map, geometry) {
   design <- EQ_DESIGNS[[row$structure]]
   no <- function(reason) list(eligible = FALSE, reason = reason)
   if (!row$family %in% c("binary", "ordinal")) return(no("latent G and Phi are compared for binary and ordinal cases"))
   if (!length(design$facets)) return(no("the public interface requires at least one facet"))
-  replicates <- if (identical(row$structure, "crossed2")) geometry$reps else 1L
-  gdesign <- tryCatch(gt_design("item", design$facets, random = names(design$term_members),
-                                replicates = replicates), error = function(e) e)
-  if (inherits(gdesign, "error")) return(no(paste("the public design cannot express the frozen sources:",
-                                                  conditionMessage(gdesign))))
-  members <- gdesign$term_members
-  same <- identical(sort(names(members)), sort(names(design$term_members))) &&
-    all(vapply(names(design$term_members), function(k)
-      identical(sort(members[[k]]), sort(design$term_members[[k]])), logical(1)))
-  if (!same) return(no("the public design does not reproduce the frozen sources"))
   counts <- table(map$panel[c("item", design$facets)])
   if (!length(counts) || any(counts == 0L) || any(counts != counts[[1L]]))
     return(no("the panel is not a complete balanced coded panel"))
+  terms <- unname(vapply(design$term_members, function(m) paste(m, collapse = ":"), character(1)))
+  gdesign <- tryCatch(gt_design("item", design$facets, random = stats::reformulate(terms),
+                                replicates = as.integer(counts[[1L]])), error = function(e) e)
+  if (inherits(gdesign, "error")) return(no(paste("the public design cannot express the frozen sources:",
+                                                  conditionMessage(gdesign))))
+  key <- function(members) sort(vapply(members, function(m) paste(sort(m), collapse = "+"), character(1)))
+  if (!identical(unname(key(gdesign$term_members)), unname(key(design$term_members))))
+    return(no("the public design does not reproduce the frozen sources"))
   list(eligible = TRUE, design = gdesign, reason = "")
 }
 
@@ -923,7 +930,10 @@ suppressMessages(library(Matrix))
       for (b in backends) rec$add(ctx, row_kind = "case_disposition", backend = b, stage = s,
                                   quantity = "stage_not_run", disposition = paste0("not_run_after_stage_", stopped))
   }
-  verdict <- if (length(r1)) "validity_event" else if (!live()) "fail" else if (!supported) "unsupported" else "pass"
+  # Rule R3: a case outside the sparse support envelope is unsupported whatever
+  # happens in its dense-only checks; a failed dense-only transform stays
+  # visible as its own entry and never makes the case a compared one.
+  verdict <- if (length(r1)) "validity_event" else if (!supported) "unsupported" else if (!live()) "fail" else "pass"
   list(outcome = list(case = row$case, verdict = verdict, stopped = stopped, reason = reason), extra = extra)
 }
 
@@ -998,9 +1008,12 @@ eq_run_qualification <- function(study, tolerances) {
 # Runs every stage on the non-scoring calibration panels, never on a
 # qualification case: the stage 1-5 machinery on K01-K06; each overlay and
 # transform on a calibration case of the same family and structure where one
-# exists; and the references on K01 and on two additional panels built from
-# the calibration geometry (an ordinal single-source panel for clmm and a
-# categorical panel for the reference change, which the calibration set lacks).
+# exists; and the references on K01. Four additional panels built from the
+# calibration geometry cover what the calibration set lacks: an ordinal
+# single-source panel for clmm, a categorical panel for the reference change,
+# and two parent-scoped nested panels, complete (two sites with two raters
+# each, so latent G and Phi are defined) and incomplete (three raters, so the
+# second site has one).
 # Its output is set "calibration_exercise", produces no qualification verdict
 # and is not committed. tests/test_discrete_equivalence_runner.R uses the same
 # tables.
@@ -1011,10 +1024,14 @@ eq_run_qualification <- function(study, tolerances) {
     data.frame(case = "X09", family = "ordinal", link = "logit", structure = "single",
                covariance = "diagonal", geometry = "cal_small", sparse_supported = "yes"),
     data.frame(case = "X14", family = "categorical", link = "softmax", structure = "crossed2",
-               covariance = "diagonal", geometry = "cal_small", sparse_supported = "no_categorical"))
+               covariance = "diagonal", geometry = "cal_small", sparse_supported = "no_categorical"),
+    data.frame(case = "X07", family = "binary", link = "logit", structure = "nested",
+               covariance = "diagonal", geometry = "cal_medium", sparse_supported = "yes"),
+    data.frame(case = "X13", family = "ordinal", link = "probit", structure = "nested",
+               covariance = "log_cholesky", geometry = "cal_small", sparse_supported = "yes"))
   list(cases = cases,
        transforms = data.frame(transform = c("T1", "T2", "T3", "T4", "T5"),
-                               base_case = c("K02", "K02", "X14", "K03", "K04"), stringsAsFactors = FALSE),
+                               base_case = c("K02", "K02", "X14", "K03", "X13"), stringsAsFactors = FALSE),
        overlays = data.frame(overlay = c("N1", "N2", "N3", "N4", "N5", "N6"),
                              base_case = c("K01", "K02", "K02", "K04", "K01", "K06"), stringsAsFactors = FALSE),
        references = data.frame(case = c("K01", "K01", "X09"),

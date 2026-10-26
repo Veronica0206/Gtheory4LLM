@@ -573,7 +573,7 @@ ok(grepl("Refusing to run", runner, fixed = TRUE),
 # not one of the frozen protocol sources. It is pinned here like them, so the
 # implementation that executes is the reviewed one, and it assigns no name that
 # cases.R defines, so it cannot redefine a frozen ruler.
-IMPLEMENTATION_DIGEST <- "f8e203700e10102b5ca12cbda6ba654c"
+IMPLEMENTATION_DIGEST <- "20c494dc10c6ce9797947b87c2a91530"
 implementation <- file.path(STUDY, EQ_RUNNER_IMPLEMENTATION)
 ok(file.exists(implementation), "the judging implementation is present")
 ok(!EQ_RUNNER_IMPLEMENTATION %in% names(FROZEN_SOURCES),
