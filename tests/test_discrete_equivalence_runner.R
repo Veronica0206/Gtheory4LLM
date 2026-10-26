@@ -15,7 +15,9 @@
 #   * an R1 event, including a non-finite witness, or a failed stage stops the
 #     case, and the later stages are recorded as not run;
 #   * a case outside the sparse support envelope stays unsupported when a
-#     dense-only check fails, and is never counted as compared.
+#     dense-only check fails, and is never counted as compared;
+#   * the repeated-evaluation transform records each of its three quantities on
+#     each backend, and a planted repeat discrepancy still fails it.
 STUDY <- file.path("validation-studies", "discrete-sparse-equivalence")
 source(file.path(STUDY, "cases.R"))
 for (f in c("design", "discrete_response", "discrete_dense", "discrete_mode",
@@ -47,7 +49,7 @@ rows <- function(result, ...) {
 verdict <- function(result, kind, id) result$summary$verdict[result$summary$kind == kind & result$summary$id == id]
 original <- list(public = .eqr_public_fit, fit = .eqr_fit, reference = .eqr_reference_fit,
                  dense_at_mode = .eqr_dense_at_mode, evaluator = .gt_d_sparse_evaluator,
-                 reference_change = .eqr_reference_change)
+                 reference_change = .eqr_reference_change, solve = .eqr_solve)
 restore <- function() {
   .eqr_public_fit <<- original$public; .eqr_fit <<- original$fit; .eqr_reference_fit <<- original$reference
   .eqr_dense_at_mode <<- original$dense_at_mode; .gt_d_sparse_evaluator <<- original$evaluator
@@ -175,7 +177,30 @@ ok(identical(case_row$verdict, "unsupported") && identical(verdict(t3, "transfor
      !case_row$verdict %in% c("pass", "fail"),
    "a failed dense-only T3 keeps its case unsupported and out of the compared count, and stays visible itself")
 
+# ---- the repeated-evaluation transform's detail -------------------------------------
+t4_quantities <- c("marginal_nll", "conditional_mode", "log_determinant")
+t4 <- run(case("K02"), transforms = data.frame(transform = "T4", base_case = "K02"))
+t4_detail <- t4$detail[t4$detail$transform %in% "T4", ]
+ok(identical(verdict(t4, "transform", "T4:K02"), c("pass", "pass")) && nrow(t4_detail) == 6L &&
+     all(vapply(c("dense", "sparse"), function(b)
+       identical(sort(t4_detail$quantity[t4_detail$backend == b]), sort(t4_quantities)), logical(1))),
+   "T4 records its three quantities on each backend, six detail rows")
+# Every second solve, the repeat, returns an objective shifted by one.
+solves <- 0L
+.eqr_solve <- function(...) {
+  out <- original$solve(...)
+  solves <<- solves + 1L
+  if (!is.null(out) && solves %% 2L == 0L) out$nll <- out$nll + 1
+  out
+}
+t4_planted <- run(case("K02"), transforms = data.frame(transform = "T4", base_case = "K02"))
+.eqr_solve <- original$solve
+planted_detail <- t4_planted$detail[t4_planted$detail$transform %in% "T4", ]
+ok(identical(verdict(t4_planted, "transform", "T4:K02"), c("fail", "fail")) && nrow(planted_detail) == 6L &&
+     all(planted_detail$measured[planted_detail$quantity == "marginal_nll"] > 1e-12),
+   "a planted repeat discrepancy fails T4 on both backends, with its detail recorded")
+
 if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence runner regressions verified: required G/Phi comparisons including nested designs, ",
     "overlay conditions and per-backend non-acceptance, unconverged references, R1 and failed-stage ",
-    "stopping, and unsupported cases under rule R3.\n", sep = "")
+    "stopping, unsupported cases under rule R3, and the repeated-evaluation detail.\n", sep = "")

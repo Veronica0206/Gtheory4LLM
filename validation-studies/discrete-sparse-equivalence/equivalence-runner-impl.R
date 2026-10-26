@@ -530,8 +530,11 @@ suppressMessages(library(Matrix))
       for (k in seq_len(detail$repeats - 1L)) {
         again <- .eqr_solve(backend, theta, prep, groups, setup, control)
         if (is.null(again)) return(c(evaluation_unavailable = Inf))
-        out <- pmax(if (length(out)) out else 0, c(marginal_nll = e(base$nll, again$nll),
-          conditional_mode = e(base$mode, again$mode), log_determinant = e(base$logdet, again$logdet)))
+        current <- c(marginal_nll = e(base$nll, again$nll), conditional_mode = e(base$mode, again$mode),
+                     log_determinant = e(base$logdet, again$logdet))
+        # pmax() keeps its first argument's names, so the named vector leads:
+        # the detail record is written by quantity name.
+        out <- if (length(out)) pmax(current, out) else current
       }
       out
     },
