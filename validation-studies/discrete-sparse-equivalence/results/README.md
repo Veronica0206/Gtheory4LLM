@@ -17,9 +17,9 @@ numerical thread:
 
 ## Outcome
 
-**Executed, and not passed under the frozen rules.** Three fixed-parameter
-(stage 3) comparisons exceed their tolerances: one case on macOS and two on
-Linux. Every other comparison that ran is within tolerance.
+**Executed, and not passed under the frozen rules.** Five fixed-parameter
+(stage 3) quantity checks exceed their tolerances, in three case/platform
+outcomes: one case on macOS and two on Linux. Every other comparison that ran is within tolerance.
 
 | | macOS | Linux |
 |---|---|---|
@@ -51,9 +51,12 @@ inside the production inner tolerance of 1e-7. The sparse solve reached 1e-14
 in 6 steps. Dense solves of the same point tightened to 1e-9 move toward the
 sparse value: after 31 steps the tightened objective is 4.8e-9 below the
 production dense one and within 4e-11 of the sparse one, which is still the
-lowest. A tightening to 1e-10 does not converge within 500 steps. So at this
-point the sparse value is the more accurate, and the dense search reaches it
-only slowly. Rule R2 anticipates this: dense defines the semantics but is not a
+lowest. At `inner_tol = 1e-10`, the characterization reports 500 iterations
+and returns a valid evaluation under the solver's final acceptance rule (a
+final gradient at most ten times the tolerance); its final gradient is not
+recorded. Two things show that the sparse mode is the more accurate here: its
+far smaller gradient, and the tightened dense solve's agreement with it. A
+lower marginal objective alone would not show this. Rule R2 anticipates this: dense defines the semantics but is not a
 numerical oracle. On Linux the dense solve of the same point takes 6 steps and
 agrees with sparse within 1.1e-13, and the other two C13 points agree on macOS.
 The disagreement therefore belongs to the dense search's path at this point on

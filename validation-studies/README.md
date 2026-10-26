@@ -92,8 +92,8 @@ alone does not identify a newly added, then-uncommitted study runner.
 The [frozen study](discrete-sparse-equivalence/PROTOCOL.md) was executed from
 its reviewed judging implementation on macOS and Linux. The
 [record](discrete-sparse-equivalence/results/README.md) is not passed under the
-frozen rules: three fixed-parameter comparisons exceed their tolerances, by
-2e-12 to 5e-9.
+frozen rules: five fixed-parameter quantity checks exceed their tolerances, in
+three case/platform outcomes. The record gives each difference.
 - On macOS, the dense mode search at one C13 point stopped inside the inner
   tolerance but short of the mode that sparse reached.
 - On Linux, the C08 and C13 mode scores at the common latent point differ in
