@@ -101,6 +101,11 @@ three case/platform outcomes. The record gives each difference.
 
 Of the scored cases, 12 pass on macOS and 11 on Linux; C14 and C15 are
 unsupported. No tolerance was changed.
+[Amendment 1](discrete-sparse-equivalence/AMENDMENT-1.md) specifies stage 3
+rules derived from numerical analysis: a floating-point summation bound for the
+mode score, and a strong-convexity bound for the modes, with the solved
+quantities compared at common modes under the frozen tolerances. It is reported
+separately once executed; the original record stands unchanged.
 
 ## Work still needed
 

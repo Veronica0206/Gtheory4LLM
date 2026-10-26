@@ -731,6 +731,29 @@ for (name in names(RECORD_DIGESTS))
   ok(identical(content_digest(file.path(RESULTS, name)), unname(RECORD_DIGESTS[[name]])),
      paste0("results/", name, " is the executed record; a change needs a reviewed amendment"))
 
+# ---- Amendment 1 --------------------------------------------------------------------------
+# Specified after the original record and before its own execution
+# (AMENDMENT-1.md). Its three files are pinned so the amendment that executes is
+# the reviewed one. Its implementation replaces only the stage 3 judgment and
+# assigns no name cases.R defines. Its record does not exist yet, and the
+# original record above is untouched by it.
+AMENDMENT_DIGESTS <- c("AMENDMENT-1.md" = "fbefddd93d9b65c238798f5a9322658f", "amendment-1-impl.R" = "4a7cb03ee3de0b495c9de8f95468c16e",
+                       "run-equivalence-amendment-1.R" = "427398949070cb813b914ac7c9fb2ce8")
+for (name in names(AMENDMENT_DIGESTS))
+  ok(file.exists(file.path(STUDY, name)) &&
+       identical(content_digest(file.path(STUDY, name)), unname(AMENDMENT_DIGESTS[[name]])),
+     paste0(name, " matches its reviewed digest; a change needs a reviewed amendment of this pin"))
+amendment_assigned <- character()
+assigned <- character()
+for (expression in as.list(parse(file.path(STUDY, "amendment-1-impl.R"), keep.source = FALSE)))
+  collect_assignments(expression)
+amendment_assigned <- assigned
+ok(!length(intersect(amendment_assigned, frozen_names)) &&
+     "eq1_run_qualification" %in% amendment_assigned && ".eqr_stage3" %in% amendment_assigned,
+   "the amendment defines its entry point, replaces stage 3, and assigns no name cases.R defines")
+ok(!dir.exists(file.path(STUDY, "results-amendment-1")),
+   "no record under Amendment 1 exists before its execution")
+
 # ---- the calibration record ---------------------------------------------------------
 # Non-scoring observations on the six calibration cases, at the three frozen
 # points, in both backends, produced by calibrate.R before any qualification
@@ -766,5 +789,5 @@ if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence study freeze verified: source pinning, no RNG, matrix shape and ",
     "coverage, calibration disjointness, parent-scoped nesting, frozen numerical ",
     "choices, fixture digests and dimensions, degeneracy guard, the calibrated ",
-    "tolerance table and record, the pinned judging implementation, and the pinned executed record.\n",
+    "tolerance table and record, the pinned judging implementation, the pinned executed record, and the pinned Amendment 1.\n",
     sep = "")
