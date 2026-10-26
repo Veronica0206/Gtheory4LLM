@@ -1,0 +1,49 @@
+R: R version 4.5.2 (2025-10-31) | BLAS: /usr/lib/aarch64-linux-gnu/openblas-pthread/libblas.so.3 | LAPACK: 3.12.0 
+
+C08 start (inner_tol 1e-07)
+  dense :  7 Newton steps, final mode gradient 1.19e-11, objective 421.756957546309
+  sparse:  7 Newton steps, final mode gradient 1.19e-11, objective 421.756957546309
+  dense - sparse: objective -5.68e-14, mode (symmetric relative) 3.98e-16
+  dense solve to 1e-09 (7 steps): objective dense - ref 0, sparse - ref 5.68e-14; mode dense 0, sparse 3.98e-16
+  dense solve to 1e-10 (7 steps): objective dense - ref 0, sparse - ref 5.68e-14; mode dense 0, sparse 3.98e-16
+  mode score at latent zero: max|score| 91.92, max|dense - sparse| 2.7e-13 (relative to max|score| 2.94e-15)
+
+C08 displaced_positive (inner_tol 1e-07)
+  dense :  7 Newton steps, final mode gradient 4.62e-10, objective 418.592983606687
+  sparse:  7 Newton steps, final mode gradient 4.62e-10, objective 418.592983606687
+  dense - sparse: objective 0, mode (symmetric relative) 3.07e-16
+  dense solve to 1e-09 (7 steps): objective dense - ref 0, sparse - ref 0; mode dense 0, sparse 3.07e-16
+  dense solve to 1e-10 (8 steps): objective dense - ref 1.75e-10, sparse - ref 1.75e-10; mode dense 2.25e-11, sparse 2.25e-11
+  mode score at latent zero: max|score| 104, max|dense - sparse| 4.55e-13 (relative to max|score| 4.37e-15)
+
+C08 displaced_negative (inner_tol 1e-07)
+  dense :  7 Newton steps, final mode gradient 7.33e-14, objective 427.750946162946
+  sparse:  7 Newton steps, final mode gradient 6.88e-14, objective 427.750946162946
+  dense - sparse: objective 0, mode (symmetric relative) 2.77e-16
+  dense solve to 1e-09 (7 steps): objective dense - ref 0, sparse - ref 0; mode dense 0, sparse 2.77e-16
+  dense solve to 1e-10 (7 steps): objective dense - ref 0, sparse - ref 0; mode dense 0, sparse 2.77e-16
+  mode score at latent zero: max|score| 91.58, max|dense - sparse| 3.13e-13 (relative to max|score| 3.41e-15)
+
+C13 start (inner_tol 1e-07)
+  dense :  6 Newton steps, final mode gradient 2.29e-14, objective 880.589084790873
+  sparse:  6 Newton steps, final mode gradient 2.6e-14, objective 880.589084790873
+  dense - sparse: objective 1.14e-13, mode (symmetric relative) 5.01e-15
+  dense solve to 1e-09 (6 steps): objective dense - ref 0, sparse - ref -1.14e-13; mode dense 0, sparse 5.01e-15
+  dense solve to 1e-10 (6 steps): objective dense - ref 0, sparse - ref -1.14e-13; mode dense 0, sparse 5.01e-15
+  mode score at latent zero: max|score| 114.1, max|dense - sparse| 8.53e-13 (relative to max|score| 7.47e-15)
+
+C13 displaced_positive (inner_tol 1e-07)
+  dense :  6 Newton steps, final mode gradient 6.93e-14, objective 883.006331679524
+  sparse:  6 Newton steps, final mode gradient 5.55e-14, objective 883.006331679524
+  dense - sparse: objective 1.14e-13, mode (symmetric relative) 1.31e-15
+  dense solve to 1e-09 (6 steps): objective dense - ref 0, sparse - ref -1.14e-13; mode dense 0, sparse 1.31e-15
+  dense solve to 1e-10 (6 steps): objective dense - ref 0, sparse - ref -1.14e-13; mode dense 0, sparse 1.31e-15
+  mode score at latent zero: max|score| 136.9, max|dense - sparse| 2.13e-12 (relative to max|score| 1.56e-14)
+
+C13 displaced_negative (inner_tol 1e-07)
+  dense :  6 Newton steps, final mode gradient 1.18e-13, objective 877.468962258270
+  sparse:  6 Newton steps, final mode gradient 1.04e-14, objective 877.468962258270
+  dense - sparse: objective -1.14e-13, mode (symmetric relative) 5.46e-15
+  dense solve to 1e-09 (6 steps): objective dense - ref 0, sparse - ref 1.14e-13; mode dense 0, sparse 5.46e-15
+  dense solve to 1e-10 (6 steps): objective dense - ref 0, sparse - ref 1.14e-13; mode dense 0, sparse 5.46e-15
+  mode score at latent zero: max|score| 145.9, max|dense - sparse| 1.14e-12 (relative to max|score| 7.79e-15)

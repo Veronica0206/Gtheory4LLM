@@ -701,8 +701,35 @@ if (!is.null(reconstruction_map)) {
   ok(aware <= bound,
      "the permutation-aware reconstruction satisfies the frozen validity bound")
 }
-ok(!file.exists(file.path(STUDY, "results.csv")) && !dir.exists(file.path(STUDY, "results")),
-   "no qualification results are recorded; they arrive in their own later change")
+# The executed record (results/README.md) arrived in its own change after the
+# judging implementation was merged: one directory per platform, as the launcher
+# wrote it, in the frozen schema and covering the whole frozen matrix. It is
+# kept as executed, failures included, and pinned here so that no later edit of
+# a verdict passes silently.
+RESULTS <- file.path(STUDY, "results")
+ok(!file.exists(file.path(STUDY, "results.csv")), "no result sits at the study root")
+schema_columns <- strsplit(readLines(file.path(STUDY, "results-schema.csv"), warn = FALSE)[[1L]],
+                           ",", fixed = TRUE)[[1L]]
+RECORD_DIGESTS <- c(
+  "macos/results.csv" = "e38a41b29b40958d84019d516985087d", "macos/summary.csv" = "91c4f34aeb44750e254aac842200d04c",
+  "linux/results.csv" = "c0b6ba92ac15164475f561a02504da8f", "linux/summary.csv" = "7946ad7f672cf64ceed072054e80ac06")
+for (platform in c("macos", "linux")) {
+  record <- file.path(RESULTS, platform)
+  ok(all(file.exists(file.path(record, c("results.csv", "detail.csv", "summary.csv", "problems.txt",
+                                          "environment.txt", "session-info.txt")))),
+     paste0("the ", platform, " record is complete"))
+  rows <- read.csv(file.path(record, "results.csv"), stringsAsFactors = FALSE, check.names = FALSE)
+  ok(identical(names(rows), schema_columns) && identical(unique(rows$set), "qualification"),
+     paste0("the ", platform, " record uses the frozen schema for the qualification set"))
+  verdicts <- read.csv(file.path(record, "summary.csv"), stringsAsFactors = FALSE)
+  cases <- verdicts[verdicts$kind == "case", ]
+  ok(setequal(cases$id, EQ_CORE$case) &&
+       all(cases$verdict[cases$id %in% EQ_CORE$case[EQ_CORE$sparse_supported != "yes"]] == "unsupported"),
+     paste0("the ", platform, " record covers every frozen case, with the unsupported ones unsupported"))
+}
+for (name in names(RECORD_DIGESTS))
+  ok(identical(content_digest(file.path(RESULTS, name)), unname(RECORD_DIGESTS[[name]])),
+     paste0("results/", name, " is the executed record; a change needs a reviewed amendment"))
 
 # ---- the calibration record ---------------------------------------------------------
 # Non-scoring observations on the six calibration cases, at the three frozen
@@ -739,5 +766,5 @@ if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence study freeze verified: source pinning, no RNG, matrix shape and ",
     "coverage, calibration disjointness, parent-scoped nesting, frozen numerical ",
     "choices, fixture digests and dimensions, degeneracy guard, the calibrated ",
-    "tolerance table and record, the pinned judging implementation, and no recorded results.\n",
+    "tolerance table and record, the pinned judging implementation, and the pinned executed record.\n",
     sep = "")

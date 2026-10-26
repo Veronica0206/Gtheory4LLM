@@ -1,0 +1,14 @@
+r_version: R version 4.5.3 (2026-03-11)
+matrix_version: 1.7.4
+blas: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib
+lapack_version: 3.12.1
+lapack: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib
+cpu_model: Apple M4 Max
+long_double: FALSE
+threads: 1 1 1 1
+source_commit: bec56126d997bf3de8a209c7a02df09232cdd4e1
+r_tree: d93758cded8c2b170543d93fe4292703194b3438
+src_tree: 5d2e7503f0c0386bd4bb7db50d94d30e7ce7dce4
+tracked_changes: 0
+started_utc: 2026-10-26 14:55:01 UTC
+tolerances: a0f24f254d0733ff22d158e53390d782

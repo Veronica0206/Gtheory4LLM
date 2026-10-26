@@ -1,0 +1,15 @@
+merged commit: bec56126d997bf3de8a209c7a02df09232cdd4e1 (main after PR #103)
+R tree: d93758cded8c2b170543d93fe4292703194b3438
+src tree: 5d2e7503f0c0386bd4bb7db50d94d30e7ce7dce4
+study tree: f62e174167a6245f1c82f56a3f4bd0aa1e68d65d
+release archive source e0944b6 R tree: d93758cded8c2b170543d93fe4292703194b3438 src tree: 5d2e7503f0c0386bd4bb7db50d94d30e7ce7dce4
+sha256 run-equivalence.R: 9bc072e4e8057cc44f7b23dfd3050f086ede89c41bbc0b31715d16d3d085fbb1
+sha256 equivalence-runner-impl.R: 764143345d20381746189772486c09486656731d12ecffed20d12bff06a7c77d
+sha256 cases.R: b4d3e1e181b57d0aaa9ed5f8cba6311f842ef94ee84fb6896d806de7c68067bd
+sha256 tolerances.csv: b0a19ff9b54b45a40c21cebca20d5c80f3c16b28e137fdd781f4d27b3b058d72
+command: Rscript --vanilla validation-studies/discrete-sparse-equivalence/run-equivalence.R (one numerical thread; EQ_RESULTS_DIR per platform)
+platform runs: macOS (Apple M4 Max) from a clean clone at that commit; Linux in the offline container gtheory-linux-replication:4.5.2 (sha256:98772fda95e3...) from a second clean clone at that commit, mounted at /work (the container has no git, so its environment.txt records source_commit NA)
+EQ_RESULTS_DIR: results/macos and results/linux
+time: started 2026-10-26T14:55:00Z
+time: linux exit 0 at 2026-10-26T14:55:59Z
+time: macos exit 0 at 2026-10-26T14:58:50Z

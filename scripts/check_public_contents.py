@@ -99,14 +99,16 @@ STUDY_CSV_FILES = {
     f"validation-studies/discrete-sparse-fitted-smoke/{name}" for name in (
         "panels.csv", "dense-baseline.csv", "source-hashes.csv")
 } | {
-    # The equivalence qualification is frozen before execution and currently
-    # carries no results. Listed individually like the studies above: a
-    # directory prefix would admit whatever later appears there, which is
-    # exactly what a freeze is supposed to prevent.
+    # The equivalence qualification, frozen before execution, and its executed
+    # record. Listed individually like the studies above: a directory prefix
+    # would admit whatever later appears there, which is exactly what a freeze
+    # is supposed to prevent.
     f"validation-studies/discrete-sparse-equivalence/{name}" for name in (
         "fixture-digests.csv", "source-hashes.csv", "results-schema.csv", "tolerances.csv",
         "calibration/observations.csv", "calibration/validity.csv", "calibration/fits.csv",
-        "calibration/calibration-table.csv")
+        "calibration/calibration-table.csv",
+        "results/macos/results.csv", "results/macos/detail.csv", "results/macos/summary.csv",
+        "results/linux/results.csv", "results/linux/detail.csv", "results/linux/summary.csv")
 } | {"validation-studies/discrete-sparse-profile/warm-start-20261022/agreement.csv"} | {
     "validation-studies/discrete-recovery/results/" + name for name in (
         "config.csv", "source-files.csv", "replicates.csv", "summary.csv")

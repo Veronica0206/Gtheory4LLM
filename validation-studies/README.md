@@ -87,6 +87,21 @@ by ordinary tests. They remain available in the public source repository.
 Files identify the base source commit and exact working code used; a commit ID
 alone does not identify a newly added, then-uncommitted study runner.
 
+## Dense/sparse equivalence qualification, 2026-10-26
+
+The [frozen study](discrete-sparse-equivalence/PROTOCOL.md) was executed from
+its reviewed judging implementation on macOS and Linux. The
+[record](discrete-sparse-equivalence/results/README.md) is not passed under the
+frozen rules: three fixed-parameter comparisons exceed their tolerances, by
+2e-12 to 5e-9.
+- On macOS, the dense mode search at one C13 point stopped inside the inner
+  tolerance but short of the mode that sparse reached.
+- On Linux, the C08 and C13 mode scores at the common latent point differ in
+  summation order by about 1e-14 relative, against an absolute rule.
+
+Of the scored cases, 12 pass on macOS and 11 on Linux; C14 and C15 are
+unsupported. No tolerance was changed.
+
 ## Work still needed
 
 Larger predeclared campaigns must cover additional facets, fixed universes,
