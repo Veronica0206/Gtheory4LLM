@@ -313,7 +313,8 @@ fits the same sources through lme4. Acceptance requires completion,
 stationarity and restart checks, plus agreement between the two deviance
 calculations at the lme4 estimates. These checks do not prove global
 optimality. This alternative does not supply source-variance standard errors
-or coefficient intervals.
+or delta-method coefficient intervals; for a complete panel without declared
+batches, `gt_bootstrap()` supplies object-bootstrap coefficient intervals.
 
 To fit missing whole cells in a univariate Gaussian panel, explicitly select
 `gt_control(gaussian = list(engine = "lme4", panel = "observed"))`.

@@ -1,8 +1,8 @@
 # Roadmap
 
 Release history and development priorities, with current implementation separated
-from release qualification. The source is **1.0.0.9000**, an unreleased development
-version. Historical archives and evidence remain unchanged. Source
+from release qualification. The source is **1.0.0**, a release candidate.
+Historical archives and evidence remain unchanged. Source
 versioning does not assert GitHub publication or CRAN acceptance. Completed source changes
 are recorded in [NEWS.md](../NEWS.md), and source-identified run evidence belongs
 in [development status](DEVELOPMENT_STATUS.md). Nothing here is a release date.
@@ -16,7 +16,7 @@ is not scale or statistical qualification. The current remaining gates are in
 
 The roadmap below preserves the earlier staged plan. Its future-tense
 descriptions are historical planning context; use [limitations](LIMITATIONS.md)
-and the current help pages to determine the development version's actual scope.
+and the current help pages to determine the 1.0.0 source's actual scope.
 
 | Version or workstream | State and scope |
 |---|---|
@@ -24,10 +24,10 @@ and the current help pages to determine the development version's actual scope.
 | 0.4.0 | Prepared and tagged but not published; superseded by 0.4.1 |
 | 0.4.1 | Retained qualified maintenance archive, including the recorded noLD reference-backend correction and evidence |
 | 0.5.0 Study Planning | Published 2026-10-11 as a GitHub release and on CRAN: fixed-layout Gaussian batch projections, bounded cost-aware allocation search, and Gaussian pilot precision simulation; final archive qualification and publication tracked in development status |
-| 0.6.0 Model Interface | Frozen source: model-formula declaration with `measured`, `formula()` and `update()`, one class vector per engine, summary reliability and `deviance()`, print methods, the lme4 Gaussian engine cross-checked against the exact deviance, and the Laplace comparison `gt_laplace_check()`; final archive qualification and publication evidence pending |
+| 0.6.0 Model Interface | Published 2026-10-21 as a GitHub release; no CRAN submission recorded. Model-formula declaration with `measured`, `formula()` and `update()`, one class vector per engine, summary reliability and `deviance()`, print methods, the lme4 Gaussian engine cross-checked against the exact deviance, and the Laplace comparison `gt_laplace_check()` |
 | Future sparse milestone (previously planned as 0.5.0) | Public backend selection only after dense-sparse qualification and the declared full-panel resource benchmark; no release is implied by this target label |
 | Further statistical development | Broader validation campaigns, unbalanced targets, discrete uncertainty and joint batch/cost planning |
-| 1.0 | Future API stability and a substantially broader validated operating range |
+| 1.0.0 | Current source, a release candidate; its scope is in [NEWS](../NEWS.md), and its archive qualification and publication state are in [development status](DEVELOPMENT_STATUS.md) |
 
 ## 0.5.0: study planning
 

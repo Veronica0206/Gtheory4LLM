@@ -56,8 +56,13 @@ Gaussian execution path or changed after the run:
 
 The executed runner, [run-executed.R](results/run-executed.R), is identical to
 [run.R](run.R). [summarize.R](summarize.R) rebuilds `replicates.csv` and
-`summary.csv` byte for byte, either from the committed `replicates.csv` or from
-a run's per-replicate rows. From this directory,
+`summary.csv`, either from the committed `replicates.csv` or from a run's
+per-replicate rows. On the run's platform (macOS arm64, R 4.5.3) both files are
+rebuilt byte for byte from the committed `replicates.csv`. Elsewhere, compare
+`summary.csv` numerically: on Linux (aarch64, R 4.5.2) `replicates.csv` is
+identical and one mean interval width differs in its last printed digit
+(0.186163659435287 against 0.186163659435286, relative difference 5e-15).
+From this directory,
 `summarize_run("results", "summary-check")` writes into an existing empty
 `summary-check` directory and leaves the records unchanged. The run used R 4.5.3
 and OpenMx 2.22.11 on macOS (arm64) with 13 worker processes; fitting took 714

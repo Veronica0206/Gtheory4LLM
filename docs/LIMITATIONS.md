@@ -75,8 +75,10 @@ scientifically sufficient. Those are separate questions with separate evidence.
 ## Gaussian models
 
 - Exact balanced ML/REML for univariate and jointly multivariate outcomes.
-- The lme4 route supplies no source-component covariance or coefficient
-  intervals. Its observed-row option defaults to at most 1,000 rows and a
+- The lme4 route supplies no source-component covariance or delta-method
+  coefficient intervals. For a complete panel without declared batches,
+  `gt_bootstrap()` supplies object-bootstrap coefficient intervals. Its
+  observed-row option defaults to at most 1,000 rows and a
   512 MiB preparation budget for the independent dense likelihood. Structural
   checks refuse duplicate cells, aliased covariance kernels, batches and
   jointly multivariate outcomes; increasing a resource budget changes none of
@@ -344,8 +346,8 @@ scientifically sufficient. Those are separate questions with separate evidence.
   portable `gt_report()` and HTML output exclude the labels. An old fit without
   the recorded layout must be refitted for batch projections.
 
-These additional capabilities are in local development source version
-1.0.0.9000. Their implementation and statistical limitations are described
+These additional capabilities are in source version 1.0.0. Their
+implementation and statistical limitations are described
 above; full-scale and interval-coverage qualification remain open. Source
 versioning does not establish final-archive qualification, GitHub publication
 or CRAN acceptance; see [development status](DEVELOPMENT_STATUS.md) for the
