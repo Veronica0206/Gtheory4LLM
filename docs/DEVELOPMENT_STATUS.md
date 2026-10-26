@@ -50,6 +50,20 @@ log-Cholesky coordinates, whose observed information differences the analytic
 gradient. The default fit is unchanged; the route's qualification so far is
 recorded below.
 
+## 1.0.0 release gates
+
+These are the gates that remain before 1.0.0 is approved, as of 2026-10-26.
+Priorities in the historical sections below are not renewed requirements. The
+reduced scope decided at Q3 stands: whole-data fits of all four drug-review
+aspects and of the six mental-health flags remain deferred.
+
+| Gate | State |
+|---|---|
+| Candidate archive | `Gtheory4LLM_1.0.0.tar.gz` built and checked from main at `e0944b640ec192bce4bf50351fd7001401ab2182` (SHA-256 `53b0be9b3b48177f852f6a83825fde56a29d2d5a5c6e9f82b6cd34003b0e351f`, 775,224 bytes). All nine jobs of that commit's three workflows succeeded, including the R-devel and no-long-double checks of these exact bytes. It is adopted as the release archive |
+| Dense/sparse equivalence (#4) | The [protocol](../validation-studies/discrete-sparse-equivalence/PROTOCOL.md), fixtures and calibrated tolerances are frozen. The judging implementation is under review in its own change, and the executed record follows in a later change. Neither changes the package archive |
+| Native reproduction | The two scoped joint models of the [native workflow](REAL_DATA_WORKFLOW.md) run in full mode from isolated installations of the candidate archive on macOS and Linux. Each run is compared with the frozen point references and the saved conditional-information reference. In progress |
+| Release bundle | The archive, manual and manifest are prepared from the checked candidate and verified, then published as v1.0.0, following the [release checklist](RELEASE_CHECKLIST.md). A CRAN submission is recorded separately |
+
 ## Analytic gradient qualification, 2026-10-25
 
 The table preserves the project's earlier campaign records against the plan

@@ -12,7 +12,7 @@ targets. The current development adds sparse categorical fitting, optional full
 observed information, incomplete univariate Gaussian fitting, categorical
 simulation, explicit repeated-panel targets and bounded planning. Implementation
 is not scale or statistical qualification. The current remaining gates are in
-[development status](DEVELOPMENT_STATUS.md#current-development-priorities).
+[development status](DEVELOPMENT_STATUS.md#100-release-gates).
 
 The roadmap below preserves the earlier staged plan. Its future-tense
 descriptions are historical planning context; use [limitations](LIMITATIONS.md)
