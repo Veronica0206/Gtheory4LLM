@@ -104,8 +104,10 @@ unsupported. No tolerance was changed.
 [Amendment 1](discrete-sparse-equivalence/AMENDMENT-1.md) specifies stage 3
 rules derived from numerical analysis: a floating-point summation bound for the
 mode score, and a strong-convexity bound for the modes, with the solved
-quantities compared at common modes under the frozen tolerances. It is reported
-separately once executed; the original record stands unchanged.
+quantities compared at common modes, and each backend's returned objectives
+checked against its own algebra, under the frozen tolerances. Its launcher
+verifies reviewed runtime pins before anything runs. It is reported separately
+once executed; the original record stands unchanged.
 
 ## Work still needed
 

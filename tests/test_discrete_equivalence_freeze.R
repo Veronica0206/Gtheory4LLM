@@ -733,12 +733,13 @@ for (name in names(RECORD_DIGESTS))
 
 # ---- Amendment 1 --------------------------------------------------------------------------
 # Specified after the original record and before its own execution
-# (AMENDMENT-1.md). Its three files are pinned so the amendment that executes is
+# (AMENDMENT-1.md). Its four files are pinned so the amendment that executes is
 # the reviewed one. Its implementation replaces only the stage 3 judgment and
 # assigns no name cases.R defines. Its record does not exist yet, and the
 # original record above is untouched by it.
-AMENDMENT_DIGESTS <- c("AMENDMENT-1.md" = "fbefddd93d9b65c238798f5a9322658f", "amendment-1-impl.R" = "4a7cb03ee3de0b495c9de8f95468c16e",
-                       "run-equivalence-amendment-1.R" = "427398949070cb813b914ac7c9fb2ce8")
+AMENDMENT_DIGESTS <- c("AMENDMENT-1.md" = "826603919481f50ed1342c3126a74fcd", "amendment-1-impl.R" = "8414b41583f7d899709470f4bd190bdd",
+                       "run-equivalence-amendment-1.R" = "c805d6f73815bec7e6b69511fc57fb4f",
+                       "amendment-1-pins.csv" = "22d709a297e5d3f4b2c2751d71803058")
 for (name in names(AMENDMENT_DIGESTS))
   ok(file.exists(file.path(STUDY, name)) &&
        identical(content_digest(file.path(STUDY, name)), unname(AMENDMENT_DIGESTS[[name]])),
@@ -751,6 +752,23 @@ amendment_assigned <- assigned
 ok(!length(intersect(amendment_assigned, frozen_names)) &&
      "eq1_run_qualification" %in% amendment_assigned && ".eqr_stage3" %in% amendment_assigned,
    "the amendment defines its entry point, replaces stage 3, and assigns no name cases.R defines")
+# The runtime pins the amended launcher verifies before it sources anything:
+# it holds the manifest's digest, and the manifest pins this amendment, both
+# implementations, the tolerance table, the fixture pins and the frozen source
+# manifest, at the digests this test pins or verifies row by row above.
+held <- sub('^PINS_DIGEST <- "([0-9a-f]{32})"$', "\\1",
+            grep('^PINS_DIGEST <- "', readLines(file.path(STUDY, "run-equivalence-amendment-1.R"), warn = FALSE),
+                 value = TRUE))
+ok(identical(held, unname(AMENDMENT_DIGESTS[["amendment-1-pins.csv"]])),
+   "the amended launcher holds the reviewed manifest's digest")
+runtime <- read.csv(file.path(STUDY, "amendment-1-pins.csv"), stringsAsFactors = FALSE)
+expected <- c(AMENDMENT_DIGESTS[c("AMENDMENT-1.md", "amendment-1-impl.R")],
+              "equivalence-runner-impl.R" = IMPLEMENTATION_DIGEST, "tolerances.csv" = ADOPTED_TABLE_DIGEST,
+              "fixture-digests.csv" = content_digest(file.path(STUDY, "fixture-digests.csv")),
+              "source-hashes.csv" = content_digest(file.path(STUDY, "source-hashes.csv")))
+ok(identical(sort(runtime$file), sort(names(expected))) &&
+     identical(stats::setNames(runtime$md5, runtime$file)[names(expected)], expected),
+   "the runtime manifest pins exactly the reviewed amendment, implementations, tolerances and frozen pins")
 ok(!dir.exists(file.path(STUDY, "results-amendment-1")),
    "no record under Amendment 1 exists before its execution")
 
@@ -789,5 +807,5 @@ if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence study freeze verified: source pinning, no RNG, matrix shape and ",
     "coverage, calibration disjointness, parent-scoped nesting, frozen numerical ",
     "choices, fixture digests and dimensions, degeneracy guard, the calibrated ",
-    "tolerance table and record, the pinned judging implementation, the pinned executed record, and the pinned Amendment 1.\n",
+    "tolerance table and record, the pinned judging implementation, the pinned executed record, and the pinned Amendment 1 with its runtime pins.\n",
     sep = "")

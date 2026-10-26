@@ -14,6 +14,9 @@
 #   log_determinant_at_common_mode,
 #   marginal_negative_log_likelihood_at_common_mode
 #                                                A2b, frozen tolerances of the base quantity
+# and, within each backend,
+#   returned_conditional_objective,
+#   returned_marginal_negative_log_likelihood    A2c, frozen tolerances of the base quantity
 # The original "as produced" solved comparisons are recorded in detail.csv as
 # information only.
 
@@ -91,7 +94,21 @@
     if (all(is.finite(values))) max(values) else NaN
   }
   usable <- all(vapply(unlist(at_modes, recursive = FALSE), Negate(is.null), logical(1)))
-  c(predictor = .eq_difference(eta_d, eta_s, "predictor"),
+  # A2c: the objectives each evaluator returned, against its own algebra at its
+  # own returned mode. The evaluator returns the data term of the conditional
+  # objective and adds the penalty at its mode, as is done here.
+  returned <- function(b, value, q) {
+    own <- at_modes[[b]][[b]]
+    if (is.null(own) || length(value) != 1L || !is.finite(value)) NaN else .eq_difference(value, own[[q]], q)
+  }
+  conditional <- function(b) answers[[b]]$conditional_nll + sum(answers[[b]]$mode^2) / 2
+  c(dense_returned_conditional_objective = returned("dense", conditional("dense"), "conditional_objective"),
+    sparse_returned_conditional_objective = returned("sparse", conditional("sparse"), "conditional_objective"),
+    dense_returned_marginal_negative_log_likelihood =
+      returned("dense", answers$dense$nll, "marginal_negative_log_likelihood"),
+    sparse_returned_marginal_negative_log_likelihood =
+      returned("sparse", answers$sparse$nll, "marginal_negative_log_likelihood"),
+    predictor = .eq_difference(eta_d, eta_s, "predictor"),
     conditional_objective = .eq_difference(kd$nll + sum(u0^2) / 2, ks$nll + sum(u0^2) / 2, "conditional_objective"),
     hessian = .eq_difference(.gt_d_dense_hessian(kd$curvature, Wd, prep$n),
                              as.matrix(.gt_d_sparse_hessian(ks$curvature, Ws, prep$n)), "hessian"),
@@ -110,6 +127,7 @@
 .EQR1_GATING <- c("predictor", "conditional_objective", "hessian", "mode_score_summation_ratio",
                   "conditional_mode_convexity_ratio", "conditional_objective_at_common_mode",
                   "log_determinant_at_common_mode", "marginal_negative_log_likelihood_at_common_mode")
+.EQR1_RETURNED <- c("returned_conditional_objective", "returned_marginal_negative_log_likelihood")
 .EQR1_INFORMATION <- c("conditional_mode", "log_determinant", "marginal_negative_log_likelihood")
 
 .eqr1_tolerance <- function(tolerances, quantity, dimension) switch(quantity,
@@ -117,7 +135,7 @@
     rule = "A1: max_j |dense - sparse| / (2 gamma_n sum_i |W_ij g_i|)"),
   conditional_mode_convexity_ratio = list(value = 1,
     rule = "A2a: frozen mode metric / (sqrt(d) (g_dense + e_dense + g_sparse + e_sparse) / (1 + max|u|))"),
-  .eqr_tolerance(tolerances, sub("_at_common_mode$", "", quantity), dimension))
+  .eqr_tolerance(tolerances, sub("^returned_", "", sub("_at_common_mode$", "", quantity)), dimension))
 
 # Replaces the merged implementation's stage 3 (AMENDMENT-1.md).
 .eqr_stage3 <- function(rec, ctx, map, evaluated, tolerances) {
@@ -129,6 +147,14 @@
   })
   names(values) <- names(evaluated$evaluations)
   verdicts <- character()
+  for (q in .EQR1_RETURNED) for (b in c("dense", "sparse")) {
+    measured <- vapply(values, function(v) if (is.null(v)) NaN else v[[paste0(b, "_", q)]], numeric(1))
+    for (label in names(measured))
+      rec$note(case = ctx$case, backend = b, stage = 3L, point = label, quantity = q,
+               measured = measured[[label]], bound = NA_real_, status = "gating", message = "")
+    verdicts <- c(verdicts, .eqr_judge(rec, ctx, b, 3L, q, if (all(is.finite(measured))) max(measured) else NaN,
+                                       .eqr1_tolerance(tolerances, q, ctx$random_dimension)))
+  }
   for (q in c(.EQR1_GATING, .EQR1_INFORMATION)) {
     measured <- vapply(values, function(v) if (is.null(v)) NaN else v[[q]], numeric(1))
     gating <- q %in% .EQR1_GATING
@@ -145,9 +171,9 @@
 }
 
 # ---- entry points --------------------------------------------------------------------
-# The merged runner verifies the pins of the set it is told; the amended set
-# carries its own label, so the qualification panels, dimensions and kernel
-# ranks are verified here first.
+# The merged runner verifies the frozen sources and the fixture pins of the set
+# it is told; the amended set carries its own label, so the qualification
+# panels, dimensions and kernel ranks are verified here first.
 .eqr1_verify_qualification <- function(study) {
   pinned <- .eqr_verify_freeze(study, EQ_CORE, EQ_GEOMETRY, "qualification")
   for (i in seq_len(nrow(EQ_CORE))) {
@@ -162,11 +188,43 @@
   invisible(TRUE)
 }
 
-eq1_run_qualification <- function(study, tolerances) {
+# The reviewed runtime pins (amendment-1-pins.csv, whose own digest the
+# launcher holds): every listed file must match its pin before anything runs.
+# The tolerance table is parsed from the same bytes that were verified, and is
+# the only table the qualification uses.
+.eqr1_verify_pins <- function(study) {
+  pins <- read.csv(file.path(study, "amendment-1-pins.csv"), stringsAsFactors = FALSE)
+  if (!"tolerances.csv" %in% pins$file)
+    stop("Refusing to run: amendment-1-pins.csv does not pin tolerances.csv.", call. = FALSE)
+  lines <- lapply(stats::setNames(pins$file, pins$file), function(name)
+    if (file.exists(file.path(study, name))) readLines(file.path(study, name), warn = FALSE))
+  digest <- vapply(lines, function(x) {
+    if (is.null(x)) return(NA_character_)
+    normalized <- tempfile("eq-pin-")
+    on.exit(unlink(normalized), add = TRUE)
+    writeBin(charToRaw(paste0(paste(x, collapse = "\n"), "\n")), normalized)
+    unname(tools::md5sum(normalized))
+  }, character(1))
+  moved <- pins$file[is.na(digest) | digest != pins$md5]
+  if (length(moved))
+    stop("Refusing to run: ", paste(moved, collapse = ", "), " differ from the reviewed pins in ",
+         "amendment-1-pins.csv.", call. = FALSE)
+  list(pins = pins, tolerances = read.csv(text = lines[["tolerances.csv"]], stringsAsFactors = FALSE))
+}
+
+# The qualification reads its tolerances from the verified file. A supplied
+# table must be that table exactly; any other is refused, not recorded.
+eq1_run_qualification <- function(study, tolerances = NULL) {
+  verified <- .eqr1_verify_pins(study)
+  if (!is.null(tolerances) && !identical(tolerances, verified$tolerances))
+    stop("Refusing to run: the supplied tolerance table is not the reviewed tolerances.csv.", call. = FALSE)
   .eqr1_verify_qualification(study)
   out <- Sys.getenv("EQ_RESULTS_DIR", file.path(study, "results-amendment-1"))
-  .eqr_run(study, tolerances, EQ_CORE, EQ_GEOMETRY, "qualification_amendment_1", EQ_TRANSFORM, EQ_NEGATIVE,
-           EQ_REFERENCE, out)
+  on.exit(if (file.exists(file.path(out, "environment.txt")))
+    cat(paste0("amendment_pins: ", verified$pins$file, " ", verified$pins$md5), sep = "\n",
+        file = file.path(out, "environment.txt"), append = TRUE), add = TRUE)
+  .eqr_run(study, verified$tolerances, EQ_CORE, EQ_GEOMETRY, "qualification_amendment_1", EQ_TRANSFORM,
+           EQ_NEGATIVE, EQ_REFERENCE, out)
 }
 
 # The same non-scoring calibration exercise as the merged implementation's,

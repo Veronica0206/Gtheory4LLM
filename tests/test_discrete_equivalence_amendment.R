@@ -12,7 +12,11 @@
 #     tolerance;
 #   * a score difference beyond the summation bound fails A1, and a sparse
 #     product of the same terms passes it;
-#   * modes farther apart than their gradients allow fail A2a.
+#   * modes farther apart than their gradients allow fail A2a;
+#   * an objective an evaluator returns off its own algebra fails A2c, although
+#     every comparison at the common modes still agrees;
+#   * the entry point and the launcher refuse a changed tolerance file, a
+#     changed implementation or manifest, and a modified in-memory table.
 STUDY <- file.path("validation-studies", "discrete-sparse-equivalence")
 source(file.path(STUDY, "cases.R"))
 for (f in c("design", "discrete_response", "discrete_dense", "discrete_mode",
@@ -46,8 +50,10 @@ original <- list(evaluate = .eqr_evaluate, at = .eqr1_at)
 # ---- a calibration case ----------------------------------------------------------------
 baseline <- run(case("K02"))
 ok(identical(baseline$summary$verdict[baseline$summary$id == "K02"], "pass") &&
-     setequal(stage3(baseline)$quantity, .EQR1_GATING) && all(stage3(baseline)$disposition == "pass"),
-   "K02 passes with every amended stage 3 quantity measured and gating")
+     setequal(stage3(baseline)$quantity, c(.EQR1_GATING, .EQR1_RETURNED)) &&
+     all(stage3(baseline)$disposition == "pass") &&
+     setequal(stage3(baseline)$backend[stage3(baseline)$quantity %in% .EQR1_RETURNED], c("dense", "sparse")),
+   "K02 passes with every amended stage 3 quantity measured and gating, A2c for each backend")
 ok(all(c("conditional_mode", "log_determinant", "marginal_negative_log_likelihood") %in%
          baseline$detail$quantity[baseline$detail$status == "information"]),
    "the original as-produced comparisons are kept as information")
@@ -77,9 +83,34 @@ ok(identical(stopped$summary$verdict[stopped$summary$id == "K02"], "pass") && al
 }
 planted <- run(case("K02"))
 .eqr1_at <- original$at
+# The planted sparse algebra also disagrees with the objective its evaluator
+# returned, so A2c fails for the sparse backend alone.
+failed <- stage3(planted, "fail")
 ok(identical(planted$summary$verdict[planted$summary$id == "K02"], "fail") &&
-     identical(stage3(planted, "fail")$quantity, "marginal_negative_log_likelihood_at_common_mode"),
+     setequal(failed$quantity, c("marginal_negative_log_likelihood_at_common_mode",
+                                 "returned_marginal_negative_log_likelihood")) &&
+     identical(failed$backend[failed$quantity == "returned_marginal_negative_log_likelihood"], "sparse"),
    "a 1e-9 disagreement at a common mode fails at the frozen 1e-10")
+
+# ---- the objectives an evaluator returns ------------------------------------------------------
+# A sparse evaluator that returns its objective 1e-8 off its own algebra. Every
+# comparison at the common modes recomputes the objective and still agrees, so
+# only A2c can catch it, and it must, for the sparse backend alone.
+for (field in c("nll", "conditional_nll")) {
+  .eqr_evaluate <- function(backend, theta, map, evaluator) {
+    answer <- original$evaluate(backend, theta, map, evaluator)
+    if (identical(backend, "sparse") && isTRUE(answer$valid)) answer[[field]] <- answer[[field]] + 1e-8
+    answer
+  }
+  shifted <- run(case("K02"))
+  .eqr_evaluate <- original$evaluate
+  quantity <- if (identical(field, "nll")) "returned_marginal_negative_log_likelihood" else "returned_conditional_objective"
+  failed <- stage3(shifted, "fail")
+  ok(identical(shifted$summary$verdict[shifted$summary$id == "K02"], "fail") && identical(failed$quantity, quantity) &&
+       identical(failed$backend, "sparse") &&
+       all(stage3(shifted)$disposition[stage3(shifted)$quantity %in% .EQR1_GATING] == "pass"),
+     paste0("a returned ", field, " 1e-8 off the evaluator's own algebra fails A2c alone"))
+}
 
 # ---- A1 on constructed inputs -------------------------------------------------------------
 W <- matrix(c(0.4, 0, 0.7, 0.4, 0.2, 0, 0, 0.7, 0.2, 0.4, 0, 0.7), 6L, 2L)
@@ -103,6 +134,78 @@ answers$sparse$inner_gradient <- 1e-3
 ok(isTRUE(.eqr1_mode_ratio(answers, matrix(0.1, 6L, 3L), at) <= 1),
    "the same modes pass when the reported gradients allow that distance")
 
+# ---- runtime pins -------------------------------------------------------------------------
+# The entry point verifies amendment-1-pins.csv and reads the tolerances from
+# the verified file. The run itself is replaced here, so a check that wrongly
+# passes stops at once instead of starting the qualification.
+run_reached <- function(...) stop("the run was reached", call. = FALSE)
+frozen_run <- .eqr_run
+.eqr_run <- run_reached
+outcome <- function(expr) tryCatch({ force(expr); "no error" }, error = conditionMessage)
+Sys.setenv(EQ_RESULTS_DIR = file.path(tempdir(), "eq-amendment-never-written"))
+ok(identical(outcome(eq1_run_qualification(STUDY)), "the run was reached") &&
+     identical(outcome(eq1_run_qualification(STUDY, tolerances = tolerances)), "the run was reached"),
+   "the reviewed pins verify, and the reviewed table may be supplied")
+modified <- tolerances
+modified$tolerance[[1L]] <- modified$tolerance[[1L]] * 10
+ok(grepl("supplied tolerance table is not the reviewed", outcome(eq1_run_qualification(STUDY, tolerances = modified))),
+   "a modified in-memory tolerance table is refused")
+copy_study <- function() {
+  root <- tempfile("eq-amendment-project-")
+  dir.create(file.path(root, "validation-studies"), recursive = TRUE)
+  file.copy(STUDY, file.path(root, "validation-studies"), recursive = TRUE)
+  file.copy("R", root, recursive = TRUE)
+  root
+}
+# The launcher runs in its own process from the copied project, with its record
+# directed to a directory that must never appear.
+launch <- function(root) {
+  home <- setwd(root)
+  on.exit(setwd(home), add = TRUE)
+  Sys.setenv(EQ_RESULTS_DIR = file.path(root, "never-written"))
+  suppressWarnings(system2(file.path(R.home("bin"), "Rscript"),
+    c("--vanilla", file.path(STUDY, "run-equivalence-amendment-1.R")), stdout = TRUE, stderr = TRUE, timeout = 120))
+}
+edit_line <- function(path, from, to) {
+  text <- readLines(path, warn = FALSE)
+  writeLines(sub(from, to, text, fixed = TRUE), path)
+}
+changes <- list(
+  "tolerances.csv" = function(study) edit_line(file.path(study, "tolerances.csv"), "1e-10", "1e-09"),
+  "equivalence-runner-impl.R" = function(study) cat("# edited\n", file = file.path(study, "equivalence-runner-impl.R"), append = TRUE),
+  # A tampered entry point that would skip its own check: only the launcher's
+  # check, made before anything is sourced, can refuse it.
+  "amendment-1-impl.R" = function(study) cat(".eqr1_verify_pins <- function(study) stop(\"tampered entry point reached\")\n",
+                                             file = file.path(study, "amendment-1-impl.R"), append = TRUE))
+for (name in names(changes)) {
+  root <- copy_study()
+  study <- file.path(root, STUDY)
+  changes[[name]](study)
+  ok(grepl(paste0("Refusing to run: ", name, " differ"), outcome(eq1_run_qualification(study)), fixed = TRUE),
+     paste0("the entry point refuses a changed ", name))
+  launched <- launch(root)
+  ok(!is.null(attr(launched, "status")) && any(grepl(paste0("Refusing to launch: ", name, " differ"), launched, fixed = TRUE)) &&
+       !dir.exists(file.path(root, "never-written")),
+     paste0("the launcher refuses a changed ", name, " before sourcing anything"))
+  unlink(root, recursive = TRUE)
+}
+# A manifest re-pinned to match a changed file is not the reviewed manifest.
+root <- copy_study()
+study <- file.path(root, STUDY)
+changes[["tolerances.csv"]](study)
+pins <- read.csv(file.path(study, "amendment-1-pins.csv"), stringsAsFactors = FALSE)
+pins$md5[pins$file == "tolerances.csv"] <- .eqr_content_digest(file.path(study, "tolerances.csv"))
+write.csv(pins, file.path(study, "amendment-1-pins.csv"), row.names = FALSE)
+launched <- launch(root)
+ok(!is.null(attr(launched, "status")) && any(grepl("Refusing to launch: ", launched, fixed = TRUE)) &&
+     any(grepl("is not the reviewed manifest", launched, fixed = TRUE)) &&
+     !dir.exists(file.path(root, "never-written")),
+   "the launcher refuses a re-pinned manifest")
+unlink(root, recursive = TRUE)
+.eqr_run <- frozen_run
+Sys.unsetenv("EQ_RESULTS_DIR")
+
 if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence Amendment 1 regressions verified: amended stage 3 on a calibration case, acceptable stopping ",
-    "points, arithmetic at common modes, the summation bound and the convexity bound.\n", sep = "")
+    "points, arithmetic at common modes, returned objectives, the summation bound, the convexity bound and ",
+    "the runtime pins.\n", sep = "")

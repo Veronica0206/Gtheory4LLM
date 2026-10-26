@@ -105,7 +105,7 @@ STUDY_CSV_FILES = {
     # is supposed to prevent.
     f"validation-studies/discrete-sparse-equivalence/{name}" for name in (
         "fixture-digests.csv", "source-hashes.csv", "results-schema.csv", "tolerances.csv",
-        "calibration/observations.csv", "calibration/validity.csv", "calibration/fits.csv",
+        "amendment-1-pins.csv", "calibration/observations.csv", "calibration/validity.csv", "calibration/fits.csv",
         "calibration/calibration-table.csv",
         "results/macos/results.csv", "results/macos/detail.csv", "results/macos/summary.csv",
         "results/linux/results.csv", "results/linux/detail.csv", "results/linux/summary.csv")

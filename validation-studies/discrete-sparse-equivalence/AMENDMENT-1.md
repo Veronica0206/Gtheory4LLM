@@ -100,6 +100,14 @@ quantity's measurement is the larger of its two values, one per common mode.
 This keeps the frozen arithmetic standard while comparing the backends at the
 same point.
 
+**A2c: the objectives each backend returned.** A2b recomputes the objectives,
+so on its own it does not check the values the production evaluator returns
+to the optimizer. Within each backend, the marginal objective its evaluator
+returned, and the conditional objective it formed (the returned data term plus
+‖u‖²/2 at its returned mode), must equal that backend's own evaluation at its
+own returned mode, under the same frozen absolute 1e-10.
+This is judged for the dense and for the sparse backend separately.
+
 The original "as produced" comparisons of the solved quantities are still
 computed. They are recorded in `detail.csv` for transparency, and are not used
 in the verdict.
@@ -108,9 +116,16 @@ in the verdict.
 
 1. **Implementation.** `amendment-1-impl.R` replaces only the stage 3 judgment.
    It is sourced after `equivalence-runner-impl.R`, whose rulers it does not
-   redefine. `run-equivalence-amendment-1.R` is the launcher. It verifies the
-   frozen sources, the calibrated tolerances and both implementation files, as
-   the frozen launcher does.
+   redefine. `run-equivalence-amendment-1.R` is the launcher. Before it sources
+   anything, it verifies the runtime pins: `amendment-1-pins.csv` must have the
+   digest written in the launcher, and every file it lists must match its pin.
+   Those files are this specification, both implementations, `tolerances.csv`,
+   `fixture-digests.csv` and `source-hashes.csv`. The entry point repeats the
+   check, parses the tolerance table from the bytes it verified, refuses any
+   supplied table that differs, and appends the pins to the run's
+   `environment.txt`. The merged runner then verifies the frozen sources and
+   fixture pins, as for the original record. The study's freeze test pins the
+   launcher, the manifest and the files it lists.
 2. **Before execution.** Merged after review; until then no scored case is
    evaluated under these rules. The rules need no new calibration: A1 and A2a
    are a-priori bounds, and A2b uses the frozen tolerances. The
