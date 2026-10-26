@@ -267,8 +267,9 @@ threshold was loosened; where an optimizer path changed, the change is named.
   both. Small-panel Wald intervals can be overly conservative, and neither
   conditioning nor withholding at an estimated boundary ensures coverage at a
   true one. Available-only summaries are not a calibration guarantee.
-- `gt_bootstrap()` is an object bootstrap for any accepted fit without declared
-  batches. Objects are drawn with replacement, each with its complete
+- `gt_bootstrap()` is an object bootstrap for any accepted fit of a complete
+  panel without declared batches. Objects are drawn with replacement, each
+  with its complete
   instrumentation panel, and an object drawn twice enters as two objects. Every
   resample is refitted under the fit's design, families, estimator, resolved
   covariance structures and controls, and must pass the same numerical
@@ -298,6 +299,16 @@ threshold was loosened; where an optimizer path changed, the change is named.
   "0" and "1"; the codes are returned to the recorded labels in their recorded
   order first, so labeled, reversed-level and mixed binary/ordinal fits no
   longer need `data =`.
+- `gt_bootstrap()` refuses a fit whose objects do not share one
+  instrumentation layout: the same facet-level combinations, as often, with the
+  same outcomes observed. In such an incomplete panel, for example an
+  observed-row lme4 fit with an evaluator who rated one item only, a resample
+  that omitted that item lost the evaluator, although the intervals are stated
+  to hold the observed levels fixed.
+- The bootstrap's attempt and leave-one-out records give the retry seed each
+  refit used. An explicit Gaussian `retry_seed`, in the fit's controls or in
+  `control =`, governs every refit's restarts and is now recorded, instead of
+  an unused seed from the stream.
 - `gt_report()` takes `bootstrap =` and accepts reliability and D-study tables
   with object-bootstrap intervals, recalculating them with that bootstrap after
   checking that it belongs to the fit. Edited tables, unrelated bootstraps and

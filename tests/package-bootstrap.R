@@ -5,7 +5,8 @@
 # and reduce to the percentile interval without bias or skew. Replicates must
 # not depend on the number of cores or the attempt budget, the caller's random
 # state must be untouched, refused and failed refits must be recorded and never
-# counted, and every guard must refuse with its reason.
+# counted, the records must give the retry seed each refit used, an incomplete
+# panel must be refused, and every guard must refuse with its reason.
 if (identical(Sys.getenv("GT_BOOTSTRAP_TEST_SOURCE"), "true")) {
   source("load_functions.R")
   internal <- function(name) get(name, envir = .GlobalEnv, inherits = FALSE)
@@ -78,6 +79,60 @@ if (forks) {
         "two cores give the same replicates and records as one")
 }
 cat("PASS: determinism\n")
+
+# --- the retry seed a refit uses ------------------------------------------------------
+# Without an explicit Gaussian retry seed each refit takes its own from the
+# stream fixed by seed: the leave-one-out refits' first, then one resampling
+# and one retry seed per attempt. An explicit one, in the fit's controls or in
+# control =, governs every refit's restarts, and the records must show it.
+seeded(5L)
+small <- expand.grid(rater = factor(1:3), item = factor(sprintf("s%02d", 1:12)))
+small$score <- rnorm(12)[small$item] + rnorm(3, sd = .4)[small$rater] + rnorm(nrow(small), sd = .6)
+small_fit <- gt_fit(small, "score", gt_design("item", "rater"))
+stream <- local({ seeded(9L); sample.int(.Machine$integer.max, 12L + 2L * 6L) })
+drawn <- gt_bootstrap(small_fit, replicates = 3, seed = 9, jackknife = TRUE)
+check(identical(drawn$records$retry_seed, stream[12L + 2L * seq_len(drawn$attempts)]) &&
+        identical(drawn$jackknife$records$retry_seed, stream[1:12]),
+      "without an explicit retry seed, each refit records the seed it drew from the stream")
+own_fit <- gt_fit(small, "score", gt_design("item", "rater"), control = gt_control(gaussian = list(retry_seed = 123L)))
+own <- gt_bootstrap(own_fit, replicates = 3, seed = 9, jackknife = TRUE)
+override <- gt_bootstrap(small_fit, replicates = 3, seed = 9, jackknife = TRUE,
+                         control = gt_control(gaussian = list(retry_seed = 77L)))
+check(all(own$records$retry_seed == 123L) && all(own$jackknife$records$retry_seed == 123L) &&
+        all(override$records$retry_seed == 77L) && all(override$jackknife$records$retry_seed == 77L),
+      "an explicit retry seed, the fit's own or in control =, is the one recorded for every refit")
+# One iteration per trial from a far start makes every refit restart, and each
+# restart perturbs its start with the retry seed. The restart history of the
+# refit inside the bootstrap must be the one a direct fit of its resample gives
+# with the recorded seed, and not the one the stream's seed would give.
+far <- setNames(lapply(c("item", "rater", "Residual"), function(x) matrix(1e3, 1, 1)), c("item", "rater", "Residual"))
+restarting <- function(retry_seed) gt_control(gaussian = list(check_hessian = FALSE, initialization = "none",
+  start = far, max_iterations = 1L, extra_tries = 3L, retry_seed = retry_seed))
+.bootstrap_restarts <- new.env()
+.bootstrap_restarts$histories <- list()
+home <- environment(gt_bootstrap)
+invisible(suppressMessages(trace("gt_fit", where = home, print = FALSE, exit = quote(assign("histories",
+  c(.bootstrap_restarts$histories, list(returnValue()$retry_attempts)), envir = .bootstrap_restarts)))))
+restarted <- suppressWarnings(gt_bootstrap(small_fit, replicates = 1, max_attempts = 1, seed = 4,
+                                           control = restarting(123L)))
+suppressMessages(untrace("gt_fit", where = home))
+inside <- .bootstrap_restarts$histories
+record <- restarted$records[1, ]
+draw <- local({ seeded(record$seed); sample.int(12L, 12L, replace = TRUE) })
+resample <- do.call(rbind, lapply(seq_along(draw), function(k) {
+  rows <- small[small$item == levels(small$item)[[draw[[k]]]], ]
+  rows$item <- k
+  rows
+}))
+resample$item <- factor(resample$item, levels = seq_along(draw))
+replay <- function(retry_seed) suppressWarnings(gt_fit(resample, "score", gt_design("item", "rater"),
+  control = restarting(retry_seed)))$retry_attempts$minus2loglik
+streamed <- local({ seeded(4L); sample.int(.Machine$integer.max, 12L + 2L) })[[14L]]
+check(length(inside) == 1L && nrow(inside[[1L]]) == 4L && identical(record$retry_seed, 123L) &&
+        identical(replay(record$retry_seed), inside[[1L]]$minus2loglik) &&
+        !identical(replay(streamed), inside[[1L]]$minus2loglik),
+      "a refit's restarts are replayed by its recorded retry seed and not by the stream's")
+cat("PASS: retry seeds\n")
 
 # --- coefficient intervals against closed forms ---------------------------------
 # Item-by-rater with four raters: Erho2 = item / (item + residual / 4) and
@@ -237,6 +292,37 @@ check(nrow(errors) > 0L && all(grepl("Every declared category must occur", error
         failing$attempts == max(accepted) && nrow(failing$records) == failing$attempts && failing$attempts > 4L,
       "failed refits are recorded as errors and never counted; attempts run to the last accepted replicate")
 cat("PASS: discrete warm starts, refusals and errors\n")
+
+# --- incomplete panels -------------------------------------------------------------
+# The intervals hold the observed facet levels fixed, so every object must share
+# one instrumentation layout. Here rater 5 rated item 1 only: a draw without
+# item 1 would lose rater 5, so an accepted observed-row fit of this panel is
+# refused. So is a discrete panel with one missing cell, and a complete
+# observed-row panel is still bootstrapped.
+if (requireNamespace("lme4", quietly = TRUE)) {
+  seeded(11L)
+  sparse <- expand.grid(item = factor(1:24), rater = factor(1:5))
+  sparse$score <- rnorm(24)[sparse$item] + rnorm(5, sd = .5)[sparse$rater] + rnorm(nrow(sparse), sd = .7)
+  sparse <- sparse[sparse$rater != "5" | sparse$item == "1", ]
+  observed <- gt_control(gaussian = list(engine = "lme4", panel = "observed"))
+  sparse_fit <- gt_fit(sparse, "score", gt_design("item", "rater"), control = observed)
+  check(isTRUE(sparse_fit$numerically_accepted) && nrow(sparse) == 97L, "the incomplete observed-row fit is accepted")
+  kept <- internal(".gt_bootstrap_data")(sparse_fit, NULL)
+  rows <- split(seq_len(nrow(kept)), factor(kept$item, levels = unique(kept$item)))
+  without <- internal(".gt_bootstrap_sample")(kept, "item", rows, c(2:24, 2L))
+  check(length(unique(without$rater)) == 4L, "a draw without item 1 loses rater 5")
+  expect_error(gt_bootstrap(sparse_fit, replicates = 50, seed = 3), "do not share one instrumentation layout",
+               "an incomplete observed-row panel is refused")
+  complete_fit <- gt_fit(d, "score", gt_design("item", "rater"), control = observed)
+  check(gt_bootstrap(complete_fit, replicates = 2, seed = 11)$accepted == 2L,
+        "a complete observed-row panel is still bootstrapped")
+}
+holed <- binary[-1L, ]
+holed_fit <- suppressWarnings(gt_fit(holed, "label", gt_design("item", "rater", full_cell = FALSE), gt_family("binary")))
+check(isTRUE(holed_fit$numerically_accepted), "the discrete fit with one missing cell is accepted")
+expect_error(gt_bootstrap(holed_fit, replicates = 50, seed = 8), "do not share one instrumentation layout",
+             "an incomplete discrete panel is refused")
+cat("PASS: incomplete panels\n")
 
 # --- guards ----------------------------------------------------------------------------
 expect_error(gt_bootstrap(fit, replicates = 5), "seed is required", "a seed is required")

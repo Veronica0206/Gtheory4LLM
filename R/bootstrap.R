@@ -14,6 +14,11 @@
 # recorded and never stand in for accepted ones; resampling continues until
 # the requested number of accepted refits or the attempt budget is reached.
 #
+# Every object must share one instrumentation layout: the same facet-level
+# combinations, as often, with the same outcomes observed. In an incomplete
+# panel a level confined to some objects is lost from every resample that omits
+# them, and that is a different procedure, so such a fit is refused.
+#
 # The facet levels are the observed ones in every replicate, so the intervals
 # describe object sampling conditional on the instrumentation panel. They do
 # not reflect that the evaluators, prompts or other facet levels were
@@ -24,7 +29,9 @@
 # Every attempt draws from its own seed, taken from one stream fixed by
 # `seed`, so a replicate does not depend on the number of cores, on how
 # attempts are batched, or on the attempt budget. The leave-one-object-out
-# refits for BCa acceleration take their retry seeds from the same stream.
+# refits for BCa acceleration take their retry seeds from the same stream. An
+# explicit Gaussian retry seed in the controls governs every refit's restarts
+# instead, as it does in gt_fit(); the record shows the seed a refit used.
 
 # Fewer finite replicate estimates than this leave an interval unavailable.
 .GT_BOOTSTRAP_MINIMUM <- 50L
@@ -62,16 +69,24 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
   object <- fit$design$object
   labels <- unique(data[[object]])
   rows_by_object <- split(seq_len(nrow(data)), factor(match(data[[object]], labels), levels = seq_along(labels)))
+  if (!.gt_bootstrap_common_layout(data, fit$design$facets, fit$outcomes, rows_by_object))
+    stop("The objects do not share one instrumentation layout (the same facet-level combinations, ",
+         "as often, with the same outcomes observed). A resample of this incomplete panel could lose ",
+         "a facet level confined to the objects it omits, so it cannot be bootstrapped by object.", call. = FALSE)
   n <- length(labels)
   # The leave-one-out retry seeds come first, then one resampling seed and one
   # retry seed per attempt; the stream's prefix does not depend on its length.
   seeds <- .gt_sim_rng(seed, sample.int(.Machine$integer.max, n + 2L * max_attempts))
+  # The retry seed a refit uses: an explicit Gaussian one in the controls, or
+  # else the stream's. The lme4 route refuses the setting.
+  explicit <- if (.gt_is_gaussian(fit)) control$gaussian$retry_seed
+  retry_of <- function(drawn) if (is.null(explicit)) drawn else as.integer(explicit)
   refit <- function(draw, retry_seed) .gt_bootstrap_refit(fit,
     .gt_bootstrap_sample(data, object, rows_by_object, draw), control, retry_seed, warm_start)
   attempt <- function(k) {
     draw <- .gt_sim_rng(seeds[[n + 2L * k - 1L]], sample.int(n, n, replace = TRUE))
-    c(list(attempt = k, seed = seeds[[n + 2L * k - 1L]], retry_seed = seeds[[n + 2L * k]]),
-      refit(draw, seeds[[n + 2L * k]]))
+    used <- retry_of(seeds[[n + 2L * k]])
+    c(list(attempt = k, seed = seeds[[n + 2L * k - 1L]], retry_seed = used), refit(draw, used))
   }
   done <- list()
   accepted <- 0L
@@ -90,9 +105,10 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
   done <- done[seq_len(cutoff)]
   kept <- done[vapply(done, function(x) identical(x$status, "accepted"), logical(1))]
   leave_one_out <- if (jackknife) {
-    out <- .gt_bootstrap_map(seq_len(n), function(i)
-      c(list(attempt = i, seed = NA_integer_, retry_seed = seeds[[i]]),
-        refit(setdiff(seq_len(n), i), seeds[[i]])), cores)
+    out <- .gt_bootstrap_map(seq_len(n), function(i) {
+      used <- retry_of(seeds[[i]])
+      c(list(attempt = i, seed = NA_integer_, retry_seed = used), refit(setdiff(seq_len(n), i), used))
+    }, cores)
     list(components = lapply(out, function(x) if (identical(x$status, "accepted")) x$components),
          records = .gt_bootstrap_records(out, labels),
          complete = all(vapply(out, function(x) identical(x$status, "accepted"), logical(1))))
@@ -130,6 +146,15 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
       !identical(panel$rows, recorded$rows) || !identical(panel$observed_cells, recorded$observed_cells))
     stop("data does not describe the panel this fit was made from.", call. = FALSE)
   data[columns]
+}
+
+# Whether every object carries the same multiset of facet-level combinations,
+# each with the same outcomes observed.
+.gt_bootstrap_common_layout <- function(data, facets, outcomes, rows_by_object) {
+  cells <- do.call(paste, c(list(.gt_tuple_key(data, facets)),
+                            lapply(data[outcomes], function(x) as.integer(is.na(x))), list(sep = "|")))
+  layouts <- vapply(rows_by_object, function(rows) paste(sort(cells[rows]), collapse = "\n"), character(1))
+  length(unique(layouts)) == 1L
 }
 
 # The retained frame holds each binary outcome as its 0/1 code over the
