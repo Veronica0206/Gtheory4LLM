@@ -563,16 +563,47 @@ for (quantity in names(ADOPTED_TOLERANCES)) {
 ok(identical(content_digest(TOLERANCES), ADOPTED_TABLE_DIGEST),
    "tolerances.csv matches its pinned digest; a change needs a reviewed amendment")
 
-# ---- execution remains blocked --------------------------------------------------
+# ---- the launcher and the judging implementation --------------------------------
 runner <- paste(readLines(file.path(STUDY, "run-equivalence.R"), warn = FALSE), collapse = "\n")
 ok(grepl("Refusing to run", runner, fixed = TRUE),
    "the launcher refuses to execute without a frozen tolerance table")
 
-# The launcher is frozen and immutable, so it must carry no judging logic: the
-# implementation that scores the cases has to be reviewable on its own, and if
-# it lived here it could only be added by editing a pinned file.
-ok(!file.exists(file.path(STUDY, EQ_RUNNER_IMPLEMENTATION)),
-   "the judging implementation is absent from the protocol freeze")
+# The launcher is frozen and immutable, so it carries no judging logic: the
+# implementation that scores the cases arrived in its own reviewed change. It is
+# not one of the frozen protocol sources. It is pinned here like them, so the
+# implementation that executes is the reviewed one, and it assigns no name that
+# cases.R defines, so it cannot redefine a frozen ruler.
+IMPLEMENTATION_DIGEST <- "7176104dfb55806d2f2fec5d702f995f"
+implementation <- file.path(STUDY, EQ_RUNNER_IMPLEMENTATION)
+ok(file.exists(implementation), "the judging implementation is present")
+ok(!EQ_RUNNER_IMPLEMENTATION %in% names(FROZEN_SOURCES),
+   "the judging implementation is not a frozen protocol source")
+ok(file.exists(implementation) && identical(content_digest(implementation), IMPLEMENTATION_DIGEST),
+   paste0("the judging implementation matches its reviewed digest; a change needs a reviewed ",
+          "amendment of this pin"))
+frozen_names <- local({
+  frozen <- new.env()
+  sys.source(file.path(STUDY, "cases.R"), envir = frozen)
+  ls(frozen, all.names = TRUE)
+})
+assigned <- character()
+collect_assignments <- function(x) {
+  if (!is.call(x)) return(invisible())
+  head <- x[[1L]]
+  if (is.symbol(head) && as.character(head) %in% c("<-", "<<-", "=", "assign") && length(x) >= 2L) {
+    target <- x[[2L]]
+    if (is.symbol(target)) assigned <<- c(assigned, as.character(target))
+    if (is.character(target)) assigned <<- c(assigned, target)
+  }
+  # An empty argument, as in x[, 1], is the empty symbol; there is nothing in it.
+  for (i in seq_along(x)[-1L]) if (!identical(x[[i]], quote(expr = ))) collect_assignments(x[[i]])
+}
+if (file.exists(implementation))
+  for (expression in as.list(parse(implementation, keep.source = FALSE))) collect_assignments(expression)
+ok(length(assigned) > 0L, "the implementation's assignments were found")
+ok(!length(intersect(assigned, frozen_names)),
+   paste0("the judging implementation assigns no name cases.R defines: ",
+          paste(intersect(assigned, frozen_names), collapse = ", ")))
 ok(grepl(EQ_RUNNER_IMPLEMENTATION, runner, fixed = TRUE),
    "the launcher names the exact future implementation file")
 ok(grepl("does not exist. The judging", runner, fixed = TRUE),
@@ -670,8 +701,8 @@ if (!is.null(reconstruction_map)) {
   ok(aware <= bound,
      "the permutation-aware reconstruction satisfies the frozen validity bound")
 }
-ok(!file.exists(file.path(STUDY, "results.csv")),
-   "the freeze contains no qualification results")
+ok(!file.exists(file.path(STUDY, "results.csv")) && !dir.exists(file.path(STUDY, "results")),
+   "no qualification results are recorded; they arrive in their own later change")
 
 # ---- the calibration record ---------------------------------------------------------
 # Non-scoring observations on the six calibration cases, at the three frozen
@@ -708,5 +739,5 @@ if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence study freeze verified: source pinning, no RNG, matrix shape and ",
     "coverage, calibration disjointness, parent-scoped nesting, frozen numerical ",
     "choices, fixture digests and dimensions, degeneracy guard, the calibrated ",
-    "tolerance table and record, and blocked execution.\n",
+    "tolerance table and record, the pinned judging implementation, and no recorded results.\n",
     sep = "")

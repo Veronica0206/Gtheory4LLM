@@ -96,7 +96,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_solve_validity.R` | The dense conditional-solve validity invariant |
 | `test_discrete_sparse_public.R` | Public backend selection uses the shared numerical acceptance policy and the sparse memory budget |
 | `test_discrete_sparse_joint_calls.R` | Small joint and call fixtures: sparse likelihoods against dense, recorded calls invariant to row order, size-one calls refused |
-| `test_discrete_equivalence_freeze.R` | The frozen dense/sparse equivalence study: digests of its protocol, cases and calibrated tolerances |
+| `test_discrete_equivalence_freeze.R` | The frozen dense/sparse equivalence study: digests of its protocol, cases, calibrated tolerances and judging implementation; the implementation redefines no frozen name |
 | `test_laplace_check_development.R` | Small public sparse-fit regression: call reconstruction from recorded identifiers and the Laplace check's dense budget refusals |
 | `test_preflight_development.R` | Structural and resource preflight checks for the development routes, without any optimization |
 | `test_gaussian_initialization.R` | The square-root kernel against the exact and dense deviances with analytic gradients, the recovery controller with the optimizer injected, and the public policies |
