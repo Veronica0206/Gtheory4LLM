@@ -19,6 +19,12 @@
 # and detail.csv keeps every measurement. Every rule is "at most the tolerance",
 # so the verdict on the largest is the verdict on each.
 #
+# Stages run in the protocol's order, each only on a case that survived every
+# earlier stage; a case that stops records which applicable stages did not run
+# and why. A required comparison that cannot be made is a failure, never a
+# pass, and a negative overlay whose condition did not occur is reported as
+# such.
+#
 # Before review this file is run only through eq_exercise_calibration(), on the
 # non-scoring calibration set. eq_run_qualification() is what the launcher calls.
 
@@ -201,72 +207,133 @@ suppressMessages(library(Matrix))
   else .gt_d_sparse_backend(map$groups, factors, map$prep$n, map$prep$q)$W
 }
 
-# ---- stages 1 and 3: the frozen fixed points ------------------------------------
-# Stage 1 is evaluated per backend and decides R1 before anything is compared
-# across backends; an R1 event ends the case. Stage 3 then compares the common
-# latent quantities at EQ_STAGE3_LATENT_POINT and the solved ones as each
-# backend produces them.
-.eqr_fixed_points <- function(rec, ctx, map, backends, tolerances) {
+# ---- stages 1 to 4 ---------------------------------------------------------------
+# PROTOCOL.md runs each stage only on cases that survived the one before, and an
+# R1 event stops the case. The fixed points are therefore evaluated once, stage
+# 1 is judged on those evaluations alone, and stages 2, 3 and 4 are judged in
+# order, each only if every earlier stage passed (.eqr_case).
+
+# Every backend evaluation at the three frozen points, with the backend-local
+# quantities at each solved mode. An evaluation that errors is recorded as
+# unusable, not raised.
+.eqr_points <- function(map, backends) {
   points <- .eq_fixed_points(map$start, map$lower, map$upper, map$zero_coordinates)
   evaluator <- .gt_d_sparse_evaluator()
-  bound <- EQ_VALIDITY_BOUND(ctx$random_dimension)
-  if (!isTRUE(all.equal(bound, .eqr_tolerance(tolerances, "solve_validity", ctx$random_dimension)$value)))
-    stop("the tolerance table's solve-validity constant differs from EQ_VALIDITY_BOUND", call. = FALSE)
-  witnesses <- list(); stage3 <- list(); r1 <- character()
-  for (label in EQ_FIXED_POINT_LABELS) {
+  evaluations <- lapply(stats::setNames(EQ_FIXED_POINT_LABELS, EQ_FIXED_POINT_LABELS), function(label) {
     theta <- points[[label]]
-    answers <- list(); at <- list()
-    for (b in backends) {
-      answer <- .eqr_evaluate(b, theta, map, evaluator)
-      measured <- if (.gt_d_evaluation_usable(answer)) {
+    lapply(stats::setNames(backends, backends), function(b) {
+      answer <- tryCatch(.eqr_evaluate(b, theta, map, evaluator),
+                         error = function(e) list(valid = FALSE, reason = conditionMessage(e)))
+      at <- if (.gt_d_evaluation_usable(answer)) tryCatch({
         W <- .eqr_design_matrix(b, map, answer$factors)
         if (identical(b, "dense")) .eqr_dense_at_mode(answer, theta, map$prep, W)
         else .eqr_sparse_at_mode(answer, theta, map$prep, W)
-      }
-      w <- c(solve_backward_error = if (is.null(measured)) Inf else measured$probe_backward_error,
-             factor_reconstruction = if (is.null(measured)) Inf else measured$factor_reconstruction,
-             log_determinant_witness = if (is.null(measured)) Inf else measured$logdet_witness,
-             finite_mode = as.numeric(!(is.list(answer) && length(answer$mode) && all(is.finite(answer$mode)))),
-             finite_objective = as.numeric(!.gt_d_evaluation_usable(answer)),
-             package_factor_check = as.numeric(!isTRUE(measured$package_factor_valid)))
-      for (q in names(w)) rec$note(case = ctx$case, backend = b, stage = 1L, point = label,
-                                   quantity = q, measured = w[[q]],
-                                   bound = if (q %in% c("finite_mode", "finite_objective", "package_factor_check")) 0 else bound)
-      witnesses[[b]] <- pmax(if (is.null(witnesses[[b]])) w * 0 else witnesses[[b]], w)
-      event <- !(w[["solve_backward_error"]] <= bound && w[["factor_reconstruction"]] <= bound &&
-                   w[["log_determinant_witness"]] <= bound && w[["finite_mode"]] == 0 &&
-                   w[["finite_objective"]] == 0 && w[["package_factor_check"]] == 0)
-      if (event) {
-        r1 <- union(r1, b)
-        rec$problem(ctx$case, " ", label, " ", b, ": backend numerical-validity event (",
-                    if (is.list(answer) && !is.null(answer$reason)) paste(answer$reason, collapse = "; ") else "witness above bound", ")")
-      }
-      answers[[b]] <- answer; at[[b]] <- measured
-    }
-    if (length(backends) == 2L && !length(r1))
-      stage3[[label]] <- .eqr_stage3_point(map, theta, answers, at)
+      }, error = function(e) list(error = conditionMessage(e)))
+      list(theta = theta, answer = answer, at = at)
+    })
+  })
+  list(points = points, evaluations = evaluations)
+}
+
+# The stage 1 witnesses of one evaluation. A witness that could not be computed
+# is NaN, and NaN never satisfies a bound, so it is an R1 event with its reason
+# kept rather than an error.
+.eqr_witnesses <- function(entry) {
+  at <- entry$at
+  numeric_witness <- function(name) {
+    value <- if (is.list(at) && is.numeric(at[[name]]) && length(at[[name]]) == 1L) at[[name]] else NaN
+    as.numeric(value)
   }
+  answer <- entry$answer
+  c(solve_backward_error = numeric_witness("probe_backward_error"),
+    factor_reconstruction = numeric_witness("factor_reconstruction"),
+    log_determinant_witness = numeric_witness("logdet_witness"),
+    finite_mode = as.numeric(!(is.list(answer) && length(answer$mode) && all(is.finite(answer$mode)))),
+    finite_objective = as.numeric(!.gt_d_evaluation_usable(answer)),
+    package_factor_check = as.numeric(!(is.list(at) && isTRUE(at$package_factor_valid))))
+}
+
+.EQR_FLAG_WITNESSES <- c("finite_mode", "finite_objective", "package_factor_check")
+
+.eqr_witness_holds <- function(name, value, bound)
+  isTRUE(is.finite(value) && if (name %in% .EQR_FLAG_WITNESSES) value == 0 else value <= bound)
+
+.eqr_stage1 <- function(rec, ctx, evaluated, backends, tolerances) {
+  bound <- EQ_VALIDITY_BOUND(ctx$random_dimension)
+  if (!isTRUE(all.equal(bound, .eqr_tolerance(tolerances, "solve_validity", ctx$random_dimension)$value)))
+    stop("the tolerance table's solve-validity constant differs from EQ_VALIDITY_BOUND", call. = FALSE)
+  r1 <- character()
   for (b in backends) {
-    w <- witnesses[[b]]
-    for (q in names(w)) {
-      tol <- if (q %in% c("finite_mode", "finite_objective", "package_factor_check"))
-        list(value = 0, rule = "exact") else list(value = bound, rule = "32 * random_dimension * eps")
-      .eqr_judge(rec, ctx, b, 1L, q, w[[q]], tol)
+    seen <- list()
+    for (label in names(evaluated$evaluations)) {
+      entry <- evaluated$evaluations[[label]][[b]]
+      w <- .eqr_witnesses(entry)
+      failing <- names(w)[!vapply(names(w), function(q) .eqr_witness_holds(q, w[[q]], bound), logical(1))]
+      for (q in names(w)) rec$note(case = ctx$case, backend = b, stage = 1L, point = label, quantity = q,
+                                   measured = w[[q]], bound = if (q %in% .EQR_FLAG_WITNESSES) 0 else bound,
+                                   status = if (q %in% failing) "fail" else "pass", message = "")
+      if (length(failing)) {
+        r1 <- union(r1, b)
+        reason <- c(if (is.list(entry$answer)) entry$answer$reason, if (is.list(entry$at)) entry$at$error)
+        rec$problem(ctx$case, " ", label, " ", b, ": backend numerical-validity event (",
+                    paste(c(paste("witness", paste(failing, collapse = ", ")), reason), collapse = "; "), ")")
+      }
+      seen[[label]] <- w
+    }
+    # The worst value per witness over the points; a non-finite one is kept as NaN.
+    worst <- apply(do.call(rbind, seen), 2L, function(v) if (all(is.finite(v))) max(v) else NaN)
+    for (q in names(worst)) {
+      tol <- if (q %in% .EQR_FLAG_WITNESSES) list(value = 0, rule = "exact") else
+        list(value = bound, rule = "32 * random_dimension * eps")
+      verdict <- if (.eqr_witness_holds(q, worst[[q]], bound)) "pass" else "fail"
+      rec$add(ctx, row_kind = "quantity", backend = b, stage = 1L, quantity = q,
+              measured_difference = worst[[q]], tolerance_applied = tol$value,
+              tolerance_rule = tol$rule, disposition = verdict)
     }
     if (b %in% r1) rec$add(ctx, row_kind = "validity_event", backend = b, stage = 1L,
                            quantity = "backend_numerical_validity", disposition = "validity_event")
   }
+  r1
+}
+
+# Stage 2, before anything is fitted: what each backend was handed at the start
+# point must be identical -- the random-effect design entry by entry, the source
+# factors each evaluation used, and the latent layout of its mode and predictor.
+.eqr_stage2 <- function(rec, ctx, map, evaluated) {
+  start <- evaluated$evaluations[["start"]]
+  identical_rule <- list(value = 0, rule = "identical")
+  factors <- .gt_d_covariance_factors(evaluated$points$start[-seq_along(map$prep$start)], map$setup)
+  Wd <- .eqr_design_matrix("dense", map, factors)
+  Ws <- as.matrix(.eqr_design_matrix("sparse", map, factors))
+  fd <- start$dense$answer$factors; fs <- start$sparse$answer$factors
+  layout <- function(a) list(length(a$mode), dim(as.matrix(a$eta)))
+  c(.eqr_judge(rec, ctx, "dense_vs_sparse", 2L, "random_effect_design",
+               if (identical(dim(Wd), dim(Ws))) max(abs(Wd - Ws)) else Inf, identical_rule),
+    .eqr_judge(rec, ctx, "dense_vs_sparse", 2L, "covariance_factors",
+               if (is.list(fd) && is.list(fs) && identical(lengths(fd), lengths(fs)))
+                 max(c(0, unlist(Map(function(a, b) abs(a - b), fd, fs)))) else Inf, identical_rule),
+    .eqr_judge(rec, ctx, "dense_vs_sparse", 2L, "latent_layout",
+               as.numeric(!identical(layout(start$dense$answer), layout(start$sparse$answer))), identical_rule))
+}
+
+.eqr_stage3 <- function(rec, ctx, map, evaluated, tolerances) {
+  values <- lapply(names(evaluated$evaluations), function(label) {
+    e <- evaluated$evaluations[[label]]
+    tryCatch(.eqr_stage3_point(map, e$dense$theta, list(dense = e$dense$answer, sparse = e$sparse$answer),
+                               list(dense = e$dense$at, sparse = e$sparse$at)),
+             error = function(err) { rec$problem(ctx$case, " ", label, ": stage 3 ", conditionMessage(err)); NULL })
+  })
+  names(values) <- names(evaluated$evaluations)
   verdicts <- character()
-  if (length(stage3)) {
-    for (q in c(EQ_STAGE3_AT_COMMON_LATENT, EQ_STAGE3_SOLVED)) {
-      values <- vapply(stage3, `[[`, numeric(1), q)
-      for (label in names(values)) rec$note(case = ctx$case, backend = "dense_vs_sparse", stage = 3L,
-                                            point = label, quantity = q, measured = values[[label]], bound = NA_real_)
-      verdicts <- c(verdicts, .eqr_judge(rec, ctx, "dense_vs_sparse", 3L, q, max(values),
-                                         .eqr_tolerance(tolerances, q, ctx$random_dimension)))
-    }
+  for (q in c(EQ_STAGE3_AT_COMMON_LATENT, EQ_STAGE3_SOLVED)) {
+    measured <- vapply(values, function(v) if (is.null(v)) NaN else v[[q]], numeric(1))
+    for (label in names(measured)) rec$note(case = ctx$case, backend = "dense_vs_sparse", stage = 3L, point = label,
+                                            quantity = q, measured = measured[[label]], bound = NA_real_)
+    verdicts <- c(verdicts, .eqr_judge(rec, ctx, "dense_vs_sparse", 3L, q,
+                                       if (all(is.finite(measured))) max(measured) else NaN,
+                                       .eqr_tolerance(tolerances, q, ctx$random_dimension)))
   }
-  list(r1 = r1, verdicts = verdicts, points = points, answers_at_start = NULL)
+  verdicts
 }
 
 .eqr_stage3_point <- function(map, theta, answers, at) {
@@ -310,34 +377,53 @@ suppressMessages(library(Matrix))
     return(list(disposition = "refused", message = conditionMessage(fit), elapsed = elapsed))
   e <- fit$diagnostics$evaluations
   list(disposition = if (isTRUE(fit$numerically_accepted)) "accepted" else "rejected", fit = fit,
-       optimizer_completed = isTRUE(fit$optimizer_completed), elapsed = elapsed, nll = -.eqr_scalar(fit$logLik, NA_real_), parameters = fit$parameters,
+       optimizer_completed = isTRUE(fit$optimizer_completed), elapsed = elapsed,
+       attempt_labels = vapply(fit$diagnostics$attempts, function(a) as.character(.eqr_scalar(a$label, "")), character(1)),
+       parameter_bounds = as.character(unlist(fit$diagnostics$parameter_bounds)),
+       nll = -.eqr_scalar(fit$logLik, NA_real_), parameters = fit$parameters,
        message = paste(sort(unique(unlist(fit$diagnostics$acceptance_failures))), collapse = "|"),
        inner_evaluations = .eqr_scalar(e$count, NA_integer_), invalid_evaluations = .eqr_scalar(e$invalid, NA_integer_),
        budget_terminations = .eqr_scalar(e$valid_at_inner_budget, NA_integer_),
        solve_validity_failures = .eqr_scalar(e$validity_events, NA_integer_))
 }
 
-.eqr_disposition_row <- function(rec, ctx, backend, stage, result, ...)
+.eqr_disposition_row <- function(rec, ctx, backend, stage, result, quantity = "disposition")
   rec$add(ctx, row_kind = "case_disposition", backend = backend, stage = stage,
-          quantity = "disposition", disposition = result$disposition,
+          quantity = quantity, disposition = result$disposition,
           inner_evaluations = .eqr_scalar(result$inner_evaluations, NA_integer_),
           invalid_evaluations = .eqr_scalar(result$invalid_evaluations, NA_integer_),
           budget_terminations = .eqr_scalar(result$budget_terminations, NA_integer_),
-          solve_validity_failures = .eqr_scalar(result$solve_validity_failures, NA_integer_), ...)
+          solve_validity_failures = .eqr_scalar(result$solve_validity_failures, NA_integer_))
 
-# Latent G and Phi need the public interface, which needs at least one facet and
-# a complete balanced coded panel; a case it cannot express is recorded as such.
-# The public design must also reproduce the frozen source set exactly.
-.eqr_public_latent <- function(row, map, geometry, engine) {
+# Whether latent G and Phi are DEFINED for a case is decided from its structure
+# before anything is fitted: a binary or ordinal outcome, at least one facet, a
+# public design that reproduces the frozen sources exactly, and a complete
+# balanced coded panel. For an eligible case the comparison is required, so a
+# public fit that is refused, rejected or not computable leaves the quantity
+# unmeasured, which fails the stage. An ineligible case is recorded as not
+# applicable, with its reason.
+.eqr_latent_eligibility <- function(row, map, geometry) {
   design <- EQ_DESIGNS[[row$structure]]
-  if (!row$family %in% c("binary", "ordinal"))
-    return(list(status = "not_expressible", message = "latent G and Phi are compared for binary and ordinal cases"))
-  if (!length(design$facets))
-    return(list(status = "not_expressible", message = "the public interface requires at least one facet"))
+  no <- function(reason) list(eligible = FALSE, reason = reason)
+  if (!row$family %in% c("binary", "ordinal")) return(no("latent G and Phi are compared for binary and ordinal cases"))
+  if (!length(design$facets)) return(no("the public interface requires at least one facet"))
   replicates <- if (identical(row$structure, "crossed2")) geometry$reps else 1L
   gdesign <- tryCatch(gt_design("item", design$facets, random = names(design$term_members),
                                 replicates = replicates), error = function(e) e)
-  if (inherits(gdesign, "error")) return(list(status = "not_expressible", message = conditionMessage(gdesign)))
+  if (inherits(gdesign, "error")) return(no(paste("the public design cannot express the frozen sources:",
+                                                  conditionMessage(gdesign))))
+  members <- gdesign$term_members
+  same <- identical(sort(names(members)), sort(names(design$term_members))) &&
+    all(vapply(names(design$term_members), function(k)
+      identical(sort(members[[k]]), sort(design$term_members[[k]])), logical(1)))
+  if (!same) return(no("the public design does not reproduce the frozen sources"))
+  counts <- table(map$panel[c("item", design$facets)])
+  if (!length(counts) || any(counts == 0L) || any(counts != counts[[1L]]))
+    return(no("the panel is not a complete balanced coded panel"))
+  list(eligible = TRUE, design = gdesign, reason = "")
+}
+
+.eqr_public_fit <- function(row, map, gdesign, engine) {
   panel <- map$panel
   spec <- .eq_families(row$family, row$link, row$geometry)[[1L]]
   if (identical(row$family, "binary")) panel$y <- factor(as.character(panel$y), levels = c("0", "1"))
@@ -348,61 +434,61 @@ suppressMessages(library(Matrix))
   fit <- tryCatch(suppressWarnings(gt_fit(panel, "y", design = gdesign,
     family = gt_family(spec$family, spec$link, levels = spec$levels), covariance = profile$covariance,
     control = gt_control(discrete = discrete))), error = function(e) e)
-  if (inherits(fit, "error")) return(list(status = "not_expressible", message = conditionMessage(fit)))
-  same <- identical(sort(names(fit$design$term_members)), sort(names(design$term_members))) &&
-    all(vapply(names(design$term_members), function(k)
-      identical(sort(fit$design$term_members[[k]]), sort(design$term_members[[k]])), logical(1)))
-  if (!same) return(list(status = "not_expressible", message = "the public design does not reproduce the frozen sources"))
+  if (inherits(fit, "error")) return(list(status = "refused", message = conditionMessage(fit)))
   if (!isTRUE(fit$numerically_accepted)) return(list(status = "rejected", message = "public fit not accepted"))
   latent <- tryCatch(as.data.frame(gt_reliability(fit, scale = "latent")), error = function(e) e)
-  if (inherits(latent, "error")) return(list(status = "not_expressible", message = conditionMessage(latent)))
-  list(status = "accepted", Erho2 = latent$Erho2, Phi = latent$Phi)
-}
-
-# ---- stages 2 and 4 ------------------------------------------------------------
-# Stage 2: what each backend was handed must be identical. The design matrix is
-# compared entry by entry at the start point, and each fit's own record of its
-# parameter labels, source covariance layout, latent dimensions and counts.
-.eqr_stage2 <- function(rec, ctx, map, points, fits) {
-  factors <- .gt_d_covariance_factors(points$start[-seq_along(map$prep$start)], map$setup)
-  Wd <- .eqr_design_matrix("dense", map, factors)
-  Ws <- as.matrix(.eqr_design_matrix("sparse", map, factors))
-  identical_rule <- list(value = 0, rule = "identical")
-  verdicts <- .eqr_judge(rec, ctx, "dense_vs_sparse", 2L, "random_effect_design",
-                         if (identical(dim(Wd), dim(Ws))) max(abs(Wd - Ws)) else Inf, identical_rule)
-  layout <- function(f) if (is.null(f$fit)) NULL else
-    list(names(f$fit$parameters), lapply(f$fit$covariance_components, dim), names(f$fit$covariance_components),
-         f$fit$link_dimensions, f$fit$counts, f$fit$group_counts, f$fit$nobs, f$fit$npar)
-  measured <- if (is.null(fits$dense$fit) || is.null(fits$sparse$fit)) NA_real_ else
-    as.numeric(!identical(layout(fits$dense), layout(fits$sparse)))
-  c(verdicts, .eqr_judge(rec, ctx, "dense_vs_sparse", 2L, "prepared_layout", measured, identical_rule))
+  if (inherits(latent, "error")) return(list(status = "unavailable", message = conditionMessage(latent)))
+  if (!all(is.finite(c(latent$Erho2, latent$Phi))))
+    return(list(status = "unavailable", message = "latent G or Phi is not finite"))
+  list(status = "accepted", Erho2 = latent$Erho2, Phi = latent$Phi, message = "")
 }
 
 .eqr_stage4 <- function(rec, ctx, row, map, geometry, fits, tolerances) {
   for (b in names(fits)) .eqr_disposition_row(rec, ctx, b, 4L, fits[[b]])
+  identical_rule <- list(value = 0, rule = "identical")
   agree <- identical(fits$dense$disposition, fits$sparse$disposition)
   verdicts <- .eqr_judge(rec, ctx, "dense_vs_sparse", 4L, "disposition_agreement", as.numeric(!agree),
                          list(value = 0, rule = "identical disposition"))
   if (!agree) rec$problem(ctx$case, ": dispositions differ (dense ", fits$dense$disposition,
                           ", sparse ", fits$sparse$disposition, ")")
   both <- agree && identical(fits$dense$disposition, "accepted")
-  objective <- if (both) abs(fits$dense$nll - fits$sparse$nll) / max(abs(fits$dense$nll), abs(fits$sparse$nll)) else NA_real_
-  distance <- if (both) .gt_d_fit_distance(fits$dense$parameters, fits$sparse$parameters, map$prep, map$setup) else NA_real_
+  layout <- function(f) list(names(f$fit$parameters), lapply(f$fit$covariance_components, dim),
+    names(f$fit$covariance_components), f$fit$link_dimensions, f$fit$counts, f$fit$group_counts,
+    f$fit$nobs, f$fit$npar)
   verdicts <- c(verdicts,
-    .eqr_judge(rec, ctx, "dense_vs_sparse", 4L, "fitted_objective_relative", objective,
+    .eqr_judge(rec, ctx, "dense_vs_sparse", 4L, "fitted_layout",
+               if (both) as.numeric(!identical(layout(fits$dense), layout(fits$sparse))) else NA_real_, identical_rule),
+    .eqr_judge(rec, ctx, "dense_vs_sparse", 4L, "fitted_objective_relative",
+               if (both) abs(fits$dense$nll - fits$sparse$nll) / max(abs(fits$dense$nll), abs(fits$sparse$nll)) else NA_real_,
                .eqr_tolerance(tolerances, "fitted_objective_relative")),
-    .eqr_judge(rec, ctx, "dense_vs_sparse", 4L, "fitted_parameter_distance", distance,
+    .eqr_judge(rec, ctx, "dense_vs_sparse", 4L, "fitted_parameter_distance",
+               if (both) .gt_d_fit_distance(fits$dense$parameters, fits$sparse$parameters, map$prep, map$setup) else NA_real_,
                .eqr_tolerance(tolerances, "fitted_parameter_distance")))
-  latent <- lapply(c(dense = "dense", sparse = "sparse"), function(e) .eqr_public_latent(row, map, geometry, e))
-  rec$note(case = ctx$case, backend = "dense_vs_sparse", stage = 4L, point = "fitted",
-           quantity = "latent_g_phi_status", measured = NA_real_,
-           bound = NA_real_, status = paste(vapply(latent, `[[`, character(1), "status"), collapse = "/"),
-           message = paste(unique(unlist(lapply(latent, `[[`, "message"))), collapse = "; "))
-  if (all(vapply(latent, function(x) identical(x$status, "accepted"), logical(1))))
-    verdicts <- c(verdicts, .eqr_judge(rec, ctx, "dense_vs_sparse", 4L, "latent_g_phi",
-      max(abs(latent$dense$Erho2 - latent$sparse$Erho2), abs(latent$dense$Phi - latent$sparse$Phi)),
-      .eqr_tolerance(tolerances, "latent_g_phi")))
-  verdicts
+  eligibility <- .eqr_latent_eligibility(row, map, geometry)
+  if (!isTRUE(eligibility$eligible)) {
+    rec$add(ctx, row_kind = "quantity", backend = "dense_vs_sparse", stage = 4L, quantity = "latent_g_phi",
+            disposition = "not_applicable")
+    rec$note(case = ctx$case, backend = "dense_vs_sparse", stage = 4L, point = "fitted", quantity = "latent_g_phi",
+             measured = NA_real_, bound = NA_real_, status = "not_applicable", message = eligibility$reason)
+    return(verdicts)
+  }
+  public <- lapply(c(dense = "dense", sparse = "sparse"), function(e) .eqr_public_fit(row, map, eligibility$design, e))
+  for (b in names(public)) {
+    rec$add(ctx, row_kind = "case_disposition", backend = b, stage = 4L, quantity = "public_fit_disposition",
+            disposition = public[[b]]$status)
+    rec$note(case = ctx$case, backend = b, stage = 4L, point = "fitted", quantity = "public_fit_disposition",
+             measured = NA_real_, bound = NA_real_, status = public[[b]]$status, message = public[[b]]$message)
+  }
+  statuses <- vapply(public, `[[`, character(1), "status")
+  measured <- if (all(statuses == "accepted"))
+    max(abs(public$dense$Erho2 - public$sparse$Erho2), abs(public$dense$Phi - public$sparse$Phi)) else NA_real_
+  if (!all(statuses == "accepted"))
+    rec$problem(ctx$case, ": latent G and Phi are defined for this case but could not be compared (dense ",
+                statuses[["dense"]], ", sparse ", statuses[["sparse"]], ")")
+  c(verdicts,
+    .eqr_judge(rec, ctx, "dense_vs_sparse", 4L, "public_disposition_agreement",
+               as.numeric(!identical(statuses[["dense"]], statuses[["sparse"]])), list(value = 0, rule = "identical disposition")),
+    .eqr_judge(rec, ctx, "dense_vs_sparse", 4L, "latent_g_phi", measured, .eqr_tolerance(tolerances, "latent_g_phi")))
 }
 
 # ---- stage 5: equivariance within one backend ----------------------------------
@@ -533,57 +619,63 @@ suppressMessages(library(Matrix))
   variance = factor^2, cholesky = factor, log_cholesky = log(factor),
   stop("no injected value for parameterization ", setup$parameterization, call. = FALSE))
 
-# An evaluation outcome is usable or not; a sparse evaluation must not be usable
-# where the dense one is not, and the reverse is equally a disagreement.
 .eqr_evaluation_class <- function(answer) if (.gt_d_evaluation_usable(answer)) "usable" else "unusable"
 
-# Agreement under an overlay is evidence about that condition only if the
-# condition actually occurred. Each overlay therefore records whether it did: a
-# failed mode solve or a nonfinite probe is produced when at least one backend's
-# evaluation is unusable, truncation when at least one optimizer did not
-# complete, and the control, start and factor injections by construction. An
-# overlay whose condition did not occur is reported as such, never as a pass.
-.eqr_overlay <- function(rec, ctx, overlay, row, map, tolerances) {
+# The frozen injections are applied unchanged. Whether the condition each one
+# names actually occurred is then established from the backends' own records,
+# never assumed from the injection:
+#   failed_mode_solve, nonfinite_probe  at least one evaluation is unusable;
+#   zero_restart_budget                 every fit that ran made no alternative attempt;
+#   truncated_optimizer                 at least one optimizer did not complete;
+#   artificial_bound_contact            at least one fit reports artificial bound contact;
+#   malformed_factor_refusal            the malformed factor violates the solve invariant,
+#                                       measured on each backend independently of its check.
+# When the condition occurred, each backend must independently not accept: an
+# unusable evaluation, a fit that is not accepted, or a refused factor. Agreement
+# between the backends is required as well, but agreement alone is never
+# credited, since two backends that both accept have both failed. An overlay
+# whose condition did not occur is reported as condition_not_produced.
+.eqr_overlay_outcome <- function(overlay, row, map) {
   injection <- EQ_NEGATIVE_INJECTION[[overlay]]
   condition <- EQ_NEGATIVE$condition[EQ_NEGATIVE$overlay == overlay]
-  octx <- c(ctx, list(overlay = overlay))
-  produced <- NA
-  agreement <- function(dispositions, accepted_word) {
-    for (b in names(dispositions)) .eqr_disposition_row(rec, octx, b, 6L, dispositions[[b]])
-    d <- vapply(dispositions, `[[`, character(1), "disposition")
-    converted <- identical(d[["sparse"]], accepted_word) && !identical(d[["dense"]], accepted_word)
-    c(.eqr_judge(rec, octx, "dense_vs_sparse", 6L, "disposition_agreement", as.numeric(!identical(d[["dense"]], d[["sparse"]])),
-                 list(value = 0, rule = "identical disposition")),
-      .eqr_judge(rec, octx, "sparse", 6L, "no_conversion_to_acceptance", as.numeric(converted),
-                 list(value = 0, rule = "sparse not accepted where dense is not")))
-  }
-  verdicts <- switch(injection$kind,
+  fit_both <- function(control) list(dense = .eqr_fit(row, map, "dense", control),
+                                     sparse = .eqr_fit(row, map, "sparse", control))
+  ran <- function(fits) Filter(function(f) !is.null(f$fit), fits)
+  switch(injection$kind,
     fixture = , parameter = {
       theta <- map$start
       if (identical(injection$kind, "fixture")) {
         # A saturating intercept with a large source factor: the first fixed
-        # coordinate is set to the frozen intercept and every source's
-        # covariance coordinate to the frozen factor in its parameterization.
+        # coordinate takes the frozen intercept and every source covariance
+        # coordinate the frozen factor in its parameterization.
         theta[[1L]] <- injection$intercept
         theta[-seq_along(map$prep$start)] <- .eqr_covariance_value(map$setup, injection$factor)
       } else theta[[injection$coordinate]] <- injection$value
       evaluator <- .gt_d_sparse_evaluator()
-      answers <- list(dense = .eqr_evaluate("dense", theta, map, evaluator),
-                      sparse = .eqr_evaluate("sparse", theta, map, evaluator))
-      for (b in names(answers)) rec$note(case = ctx$case, overlay = overlay, backend = b, stage = 6L,
-        point = "injected", quantity = "evaluation", measured = NA_real_, bound = NA_real_,
-        status = .eqr_evaluation_class(answers[[b]]),
-        message = paste(.eqr_scalar(answers[[b]]$reason, ""), collapse = "; "))
-      produced <- any(vapply(answers, function(a) !.gt_d_evaluation_usable(a), logical(1)))
-      agreement(lapply(answers, function(a) list(disposition = .eqr_evaluation_class(a))), "usable")
+      answers <- lapply(c(dense = "dense", sparse = "sparse"), function(b)
+        tryCatch(.eqr_evaluate(b, theta, map, evaluator), error = function(e) list(valid = FALSE, reason = conditionMessage(e))))
+      classes <- vapply(answers, .eqr_evaluation_class, character(1))
+      list(dispositions = lapply(classes, function(x) list(disposition = x)), accepting = "usable",
+           produced = any(classes == "unusable"),
+           evidence = paste0(names(classes), " ", classes, " (",
+                             vapply(answers, function(a) paste(.eqr_scalar(a$reason, "valid"), collapse = "; "), character(1)),
+                             ")", collapse = "; "))
     },
     control = {
       control <- .eq_control_for(row$covariance)
       control[[injection$field]] <- injection$value
-      fits <- list(dense = .eqr_fit(row, map, "dense", control), sparse = .eqr_fit(row, map, "sparse", control))
-      produced <- if (identical(condition, "truncated_optimizer"))
-        any(vapply(fits, function(f) !isTRUE(f$optimizer_completed), logical(1))) else TRUE
-      agreement(fits, "accepted")
+      fits <- fit_both(control)
+      done <- ran(fits)
+      produced <- switch(condition,
+        zero_restart_budget = length(done) > 0L &&
+          all(vapply(done, function(f) !any(startsWith(f$attempt_labels, "alternative")), logical(1))),
+        truncated_optimizer = any(vapply(done, function(f) !isTRUE(f$optimizer_completed), logical(1))),
+        stop("no condition rule for ", condition, call. = FALSE))
+      list(dispositions = fits, accepting = "accepted", produced = isTRUE(produced),
+           evidence = paste0(names(fits), " ", vapply(fits, `[[`, character(1), "disposition"), " (attempts ",
+                             vapply(fits, function(f) paste(f$attempt_labels, collapse = ","), character(1)),
+                             "; optimizer completed ", vapply(fits, function(f) isTRUE(f$optimizer_completed), logical(1)),
+                             ")", collapse = "; "))
     },
     start = {
       control <- .eq_control_for(row$covariance)
@@ -591,52 +683,70 @@ suppressMessages(library(Matrix))
       coordinates <- which(startsWith(names(start), paste0(injection$source, "::")))
       start[coordinates] <- map$lower[coordinates]
       control$start <- start
-      produced <- TRUE
-      agreement(list(dense = .eqr_fit(row, map, "dense", control), sparse = .eqr_fit(row, map, "sparse", control)),
-                "accepted")
+      fits <- fit_both(control)
+      contact <- vapply(fits, function(f) length(f$parameter_bounds) > 0L, logical(1))
+      final <- vapply(fits, function(f) if (is.null(f$parameters)) NA_real_ else
+        max(f$parameters[coordinates]), numeric(1))
+      list(dispositions = fits, accepting = "accepted", produced = any(contact),
+           evidence = paste0(names(fits), " ", vapply(fits, `[[`, character(1), "disposition"),
+                             " (bound contact: ", vapply(fits, function(f) paste(c(f$parameter_bounds, "none")[1L], collapse = ","), character(1)),
+                             "; injected coordinate ends at ", format(final, digits = 10), ")", collapse = "; "))
     },
     injection = {
-      # The factor's diagonal is scaled by the frozen amount. Each backend's own
-      # final-factor check must refuse the malformed factor; the dense factor is
-      # the upper triangular chol(H), the sparse one the CHOLMOD factor of the
-      # matrix that malformed factor reproduces, so both backends judge the same
-      # malformation in their own representation.
+      # The factor's diagonal is scaled by the frozen amount. The dense factor is
+      # the upper triangular chol(H); the sparse one is the CHOLMOD factor of the
+      # matrix that the malformed factor reproduces, so each backend judges the
+      # same malformation in its own representation.
       evaluator <- .gt_d_sparse_evaluator()
-      refused <- list()
-      produced <- TRUE
-      for (b in c("dense", "sparse")) {
+      outcome <- lapply(c(dense = "dense", sparse = "sparse"), function(b) {
         answer <- .eqr_evaluate(b, map$start, map, evaluator)
         kernel <- .gt_d_response_kernel(answer$eta, map$start, map$prep)
         W <- .eqr_design_matrix(b, map, answer$factors)
-        check <- if (identical(b, "dense")) {
+        probe <- .gt_d_solve_probes(ncol(W))[[1L]]
+        if (identical(b, "dense")) {
           H <- .gt_d_dense_hessian(kernel$curvature, W, map$prep$n)
           R <- chol(H); diag(R) <- diag(R) * injection$scale
-          .gt_d_final_factor_check(H, R)
+          check <- .gt_d_final_factor_check(H, R)
+          violation <- .gt_d_backward_error(H, probe, backsolve(R, forwardsolve(t(R), probe)))
         } else {
           H <- .gt_d_sparse_hessian(kernel$curvature, W, map$prep$n)
           parts <- Matrix::expand2(.gt_d_sparse_factor(H)$factor, LDL = FALSE)
           L <- parts[[2L]]; Matrix::diag(L) <- Matrix::diag(L) * injection$scale
           parts[[2L]] <- L; parts[[3L]] <- Matrix::t(L)
-          malformed <- Matrix::forceSymmetric(methods::as(Reduce(`%*%`, parts), "CsparseMatrix"))
-          .gt_d_sparse_final_factor_check(H, .gt_d_sparse_factor(malformed))
+          malformed <- .gt_d_sparse_factor(Matrix::forceSymmetric(methods::as(Reduce(`%*%`, parts), "CsparseMatrix")))
+          check <- .gt_d_sparse_final_factor_check(H, malformed)
+          violation <- .gt_d_backward_error(H, probe, .gt_d_sparse_solve(malformed, probe))
         }
-        refused[[b]] <- list(disposition = if (isTRUE(check$valid)) "accepted" else "refused")
-        rec$note(case = ctx$case, overlay = overlay, backend = b, stage = 6L, point = "start",
-                 quantity = "malformed_factor_backward_error",
-                 measured = .eqr_scalar(check$solve_backward_error, NA_real_),
-                 bound = .eqr_scalar(check$solve_validity_bound, NA_real_), status = refused[[b]]$disposition, message = "")
-      }
-      c(agreement(refused, "accepted"),
-        .eqr_judge(rec, octx, "dense", 6L, "malformed_factor_refused", as.numeric(refused$dense$disposition != "refused"),
-                   list(value = 0, rule = "refused")),
-        .eqr_judge(rec, octx, "sparse", 6L, "malformed_factor_refused", as.numeric(refused$sparse$disposition != "refused"),
-                   list(value = 0, rule = "refused")))
+        list(disposition = if (isTRUE(check$valid)) "accepted" else "refused",
+             violated = isTRUE(is.finite(violation) && violation > .gt_d_solve_bound(nrow(H))) || !is.finite(violation),
+             violation = violation)
+      })
+      list(dispositions = outcome, accepting = "accepted",
+           produced = all(vapply(outcome, `[[`, logical(1), "violated")),
+           evidence = paste0(names(outcome), " ", vapply(outcome, `[[`, character(1), "disposition"),
+                             " (malformed backward error ", format(vapply(outcome, `[[`, numeric(1), "violation"), digits = 4),
+                             ")", collapse = "; "))
     },
     stop("no implementation for injection kind ", injection$kind, call. = FALSE))
+}
+
+.eqr_overlay <- function(rec, ctx, overlay, row, map, tolerances) {
+  octx <- c(ctx, list(overlay = overlay))
+  condition <- EQ_NEGATIVE$condition[EQ_NEGATIVE$overlay == overlay]
+  outcome <- .eqr_overlay_outcome(overlay, row, map)
+  for (b in names(outcome$dispositions)) .eqr_disposition_row(rec, octx, b, 6L, outcome$dispositions[[b]])
+  d <- vapply(outcome$dispositions, `[[`, character(1), "disposition")
   rec$note(case = ctx$case, overlay = overlay, backend = "dense_vs_sparse", stage = 6L, point = "injected",
-           quantity = "condition_produced", measured = as.numeric(isTRUE(produced)), bound = NA_real_,
-           status = condition, message = if (isTRUE(produced)) "" else "the targeted condition did not occur")
-  if (!isTRUE(produced)) c(verdicts, "condition_not_produced") else verdicts
+           quantity = "condition_produced", measured = as.numeric(isTRUE(outcome$produced)), bound = NA_real_,
+           status = condition, message = outcome$evidence)
+  verdicts <- .eqr_judge(rec, octx, "dense_vs_sparse", 6L, "disposition_agreement",
+                         as.numeric(!identical(d[["dense"]], d[["sparse"]])), list(value = 0, rule = "identical disposition"))
+  if (!isTRUE(outcome$produced)) return(c(verdicts, "condition_not_produced"))
+  for (b in names(d))
+    verdicts <- c(verdicts, .eqr_judge(rec, octx, b, 6L, "required_nonacceptance",
+                                       as.numeric(identical(d[[b]], outcome$accepting)),
+                                       list(value = 0, rule = "not accepted under the produced condition")))
+  verdicts
 }
 
 # ---- stage 7: independent approximation references -----------------------------
@@ -673,6 +783,10 @@ suppressMessages(library(Matrix))
   list(variance = exp(2 * opt$par[[2L]]), loglik = -opt$value, converged = opt$convergence == 0L)
 }
 
+# A reference is usable only when it converged and returned a finite variance
+# and log likelihood; glmer must also report optimizer code 0 with no lme4
+# convergence message. Anything else is recorded as reference_unavailable with
+# its reason, never as an approximation error.
 .eqr_reference_fit <- function(reference, row, panel) {
   settings <- EQ_REFERENCE_SETTINGS[[reference]]
   tryCatch(switch(reference,
@@ -681,41 +795,53 @@ suppressMessages(library(Matrix))
       d <- data.frame(y = panel$y, item = factor(panel$item))
       m <- suppressWarnings(lme4::glmer(y ~ 1 + (1 | item), data = d, nAGQ = settings$nAGQ,
                                          family = stats::binomial(link = row$link)))
+      conv <- m@optinfo$conv
       list(variance = as.numeric(lme4::VarCorr(m)$item[1L, 1L]), loglik = as.numeric(stats::logLik(m)),
-           converged = !length(m@optinfo$conv$lme4$messages))
+           converged = !length(conv$lme4$messages) && identical(as.integer(.eqr_scalar(conv$opt, NA_integer_)), 0L))
     },
     "ordinal::clmm" = {
       if (!requireNamespace("ordinal", quietly = TRUE)) stop("ordinal is not installed")
       d <- data.frame(y = ordered(panel$y, levels = levels(panel$y)), item = factor(panel$item))
       m <- ordinal::clmm(y ~ 1 + (1 | item), data = d, link = row$link, nAGQ = settings$nAGQ)
       list(variance = as.numeric(ordinal::VarCorr(m)$item[1L, 1L]), loglik = as.numeric(stats::logLik(m)),
-           converged = isTRUE(m$optRes$convergence == 0L))
+           converged = identical(as.integer(.eqr_scalar(m$optRes$convergence, NA_integer_)), 0L))
     },
     "dense_adaptive_integration" = .eqr_adaptive_probit(panel, settings$nodes),
     stop("no implementation for reference ", reference)), error = function(e) list(error = conditionMessage(e)))
 }
 
+.eqr_reference_usable <- function(ref) {
+  if (!is.null(ref$error)) return(ref$error)
+  if (!isTRUE(ref$converged)) return("the reference did not converge")
+  scalar <- function(x) is.numeric(x) && length(x) == 1L && is.finite(x)
+  if (!scalar(ref$variance) || !scalar(ref$loglik)) return("the reference returned a non-finite or non-scalar result")
+  ""
+}
+
 .eqr_stage7 <- function(rec, ctx, reference, row, map, fits) {
   ref <- .eqr_reference_fit(reference, row, map$panel)
+  problem <- .eqr_reference_usable(ref)
   for (b in names(fits)) {
     f <- fits[[b]]
-    available <- is.null(ref$error) && identical(f$disposition, "accepted")
-    variance <- if (available) abs(as.numeric(f$fit$covariance_components[[1L]][1L, 1L]) - ref$variance) else NA_real_
-    loglik <- if (available) abs(-f$nll - ref$loglik) else NA_real_
+    why <- if (nzchar(problem)) problem else
+      if (!identical(f$disposition, "accepted")) paste("the", b, "fit was not accepted") else ""
+    variance <- if (nzchar(why)) NA_real_ else abs(as.numeric(f$fit$covariance_components[[1L]][1L, 1L]) - ref$variance)
+    loglik <- if (nzchar(why)) NA_real_ else abs(-f$nll - ref$loglik)
     for (q in c("source_variance", "maximized_log_likelihood"))
       rec$add(ctx, row_kind = "quantity", backend = b, stage = 7L, quantity = q,
-              disposition = if (available) "recorded" else "reference_unavailable",
+              disposition = if (nzchar(why)) "reference_unavailable" else "recorded",
               approximation_reference = reference,
               approximation_error = if (q == "source_variance") variance else loglik)
     rec$note(case = ctx$case, backend = b, stage = 7L, point = "fitted", quantity = "reference",
-             measured = NA_real_, bound = NA_real_, status = if (available) "recorded" else "reference_unavailable",
-             message = if (!is.null(ref$error)) ref$error else
-               sprintf("reference variance %.10g, log likelihood %.10g, converged %s",
-                       ref$variance, ref$loglik, isTRUE(ref$converged)))
+             measured = NA_real_, bound = NA_real_, status = if (nzchar(why)) "reference_unavailable" else "recorded",
+             message = if (nzchar(why)) why else sprintf("reference variance %.10g, log likelihood %.10g",
+                                                          ref$variance, ref$loglik))
   }
 }
 
 # ---- one case --------------------------------------------------------------------
+.eqr_failed <- function(verdicts) any(verdicts %in% c("fail", "not_measured"))
+
 .eqr_case <- function(rec, row, geometries, tolerances, pinned, transforms, overlays, references) {
   geometry <- geometries[[row$geometry]]
   supported <- identical(row$sparse_supported, "yes")
@@ -730,54 +856,75 @@ suppressMessages(library(Matrix))
   if (nrow(pin) && (!identical(as.integer(pin$random_dimension), dimension) ||
                     !identical(as.integer(pin$kernel_rank), as.integer(ctx$kernel_rank))))
     stop(row$case, ": random dimension or kernel rank differs from the pinned fixture", call. = FALSE)
-  outcome <- list(case = row$case, verdict = NA_character_, scored = supported)
-  stage13 <- .eqr_fixed_points(rec, ctx, map, backends, tolerances)
-  verdicts <- stage13$verdicts
-  if (length(stage13$r1)) {
-    outcome$verdict <- "validity_event"
-  } else {
+  my_transforms <- transforms$transform[transforms$base_case == row$case]
+  my_overlays <- overlays$overlay[overlays$base_case == row$case]
+  my_references <- references$reference[references$case == row$case]
+  extra <- list()
+  stopped <- NA_integer_; reason <- ""
+  halt <- function(stage, why) { stopped <<- stage; reason <<- why; rec$problem(row$case, ": stopped at stage ", stage, " (", why, ")") }
+  live <- function() is.na(stopped)
+
+  evaluated <- .eqr_points(map, backends)
+  r1 <- .eqr_stage1(rec, ctx, evaluated, backends, tolerances)
+  if (length(r1)) halt(1L, paste("backend numerical-validity event on", paste(r1, collapse = " and ")))
+  if (live() && supported && .eqr_failed(.eqr_stage2(rec, ctx, map, evaluated)))
+    halt(2L, "the prepared design differs between backends")
+  if (live() && supported && .eqr_failed(.eqr_stage3(rec, ctx, map, evaluated, tolerances)))
+    halt(3L, "a fixed-parameter quantity exceeds its tolerance or was not measured")
+  fits <- NULL
+  if (live()) {
     fits <- lapply(stats::setNames(backends, backends), function(b) .eqr_fit(row, map, b))
-    if (!supported) {
+    if (supported) {
+      if (.eqr_failed(.eqr_stage4(rec, ctx, row, map, geometry, fits, tolerances)))
+        halt(4L, "a fitted comparison failed or was not measured")
+    } else {
       .eqr_disposition_row(rec, ctx, "dense", 4L, fits$dense)
       rec$add(ctx, row_kind = "case_disposition", backend = "sparse", stage = 4L, quantity = "disposition",
               disposition = "unsupported")
-    } else {
-      verdicts <- c(verdicts, .eqr_stage2(rec, ctx, map, stage13$points, fits),
-                    .eqr_stage4(rec, ctx, row, map, geometry, fits, tolerances))
     }
-    for (r in references[references$case == row$case, "reference"])
-      .eqr_stage7(rec, ctx, r, row, map, fits)
-    outcome$verdict <- if (!supported) "unsupported" else
-      if (any(verdicts %in% c("fail", "not_measured"))) "fail" else "pass"
-    if (supported && any(verdicts == "not_measured"))
-      rec$problem(row$case, ": a gating quantity could not be measured")
   }
-  extra <- list()
-  for (t in transforms$transform[transforms$base_case == row$case]) {
+  for (t in my_transforms) {
     scope <- EQ_TRANSFORM_SCOPE[[t]]
-    for (b in if (identical(scope, "dense_only")) "dense" else backends) {
-      tctx <- c(ctx, list(transform = t))
-      values <- tryCatch(.eqr_transform(t, row, map, stage13$points$start, b),
-                         error = function(e) { rec$problem(row$case, " ", t, " ", b, ": ", conditionMessage(e)); c(error = Inf) })
-      for (q in names(values)) rec$note(case = row$case, transform = t, backend = b, stage = 5L, point = "start",
-                                        quantity = q, measured = values[[q]], bound = NA_real_)
-      v <- .eqr_judge(rec, tctx, b, 5L, "equivariance", max(values), .eqr_tolerance(tolerances, "equivariance"))
-      extra[[length(extra) + 1L]] <- list(case = row$case, transform = t, backend = b, verdict = v)
-    }
     if (identical(scope, "dense_only") && supported)
       stop("a dense-only transform on a sparse-supported base contradicts the frozen scope", call. = FALSE)
-    if (!identical(scope, "dense_only") || supported) next
-    rec$add(c(ctx, list(transform = t)), row_kind = "case_disposition", backend = "sparse", stage = 5L,
-            quantity = "equivariance", disposition = "unsupported")
+    for (b in if (identical(scope, "dense_only")) "dense" else backends) {
+      if (!live()) { extra[[length(extra) + 1L]] <- list(case = row$case, transform = t, backend = b, verdict = "not_run"); next }
+      tctx <- c(ctx, list(transform = t))
+      values <- tryCatch(.eqr_transform(t, row, map, evaluated$points$start, b),
+                         error = function(e) { rec$problem(row$case, " ", t, " ", b, ": ", conditionMessage(e)); c(error = NaN) })
+      for (q in names(values)) rec$note(case = row$case, transform = t, backend = b, stage = 5L, point = "start",
+                                        quantity = q, measured = values[[q]], bound = NA_real_)
+      v <- .eqr_judge(rec, tctx, b, 5L, "equivariance", if (all(is.finite(values))) max(values) else NaN,
+                      .eqr_tolerance(tolerances, "equivariance"))
+      extra[[length(extra) + 1L]] <- list(case = row$case, transform = t, backend = b, verdict = v)
+    }
+    if (identical(scope, "dense_only") && live())
+      rec$add(c(ctx, list(transform = t)), row_kind = "case_disposition", backend = "sparse", stage = 5L,
+              quantity = "equivariance", disposition = "unsupported")
   }
-  for (o in overlays$overlay[overlays$base_case == row$case]) {
+  if (live() && any(vapply(extra, function(x) x$verdict %in% c("fail", "not_measured"), logical(1))))
+    halt(5L, "an equivariance transform failed")
+  for (o in my_overlays) {
+    if (!live()) { extra[[length(extra) + 1L]] <- list(case = row$case, overlay = o, verdict = "not_run"); next }
     v <- tryCatch(.eqr_overlay(rec, ctx, o, row, map, tolerances),
                   error = function(e) { rec$problem(row$case, " ", o, ": ", conditionMessage(e)); "not_measured" })
-    extra[[length(extra) + 1L]] <- list(case = row$case, overlay = o,
-      verdict = if (any(v %in% c("fail", "not_measured"))) "fail" else
-        if ("condition_not_produced" %in% v) "condition_not_produced" else "pass")
+    verdict <- if (.eqr_failed(v)) "fail" else if ("condition_not_produced" %in% v) "condition_not_produced" else "pass"
+    extra[[length(extra) + 1L]] <- list(case = row$case, overlay = o, verdict = verdict)
+    if (identical(verdict, "fail")) halt(6L, paste("overlay", o, "failed"))
   }
-  list(outcome = outcome, extra = extra)
+  for (r in my_references) if (live()) .eqr_stage7(rec, ctx, r, row, map, fits)
+
+  # Every stage that applied to this case but did not run is recorded with the
+  # stage that stopped it.
+  if (!live()) {
+    applicable <- c(if (supported) 2:4 else 4L, if (length(my_transforms)) 5L,
+                    if (length(my_overlays)) 6L, if (length(my_references)) 7L)
+    for (s in applicable[applicable > stopped])
+      for (b in backends) rec$add(ctx, row_kind = "case_disposition", backend = b, stage = s,
+                                  quantity = "stage_not_run", disposition = paste0("not_run_after_stage_", stopped))
+  }
+  verdict <- if (length(r1)) "validity_event" else if (!live()) "fail" else if (!supported) "unsupported" else "pass"
+  list(outcome = list(case = row$case, verdict = verdict, stopped = stopped, reason = reason), extra = extra)
 }
 
 # ---- the run -----------------------------------------------------------------------
@@ -801,7 +948,8 @@ suppressMessages(library(Matrix))
     result <- tryCatch(.eqr_case(rec, row, geometries, tolerances, pinned, transforms, overlays, references),
                        error = function(e) {
                          rec$problem(row$case, ": ", conditionMessage(e))
-                         list(outcome = list(case = row$case, verdict = "error", scored = TRUE), extra = list())
+                         list(outcome = list(case = row$case, verdict = "error", stopped = NA_integer_,
+                                             reason = conditionMessage(e)), extra = list())
                        })
     outcomes[[length(outcomes) + 1L]] <- result$outcome
     extra <- c(extra, result$extra)
@@ -815,24 +963,27 @@ suppressMessages(library(Matrix))
   write.csv(detail, file.path(out, "detail.csv"), row.names = FALSE, na = "NA")
   summary <- rbind(
     data.frame(kind = "case", id = vapply(outcomes, `[[`, character(1), "case"), backend = "dense_vs_sparse",
-               verdict = vapply(outcomes, `[[`, character(1), "verdict"), stringsAsFactors = FALSE),
+               verdict = vapply(outcomes, `[[`, character(1), "verdict"),
+               stopped_at_stage = vapply(outcomes, function(x) as.integer(x$stopped), integer(1)),
+               reason = vapply(outcomes, function(x) as.character(x$reason), character(1)), stringsAsFactors = FALSE),
     if (length(extra)) do.call(rbind, lapply(extra, function(x) data.frame(
       kind = if (!is.null(x$overlay)) "overlay" else "transform",
       id = paste0(if (!is.null(x$overlay)) x$overlay else x$transform, ":", x$case),
       backend = if (is.null(x$backend)) "dense_vs_sparse" else x$backend, verdict = x$verdict,
-      stringsAsFactors = FALSE))))
-  write.csv(summary, file.path(out, "summary.csv"), row.names = FALSE)
+      stopped_at_stage = NA_integer_, reason = "", stringsAsFactors = FALSE))))
+  write.csv(summary, file.path(out, "summary.csv"), row.names = FALSE, na = "NA")
   writeLines(if (length(rec$problems)) rec$problems else "none", file.path(out, "problems.txt"))
   writeLines(capture.output(sessionInfo()), file.path(out, "session-info.txt"))
-  failed <- summary$verdict %in% c("fail", "error")
-  cat("\n==== summary ====\n"); print(summary, row.names = FALSE)
+  failed <- summary$verdict %in% c("fail", "error", "not_measured")
+  cat("\n==== summary ====\n"); print(summary[c("kind", "id", "backend", "verdict", "stopped_at_stage")], row.names = FALSE)
   cat("\nscored cases compared:", sum(summary$kind == "case" & summary$verdict %in% c("pass", "fail")),
       "| passed:", sum(summary$kind == "case" & summary$verdict == "pass"),
       "| validity events:", sum(summary$verdict == "validity_event"),
       "| unsupported:", sum(summary$verdict == "unsupported"),
       "| overlays without their condition:", sum(summary$verdict == "condition_not_produced"),
+      "| not run:", sum(summary$verdict == "not_run"),
       "| failures or errors:", sum(failed), "\n")
-  invisible(list(record = record, summary = summary, problems = rec$problems, out = out))
+  invisible(list(record = record, summary = summary, detail = detail, problems = rec$problems, out = out))
 }
 
 # Called by the launcher. The record is written to results/ in the study
@@ -851,8 +1002,9 @@ eq_run_qualification <- function(study, tolerances) {
 # the calibration geometry (an ordinal single-source panel for clmm and a
 # categorical panel for the reference change, which the calibration set lacks).
 # Its output is set "calibration_exercise", produces no qualification verdict
-# and is not committed.
-eq_exercise_calibration <- function(study, tolerances, out) {
+# and is not committed. tests/test_discrete_equivalence_runner.R uses the same
+# tables.
+.eqr_exercise_tables <- function() {
   cases <- EQ_CALIBRATION
   cases$sparse_supported <- "yes"
   cases <- rbind(cases,
@@ -860,13 +1012,18 @@ eq_exercise_calibration <- function(study, tolerances, out) {
                covariance = "diagonal", geometry = "cal_small", sparse_supported = "yes"),
     data.frame(case = "X14", family = "categorical", link = "softmax", structure = "crossed2",
                covariance = "diagonal", geometry = "cal_small", sparse_supported = "no_categorical"))
-  transforms <- data.frame(transform = c("T1", "T2", "T3", "T4", "T5"),
-                           base_case = c("K02", "K02", "X14", "K03", "K04"), stringsAsFactors = FALSE)
-  overlays <- data.frame(overlay = c("N1", "N2", "N3", "N4", "N5", "N6"),
-                         base_case = c("K01", "K02", "K02", "K04", "K01", "K06"), stringsAsFactors = FALSE)
-  references <- data.frame(case = c("K01", "K01", "X09"),
-                           reference = c("lme4::glmer", "dense_adaptive_integration", "ordinal::clmm"),
-                           stringsAsFactors = FALSE)
-  .eqr_run(study, tolerances, cases, EQ_CALIBRATION_GEOMETRY, "calibration_exercise", transforms, overlays,
-           references, out)
+  list(cases = cases,
+       transforms = data.frame(transform = c("T1", "T2", "T3", "T4", "T5"),
+                               base_case = c("K02", "K02", "X14", "K03", "K04"), stringsAsFactors = FALSE),
+       overlays = data.frame(overlay = c("N1", "N2", "N3", "N4", "N5", "N6"),
+                             base_case = c("K01", "K02", "K02", "K04", "K01", "K06"), stringsAsFactors = FALSE),
+       references = data.frame(case = c("K01", "K01", "X09"),
+                               reference = c("lme4::glmer", "dense_adaptive_integration", "ordinal::clmm"),
+                               stringsAsFactors = FALSE))
+}
+
+eq_exercise_calibration <- function(study, tolerances, out) {
+  tables <- .eqr_exercise_tables()
+  .eqr_run(study, tolerances, tables$cases, EQ_CALIBRATION_GEOMETRY, "calibration_exercise", tables$transforms,
+           tables$overlays, tables$references, out)
 }
