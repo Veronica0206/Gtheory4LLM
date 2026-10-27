@@ -1,0 +1,22 @@
+r_version: R version 4.5.3 (2026-03-11)
+matrix_version: 1.7.4
+blas: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib
+lapack_version: 3.12.1
+lapack: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib
+cpu_model: Apple M4 Max
+long_double: FALSE
+threads: 1 1 1 1
+source_commit: 5e0bb32c1df7005a05916d71cd365942f5a4f238
+r_tree: a63da31e236deaa3a2b430863ed493f5c209c387
+src_tree: 5d2e7503f0c0386bd4bb7db50d94d30e7ce7dce4
+tracked_changes: 0
+started_utc: 2026-10-27 22:53:52 UTC
+tolerances: a0f24f254d0733ff22d158e53390d782
+amendment_2_pins: AMENDMENT-1.md b749102ab2813c647408f92eacee5415
+amendment_2_pins: AMENDMENT-2.md 04828008ca04abbb9b78c3b32dd1cc8c
+amendment_2_pins: amendment-1-impl.R b892ef54fe94bc76c342154070bd1bd4
+amendment_2_pins: amendment-2-impl.R 514d8fc099cb31367d51df65cdf83bc7
+amendment_2_pins: equivalence-runner-impl.R fdbc64251a7a98f2728f7a1b093603c1
+amendment_2_pins: tolerances.csv a0f24f254d0733ff22d158e53390d782
+amendment_2_pins: fixture-digests.csv c7a758d0aff7343f4bdd7a5c3bed3897
+amendment_2_pins: source-hashes.csv f4b997645421f32c9cf6437367cd4f02

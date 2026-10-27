@@ -837,8 +837,34 @@ expected_2 <- c(AMENDMENT_DIGESTS[c("AMENDMENT-1.md", "amendment-1-impl.R")],
 ok(identical(sort(runtime_2$file), sort(names(expected_2))) &&
      identical(stats::setNames(runtime_2$md5, runtime_2$file)[names(expected_2)], expected_2),
    "the Amendment 2 manifest pins exactly both amendments, the implementations, tolerances and frozen pins")
-ok(!dir.exists(file.path(STUDY, "results-amendment-2")),
-   "no record under Amendment 2 exists before its execution")
+# The record under Amendment 2 (results-amendment-2/README.md) arrived in its
+# own change after the amendment was merged, from the merged commit, beside the
+# earlier records. It is pinned like them, and each run's environment record
+# names the runtime pins it was launched under, which must be the reviewed ones.
+AMENDED_2 <- file.path(STUDY, "results-amendment-2")
+AMENDED_2_RECORD_DIGESTS <- c(
+  "macos/results.csv" = "89f7acb771efff394df4c6595551efdf", "macos/summary.csv" = "ef9ca8b4841d7503deb9ee8aeb60f709",
+  "linux/results.csv" = "84c309542c56eb246295abdf187e5c56", "linux/summary.csv" = "ef9ca8b4841d7503deb9ee8aeb60f709")
+for (platform in c("macos", "linux")) {
+  record <- file.path(AMENDED_2, platform)
+  ok(all(file.exists(file.path(record, c("results.csv", "detail.csv", "summary.csv", "problems.txt",
+                                          "environment.txt", "session-info.txt")))),
+     paste0("the Amendment 2 ", platform, " record is complete"))
+  rows <- read.csv(file.path(record, "results.csv"), stringsAsFactors = FALSE, check.names = FALSE)
+  ok(identical(names(rows), schema_columns) && identical(unique(rows$set), "qualification_amendment_2"),
+     paste0("the Amendment 2 ", platform, " record uses the frozen schema for its set"))
+  verdicts <- read.csv(file.path(record, "summary.csv"), stringsAsFactors = FALSE)
+  cases <- verdicts[verdicts$kind == "case", ]
+  ok(setequal(cases$id, EQ_CORE$case) &&
+       all(cases$verdict[cases$id %in% EQ_CORE$case[EQ_CORE$sparse_supported != "yes"]] == "unsupported"),
+     paste0("the Amendment 2 ", platform, " record covers every frozen case, with the unsupported ones unsupported"))
+  launched <- grep("^amendment_2_pins: ", readLines(file.path(record, "environment.txt"), warn = FALSE), value = TRUE)
+  ok(setequal(launched, paste0("amendment_2_pins: ", runtime_2$file, " ", runtime_2$md5)),
+     paste0("the Amendment 2 ", platform, " record was launched under the reviewed runtime pins"))
+}
+for (name in names(AMENDED_2_RECORD_DIGESTS))
+  ok(identical(content_digest(file.path(AMENDED_2, name)), unname(AMENDED_2_RECORD_DIGESTS[[name]])),
+     paste0("results-amendment-2/", name, " is the executed record; a change needs a reviewed amendment"))
 
 # ---- the calibration record ---------------------------------------------------------
 # Non-scoring observations on the six calibration cases, at the three frozen
@@ -875,5 +901,5 @@ if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence study freeze verified: source pinning, no RNG, matrix shape and ",
     "coverage, calibration disjointness, parent-scoped nesting, frozen numerical ",
     "choices, fixture digests and dimensions, degeneracy guard, the calibrated ",
-    "tolerance table and record, the pinned judging implementation, the pinned executed record, and the pinned Amendment 1 with its runtime pins and executed record, and the pinned Amendment 2.\n",
+    "tolerance table and record, the pinned judging implementation, the pinned executed record, and the pinned Amendment 1 with its runtime pins and executed record, and the pinned Amendment 2 with its executed record.\n",
     sep = "")

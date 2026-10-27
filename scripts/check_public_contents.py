@@ -112,7 +112,10 @@ STUDY_CSV_FILES = {
         "results/linux/results.csv", "results/linux/detail.csv", "results/linux/summary.csv",
         "results-amendment-1/macos/results.csv", "results-amendment-1/macos/detail.csv",
         "results-amendment-1/macos/summary.csv", "results-amendment-1/linux/results.csv",
-        "results-amendment-1/linux/detail.csv", "results-amendment-1/linux/summary.csv")
+        "results-amendment-1/linux/detail.csv", "results-amendment-1/linux/summary.csv",
+        "results-amendment-2/macos/results.csv", "results-amendment-2/macos/detail.csv",
+        "results-amendment-2/macos/summary.csv", "results-amendment-2/linux/results.csv",
+        "results-amendment-2/linux/detail.csv", "results-amendment-2/linux/summary.csv")
 } | {"validation-studies/discrete-sparse-profile/warm-start-20261022/agreement.csv"} | {
     "validation-studies/discrete-recovery/results/" + name for name in (
         "config.csv", "source-files.csv", "replicates.csv", "summary.csv")

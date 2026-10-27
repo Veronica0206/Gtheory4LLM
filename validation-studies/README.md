@@ -115,7 +115,10 @@ record stands unchanged.
 a fit both backends reject: the two must report the same acceptance failures,
 and the rejected fits are then compared under the frozen fitted tolerances.
 Every other case of stage 4 is judged as frozen, and stage 3 under Amendment 1.
-It is reported separately once executed; the earlier records stand unchanged.
+Its [record](discrete-sparse-equivalence/results-amendment-2/README.md),
+executed on 2026-10-27, is passed on both platforms: 12 compared cases pass with
+accepted fits, and C13 passes with matching rejected fits, which is agreement on
+a refusal, not an accepted fit. The earlier records stand unchanged.
 
 ## Work still needed
 
