@@ -150,9 +150,9 @@ scientifically sufficient. Those are separate questions with separate evidence.
   had one
   ([results](../validation-studies/bootstrap-coverage/README.md));
   it is unassessed for discrete and multivariate fits. A fit with
-  declared batches is refused, and so is an incomplete panel, whose objects
-  do not share one instrumentation layout; a balanced projection from an
-  observed panel is not supported. Each attempt is a full refit, which makes a
+  declared batches is refused, and so is a fit whose objects do not share one
+  instrumentation layout; a balanced projection from an observed panel is not
+  supported. Each attempt is a full refit, which makes a
   bootstrap of a large joint categorical fit a matter of days.
 - **Discrete uncertainty is optional and conditional.** Request
   `check_hessian = TRUE` in discrete controls to compute numerical observed

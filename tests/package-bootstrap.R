@@ -5,8 +5,9 @@
 # and reduce to the percentile interval without bias or skew. Replicates must
 # not depend on the number of cores or the attempt budget, the caller's random
 # state must be untouched, refused and failed refits must be recorded and never
-# counted, the records must give the retry seed each refit used, an incomplete
-# panel must be refused, and every guard must refuse with its reason.
+# counted, the records must give the retry seed each refit used, a fit whose
+# objects do not share one instrumentation layout must be refused, and every
+# guard must refuse with its reason.
 if (identical(Sys.getenv("GT_BOOTSTRAP_TEST_SOURCE"), "true")) {
   source("load_functions.R")
   internal <- function(name) get(name, envir = .GlobalEnv, inherits = FALSE)
@@ -293,7 +294,7 @@ check(nrow(errors) > 0L && all(grepl("Every declared category must occur", error
       "failed refits are recorded as errors and never counted; attempts run to the last accepted replicate")
 cat("PASS: discrete warm starts, refusals and errors\n")
 
-# --- incomplete panels -------------------------------------------------------------
+# --- instrumentation layouts ------------------------------------------------------
 # The intervals hold the observed facet levels fixed, so every object must share
 # one instrumentation layout. Here rater 5 rated item 1 only: a draw without
 # item 1 would lose rater 5, so an accepted observed-row fit of this panel is
@@ -322,7 +323,38 @@ holed_fit <- suppressWarnings(gt_fit(holed, "label", gt_design("item", "rater", 
 check(isTRUE(holed_fit$numerically_accepted), "the discrete fit with one missing cell is accepted")
 expect_error(gt_bootstrap(holed_fit, replicates = 50, seed = 8), "do not share one instrumentation layout",
              "an incomplete discrete panel is refused")
-cat("PASS: incomplete panels\n")
+# Objects that share one partial layout keep it in every resample, so the same
+# cell missing for every object passes the check, and one more missing cell
+# does not.
+layout_shared <- internal(".gt_bootstrap_common_layout")
+by_item <- function(frame) split(seq_len(nrow(frame)), frame$item)
+partial <- expand.grid(item = 1:5, rater = 1:3, occasion = 1:2)
+partial <- partial[!(partial$rater == 2 & partial$occasion == 1), ]
+partial$score <- seq_len(nrow(partial))
+check(isTRUE(layout_shared(partial, c("rater", "occasion"), "score", by_item(partial))) &&
+        identical(layout_shared(partial[-1, ], c("rater", "occasion"), "score", by_item(partial[-1, ])), FALSE),
+      "a partial layout shared by every object passes, and a differing one does not")
+# Outcomes may be named like paste()'s own arguments. Each name passes a shared
+# layout and refuses a differing one, and a fit of it is bootstrapped from the
+# retained and from supplied data, with the replicates of the same outcome
+# under another name.
+for (name in c("sep", "collapse", "recycle0")) {
+  grid <- expand.grid(item = 1:3, rater = 1:2)
+  grid[[name]] <- seq_len(nrow(grid))
+  check(isTRUE(layout_shared(grid, "rater", name, by_item(grid))) &&
+          identical(layout_shared(grid[-1, ], "rater", name, by_item(grid[-1, ])), FALSE),
+        paste0("an outcome named ", name, " passes a shared layout and refuses a differing one"))
+  renamed <- d
+  names(renamed)[names(renamed) == "score"] <- name
+  named_fit <- gt_fit(renamed, name, gt_design("item", "rater"))
+  retained <- gt_bootstrap(named_fit, replicates = 2, seed = 11)
+  supplied <- gt_bootstrap(named_fit, replicates = 2, seed = 11, data = renamed)
+  check(retained$accepted == 2L && identical(supplied$components, retained$components) &&
+          max(abs(unlist(retained$components, use.names = FALSE) -
+                    unlist(boot$components[1:2], use.names = FALSE))) < 1e-12,
+        paste0("a fit of an outcome named ", name, " is bootstrapped from retained and supplied data"))
+}
+cat("PASS: instrumentation layouts\n")
 
 # --- guards ----------------------------------------------------------------------------
 expect_error(gt_bootstrap(fit, replicates = 5), "seed is required", "a seed is required")

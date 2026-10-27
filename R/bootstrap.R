@@ -15,9 +15,10 @@
 # the requested number of accepted refits or the attempt budget is reached.
 #
 # Every object must share one instrumentation layout: the same facet-level
-# combinations, as often, with the same outcomes observed. In an incomplete
-# panel a level confined to some objects is lost from every resample that omits
-# them, and that is a different procedure, so such a fit is refused.
+# combinations, as often, with the same outcomes observed. Objects that share
+# one partial layout keep it in every resample. When the layouts differ, a
+# level confined to some objects is lost from every resample that omits them,
+# and that is a different procedure, so such a fit is refused.
 #
 # The facet levels are the observed ones in every replicate, so the intervals
 # describe object sampling conditional on the instrumentation panel. They do
@@ -30,8 +31,8 @@
 # `seed`, so a replicate does not depend on the number of cores, on how
 # attempts are batched, or on the attempt budget. The leave-one-object-out
 # refits for BCa acceleration take their retry seeds from the same stream. An
-# explicit Gaussian retry seed in the controls governs every refit's restarts
-# instead, as it does in gt_fit(); the record shows the seed a refit used.
+# explicit Gaussian retry seed in the controls is used for every refit
+# instead, as in gt_fit(); the record shows the seed a refit used.
 
 # Fewer finite replicate estimates than this leave an interval unavailable.
 .GT_BOOTSTRAP_MINIMUM <- 50L
@@ -71,14 +72,15 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
   rows_by_object <- split(seq_len(nrow(data)), factor(match(data[[object]], labels), levels = seq_along(labels)))
   if (!.gt_bootstrap_common_layout(data, fit$design$facets, fit$outcomes, rows_by_object))
     stop("The objects do not share one instrumentation layout (the same facet-level combinations, ",
-         "as often, with the same outcomes observed). A resample of this incomplete panel could lose ",
+         "as often, with the same outcomes observed). A resample of this panel could lose ",
          "a facet level confined to the objects it omits, so it cannot be bootstrapped by object.", call. = FALSE)
   n <- length(labels)
   # The leave-one-out retry seeds come first, then one resampling seed and one
   # retry seed per attempt; the stream's prefix does not depend on its length.
   seeds <- .gt_sim_rng(seed, sample.int(.Machine$integer.max, n + 2L * max_attempts))
   # The retry seed a refit uses: an explicit Gaussian one in the controls, or
-  # else the stream's. The lme4 route refuses the setting.
+  # else the stream's. The exact engine seeds its restarts with it; the lme4
+  # route records it, and its one restart is deterministic.
   explicit <- if (.gt_is_gaussian(fit)) control$gaussian$retry_seed
   retry_of <- function(drawn) if (is.null(explicit)) drawn else as.integer(explicit)
   refit <- function(draw, retry_seed) .gt_bootstrap_refit(fit,
@@ -149,10 +151,13 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
 }
 
 # Whether every object carries the same multiset of facet-level combinations,
-# each with the same outcomes observed.
+# each with the same outcomes observed. The outcome masks are unnamed: an
+# outcome may be called sep, collapse or recycle0, which paste() would
+# otherwise read as its own arguments.
 .gt_bootstrap_common_layout <- function(data, facets, outcomes, rows_by_object) {
   cells <- do.call(paste, c(list(.gt_tuple_key(data, facets)),
-                            lapply(data[outcomes], function(x) as.integer(is.na(x))), list(sep = "|")))
+                            unname(lapply(data[outcomes], function(x) as.integer(is.na(x)))),
+                            list(sep = "|")))
   layouts <- vapply(rows_by_object, function(rows) paste(sort(cells[rows]), collapse = "\n"), character(1))
   length(unique(layouts)) == 1L
 }
