@@ -137,6 +137,7 @@ into subdirectories without silently removing them from the release gate.
 | `test_discrete_attempt_names.R` | Every discrete attempt, including alternative starts and the selected solution, keeps its parameter names; a warm-start refit from them is accepted |
 | `test_laplace_check_resources.R` | `gt_laplace_check()` refuses, before allocation, a comparison whose workspace estimate exceeds the dense budget |
 | `test_discrete_sparse_roundoff.R` | Narrow/wider function-window conditions, independent quadratic derivatives, score-bound refusals and dense mode agreement |
+| `test_discrete_dense_roundoff.R` | The dense search's roundoff safeguard: the retained C13 evaluations converge and agree with the sparse solve, a step rejected by a rounding-sized raise of the line-search objective is accepted through the safeguard on every platform, and the step budget, final tolerance and function allowance are kept |
 | `test_discrete_full_panel_roundoff.R` | Five fixed-parameter conditional solves from refused synthetic full-panel fits, checked with independent ordinal-probit arithmetic; no full-fit or scale qualification claim |
 | `test_discrete_sparse_validity.R` | Sparse solve-validity invariants: the dense rule on sparse storage, both refusal reasons, end-to-end containment, backend identity |
 | `test_specimen_replay.R` | `scripts/replay_specimen.R` reads specimens back and judges the stored factor and a fresh one separately, on both storage forms |

@@ -346,6 +346,20 @@ threshold was loosened; where an optimizer path changed, the change is named.
 
 ## Numerical acceptance and optimizer controls
 
+- The dense conditional-mode search accepts a full Newton step that passes the
+  bounded roundoff check the sparse search already uses. Near the mode a Newton
+  step's decrease can fall below the objective's rounding, so whether it passed
+  the Armijo test depended on the last bits of the objective, which differ
+  between BLAS builds. A step that failed was halved repeatedly, and the solve
+  could stop at its 60-step budget just short of the final tolerance, an
+  unusable evaluation whose penalty then entered the outer finite-difference
+  gradient (#59). On the equivalence study's C13 fit with macOS's reference
+  BLAS, 200 evaluations were unusable and the optimizer stopped with a
+  line-search failure; with the check, none are, and the dense fit agrees with
+  the sparse one to 4e-13. The final score tolerance, the step budget, and the
+  solve-validity, factor, stationarity and stability checks are unchanged, and
+  dense solves report how many steps the check accepted. How the outer gradient
+  treats a genuinely unusable evaluation is unchanged and remains open in #59.
 - `boundary_escape = "projected"` in the discrete control lets an
   analytic-route fit leave a singular source covariance that its gradient steps
   cannot leave. In natural Cholesky coordinates the derivative along an exact

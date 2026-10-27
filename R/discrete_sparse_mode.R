@@ -2,14 +2,16 @@
 #
 # The dense solver's Newton system is evaluated in sparse storage at a fixed
 # parameter vector. The final gradient tolerance, iteration budget and factor
-# validity checks are unchanged. A full Newton step can additionally pass a
-# bounded derivative check when rounded function values block an accurate
-# mode. Outside the small plateau window the candidate must already satisfy
-# the final score tolerance. Search-step acceptance does not certify convergence.
+# validity checks are unchanged. As in the dense solver, a full Newton step can
+# additionally pass the bounded derivative check of .gt_d_roundoff_descent()
+# (R/discrete_mode.R) when rounded function values block an accurate mode.
+# Outside the small plateau window the candidate must already satisfy the final
+# score tolerance. Search-step acceptance does not certify convergence.
 # An evaluation whose cold solve from zero modes is unavailable may be retried
 # once from the evaluator's last valid mode; see .gt_d_sparse_evaluator().
 #
-# Seven algebra operations differ, in addition to the search safeguard above:
+# Seven algebra operations differ; the line search, its roundoff safeguard and
+# the final checks are the same:
 #
 #   dense                                sparse
 #   W %*% u                              sparse product, same W convention
@@ -41,37 +43,6 @@
 #
 # Binary, ordinal, and nominal blocks use the same response kernel, with full
 # off-diagonal multinomial curvature retained by the sparse Hessian assembly.
-
-.gt_d_roundoff_descent <- function(objective, next_objective, descent, gradient, next_gradient,
-                                  step = NULL, mode_tolerance = NULL) {
-  if (any(!is.finite(c(objective, next_objective, descent, gradient, next_gradient)))) return(FALSE)
-  slack <- 32 * .Machine$double.eps * max(1, abs(objective))
-  if (descent <= 0 || length(next_gradient) != length(gradient) ||
-      max(abs(next_gradient)) >= max(abs(gradient))) return(FALSE)
-  if (descent <= slack && abs(next_objective - objective) <= slack) return(TRUE)
-  # Summed log probabilities can lose more than a few ulps even when the
-  # derivative still resolves the conditional minimum. Within a bounded
-  # function-evaluation allowance, use the approximate-Wolfe directional
-  # inequalities (Hager and Zhang, 2005, section 4, doi:10.1137/030601880).
-  # This is a limited full-step safeguard, not their complete line search.
-  # sqrt(eps) is a heuristic function-evaluation allowance, NOT an error bound
-  # or a score tolerance. It bounds both the predicted decrement and function
-  # difference. This wider branch requires an already stationary candidate
-  # under the unchanged final mode tolerance.
-  # Final stationarity, solve validity and factor validity are still required.
-  allowance <- sqrt(.Machine$double.eps) * max(1, abs(objective))
-  if (descent > allowance ||
-      !is.numeric(step) || length(step) != length(gradient) || any(!is.finite(step)) ||
-      !is.numeric(mode_tolerance) || length(mode_tolerance) != 1L ||
-      !is.finite(mode_tolerance) || mode_tolerance <= 0 ||
-      max(abs(next_gradient)) > mode_tolerance ||
-      abs(next_objective - objective) > allowance)
-    return(FALSE)
-  initial_slope <- -descent
-  next_slope <- -sum(next_gradient * step)
-  is.finite(next_slope) && next_slope >= 0.9 * initial_slope &&
-    next_slope <= (2 * 1e-4 - 1) * initial_slope
-}
 
 .gt_d_sparse_mode <- function(parameters, prep, backend, control, details = FALSE,
                               start = NULL) {
