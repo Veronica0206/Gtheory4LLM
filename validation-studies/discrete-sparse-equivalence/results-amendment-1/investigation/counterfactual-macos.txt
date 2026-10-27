@@ -1,0 +1,4 @@
+R: R version 4.5.3 (2026-03-11) | BLAS: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib | LAPACK: 3.12.1 
+dense: rejected after 298 s, objective 824.2785100132, 1134 evaluations, 0 unusable, 0 at the inner budget; failures: outer_stationarity_failed
+sparse: rejected after 7 s, objective 824.2785100136, 1134 evaluations, 0 unusable, 0 at the inner budget; failures: outer_stationarity_failed
+dense - sparse: objective -3.32e-10 (relative 4.02e-13), parameter distance 1.28e-08

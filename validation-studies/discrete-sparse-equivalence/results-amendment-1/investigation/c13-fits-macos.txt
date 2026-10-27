@@ -1,0 +1,55 @@
+R: R version 4.5.3 (2026-03-11) | BLAS: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib | LAPACK: 3.12.1 
+
+== sparse: rejected after 8 s, objective 824.2785100136
+acceptance failures: outer_stationarity_failed 
+optimizer: code 0, CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH
+fit's evaluation counts: 1134 evaluations, 0 unusable, 0 usable at the inner budget | logged calls: 1151, unusable 0
+outer stationarity: within tolerance FALSE; fixed-effect scaled norm 8.91e-05, covariance scaled norm 0.00132, tolerance 0.001
+covariance projected scores: item 0.000115, site 0.00132, rater -1.41e-05 
+estimates: y::threshold_parameter1 -0.302803, y::threshold_parameter2 0.400266, item::chol[y,y] -1.10625, site::chol[y,y] -3.3151, rater::chol[y,y] 0.163856 
+first 16 calls (usable, inner Newton steps, objective):
+   1 TRUE   6 880.589084790870
+   2 TRUE   6 880.589084790870
+   3 TRUE   3 880.588988203152
+   4 TRUE   3 880.589188540810
+   5 TRUE   3 880.415042926620
+   6 TRUE   3 880.763356911522
+   7 TRUE   3 880.613142554995
+   8 TRUE   3 880.565085784286
+   9 TRUE   3 880.587478079275
+  10 TRUE   3 880.590693327943
+  11 TRUE   3 880.581834010863
+  12 TRUE   3 880.596349040525
+  13 TRUE   7 271481.678754097957
+  14 TRUE   3 271481.678760382929
+  15 TRUE   4 271481.678747810016
+  16 TRUE   1 271481.678754097957
+
+== dense: rejected after 1040 s, objective 828.6052222499
+acceptance failures: optimizer_incomplete, outer_stationarity_failed, restart_or_tolerance_stability_failed, validation_computation_failed 
+optimizer: code 52, ERROR: ABNORMAL_TERMINATION_IN_LNSRCH
+fit's evaluation counts: 1233 evaluations, 200 unusable, 85 usable at the inner budget | logged calls: 1237, unusable 201
+covariance projected scores:  
+estimates: y::threshold_parameter1 -0.219669, y::threshold_parameter2 0.364001, item::chol[y,y] -1.00359, site::chol[y,y] -0.899823, rater::chol[y,y] -0.845941 
+unusable evaluations: 181 stopped at the 60-step inner budget, 20 at a failed line search, 0 otherwise; final inner gradient median 1.24e-06, range 1.09e-08 to 0.00228
+finite-difference pairs: 561, holding 180 of the 201 unusable evaluations; penalty on one side in 134 pairs, on both sides in 23
+first one-sided pair: calls 15 and 16, parameter 1, step 0.0005, so that gradient component is about 1.0e+103
+first 16 calls (usable, inner Newton steps, objective):
+   1 TRUE   6 880.589084790870
+   2 TRUE   6 880.589084790870
+   3 TRUE   6 880.588988203153
+   4 TRUE   6 880.589188540809
+   5 TRUE  60 880.415043008357
+   6 TRUE   6 880.763356911522
+   7 TRUE   6 880.613142554996
+   8 TRUE  16 880.565085790515
+   9 TRUE   6 880.587478079275
+  10 TRUE   6 880.590693327943
+  11 TRUE   6 880.581834010864
+  12 TRUE  60 880.596349050146
+  13 TRUE   6 271481.678754097549
+  14 TRUE   6 271481.678760383453
+  15 FALSE 60 NA
+  16 TRUE   6 271481.678754097549
+
+the two rejected fits, dense - sparse: objective 4.33 (relative 0.00525), parameter distance 0.867

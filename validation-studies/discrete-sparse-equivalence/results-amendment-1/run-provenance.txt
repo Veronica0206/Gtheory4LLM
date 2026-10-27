@@ -1,0 +1,32 @@
+merged commit: dfb396a3bae5850f0ce96a97e185b84b405d1b61 (main after PRs #107 and #106)
+R tree: 8e4d16dd036d088d60b5e8feb3ef0169f7730611
+src tree: 5d2e7503f0c0386bd4bb7db50d94d30e7ce7dce4
+study tree: 0e98cd1a5688f184a800918e7e7e9cbad775fe2b
+original record's source bec5612 R tree: d93758cded8c2b170543d93fe4292703194b3438 src tree: 5d2e7503f0c0386bd4bb7db50d94d30e7ce7dce4
+sha256 run-equivalence-amendment-1.R: 3088b9ef5eb96560fd29d84dcbc21006873a1d12337c9d08aaaef035cd32f133
+sha256 amendment-1-pins.csv: 9849e1930880c0b2fa5a8420990f356256c8e5237e7bc67cf6e149317fb470e5
+sha256 AMENDMENT-1.md: 81782ade61612b783528d656bba67a6f4cff29a769625f879700a5c6943ed6e5
+sha256 amendment-1-impl.R: d4a786fc9f19b6e1912524f2cb4c1d3added872a2dce353f5ce289016ab387f2
+sha256 equivalence-runner-impl.R: 764143345d20381746189772486c09486656731d12ecffed20d12bff06a7c77d
+sha256 cases.R: b4d3e1e181b57d0aaa9ed5f8cba6311f842ef94ee84fb6896d806de7c68067bd
+sha256 tolerances.csv: b0a19ff9b54b45a40c21cebca20d5c80f3c16b28e137fdd781f4d27b3b058d72
+sha256 fixture-digests.csv: db147d1eab2aa87be65d50db27ebea0ff899fb8e1455e3a6640424ce7785ae00
+sha256 source-hashes.csv: 46a41996bc25755da6889fed7f7b405f9ece115f4366ab42825f311b9f8934a4
+launcher PINS_DIGEST: c01213723a24d51367b8e2aaf1d1746b
+linux image: gtheory-linux-replication:4.5.2 (sha256:98772fda95e3...)
+command: Rscript --vanilla validation-studies/discrete-sparse-equivalence/run-equivalence-amendment-1.R (one numerical thread: OMP, OPENBLAS, MKL, VECLIB = 1; EQ_RESULTS_DIR per platform)
+EQ_RESULTS_DIR: validation-studies/discrete-sparse-equivalence/results-amendment-1/macos and validation-studies/discrete-sparse-equivalence/results-amendment-1/linux
+sourced R files: the 8 files the launcher sources are identical to bec5612's (R/ differs only in files the study does not source: R/bootstrap.R )
+time: started 2026-10-27T03:10:41Z
+time: linux exit 0 at 2026-10-27T03:13:08Z
+time: macos exit 0 at 2026-10-27T03:33:34Z
+macos summary: scored cases compared: 13 | passed: 12 | validity events: 0 | unsupported: 2 | overlays without their condition: 2 | not run: 2 | failures or errors: 1 
+sha256 results-amendment-1/macos/results.csv: 480f83763a1a77409d3204166de8902459336de40aa59c93d60c1273a22698e7
+sha256 results-amendment-1/macos/summary.csv: 2aaff9e9e74ccdf2fefdd98a0d08f0c02555925f38eb88110197606d774efb5c
+sha256 results-amendment-1/macos/detail.csv: feba98dbdde8a6691305cda211ce95338cace98a332f4c7a36f98423e92b9cf7
+macos environment: r_version: R version 4.5.3 (2026-03-11);blas: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib;source_commit: dfb396a3bae5850f0ce96a97e185b84b405d1b61;tracked_changes: 0;tolerances: a0f24f254d0733ff22d158e53390d782;amendment_pins: amendment-1-impl.R b892ef54fe94bc76c342154070bd1bd4;
+linux summary: scored cases compared: 13 | passed: 12 | validity events: 0 | unsupported: 2 | overlays without their condition: 2 | not run: 2 | failures or errors: 1 
+sha256 results-amendment-1/linux/results.csv: 9992f04dc2dab317bcefe5cdbd54652e3f4f08ebb973341f8b1cbc89289b8312
+sha256 results-amendment-1/linux/summary.csv: 2aaff9e9e74ccdf2fefdd98a0d08f0c02555925f38eb88110197606d774efb5c
+sha256 results-amendment-1/linux/detail.csv: 0f5650521f9537244c92c879d6e076e8016f7d39d71ffd37aaf1bde7adc83540
+linux environment: r_version: R version 4.5.2 (2025-10-31);blas: /usr/lib/aarch64-linux-gnu/openblas-pthread/libblas.so.3;source_commit: NA;tracked_changes: 0;tolerances: a0f24f254d0733ff22d158e53390d782;amendment_pins: amendment-1-impl.R b892ef54fe94bc76c342154070bd1bd4;

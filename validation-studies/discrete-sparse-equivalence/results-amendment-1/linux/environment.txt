@@ -1,0 +1,20 @@
+r_version: R version 4.5.2 (2025-10-31)
+matrix_version: 1.7.4
+blas: /usr/lib/aarch64-linux-gnu/openblas-pthread/libblas.so.3
+lapack_version: 3.12.0
+lapack: /usr/lib/aarch64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so
+cpu_model: NA
+long_double: TRUE
+threads: 1 1 1 1
+source_commit: NA
+r_tree: NA
+src_tree: NA
+tracked_changes: 0
+started_utc: 2026-10-27 03:10:42 UTC
+tolerances: a0f24f254d0733ff22d158e53390d782
+amendment_pins: AMENDMENT-1.md b749102ab2813c647408f92eacee5415
+amendment_pins: amendment-1-impl.R b892ef54fe94bc76c342154070bd1bd4
+amendment_pins: equivalence-runner-impl.R fdbc64251a7a98f2728f7a1b093603c1
+amendment_pins: tolerances.csv a0f24f254d0733ff22d158e53390d782
+amendment_pins: fixture-digests.csv c7a758d0aff7343f4bdd7a5c3bed3897
+amendment_pins: source-hashes.csv f4b997645421f32c9cf6437367cd4f02

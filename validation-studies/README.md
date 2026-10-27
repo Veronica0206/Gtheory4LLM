@@ -106,8 +106,11 @@ rules derived from numerical analysis: a floating-point summation bound for the
 mode score, and a strong-convexity bound for the modes, with the solved
 quantities compared at common modes, and each backend's returned objectives
 checked against its own algebra, under the frozen tolerances. Its launcher
-verifies reviewed runtime pins before anything runs. It is reported separately
-once executed; the original record stands unchanged.
+verifies reviewed runtime pins before anything runs. Its
+[record](discrete-sparse-equivalence/results-amendment-1/README.md), executed on
+2026-10-27, is not passed: every compared case passes stage 3, and C13 fails
+stage 4 on both platforms because neither backend accepts its fit. The original
+record stands unchanged.
 
 ## Work still needed
 

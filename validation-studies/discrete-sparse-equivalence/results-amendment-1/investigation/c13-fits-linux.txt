@@ -1,0 +1,53 @@
+R: R version 4.5.2 (2025-10-31) | BLAS: /usr/lib/aarch64-linux-gnu/openblas-pthread/libblas.so.3 | LAPACK: 3.12.0 
+
+== sparse: rejected after 9 s, objective 824.2785101169
+acceptance failures: outer_stationarity_failed 
+optimizer: code 0, CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH
+fit's evaluation counts: 1134 evaluations, 0 unusable, 0 usable at the inner budget | logged calls: 1151, unusable 0
+outer stationarity: within tolerance FALSE; fixed-effect scaled norm 8.87e-05, covariance scaled norm 0.00132, tolerance 0.001
+covariance projected scores: item 0.000115, site 0.00132, rater -1.41e-05 
+estimates: y::threshold_parameter1 -0.302804, y::threshold_parameter2 0.400266, item::chol[y,y] -1.10625, site::chol[y,y] -3.31488, rater::chol[y,y] 0.163856 
+first 16 calls (usable, inner Newton steps, objective):
+   1 TRUE   6 880.589084790873
+   2 TRUE   6 880.589084790873
+   3 TRUE   3 880.588988203153
+   4 TRUE   3 880.589188540811
+   5 TRUE   3 880.415042926616
+   6 TRUE   3 880.763356911522
+   7 TRUE   3 880.613142554997
+   8 TRUE   3 880.565085784283
+   9 TRUE   3 880.587478079276
+  10 TRUE   3 880.590693327944
+  11 TRUE   3 880.581834010864
+  12 TRUE   3 880.596349040523
+  13 TRUE   7 271481.678754097433
+  14 TRUE   3 271481.678760384326
+  15 TRUE   3 271481.678747810656
+  16 TRUE   1 271481.678754097433
+
+== dense: rejected after 32 s, objective 824.2785101222
+acceptance failures: outer_stationarity_failed 
+optimizer: code 0, CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH
+fit's evaluation counts: 1134 evaluations, 0 unusable, 0 usable at the inner budget | logged calls: 1151, unusable 0
+outer stationarity: within tolerance FALSE; fixed-effect scaled norm 8.86e-05, covariance scaled norm 0.00132, tolerance 0.001
+covariance projected scores: item 0.000115, site 0.00132, rater -1.41e-05 
+estimates: y::threshold_parameter1 -0.302804, y::threshold_parameter2 0.400266, item::chol[y,y] -1.10625, site::chol[y,y] -3.31487, rater::chol[y,y] 0.163856 
+first 16 calls (usable, inner Newton steps, objective):
+   1 TRUE   6 880.589084790873
+   2 TRUE   6 880.589084790873
+   3 TRUE   6 880.588988203153
+   4 TRUE   6 880.589188540811
+   5 TRUE   6 880.415042926616
+   6 TRUE   6 880.763356911522
+   7 TRUE   6 880.613142554997
+   8 TRUE   6 880.565085784283
+   9 TRUE   6 880.587478079277
+  10 TRUE   6 880.590693327944
+  11 TRUE   6 880.581834010864
+  12 TRUE   6 880.596349040524
+  13 TRUE   6 271481.678754097316
+  14 TRUE   6 271481.678760384384
+  15 TRUE  11 271481.678747810598
+  16 TRUE   6 271481.678754097316
+
+the two rejected fits, dense - sparse: objective 5.28e-09 (relative 6.41e-12), parameter distance 3e-08
