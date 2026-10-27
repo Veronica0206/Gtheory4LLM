@@ -111,6 +111,11 @@ verifies reviewed runtime pins before anything runs. Its
 2026-10-27, is not passed: every compared case passes stage 3, and C13 fails
 stage 4 on both platforms because neither backend accepts its fit. The original
 record stands unchanged.
+[Amendment 2](discrete-sparse-equivalence/AMENDMENT-2.md) specifies stage 4 for
+a fit both backends reject: the two must report the same acceptance failures,
+and the rejected fits are then compared under the frozen fitted tolerances.
+Every other case of stage 4 is judged as frozen, and stage 3 under Amendment 1.
+It is reported separately once executed; the earlier records stand unchanged.
 
 ## Work still needed
 

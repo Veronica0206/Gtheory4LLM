@@ -799,6 +799,47 @@ for (name in names(AMENDED_RECORD_DIGESTS))
   ok(identical(content_digest(file.path(AMENDED, name)), unname(AMENDED_RECORD_DIGESTS[[name]])),
      paste0("results-amendment-1/", name, " is the executed record; a change needs a reviewed amendment"))
 
+# ---- Amendment 2 --------------------------------------------------------------------------
+# Specified after the Amendment 1 record and before its own execution
+# (AMENDMENT-2.md). It keeps Amendment 1's stage 3 and replaces only stage 4,
+# for fits both backends reject. Its four files are pinned so the amendment that
+# executes is the reviewed one, and its implementation assigns no name cases.R
+# defines. Its launcher holds the digest of its manifest, which pins both
+# amendments, the three implementations, the tolerance table, the fixture pins
+# and the frozen source manifest. Its record does not exist yet, and the earlier
+# records are untouched by it.
+AMENDMENT_2_DIGESTS <- c("AMENDMENT-2.md" = "04828008ca04abbb9b78c3b32dd1cc8c",
+                         "amendment-2-impl.R" = "514d8fc099cb31367d51df65cdf83bc7",
+                         "run-equivalence-amendment-2.R" = "12dd0a602373b1da034690493d309c77",
+                         "amendment-2-pins.csv" = "0c7026ca5510d66a63e3fa3d119c9c81")
+for (name in names(AMENDMENT_2_DIGESTS))
+  ok(file.exists(file.path(STUDY, name)) &&
+       identical(content_digest(file.path(STUDY, name)), unname(AMENDMENT_2_DIGESTS[[name]])),
+     paste0(name, " matches its reviewed digest; a change needs a reviewed amendment of this pin"))
+assigned <- character()
+for (expression in as.list(parse(file.path(STUDY, "amendment-2-impl.R"), keep.source = FALSE)))
+  collect_assignments(expression)
+ok(!length(intersect(assigned, frozen_names)) &&
+     all(c("eq2_run_qualification", ".eqr_stage4", ".eqr2_frozen_stage4") %in% assigned) &&
+     !".eqr_stage3" %in% assigned,
+   "Amendment 2 defines its entry point, replaces only stage 4, and assigns no name cases.R defines")
+held_2 <- sub('^PINS_DIGEST <- "([0-9a-f]{32})"$', "\\1",
+              grep('^PINS_DIGEST <- "', readLines(file.path(STUDY, "run-equivalence-amendment-2.R"), warn = FALSE),
+                   value = TRUE))
+ok(identical(held_2, unname(AMENDMENT_2_DIGESTS[["amendment-2-pins.csv"]])),
+   "the Amendment 2 launcher holds the reviewed manifest's digest")
+runtime_2 <- read.csv(file.path(STUDY, "amendment-2-pins.csv"), stringsAsFactors = FALSE)
+expected_2 <- c(AMENDMENT_DIGESTS[c("AMENDMENT-1.md", "amendment-1-impl.R")],
+                AMENDMENT_2_DIGESTS[c("AMENDMENT-2.md", "amendment-2-impl.R")],
+                "equivalence-runner-impl.R" = IMPLEMENTATION_DIGEST, "tolerances.csv" = ADOPTED_TABLE_DIGEST,
+                "fixture-digests.csv" = content_digest(file.path(STUDY, "fixture-digests.csv")),
+                "source-hashes.csv" = content_digest(file.path(STUDY, "source-hashes.csv")))
+ok(identical(sort(runtime_2$file), sort(names(expected_2))) &&
+     identical(stats::setNames(runtime_2$md5, runtime_2$file)[names(expected_2)], expected_2),
+   "the Amendment 2 manifest pins exactly both amendments, the implementations, tolerances and frozen pins")
+ok(!dir.exists(file.path(STUDY, "results-amendment-2")),
+   "no record under Amendment 2 exists before its execution")
+
 # ---- the calibration record ---------------------------------------------------------
 # Non-scoring observations on the six calibration cases, at the three frozen
 # points, in both backends, produced by calibrate.R before any qualification
@@ -834,5 +875,5 @@ if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence study freeze verified: source pinning, no RNG, matrix shape and ",
     "coverage, calibration disjointness, parent-scoped nesting, frozen numerical ",
     "choices, fixture digests and dimensions, degeneracy guard, the calibrated ",
-    "tolerance table and record, the pinned judging implementation, the pinned executed record, and the pinned Amendment 1 with its runtime pins and executed record.\n",
+    "tolerance table and record, the pinned judging implementation, the pinned executed record, and the pinned Amendment 1 with its runtime pins and executed record, and the pinned Amendment 2.\n",
     sep = "")
