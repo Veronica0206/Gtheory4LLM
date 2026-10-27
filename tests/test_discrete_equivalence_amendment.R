@@ -16,7 +16,8 @@
 #   * an objective an evaluator returns off its own algebra fails A2c, although
 #     every comparison at the common modes still agrees;
 #   * the entry point and the launcher refuse a changed tolerance file, a
-#     changed implementation or manifest, and a modified in-memory table.
+#     changed implementation or manifest, and a modified in-memory table;
+#   * a refused rerun into an existing record leaves that record unchanged.
 STUDY <- file.path("validation-studies", "discrete-sparse-equivalence")
 source(file.path(STUDY, "cases.R"))
 for (f in c("design", "discrete_response", "discrete_dense", "discrete_mode",
@@ -203,9 +204,22 @@ ok(!is.null(attr(launched, "status")) && any(grepl("Refusing to launch: ", launc
    "the launcher refuses a re-pinned manifest")
 unlink(root, recursive = TRUE)
 .eqr_run <- frozen_run
+# With the real runner in place, a rerun into an existing record is refused
+# and leaves the record's environment file byte for byte as it was.
+existing <- tempfile("eq-amendment-existing-")
+dir.create(existing)
+writeLines(c("source_commit: an earlier run", "tolerances: a0f24f254d0733ff22d158e53390d782"),
+           file.path(existing, "environment.txt"))
+before <- readBin(file.path(existing, "environment.txt"), "raw", 4096L)
+Sys.setenv(EQ_RESULTS_DIR = existing)
+ok(grepl("Refusing to overwrite an existing record", outcome(eq1_run_qualification(STUDY)), fixed = TRUE) &&
+     identical(readBin(file.path(existing, "environment.txt"), "raw", 4096L), before) &&
+     identical(list.files(existing, all.files = TRUE, no.. = TRUE), "environment.txt"),
+   "a refused rerun leaves an existing record unchanged")
+unlink(existing, recursive = TRUE)
 Sys.unsetenv("EQ_RESULTS_DIR")
 
 if (fails) { cat("FAILURES: ", fails, "\n", sep = ""); quit(status = 1) }
 cat("Equivalence Amendment 1 regressions verified: amended stage 3 on a calibration case, acceptable stopping ",
-    "points, arithmetic at common modes, returned objectives, the summation bound, the convexity bound and ",
-    "the runtime pins.\n", sep = "")
+    "points, arithmetic at common modes, returned objectives, the summation bound, the convexity bound, ",
+    "the runtime pins and an existing record left unchanged.\n", sep = "")

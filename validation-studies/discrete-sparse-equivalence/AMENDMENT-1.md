@@ -120,12 +120,16 @@ in the verdict.
    anything, it verifies the runtime pins: `amendment-1-pins.csv` must have the
    digest written in the launcher, and every file it lists must match its pin.
    Those files are this specification, both implementations, `tolerances.csv`,
-   `fixture-digests.csv` and `source-hashes.csv`. The entry point repeats the
-   check, parses the tolerance table from the bytes it verified, refuses any
-   supplied table that differs, and appends the pins to the run's
-   `environment.txt`. The merged runner then verifies the frozen sources and
-   fixture pins, as for the original record. The study's freeze test pins the
-   launcher, the manifest and the files it lists.
+   `fixture-digests.csv` and `source-hashes.csv`. The launcher is the
+   supported invocation, because only it authenticates the manifest. The
+   entry point checks the listed files against the manifest again, which
+   catches a changed file even when it is called directly, but not a manifest
+   re-pinned to match it. It parses the tolerance table from the bytes it
+   verified and refuses any supplied table that differs. It refuses an
+   existing record before writing anything, and appends the pins to the new
+   run's `environment.txt`. The merged runner then verifies the frozen sources
+   and fixture pins, as for the original record. The study's freeze test pins
+   the launcher, the manifest and the files it lists.
 2. **Before execution.** Merged after review; until then no scored case is
    evaluated under these rules. The rules need no new calibration: A1 and A2a
    are a-priori bounds, and A2b uses the frozen tolerances. The

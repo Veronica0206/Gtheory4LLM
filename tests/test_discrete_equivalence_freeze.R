@@ -737,9 +737,9 @@ for (name in names(RECORD_DIGESTS))
 # the reviewed one. Its implementation replaces only the stage 3 judgment and
 # assigns no name cases.R defines. Its record does not exist yet, and the
 # original record above is untouched by it.
-AMENDMENT_DIGESTS <- c("AMENDMENT-1.md" = "826603919481f50ed1342c3126a74fcd", "amendment-1-impl.R" = "8414b41583f7d899709470f4bd190bdd",
-                       "run-equivalence-amendment-1.R" = "c805d6f73815bec7e6b69511fc57fb4f",
-                       "amendment-1-pins.csv" = "22d709a297e5d3f4b2c2751d71803058")
+AMENDMENT_DIGESTS <- c("AMENDMENT-1.md" = "b749102ab2813c647408f92eacee5415", "amendment-1-impl.R" = "b892ef54fe94bc76c342154070bd1bd4",
+                       "run-equivalence-amendment-1.R" = "8f5be3b8f27f429dbb0020658306c854",
+                       "amendment-1-pins.csv" = "c01213723a24d51367b8e2aaf1d1746b")
 for (name in names(AMENDMENT_DIGESTS))
   ok(file.exists(file.path(STUDY, name)) &&
        identical(content_digest(file.path(STUDY, name)), unname(AMENDMENT_DIGESTS[[name]])),

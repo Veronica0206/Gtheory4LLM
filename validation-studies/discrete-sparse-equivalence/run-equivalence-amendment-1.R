@@ -14,7 +14,7 @@
 #   Rscript --vanilla validation-studies/discrete-sparse-equivalence/run-equivalence-amendment-1.R
 STUDY <- file.path("validation-studies", "discrete-sparse-equivalence")
 PINS <- file.path(STUDY, "amendment-1-pins.csv")
-PINS_DIGEST <- "22d709a297e5d3f4b2c2751d71803058"
+PINS_DIGEST <- "c01213723a24d51367b8e2aaf1d1746b"
 
 content_digest <- function(path) {
   normalized <- tempfile("eq-launch-")

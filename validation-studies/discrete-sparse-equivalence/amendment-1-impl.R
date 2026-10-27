@@ -191,7 +191,10 @@
 # The reviewed runtime pins (amendment-1-pins.csv, whose own digest the
 # launcher holds): every listed file must match its pin before anything runs.
 # The tolerance table is parsed from the same bytes that were verified, and is
-# the only table the qualification uses.
+# the only table the qualification uses. Only the launcher authenticates the
+# manifest itself, so the launcher is the supported invocation. Called
+# directly, this check still catches a changed file, but not a manifest
+# re-pinned to match it.
 .eqr1_verify_pins <- function(study) {
   pins <- read.csv(file.path(study, "amendment-1-pins.csv"), stringsAsFactors = FALSE)
   if (!"tolerances.csv" %in% pins$file)
@@ -220,6 +223,11 @@ eq1_run_qualification <- function(study, tolerances = NULL) {
     stop("Refusing to run: the supplied tolerance table is not the reviewed tolerances.csv.", call. = FALSE)
   .eqr1_verify_qualification(study)
   out <- Sys.getenv("EQ_RESULTS_DIR", file.path(study, "results-amendment-1"))
+  # An existing record is refused before the pins are set to be appended, so a
+  # refused run leaves it as it was, and the file they are appended to is
+  # always this run's own.
+  if (dir.exists(out) && length(list.files(out, all.files = TRUE, no.. = TRUE)))
+    stop("Refusing to overwrite an existing record in ", out, call. = FALSE)
   on.exit(if (file.exists(file.path(out, "environment.txt")))
     cat(paste0("amendment_pins: ", verified$pins$file, " ", verified$pins$md5), sep = "\n",
         file = file.path(out, "environment.txt"), append = TRUE), add = TRUE)
