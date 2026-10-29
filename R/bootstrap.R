@@ -124,7 +124,7 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
     jackknife = leave_one_out,
     original = list(outcomes = fit$outcomes, components = fit$covariance_components,
                     minus2loglik = fit$minus2loglik, estimator = fit$estimator,
-                    data_identity = .gt_bootstrap_fit_identity(fit)),
+                    observation_identity = .gt_bootstrap_fit_identity(fit)),
     settings = list(seed = seed, max_attempts = max_attempts, warm_start = warm_start, cores = cores,
       jackknife = jackknife, requested_control = control,
       refit_control = .gt_bootstrap_refit_control(fit, control, NULL, warm_start),
@@ -175,10 +175,10 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
 # The modelled data: the fit's own, or an authenticated copy in fitted row order.
 .gt_bootstrap_data <- function(fit, data) {
   if (is.null(data)) {
-    if (!is.data.frame(fit$data))
+    if (!is.data.frame(fit[["data"]]))
       stop("This fit was stored without its data (retain = list(data = FALSE)); supply data =, ",
            "the data frame it was fitted to.", call. = FALSE)
-    data <- .gt_bootstrap_labels(fit, fit$data)
+    data <- .gt_bootstrap_labels(fit, fit[["data"]])
   }
   columns <- c(fit$design$object, fit$design$facets, fit$outcomes)
   if (!is.data.frame(data) || anyDuplicated(names(data)) || !all(columns %in% names(data)))
@@ -194,12 +194,12 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
   data <- .gt_bootstrap_labels(fit, data[columns])
   resolved <- .gt_resolve_families(data, fit$outcomes, fit$families)$data
   canonical <- .gt_model_data_canonical(resolved, fit$design, fit$outcomes, fit$families)
-  if (is.data.frame(fit$data)) {
-    expected <- .gt_model_data_canonical(fit$data, fit$design, fit$outcomes, fit$families)
+  if (is.data.frame(fit[["data"]])) {
+    expected <- .gt_model_data_canonical(fit[["data"]], fit$design, fit$outcomes, fit$families)
     if (!identical(canonical, expected))
       stop("data does not match the fitted observations and design IDs in their original row order.", call. = FALSE)
   } else {
-    identity <- fit[["data_identity"]]
+    identity <- fit[["observation_identity"]]
     if (!is.list(identity) || !identical(identity$version, 1L) ||
         !identical(identity$algorithm, "sha256") || length(identity$sha256) != 1L)
       stop("This saved fit has no verifiable data identity and retained no data; refit the original data before bootstrapping.", call. = FALSE)
@@ -449,16 +449,16 @@ summary.gt_bootstrap <- function(object, level = 0.95, interval_type = c("percen
 # bootstraps. A legacy bootstrap without this field keeps its older estimate
 # checks, rather than claiming data verification that was never recorded.
 .gt_bootstrap_fit_identity <- function(fit) {
-  if (!is.null(fit[["data_identity"]])) return(fit[["data_identity"]])
-  if (!is.data.frame(fit$data)) return(NULL)
-  .gt_model_data_identity(.gt_model_data_canonical(fit$data, fit$design, fit$outcomes, fit$families))
+  if (!is.null(fit[["observation_identity"]])) return(fit[["observation_identity"]])
+  if (!is.data.frame(fit[["data"]])) return(NULL)
+  .gt_model_data_identity(.gt_model_data_canonical(fit[["data"]], fit$design, fit$outcomes, fit$families))
 }
 
 # A bootstrap belongs to the fit whose estimates and modeled data it recorded.
 .gt_bootstrap_match <- function(fit, bootstrap) {
   if (!inherits(bootstrap, "gt_bootstrap")) stop("bootstrap must be created by gt_bootstrap().", call. = FALSE)
-  if ((!is.null(bootstrap$original$data_identity) &&
-       !identical(bootstrap$original$data_identity, .gt_bootstrap_fit_identity(fit))) ||
+  if ((!is.null(bootstrap$original[["observation_identity"]]) &&
+       !identical(bootstrap$original[["observation_identity"]], .gt_bootstrap_fit_identity(fit))) ||
       !identical(bootstrap$original$outcomes, fit$outcomes) ||
       !identical(bootstrap$original$minus2loglik, fit$minus2loglik) ||
       !identical(bootstrap$original$components, fit$covariance_components))

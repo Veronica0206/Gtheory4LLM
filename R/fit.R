@@ -87,7 +87,7 @@ gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian")
   result$panel <- .gt_panel_summary(resolved$data, design)
   # Bind later supplied bootstrap data to the fitted observations even when
   # retention drops them. The signature keeps no row values or identifiers.
-  result$data_identity <- .gt_model_data_identity(
+  result[["observation_identity"]] <- .gt_model_data_identity(
     .gt_model_data_canonical(resolved$data, design, outcomes, families))
   # One class vector for every engine: the engine subclass first, then gt_fit,
   # so that methods dispatch on either and no backend label leaks into class().

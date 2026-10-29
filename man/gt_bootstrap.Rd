@@ -29,7 +29,10 @@ before data retention. Matching only the panel dimensions is insufficient.
 Row names, unused columns, column order and factor storage do not matter;
 permuting rows is refused because object encounter order determines seeded
 resampling. Original category labels and the fit's retained binary codes are
-accepted under the fit's recorded category order. Older fits that kept neither
+accepted under the fit's recorded category order. As in \code{gt_fit()}, original
+numeric or logical binary observations use labels \code{c("0", "1")}; reversed
+or other labels require a factor. Numeric 0/1 supplied for a fit with other
+labels is interpreted as its retained internal codes. Older fits that kept neither
 observations nor a verifiable identity must be refitted.}
 \item{control}{A \code{\link{gt_control}} for the refits; by default the fit's
 own. Explicit controls set the refits' numerical settings and acceptance

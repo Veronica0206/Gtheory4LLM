@@ -413,10 +413,12 @@ unaccepted$numerically_accepted <- FALSE
 expect_error(gt_bootstrap(unaccepted, replicates = 5, seed = 1), "numerically accepted fit", "an unaccepted fit is refused")
 dropped <- gt_fit(d, "score", gt_design("item", "rater"), control = gt_control(retain = list(data = FALSE)))
 expect_error(gt_bootstrap(dropped, replicates = 5, seed = 1), "stored without its data", "a fit without data needs data =")
+check(is.null(dropped$data) && is.null(dropped[["data"]]),
+      "a retained observation identity never partially matches the removed data field")
 from_data <- gt_bootstrap(dropped, replicates = 5, seed = 11, data = d)
 check(identical(from_data$components, boot$components[1:5]), "supplied data reproduces the retained-data replicates")
-check(is.list(dropped$data_identity) && identical(dropped$data_identity$algorithm, "sha256") &&
-        grepl("^[[:xdigit:]]{64}$", dropped$data_identity$sha256),
+check(is.list(dropped$observation_identity) && identical(dropped$observation_identity$algorithm, "sha256") &&
+        grepl("^[[:xdigit:]]{64}$", dropped$observation_identity$sha256),
       "a fit without retained observations keeps a compact data identity")
 identity_frame <- d
 identity_frame$score[1L] <- -0
@@ -447,11 +449,11 @@ for (original in list(fit, dropped)) {
         "a copy with unchanged modeled observations ignores row names, storage and unused columns")
 }
 legacy <- dropped
-legacy$data_identity <- NULL
+legacy$observation_identity <- NULL
 expect_error(gt_bootstrap(legacy, replicates = 1, seed = 11, data = d),
   "no verifiable data identity", "a legacy fit without observations or an identity cannot authenticate supplied data")
 legacy <- fit
-legacy$data_identity <- NULL
+legacy$observation_identity <- NULL
 check(identical(gt_bootstrap(legacy, replicates = 1, max_attempts = 1, seed = 11, data = d)$components,
                 boot$components[1L]), "legacy retained observations still support an exact data comparison")
 check(isTRUE(boot$settings$jackknife) && identical(boot$settings$requested_control, fit$control) &&
@@ -478,12 +480,12 @@ expect_error(gt_reliability(renamed_fit, bootstrap = boot), "not made from this 
 expect_error(gt_report(renamed_fit, bootstrap = boot), "not made from this fit",
              "a report also refuses a bootstrap with another fitted data identity")
 legacy_boot <- boot
-legacy_boot$original$data_identity <- NULL
+legacy_boot$original$observation_identity <- NULL
 check(identical(as.data.frame(gt_reliability(fit, bootstrap = legacy_boot)),
                 as.data.frame(gt_reliability(fit, bootstrap = boot))),
       "legacy bootstrap objects keep their previous estimate-based attachment behavior")
-check(identical(gt_bootstrap(legacy, replicates = 1, max_attempts = 1, seed = 11)$original$data_identity,
-                fit$data_identity), "new bootstraps authenticate legacy fits that retained their observations")
+check(identical(gt_bootstrap(legacy, replicates = 1, max_attempts = 1, seed = 11)$original$observation_identity,
+                fit$observation_identity), "new bootstraps authenticate legacy fits that retained their observations")
 expect_error(gt_reliability(fit, interval_type = "percentile"), "need bootstrap", "a percentile interval needs a bootstrap")
 expect_error(gt_reliability(fit, bootstrap = boot, interval_type = "wald"), "A bootstrap was supplied", "wald with a bootstrap is refused")
 expect_error(gt_reliability(fit, bootstrap = boot, interval_type = "normal"), "interval_type must be", "an unknown interval is refused")
@@ -508,6 +510,9 @@ coded <- rbinom(nrow(bd), 1L, plogis(eta))
 grade <- ordered(c("low", "mid", "high")[1L + (eta + rnorm(nrow(bd)) > -.2) + (eta + rnorm(nrow(bd)) > 1)],
                  levels = c("low", "mid", "high"))
 binary_design <- gt_design("item", "rater", full_cell = FALSE)
+expect_error(gt_fit(transform(bd, label = coded), "label", binary_design,
+  gt_family("binary", levels = c("1", "0"))), "Numeric/logical binary input uses levels c('0','1')",
+  "numeric binary outcomes cannot declare reversed labels; a labeled factor is required")
 labeled <- list(numeric = transform(bd, label = coded),
   labels = transform(bd, label = factor(ifelse(coded == 1L, "yes", "no"), levels = c("no", "yes"))),
   reversed = transform(bd, label = factor(as.character(coded), levels = c("1", "0"))))
