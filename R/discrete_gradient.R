@@ -74,9 +74,16 @@
 # C_i w_i for a nominal block, with the Hessian's stable diagonal.
 .gt_d_nominal_multiply <- function(curvature, w) {
   p <- curvature$probability
-  out <- p * w - p * rowSums(p * w)
-  for (a in seq_len(ncol(p)))
-    out[, a] <- out[, a] + (.gt_d_nominal_diagonal(curvature, a) - (p[, a] - p[, a]^2)) * w[, a]
+  out <- matrix(0, nrow(p), ncol(p), dimnames = dimnames(p))
+  # Form the diagonal and off-diagonal terms separately. Subtracting the
+  # weighted mean from w first can erase off-diagonal contributions when a
+  # probability rounds to one; repairing the diagonal afterward cannot
+  # recover those lost terms.
+  for (a in seq_len(ncol(p))) {
+    out[, a] <- .gt_d_nominal_diagonal(curvature, a) * w[, a]
+    for (b in seq_len(ncol(p))) if (b != a)
+      out[, a] <- out[, a] - (p[, a] * p[, b]) * w[, b]
+  }
   out
 }
 

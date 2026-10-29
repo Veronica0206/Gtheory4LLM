@@ -15,6 +15,13 @@ threshold was loosened; where an optimizer path changed, the change is named.
 
 ## Reproduction and release review
 
+- The optional sparse nominal analytic gradient now forms curvature-vector
+  products directly from stable diagonal and off-diagonal entries. This
+  preserves tail contributions when a category probability rounds to one;
+  the default finite-difference route and acceptance rules are unchanged.
+- Release-policy checks now include the exact-archive macOS and Windows jobs,
+  expand supported inline matrices, and refuse unsupported matrix forms
+  instead of silently omitting required checks.
 - Object bootstrap resampling now verifies that supplied data contain the
   original modeled values, identifiers and row order. Fits retain a versioned
   SHA-256 signature when data retention is disabled. Supplied refit controls

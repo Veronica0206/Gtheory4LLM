@@ -1,10 +1,14 @@
 # Repository protection and required checks
 
-The three workflows in `.github/workflows/` run on every push and pull request.
+The three workflows in `.github/workflows/` run on pull requests. Numerical
+validation and compatibility also run on every push; exact candidate readiness
+runs on pushes to `main`. All three allow manual dispatch.
 GitHub branch protection enforces the required checks on `main`, including for
-administrators. It does not enforce review: see the note below the table. The authenticated verifier confirmed the settings
-below after v0.1.0 publication. This file declares the required state, how to
-apply it, and how to verify it; repository files alone cannot enforce settings.
+administrators. It does not enforce review: see the note below the table. This
+file declares the required state, how to apply it, and how to verify it;
+repository files alone cannot enforce settings. Repeat live verification after
+adding required contexts: the earlier v0.1.0 verification does not establish
+enforcement of later additions.
 
 `scripts/check_branch_protection.py` compares the live settings with the table
 below. It reads the GitHub API through `gh` and changes nothing.
@@ -22,7 +26,7 @@ authentication, or without admin rights on the repository it reports
 
 | Setting | Required value | Why |
 |---|---|---|
-| Required status checks | The seven contexts below, strict (branch up to date) | A merge must be validated against what it will actually become |
+| Required status checks | The nine contexts below, strict (branch up to date) | A merge must be validated against what it will actually become |
 | Required pull request reviews | A pull request is required; 0 approving reviews, stale reviews dismissed | GitHub cannot enforce review for a solo maintainer; see below |
 | Conversation resolution | Required | A raised numerical concern cannot be merged past silently |
 | Force pushes | Blocked | Published release history is the artifact manifest's anchor |
@@ -57,7 +61,7 @@ commits, so after either one the named commit is no longer an ancestor of
 a scratch clone. A release branch is therefore integrated with its commits
 intact, in this order:
 
-1. Open the release pull request and wait for its own seven checks on the final
+1. Open the release pull request and wait for its own nine checks on the final
    head. Checks from `workflow_dispatch` runs do not count towards the
    requirement.
 2. Fast-forward first. With the branch up to date and its checks green, push
@@ -107,19 +111,26 @@ R-devel without long double
 windows-latest / R release
 macos-latest / R release
 ubuntu-22.04 / R 4.5.0
+Exact archive / macos-latest / R release
+Exact archive / windows-latest / R release
 ```
 
 `validate` is the locked numerical gate, `build-release` and `check-devel` are
 the ordinary exact CRAN candidate jobs, `R-devel without long double` checks
-the same archive on the additional noLD platform, and the three matrix entries are the platform
-compatibility checks. If a workflow's job name or matrix changes, update this
+the same archive on the additional noLD platform. The two `Exact archive`
+contexts require that same candidate to pass on macOS and Windows; the other
+three matrix entries are separate source/platform compatibility checks. If a workflow's job name or matrix changes, update this
 list and the workflow in the same change: a required context that no job
 produces blocks every merge, and a job whose context is not required stops
-being a gate without anyone noticing.
+being a gate without anyone noticing. The inventory supports literal inline or
+block matrix axes and include-only rows. It refuses unsupported matrix forms
+(such as dynamic expressions or include/exclude combinations) instead of
+silently omitting their jobs; extend the inventory and its independent fixtures
+before adopting such a workflow.
 
 ## Applying it
 
-Run once, as a repository administrator:
+For initial setup, run as a repository administrator:
 
 ```sh
 gh api -X PUT repos/Veronica0206/Gtheory4LLM/branches/main/protection \
@@ -128,6 +139,14 @@ gh api -X PUT repos/Veronica0206/Gtheory4LLM/branches/main/protection \
 
 `docs/branch-protection.json` is the exact payload for the table above. Review
 it before applying; it is the settings, not a suggestion about them.
+
+For an existing protected branch, preserve live settings and app associations:
+read `branches/main/protection/required_status_checks`, append missing contexts
+using the observed GitHub Actions `app_id`, and PATCH only that endpoint with
+its existing `strict` value and complete `checks` array. Do not replace all
+branch protection merely to add checks. Read back the complete protection and
+run the verifier with `--require`; changing this file alone does not enforce
+new contexts on GitHub.
 
 ### Reviewed action runtimes
 

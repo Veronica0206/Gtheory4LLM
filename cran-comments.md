@@ -18,6 +18,13 @@ workflow defines the two scoped whole-data joint examples and their numerical
 reproduction contract. NEWS.md and the help pages state the supported models
 and numerical guards.
 
+Submission review also repaired bootstrap data/model association and a
+cancellation error in the optional nominal analytic-gradient curvature product.
+The latter has independent stable-matrix tail regressions; no incorrect
+accepted fit was demonstrated. The default finite-difference route and all
+numerical acceptance thresholds remain unchanged. Repository merge policy
+now includes the exact-archive macOS and Windows checks.
+
 Discrete estimation remains first-order Laplace. The native joint illustrations
 use efficacy/safety outcomes and three mental-health groups, not the full
 four-aspect/six-flag sets. Numerical acceptance does not establish approximation
@@ -31,7 +38,8 @@ near-boundary/weak-signal limitations remain in force.
 The 1.0.0 candidate built from `2b31e84` was refit on both panels on 2026-10-28, on macOS and
 Linux: all four fits were accepted and matched the point references and the
 macOS conditional-information reference. That archive predates the subsequent
-bootstrap data/model-association repairs and documentation updates. These
+bootstrap data/model-association repairs, nominal gradient correction and
+documentation updates. These
 native results retain their own archive identity; they are not represented
 as full-data refits of the replacement submission archive.
 Included historical reference tables and synthetic workflow checks are not

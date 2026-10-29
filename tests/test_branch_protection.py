@@ -7,8 +7,11 @@ constructed API responses.
 from __future__ import annotations
 
 import importlib.util
+from contextlib import redirect_stdout
+import io
 import json
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -52,6 +55,14 @@ class PolicyContextTests(unittest.TestCase):
             with self.subTest(context=context):
                 self.assertIn(context, required)
 
+    def test_both_exact_archive_platforms_are_independently_required(self):
+        # These literal expectations must not come from the inventory itself:
+        # previously an unsupported inline matrix vanished from both sides.
+        exact = {"Exact archive / macos-latest / R release",
+                 "Exact archive / windows-latest / R release"}
+        self.assertTrue(exact <= CHECK.workflow_job_names(ROOT))
+        self.assertTrue(exact <= set(POLICY["required_status_checks"]["contexts"]))
+
     def test_the_prose_counts_the_contexts_it_lists(self):
         # The policy document is the authoritative admin instruction, so a count
         # in it that disagrees with the payload is a defect in the instruction.
@@ -69,6 +80,98 @@ class PolicyContextTests(unittest.TestCase):
         produced = CHECK.workflow_job_names(ROOT)
         self.assertIn("ubuntu-22.04 / R 4.5.0", produced)
         self.assertNotIn("${{ matrix.os }} / R ${{ matrix.r }}", produced)
+
+
+class InventoryFixtureTests(unittest.TestCase):
+    def inventory(self, body: str) -> set[str]:
+        # A separate root makes the expected inventory independent of current
+        # workflow text, and catches accidentally reading the module's ROOT.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            workflows = root / ".github/workflows"
+            workflows.mkdir(parents=True)
+            (workflows / "fixture.yaml").write_text("name: Fixture\njobs:\n" + body,
+                                                    encoding="utf-8")
+            return CHECK.workflow_job_names(root)
+
+    def test_inline_axes_form_a_cartesian_product(self):
+        self.assertEqual(self.inventory("""  check:
+    name: Exact / ${{ matrix.os }} / ${{ matrix.r }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+        r: ['4.5.0', release]
+    steps:
+      - run: true
+"""), {"Exact / macos-latest / 4.5.0", "Exact / macos-latest / release",
+       "Exact / windows-latest / 4.5.0", "Exact / windows-latest / release"})
+
+    def test_block_axes_and_quoted_template(self):
+        self.assertEqual(self.inventory("""  check:
+    name: 'Check / ${{ matrix.os }}'
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - 'windows-latest'
+"""), {"Check / macos-latest", "Check / windows-latest"})
+
+    def test_include_only_rows_preserve_paired_values(self):
+        self.assertEqual(self.inventory("""  check:
+    name: ${{ matrix.os }} / R ${{ matrix.r }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            r: release
+          - os: ubuntu-22.04
+            r: '4.5.0'
+"""), {"macos-latest / R release", "ubuntu-22.04 / R 4.5.0"})
+
+    def test_unsupported_or_incomplete_matrices_fail_explicitly(self):
+        for matrix in (
+            "        os: [macos-latest]\n        exclude:\n          - os: macos-latest\n",
+            "        os: ${{ fromJSON(inputs.os) }}\n",
+            "        os: [macos-latest]\n        include:\n          - os: windows-latest\n",
+            "        include:\n        os: [macos-latest]\n",
+            "        include:\n          - r: release\n",
+            "        os: []\n",
+            "        os: [null]\n",
+            "        os: [4.50]\n",
+            "        os: [macos-latest, macos-latest]\n",
+            "        os:\n          - label: macos-latest\n",
+            "        os: [macos-latest]\n          - windows-latest\n",
+            "        os: [macos-latest]\n        os: [windows-latest]\n",
+            "        os: [macos-latest]\n        r: [release, devel]\n",
+        ):
+            with self.subTest(matrix=matrix):
+                with self.assertRaises(CHECK.WorkflowInventoryError):
+                    self.inventory("  check:\n    name: ${{ matrix.os }}\n"
+                                   "    strategy:\n      matrix:\n" + matrix)
+
+    def test_dynamic_matrix_and_strategy_fail_explicitly(self):
+        for strategy in (
+            "    strategy:\n      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}\n",
+            "    strategy: {matrix: {os: [linux]}}\n",
+        ):
+            with self.subTest(strategy=strategy):
+                with self.assertRaises(CHECK.WorkflowInventoryError):
+                    self.inventory("  check:\n    name: ${{ matrix.os }}\n" + strategy)
+
+    def test_unsupported_mapping_cannot_hide_a_matrix_behind_a_static_name(self):
+        for body in (
+            "  check:\n    name: Static\n    strategy:\n        matrix:\n          os: [linux]\n",
+            "  check:\n    name: Static\n    'strategy':\n      matrix:\n        os: [linux]\n",
+            "  check:\n    name: Static\n    strategy:\n      'matrix':\n        os: [linux]\n",
+            "  check:\n      name: Static\n      strategy:\n        matrix:\n          os: [linux]\n",
+        ):
+            with self.subTest(body=body):
+                with self.assertRaises(CHECK.WorkflowInventoryError):
+                    self.inventory(body)
+
+    def test_matrix_requires_explicit_name(self):
+        with self.assertRaisesRegex(CHECK.WorkflowInventoryError, "explicit name"):
+            self.inventory("  check:\n    strategy:\n      matrix:\n        os: [linux]\n")
 
 
 class ComparisonTests(unittest.TestCase):
@@ -130,6 +233,24 @@ class ReportingTests(unittest.TestCase):
         live["enforce_admins"]["enabled"] = False
         with patch.object(CHECK, "live_protection", return_value=(live, None)):
             self.assertEqual(CHECK.main(["--require"]), 1)
+
+    def test_inventory_failure_is_nonzero_and_does_not_contact_github(self):
+        with patch.object(CHECK, "workflow_job_names",
+                          side_effect=CHECK.WorkflowInventoryError("unsupported matrix")), \
+                patch.object(CHECK, "live_protection") as live, redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(CHECK.main([]), 1)
+            live.assert_not_called()
+        report = json.loads(out.getvalue())
+        self.assertFalse(report["verified"])
+        self.assertIn("unsupported matrix", report["problems"][0])
+
+    def test_produced_but_unrequired_context_fails_live_verification(self):
+        produced = CHECK.workflow_job_names(ROOT) | {"new unchecked job"}
+        with patch.object(CHECK, "workflow_job_names", return_value=produced), \
+                patch.object(CHECK, "live_protection", return_value=(compliant(), None)), \
+                redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(CHECK.main(["--require"]), 1)
+        self.assertIn("new unchecked job", json.loads(out.getvalue())["problems"][0])
 
     def test_the_policy_is_documented_where_a_maintainer_will_look(self):
         policy_document = (ROOT / "docs/REPOSITORY_POLICY.md").read_text(encoding="utf-8")

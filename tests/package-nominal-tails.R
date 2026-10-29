@@ -17,13 +17,26 @@ reference <- rbind(
 kernel <- internal(".gt_d_response_kernel")
 dense <- internal(".gt_d_dense_hessian")
 sparse <- internal(".gt_d_sparse_hessian")
+multiply <- internal(".gt_d_nominal_multiply")
 compare <- function(actual, expected, tolerance = 2e-13) {
   stopifnot(all(is.finite(actual)),
     all(abs(actual - expected) <= tolerance * pmax(abs(expected), 1e-300)))
 }
+compare_product <- function(actual, curvature, w, tolerance = 2e-13) {
+  expected <- as.vector(curvature %*% w)
+  # Scale by the individual terms: a correct product can itself cancel to
+  # zero, so an error relative only to the final product is not meaningful.
+  scale <- as.vector(abs(curvature) %*% abs(w))
+  stopifnot(all(is.finite(actual)), all(abs(actual - expected) <= tolerance * pmax(scale, 1e-300)))
+}
 W <- diag(1e8, 2)
+vectors <- rbind(c(1, 1), c(1e16, 1e16), c(1, -2), c(-3, 1), c(0, 1), c(1, 0))
 for (i in seq_len(nrow(reference))) {
   ref <- reference[i, ]
+  # Independent closed-form curvature for logits (x, 0). Its diagonal
+  # retains the complement without subtracting a probability from one.
+  tail <- exp(-ref[1])
+  expected_curvature <- matrix(c(2 * tail, -tail, -tail, tail * (1 + tail)), 2) / (1 + 2 * tail)^2
   for (observed in 1:3) {
     prep <- list(n = 1L, q = 2L, blocks = list(list(family = "categorical", dims = 1:2, y = observed)))
     response <- kernel(matrix(c(ref[1], 0), 1), numeric(), prep)
@@ -36,12 +49,20 @@ for (i in seq_len(nrow(reference))) {
     expected_hessian <- matrix(c(ref[5], ref[6], ref[6], ref[7]), 2)
     compare(dense(response$curvature, W, 1L), expected_hessian)
     compare(as.matrix(sparse(response$curvature, Matrix::Matrix(W, sparse = TRUE), 1L)), expected_hessian)
+    for (j in seq_len(nrow(vectors)))
+      compare_product(multiply(response$curvature[[1]], vectors[j, , drop = FALSE]),
+                      expected_curvature, vectors[j, ])
   }
   # Make the almost-certain category the reference category instead.
   prep$blocks[[1]]$y <- 1L
   response <- kernel(matrix(rep(-ref[1], 2), 1), numeric(), prep)
   compare(response$nll, ref[2])
   compare(response$gradient, rep(ref[4], 2))
+  reference_curvature <- matrix(c(tail * (1 + tail), -tail^2, -tail^2, tail * (1 + tail)), 2) /
+    (1 + 2 * tail)^2
+  for (j in seq_len(nrow(vectors)))
+    compare_product(multiply(response$curvature[[1]], vectors[j, , drop = FALSE]),
+                    reference_curvature, vectors[j, ])
 }
 prep$blocks[[1]]$y <- 2L
 response <- kernel(matrix(c(40, 0), 1), numeric(), prep)
@@ -57,9 +78,12 @@ prep <- list(n = 3L, q = 2L, blocks = list(list(family = "categorical", dims = 1
 response <- kernel(eta, numeric(), prep)
 prob <- cbind(1, exp(eta)); prob <- prob / rowSums(prob)
 compare(response$nll, -sum(log(prob[cbind(1:3, 1:3)])))
+w <- matrix(c(2, -3, 1, -1, 0, 4), ncol = 2)
+product <- multiply(response$curvature[[1]], w)
 for (i in 1:3) {
   block <- list(dims = 1:2, probability = prob[i, -1, drop = FALSE])
   expected <- diag(2) + diag(as.vector(block$probability)) - tcrossprod(as.vector(block$probability))
   compare(dense(list(block), diag(2), 1L), expected)
+  compare(product[i, ], as.vector((expected - diag(2)) %*% w[i, ]))
 }
-cat("PASS: nominal tail loss, scores and dense/sparse curvature match independent high-precision references.\n")
+cat("PASS: nominal tail loss, scores, dense/sparse curvature and curvature products match independent references.\n")

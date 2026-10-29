@@ -63,9 +63,20 @@ policy. Its regression and final archive checks are separate from the prior
 candidate's checks below. Current help also distinguishes bootstrap intervals
 from the default delta-method intervals.
 
+A follow-up review reproduced a cancellation error in the optional sparse
+nominal analytic gradient when a category probability rounds to one. Direct
+stable curvature products replace the cancellation-prone expression, with
+tail and gradient-correction regressions. No incorrect accepted fit was
+demonstrated, and neither binary/ordinal native request uses this helper.
+The same review found that the declared merge policy omitted the exact-archive
+macOS and Windows jobs because its inventory missed inline matrices. The policy
+now names both jobs, tests their literal contexts independently, and rejects
+unsupported matrix forms rather than silently dropping jobs. Live GitHub
+enforcement is verified separately from the checked-in policy.
+
 The October 28 native records and frozen numerical studies remain historical
 evidence with their original source and archive identities. This review audits
-those records and the unchanged likelihood implementation; it does not repeat
+those records and the unchanged binary/ordinal likelihood paths; it does not repeat
 the long native fits. The replacement submission bundle must have its own
 checked archive, manual, manifest and validation report. Preparing that bundle
 does not merge the source, publish a GitHub release or submit to CRAN.

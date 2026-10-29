@@ -34,9 +34,13 @@ In every platform/model pair, numerical acceptance was retained, unrounded
 point estimates met both historical platform references, and conditional
 uncertainty met the saved macOS information reference. No interval-coverage
 campaign is supplied by these runs.
-The subsequent bootstrap data/model-association repairs have their own package
-tests; these historical native runs are not fresh full-data fits of the
-replacement submission archive.
+The subsequent bootstrap data/model-association repairs and nominal analytic
+gradient tail-product correction have their own package tests; these historical
+native runs are not fresh full-data fits of the replacement submission archive.
+The tail correction applies to nominal outcomes, which neither native request
+uses. Its tests compare curvature products and both gradient correction paths
+with explicit stable-matrix references. They establish arithmetic agreement,
+not nominal-model recovery, interval coverage or approximation accuracy.
 
 Neither request supplies a result for all four drug-review aspects or the six
 mental-health flags. Neither establishes first-order Laplace adequacy, a global

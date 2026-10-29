@@ -117,6 +117,37 @@ covariance <- matrix(c(.3, .05, .05, .25), 2)
 check("fixed covariance, fixed-effect gradient only", c("binary", "ordinal"),
       control = list(fixed_covariance = list(item = covariance, rater = covariance / 2)))
 
+# A fixed-point arithmetic fixture in the nominal tail. All three prepared
+# responses are deliberately changed to the dominant category after preparing
+# the block: this is a derivative test, not an identifiable public fit (the
+# fitting interface correctly refuses data with empty declared categories).
+# The large fixed covariance makes both Laplace corrections measurable while
+# probabilities round to one. The oracle is central differences of the full
+# objective, not a second implementation of the gradient formula.
+tail_data <- data.frame(item = seq_len(3L), rater = 1L,
+                       y = factor(c("a", "b", "c"), levels = c("a", "b", "c")))
+tail_family <- list(y = gt_family("categorical", levels = levels(tail_data$y), reference = "a"))
+tail_problem <- problem_of(tail_data, "y", gt_design("item", "rater", random = "item"), tail_family,
+  control = list(engine = "sparse", inner_tol = 1e-14, inner_maxit = 300L,
+                 fixed_covariance = list(item = diag(1e16, 2))))
+tail_problem$prep$blocks[[1L]]$y[] <- 2L
+tail_at <- tail_problem$start
+tail_at[] <- c(40, 0)
+tail_result <- gradient_of(tail_at, tail_problem$prep, tail_problem$groups, tail_problem$setup,
+  tail_problem$control, tail_problem$context, tail_problem$envelope)
+stopifnot(isTRUE(tail_result$valid))
+for (step in c(1e-3, 1e-4, 1e-5)) {
+  tail_reference <- finite_difference(objective_of(tail_problem), tail_at, tail_problem$lower, step)
+  stopifnot(within(tail_result$gradient, tail_reference))
+}
+for (omit in c("implicit", "log_determinant")) {
+  partial <- gradient_of(tail_at, tail_problem$prep, tail_problem$groups, tail_problem$setup,
+    tail_problem$control, tail_problem$context, tail_problem$envelope,
+    parts = setdiff(c("explicit", "log_determinant", "implicit"), omit))
+  stopifnot(isTRUE(partial$valid), max(abs(partial$gradient - tail_reference)) > 1e-3)
+}
+cat("PASS: complete nominal-tail gradient agrees with objective differences; both corrections are necessary.\n")
+
 # The complete gradient on an explicitly widened ordinal domain, at the two
 # witnesses of the paired logistic third derivative: before it was rescaled,
 # the middle interval (-0.5, 475) gave a silently zero derivative and

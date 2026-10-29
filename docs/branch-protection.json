@@ -8,7 +8,9 @@
       "windows-latest / R release",
       "macos-latest / R release",
       "ubuntu-22.04 / R 4.5.0",
-      "R-devel without long double"
+      "R-devel without long double",
+      "Exact archive / macos-latest / R release",
+      "Exact archive / windows-latest / R release"
     ]
   },
   "enforce_admins": true,
