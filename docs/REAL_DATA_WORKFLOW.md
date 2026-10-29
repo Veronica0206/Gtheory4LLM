@@ -107,10 +107,12 @@ the point references while missing the conditional-information reference, and
 that difference is reported as `uncertainty_mismatch` rather than success.
 
 The included references document calculations on earlier source revisions.
-The adopted 1.0.0 archive was replayed in full mode on 2026-10-28 on macOS and
-Linux and met both comparisons
+The 1.0.0 candidate built from `2b31e84` was replayed in full mode on
+2026-10-28 on macOS and Linux and met both comparisons
 ([release gates](DEVELOPMENT_STATUS.md#100-release-gates)); smoke mode and
-saved-point arithmetic do not replace such a replay. Neither comparison
+saved-point arithmetic do not replace such a replay. That evidence belongs to
+the recorded candidate bytes, before the subsequent bootstrap association
+repairs; it is not a full-data replay of a later replacement archive. Neither comparison
 demonstrates a global optimum, integration accuracy or calibrated confidence
 intervals after boundary selection.
 

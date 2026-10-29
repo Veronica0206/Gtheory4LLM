@@ -36,15 +36,22 @@ multivariate models.
 The run executed a frozen copy of source commit `a962a4d`, recorded in
 [run-metadata.csv](results/run-metadata.csv) with the
 [source fingerprints](results/source-files.csv). That commit preceded the
-release history and is not published. Of its 41 fingerprinted files, 33 are
-identical in the 1.0.0 source. The eight that differ lie outside the pilot's
-Gaussian execution path or changed after the run:
+release history and is not published. These are historical pilot results, not
+an execution of the current submission archive.
+
+Against the adopted `2b31e84` source, 31 of the 41 fingerprinted files are
+identical. The ten differences are:
 
 - `R/discrete.R`, `R/discrete_boundary_escape.R` and `R/preflight.R`: the
   discrete boundary-escape trial budget and preflight coordinate check, which
   Gaussian fits do not reach;
-- `R/bootstrap.R`: refits of discrete fits restore labeled binary responses,
-  which changes nothing for Gaussian outcomes;
+- `R/discrete_mode.R` and `R/discrete_sparse_mode.R`: the shared roundoff
+  safeguard and its use by the dense solver, outside the Gaussian path;
+- `R/bootstrap.R`: restoration of labeled binary responses; a guard requiring
+  the same instrumentation layout for every object; and correction of the
+  recorded Gaussian retry seed. The pilot uses complete panels and an explicit
+  retry seed. That explicit seed already governed the original refits; the
+  later correction records it accurately rather than changing the seed used;
 - `R/report.R`: report validation of bootstrap results; the runner builds no
   report;
 - `R/examples.R`: the `numeric` coding name and its `manuscript` alias; the
@@ -53,6 +60,12 @@ Gaussian execution path or changed after the run:
 - `summarize.R`: extended after the run to read the consolidated
   `replicates.csv`; the summarizer that ran is retained as
   [summarize-executed.R](results/summarize-executed.R).
+
+Subsequent submission-review changes add checks that bootstrap data and model
+specifications belong to the original fit. They do not turn this historical
+pilot into a fresh coverage assessment of the changed source. Its recorded
+undercoverage and scope restrictions remain applicable cautions; the pilot
+has not been rerun for this submission candidate.
 
 The executed runner, [run-executed.R](results/run-executed.R), is identical to
 [run.R](run.R). [summarize.R](summarize.R) rebuilds `replicates.csv` and

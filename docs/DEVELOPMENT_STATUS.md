@@ -52,7 +52,27 @@ recorded below.
 
 ## 1.0.0 release gates
 
-These are the gates that remain before 1.0.0 is approved, as of 2026-10-28.
+### Submission review, 2026-10-29
+
+A subsequent review found that object bootstrap could accept changed outcomes
+with the same panel layout, or refit different held-fixed covariance values,
+and associate those results with the original fit. The replacement source
+verifies the original modeled data (including when data retention is disabled),
+preserves the fixed covariance model, and records the refit controls and seed
+policy. Its regression and final archive checks are separate from the prior
+candidate's checks below. Current help also distinguishes bootstrap intervals
+from the default delta-method intervals.
+
+The October 28 native records and frozen numerical studies remain historical
+evidence with their original source and archive identities. This review audits
+those records and the unchanged likelihood implementation; it does not repeat
+the long native fits. The replacement submission bundle must have its own
+checked archive, manual, manifest and validation report. Preparing that bundle
+does not merge the source, publish a GitHub release or submit to CRAN.
+
+### Candidate checkpoint, 2026-10-28
+
+These were the gates before 1.0.0 approval at the 2026-10-28 checkpoint.
 Priorities in the historical sections below are not renewed requirements. The
 reduced scope decided at Q3 stands: whole-data fits of all four drug-review
 aspects and of the six mental-health flags remain deferred.

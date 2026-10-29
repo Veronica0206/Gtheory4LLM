@@ -9,9 +9,10 @@
 # drawn object keeps every one of its rows, so its complete instrumentation
 # panel travels with it, and an object drawn more than once enters as that
 # many distinct objects. The resample is refitted with the fit's own design,
-# families, estimator, covariance structures and controls, and the refit must
-# pass the same numerical acceptance as any fit. Refused and failed refits are
-# recorded and never stand in for accepted ones; resampling continues until
+# families, estimator and covariance structures. Its original controls are the
+# default; explicit controls govern refit numerics and acceptance thresholds.
+# Refused and failed refits are recorded and never stand in for accepted ones;
+# resampling continues until
 # the requested number of accepted refits or the attempt budget is reached.
 #
 # Every object must share one instrumentation layout: the same facet-level
@@ -66,6 +67,7 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
     stop("cores > 1 uses forked processes, which Windows does not provide; use cores = 1.", call. = FALSE)
   if (is.null(control)) control <- fit$control
   if (!inherits(control, "gt_control")) stop("control must be created by gt_control().", call. = FALSE)
+  .gt_bootstrap_model_control(fit, control)
   data <- .gt_bootstrap_data(fit, data)
   object <- fit$design$object
   labels <- unique(data[[object]])
@@ -121,33 +123,90 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
     components = lapply(kept, `[[`, "components"), records = records,
     jackknife = leave_one_out,
     original = list(outcomes = fit$outcomes, components = fit$covariance_components,
-                    minus2loglik = fit$minus2loglik, estimator = fit$estimator),
-    settings = list(seed = seed, max_attempts = max_attempts, warm_start = warm_start, cores = cores),
+                    minus2loglik = fit$minus2loglik, estimator = fit$estimator,
+                    data_identity = .gt_bootstrap_fit_identity(fit)),
+    settings = list(seed = seed, max_attempts = max_attempts, warm_start = warm_start, cores = cores,
+      jackknife = jackknife, requested_control = control,
+      refit_control = .gt_bootstrap_refit_control(fit, control, NULL, warm_start),
+      retry_seed_policy = if (is.null(explicit)) "Per-attempt retry seeds are recorded in records and jackknife$records."
+        else "The explicit Gaussian retry_seed in requested_control is used for every refit."),
     interpretation = paste("Object bootstrap: objects resampled with replacement, each with its",
-      "complete instrumentation panel, every resample refitted under the fit's specification",
-      "and acceptance rule. Intervals describe object sampling conditional on the observed",
+      "complete instrumentation panel, every resample refitted under the fit's model",
+      "and recorded refit controls. Intervals describe object sampling conditional on the observed",
       "instrumentation levels and on numerical acceptance; they do not reflect sampling of",
       "the facet levels.")), class = "gt_bootstrap")
 }
 
-# The modelled data: the fit's own, or a supplied copy that must describe the
-# same panel.
+# Numerical controls may change between the original fit and its refits, but
+# fixing, freeing or changing a source covariance changes the statistical
+# model. Compare matrices in fitted latent-dimension order, so a named copy
+# with reordered sources or axes still denotes the same model.
+.gt_bootstrap_model_control <- function(fit, control) {
+  if (.gt_is_gaussian(fit)) return(invisible(control))
+  original <- fit$control$discrete$fixed_covariance
+  requested <- control$discrete$fixed_covariance
+  if (is.null(original) && is.null(requested)) return(invisible(control))
+  mismatch <- function() stop("Bootstrap control must preserve the fit's fixed_covariance specification; ",
+    "do not add, remove or change fixed source matrices.", call. = FALSE)
+  if (is.null(original) || is.null(requested)) mismatch()
+  components <- fit$covariance_components
+  sources <- names(components)
+  dimensions <- rownames(components[[1L]])
+  q <- nrow(components[[1L]])
+  canonical <- function(fixed) {
+    if (!is.list(fixed) || is.null(names(fixed)) || anyNA(names(fixed)) ||
+        anyDuplicated(names(fixed)) || !setequal(names(fixed), sources)) mismatch()
+    lapply(fixed[sources], function(x) {
+      if (!is.matrix(x) || !is.numeric(x) || !identical(dim(x), c(q, q)) ||
+          any(!is.finite(x))) mismatch()
+      if (!is.null(rownames(x)) || !is.null(colnames(x))) {
+        if (any(vapply(dimnames(x), function(labels) is.null(labels) || anyNA(labels) ||
+            any(!nzchar(labels)) || anyDuplicated(labels) ||
+            !setequal(labels, dimensions), logical(1)))) mismatch()
+        x <- x[dimensions, dimensions, drop = FALSE]
+      }
+      as.double(x)
+    })
+  }
+  if (!identical(canonical(original), canonical(requested))) mismatch()
+  invisible(control)
+}
+
+# The modelled data: the fit's own, or an authenticated copy in fitted row order.
 .gt_bootstrap_data <- function(fit, data) {
   if (is.null(data)) {
     if (!is.data.frame(fit$data))
       stop("This fit was stored without its data (retain = list(data = FALSE)); supply data =, ",
            "the data frame it was fitted to.", call. = FALSE)
-    return(.gt_bootstrap_labels(fit, fit$data))
+    data <- .gt_bootstrap_labels(fit, fit$data)
   }
   columns <- c(fit$design$object, fit$design$facets, fit$outcomes)
-  if (!is.data.frame(data) || !all(columns %in% names(data)))
+  if (!is.data.frame(data) || anyDuplicated(names(data)) || !all(columns %in% names(data)))
     stop("data must be a data frame with the fit's object, facet and outcome columns.", call. = FALSE)
   panel <- .gt_panel_summary(data[columns], fit$design)
   recorded <- fit$panel
   if (!is.list(recorded) || !identical(as.integer(panel$counts), as.integer(recorded$counts)) ||
       !identical(panel$rows, recorded$rows) || !identical(panel$observed_cells, recorded$observed_cells))
     stop("data does not describe the panel this fit was made from.", call. = FALSE)
-  data[columns]
+  # Accept original labels or the fit's retained binary codes. Resolution uses
+  # the original category order; changing an ID or outcome is never just a
+  # matching panel shape. Row order is part of the bootstrap's seed semantics.
+  data <- .gt_bootstrap_labels(fit, data[columns])
+  resolved <- .gt_resolve_families(data, fit$outcomes, fit$families)$data
+  canonical <- .gt_model_data_canonical(resolved, fit$design, fit$outcomes, fit$families)
+  if (is.data.frame(fit$data)) {
+    expected <- .gt_model_data_canonical(fit$data, fit$design, fit$outcomes, fit$families)
+    if (!identical(canonical, expected))
+      stop("data does not match the fitted observations and design IDs in their original row order.", call. = FALSE)
+  } else {
+    identity <- fit[["data_identity"]]
+    if (!is.list(identity) || !identical(identity$version, 1L) ||
+        !identical(identity$algorithm, "sha256") || length(identity$sha256) != 1L)
+      stop("This saved fit has no verifiable data identity and retained no data; refit the original data before bootstrapping.", call. = FALSE)
+    if (!identical(.gt_model_data_identity(canonical), identity))
+      stop("data does not match the fitted observations and design IDs in their original row order.", call. = FALSE)
+  }
+  .gt_bootstrap_labels(fit, resolved)
 }
 
 # Whether every object carries the same multiset of facet-level combinations,
@@ -188,7 +247,7 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
 
 # Refit one resample with the fit's specification; keep only what the
 # intervals need and what the record reports.
-.gt_bootstrap_refit <- function(fit, sample, control, retry_seed, warm_start) {
+.gt_bootstrap_refit_control <- function(fit, control, retry_seed, warm_start) {
   gaussian <- .gt_is_gaussian(fit)
   # Observed information plays no part in acceptance, and a replicate needs
   # only its estimates. The lme4 route takes neither setting.
@@ -197,16 +256,20 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
       if (is.null(control$gaussian$retry_seed)) control$gaussian$retry_seed <- retry_seed
       control$gaussian$check_hessian <- FALSE
     }
-    covariance <- fit$covariance_types[fit$design$terms]
-    residual <- unname(fit$covariance_types[["Residual"]])
   } else {
     # The original estimates are the primary start; the alternative starts
     # and every acceptance check still apply.
     if (warm_start) control$discrete$start <- .gt_bootstrap_start(fit)
     control$discrete$check_hessian <- FALSE
-    covariance <- fit$covariance
-    residual <- NULL
   }
+  control
+}
+
+.gt_bootstrap_refit <- function(fit, sample, control, retry_seed, warm_start) {
+  control <- .gt_bootstrap_refit_control(fit, control, retry_seed, warm_start)
+  gaussian <- .gt_is_gaussian(fit)
+  covariance <- if (gaussian) fit$covariance_types[fit$design$terms] else fit$covariance
+  residual <- if (gaussian) unname(fit$covariance_types[["Residual"]]) else NULL
   warnings <- 0L
   started <- proc.time()[["elapsed"]]
   refit <- tryCatch(withCallingHandlers(
@@ -382,10 +445,21 @@ summary.gt_bootstrap <- function(object, level = 0.95, interval_type = c("percen
   interval
 }
 
-# A bootstrap belongs to the fit whose estimates it recorded.
+# Legacy fits with retained observations can also authenticate newly created
+# bootstraps. A legacy bootstrap without this field keeps its older estimate
+# checks, rather than claiming data verification that was never recorded.
+.gt_bootstrap_fit_identity <- function(fit) {
+  if (!is.null(fit[["data_identity"]])) return(fit[["data_identity"]])
+  if (!is.data.frame(fit$data)) return(NULL)
+  .gt_model_data_identity(.gt_model_data_canonical(fit$data, fit$design, fit$outcomes, fit$families))
+}
+
+# A bootstrap belongs to the fit whose estimates and modeled data it recorded.
 .gt_bootstrap_match <- function(fit, bootstrap) {
   if (!inherits(bootstrap, "gt_bootstrap")) stop("bootstrap must be created by gt_bootstrap().", call. = FALSE)
-  if (!identical(bootstrap$original$outcomes, fit$outcomes) ||
+  if ((!is.null(bootstrap$original$data_identity) &&
+       !identical(bootstrap$original$data_identity, .gt_bootstrap_fit_identity(fit))) ||
+      !identical(bootstrap$original$outcomes, fit$outcomes) ||
       !identical(bootstrap$original$minus2loglik, fit$minus2loglik) ||
       !identical(bootstrap$original$components, fit$covariance_components))
     stop("This bootstrap was not made from this fit.", call. = FALSE)

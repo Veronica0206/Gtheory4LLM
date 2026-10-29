@@ -6,8 +6,8 @@ or acceptance is asserted by this source file.
 
 ## Changes since the CRAN release
 
-The package adds the formula interface and conventional model methods, a bounded
-lme4 Gaussian route, public sparse discrete fitting, optional observed
+Compared with CRAN 0.5.0, this update adds the formula interface and conventional
+model methods, a bounded lme4 Gaussian route, public sparse discrete fitting, optional observed
 information including conditional calculations with boundary sources held fixed,
 an analytic Laplace gradient and explicit projected boundary
 escape, an object bootstrap with percentile and BCa intervals, and categorical
@@ -28,22 +28,25 @@ nonzero source matrices fixed. Such intervals omit held-source estimation and
 boundary-selection uncertainty. Their coverage is not demonstrated; unavailable
 uncertainty is still reported as unavailable. The documented
 near-boundary/weak-signal limitations remain in force.
-The adopted 1.0.0 archive was refit on both panels on 2026-10-28, on macOS and
+The 1.0.0 candidate built from `2b31e84` was refit on both panels on 2026-10-28, on macOS and
 Linux: all four fits were accepted and matched the point references and the
-macOS conditional-information reference.
+macOS conditional-information reference. That archive predates the subsequent
+bootstrap data/model-association repairs and documentation updates. These
+native results retain their own archive identity; they are not represented
+as full-data refits of the replacement submission archive.
 Included historical reference tables and synthetic workflow checks are not
 claimed as a fresh whole-data qualification of the final archive.
 
 ## Current CRAN state and reverse dependencies
 
 Read from the official CRAN package page, check page and PACKAGES.gz on
-2026-10-25 at 18:47 UTC (14:47 America/New_York). CRAN lists version 0.5.0,
+2026-10-29 at 04:24 UTC. CRAN lists version 0.5.0,
 published 2026-10-11, with all thirteen check flavors OK and no Additional
 issues section. This describes the currently listed version, not acceptance of
 1.0.0 or administrative closure of earlier correspondence.
 
-The source package index contained 25,559 records (25,529 distinct package
-names). No package named Gtheory4LLM in its Depends, Imports, LinkingTo,
+The source package index contained 25,613 records. No package named
+Gtheory4LLM in its Depends, Imports, LinkingTo,
 Suggests or Enhances fields. Thus there were zero listed reverse dependencies
 across those five fields at this checkpoint. Repeat the survey if submission
 occurs after this record becomes outdated.

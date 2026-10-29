@@ -85,10 +85,53 @@ gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian")
   # studies remain available after the modelled data is dropped. It records
   # what was observed; it never stands in for data that was checked.
   result$panel <- .gt_panel_summary(resolved$data, design)
+  # Bind later supplied bootstrap data to the fitted observations even when
+  # retention drops them. The signature keeps no row values or identifiers.
+  result$data_identity <- .gt_model_data_identity(
+    .gt_model_data_canonical(resolved$data, design, outcomes, families))
   # One class vector for every engine: the engine subclass first, then gt_fit,
   # so that methods dispatch on either and no backend label leaks into class().
   class(result) <- c(if (all(kinds == "gaussian")) "gt_gaussian_fit" else "gt_discrete_fit", "gt_fit")
   .gt_apply_retention(result, control$retain)
+}
+
+# Canonical modeled columns, in fitted row order. Row names, unused columns,
+# factor storage and unused factor levels do not change the observations.
+# Binary values here are already the codes resolved by gt_fit().
+.gt_model_data_canonical <- function(data, design, outcomes, families) {
+  variables <- c(design$object, design$facets)
+  values <- lapply(data[variables], function(x) enc2utf8(as.character(x)))
+  for (outcome in outcomes) {
+    x <- data[[outcome]]
+    values[[outcome]] <- if (families[[outcome]]$family == "gaussian") as.double(x) else
+      if (families[[outcome]]$family == "binary") as.integer(x) else enc2utf8(as.character(x))
+    # R's exact comparison treats signed zero as the same numeric value;
+    # the byte signature must make the same decision.
+    if (is.double(values[[outcome]])) values[[outcome]][which(values[[outcome]] == 0)] <- 0
+  }
+  values
+}
+
+# A versioned byte representation, independent of R's serialization header,
+# locale and machine endianness. Lengths and missingness distinguish empty
+# values and literal "NA" labels. tools ships with R; no hash package is needed.
+.gt_model_data_identity <- function(values) {
+  connection <- rawConnection(raw(), "wb")
+  on.exit(close(connection), add = TRUE)
+  writeBin("Gtheory4LLM-modeled-data-v1", connection)
+  writeBin(as.integer(length(values)), connection, size = 4L, endian = "big")
+  for (name in names(values)) {
+    x <- values[[name]]
+    writeBin(enc2utf8(name), connection)
+    writeBin(typeof(x), connection)
+    writeBin(as.double(length(x)), connection, size = 8L, endian = "big")
+    writeBin(as.raw(is.na(x)), connection)
+    if (anyNA(x)) x[is.na(x)] <- if (is.character(x)) "" else if (is.integer(x)) 0L else 0
+    if (is.character(x)) writeBin(x, connection) else
+      writeBin(x, connection, size = if (is.integer(x)) 4L else 8L, endian = "big")
+  }
+  list(version = 1L, algorithm = "sha256",
+       sha256 = unname(tools::sha256sum(bytes = rawConnectionValue(connection))))
 }
 
 # Level counts, row count, and observed cell replication for the fitted panel.

@@ -486,10 +486,15 @@ flags. Ordinary information was unavailable in those original runs. Subsequent
 macOS calculations at the saved estimates, without refitting, produced
 conditional coefficient intervals by holding three drug-review and five
 mental-health source matrices fixed. Those matrices are singular and nonzero.
-The conditional intervals have no Linux counterpart or coverage study. The point
-fits come from development source `2fc771b`; the 1.0.0 archive itself has not
-been refit on these panels. The [scoped evidence in development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md)
-separates these records from fresh archive checks. Numerical agreement alone
+The original point references come from development source `2fc771b`.
+On 28 October 2026, the 1.0.0 candidate built from `2b31e84` was refit on both
+panels on macOS and Linux. All four fits were accepted and met both the point
+and conditional-information comparison criteria. Its archive SHA-256 is
+recorded in the [scoped evidence in development status](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/DEVELOPMENT_STATUS.md).
+That result belongs to those candidate bytes. The subsequent bootstrap
+data-association repair and documentation changes require separate package
+checks; their presence does not constitute another full-data refit. No
+interval-coverage study is supplied by these runs. Numerical agreement alone
 does not establish first-order Laplace accuracy or calibrated intervals.
 
 The installed native workflow makes those two requests and their reporting

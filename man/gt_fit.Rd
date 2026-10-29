@@ -112,8 +112,8 @@ establish reproducibility, and bitwise-identical optimization is not promised.
 The installed \file{examples/native_1_0_workflow.R} defines a public workflow for
 two specified native examples:
 \itemize{
-\item Efficacy and safety from \code{drug_review_4aspect}.
-\item The three groups in \code{mental_health_3group}.
+\item Two ordinal outcomes, efficacy and safety, from \code{drug_review_4aspect}.
+\item Three binary (yes/no) groups in \code{mental_health_3group}.
 }
 Both are loaded with \code{gt_example()} and \code{coding = "native"}. Each full request
 retains 21,600 rows and ten declared sources. The project records report
@@ -121,10 +121,14 @@ numerical acceptance on macOS and Linux for those requests, with sparse
 analytic-gradient fitting and projected boundary escape. Their original
 ordinary information was unavailable. Later macOS information-only computations
 at those saved estimates produced conditional intervals while holding named
-singular nonzero source matrices fixed. That evidence does not include a new
-optimizer run, Linux conditional information, or interval-coverage assessment.
-The point fits come from development source 2fc771b; the 1.0.0 archive itself
-has not been refit on the 21,600-row panels.
+singular nonzero source matrices fixed. The original point references come
+from development source 2fc771b. On 28 October 2026 the candidate built from
+2b31e84 was refit on both panels on macOS and Linux: all four fits were accepted
+and met both the point and conditional-information comparison criteria.
+The repository's release record identifies those exact archive bytes.
+That evidence predates the subsequent bootstrap data-association repair;
+it is not a full-data refit of a later archive and does not assess interval
+coverage.
 These records do not establish higher-order likelihood accuracy or results for
 the four-aspect drug-review and six-flag mental-health models. Sourcing the
 script does not fit the native panels; its helper requires an explicit

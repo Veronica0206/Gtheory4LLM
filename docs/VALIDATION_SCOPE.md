@@ -4,13 +4,13 @@ This document separates implemented checks from the scientific validation still 
 
 ## Scoped native examples and numerical reproduction
 
-The [25 October 2026 project records](DEVELOPMENT_STATUS.md#analytic-gradient-qualification-2026-10-25)
+The [28 October 2026 candidate records](DEVELOPMENT_STATUS.md#100-release-gates)
 report numerical acceptance on macOS and Linux for two whole-data requests:
 
 | Native request | Retained observations and model | What the reported result establishes |
 |---|---|---|
-| Drug-review efficacy and safety | All 21,600 rows, the two named ordinal aspects of `drug_review_4aspect`, and ten declared sources | Earlier accepted point fits on macOS/Linux; a subsequent macOS information calculation held three fitted singular nonzero source matrices fixed |
-| Mental-health three groups | All 21,600 rows of `mental_health_3group`, three binary outcomes, and ten declared sources | Earlier accepted point fits on macOS/Linux; a subsequent macOS information calculation held five fitted singular nonzero source matrices fixed |
+| Drug-review efficacy and safety | All 21,600 rows, the two named ordinal aspects of `drug_review_4aspect`, and ten declared sources | Accepted fits on macOS/Linux; conditional information holds three fitted singular nonzero source matrices fixed |
+| Mental-health three groups | All 21,600 rows of `mental_health_3group`, three binary outcomes, and ten declared sources | Accepted fits on macOS/Linux; conditional information holds five fitted singular nonzero source matrices fixed |
 
 The public installed [native workflow](../inst/examples/native_1_0_workflow.R)
 and [guide](REAL_DATA_WORKFLOW.md) declare these requests and retain their
@@ -20,15 +20,23 @@ path, not either native fit. New source or archive bytes require their own run
 record; the presence of the script does not transfer the project's earlier
 numerical results to a new build.
 
-The later calculations supplied conditional intervals at the original accepted
+The earlier macOS saved-point calculations supplied conditional intervals at the original accepted
 estimates, using 25 of 34 information coordinates for drug review and 33 of 63
 for mental health. They changed neither the data nor the fitted point. The
 ordinary information refusal remains the historical result; it is not a reason
 to suppress the newly implemented conditional route. Conversely, arithmetic
 success conditional on fixed matrices does not measure uncertainty in those
-matrices or the decision to hold them. There is no corresponding Linux
-conditional-information record or coverage campaign for this extension.
-These fits predate the 1.0.0 archive, which has not repeated them.
+matrices or the decision to hold them. The candidate built from `2b31e84`
+(archive SHA-256
+`8e4854ee1ac0a9d2c3893528cb0c37ad9f5d741811c0fbddcc3ca91cd2fe6a45`)
+was subsequently refit on both panels on macOS and Linux on 28 October 2026.
+In every platform/model pair, numerical acceptance was retained, unrounded
+point estimates met both historical platform references, and conditional
+uncertainty met the saved macOS information reference. No interval-coverage
+campaign is supplied by these runs.
+The subsequent bootstrap data/model-association repairs have their own package
+tests; these historical native runs are not fresh full-data fits of the
+replacement submission archive.
 
 Neither request supplies a result for all four drug-review aspects or the six
 mental-health flags. Neither establishes first-order Laplace adequacy, a global

@@ -19,9 +19,9 @@ Description: Studies the reliability and generalizability of subjective
     Supported balanced decision studies compare evaluator, prompt, and
     replication allocations using observed Gaussian or explicitly requested
     latent binary and ordinal reliability, with random or fixed facets after
-    Brennan (2001). OpenMx Gaussian fits report asymptotic Wald standard errors
+    Brennan (2001). 'OpenMx' Gaussian fits report asymptotic Wald standard errors
     for variance components and delta-method coefficient intervals when
-    curvature checks permit them; the lme4 route returns point estimates only.
+    curvature checks permit them; the 'lme4' route returns point estimates only.
     Discrete fits offer optional full-information latent coefficient intervals,
     subject to numerical and boundary checks. An object bootstrap refits
     resampled objects under each fit's acceptance rule and gives percentile and
@@ -40,7 +40,7 @@ Description: Studies the reliability and generalizability of subjective
 License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 4.5.0)
-Imports: Matrix (>= 1.6.0), OpenMx (>= 2.22.11), graphics, methods, parallel, stats, utils
+Imports: Matrix (>= 1.6.0), OpenMx (>= 2.22.11), graphics, methods, parallel, stats, tools, utils
 Suggests: lme4, ordinal, knitr, rmarkdown
 VignetteBuilder: knitr
 URL: https://github.com/Veronica0206/Gtheory4LLM

@@ -112,8 +112,10 @@ Long graphical labels may be shortened, with complete labels in the tables.
 Source variance rows flag user-fixed covariance components so they cannot be
 mistaken for estimated zeros or estimated variance boundaries.
 Allocations are unconnected points; intervals appear only where recorded and
-available. Discrete latent intervals require usable observed information and
-retain their first-order Laplace and boundary qualifications. The report cannot
+available. Default discrete delta-method intervals require usable observed
+information and retain their first-order Laplace and boundary qualifications.
+Explicit bootstrap intervals retain their separate object-sampling,
+fixed-instrumentation and accepted-refit qualifications. The report cannot
 establish observed-label accuracy, a globally optimal allocation, statistical
 identification, or qualification of a private backend.
 

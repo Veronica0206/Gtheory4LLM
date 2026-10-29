@@ -294,6 +294,48 @@ check(nrow(errors) > 0L && all(grepl("Every declared category must occur", error
       "failed refits are recorded as errors and never counted; attempts run to the last accepted replicate")
 cat("PASS: discrete warm starts, refusals and errors\n")
 
+# --- fixed covariance is part of the refitted statistical model ------------------
+# A custom numerical control may adjust fitting checks but must not turn known
+# source covariances into estimated ones, replace their values, or add fixed
+# components to a model that estimated them. Named axes are semantic labels.
+seeded(9001L)
+fixed_data <- expand.grid(rater = factor(1:4), item = factor(1:12))
+fixed_data$a <- rbinom(nrow(fixed_data), 1L, plogis(.3 + rnorm(12)[fixed_data$item] +
+  rnorm(4, sd = .5)[fixed_data$rater]))
+fixed_data$b <- rbinom(nrow(fixed_data), 1L, plogis(-.2 + rnorm(12)[fixed_data$item] +
+  rnorm(4, sd = .5)[fixed_data$rater]))
+fixed_matrices <- list(item = matrix(c(1, .2, .2, .7), 2),
+                       rater = matrix(c(.1, .03, .03, .2), 2))
+fixed_fit <- suppressWarnings(gt_fit(fixed_data, c("a", "b"),
+  gt_design("item", "rater", full_cell = FALSE), gt_family("binary"),
+  control = gt_control(discrete = list(fixed_covariance = fixed_matrices))))
+check(isTRUE(fixed_fit$numerically_accepted), "the fixed joint model is numerically accepted")
+fixed_boot <- gt_bootstrap(fixed_fit, replicates = 1, max_attempts = 1, seed = 8)
+check(fixed_boot$accepted == 1L &&
+        max(abs(unlist(fixed_boot$components[[1L]]) - unlist(fixed_matrices))) < 1e-12,
+      "default refit controls preserve fixed covariance values")
+for (changed in list(gt_control(), gt_control(discrete = list(fixed_covariance = NULL)),
+                     gt_control(discrete = list(fixed_covariance = lapply(fixed_matrices, function(x) 2 * x)))))
+  expect_error(gt_bootstrap(fixed_fit, replicates = 1, seed = 8, control = changed, warm_start = FALSE),
+    "must preserve the fit's fixed_covariance specification", "custom controls cannot remove or change fixed source matrices")
+expect_error(gt_bootstrap(binary_fit, replicates = 1, seed = 8,
+  control = gt_control(discrete = list(fixed_covariance = list(item = matrix(1), rater = matrix(.1))))),
+  "must preserve the fit's fixed_covariance specification", "custom controls cannot fix previously estimated source matrices")
+equivalent <- lapply(fixed_matrices[c("rater", "item")], function(x) {
+  dimnames(x) <- list(c("a", "b"), c("a", "b"))
+  x[c("b", "a"), c("a", "b"), drop = FALSE]
+})
+custom_control <- gt_control(discrete = list(fixed_covariance = equivalent, stationarity_tol = 2e-3))
+custom_fixed <- gt_bootstrap(fixed_fit, replicates = 1, max_attempts = 1, seed = 8,
+  control = custom_control, warm_start = FALSE)
+check(identical(custom_fixed$components, fixed_boot$components) &&
+        identical(custom_fixed$settings$requested_control, custom_control) &&
+        identical(custom_fixed$settings$refit_control$discrete$stationarity_tol, 2e-3) &&
+        identical(custom_fixed$settings$refit_control$discrete$fixed_covariance, equivalent) &&
+        identical(custom_fixed$settings$refit_control$discrete$check_hessian, FALSE),
+      "equivalent fixed models allow reordered labels and preserve explicit numerical controls in provenance")
+cat("PASS: fixed covariance model preservation and explicit controls\n")
+
 # --- instrumentation layouts ------------------------------------------------------
 # The intervals hold the observed facet levels fixed, so every object must share
 # one instrumentation layout. Here rater 5 rated item 1 only: a draw without
@@ -373,12 +415,75 @@ dropped <- gt_fit(d, "score", gt_design("item", "rater"), control = gt_control(r
 expect_error(gt_bootstrap(dropped, replicates = 5, seed = 1), "stored without its data", "a fit without data needs data =")
 from_data <- gt_bootstrap(dropped, replicates = 5, seed = 11, data = d)
 check(identical(from_data$components, boot$components[1:5]), "supplied data reproduces the retained-data replicates")
+check(is.list(dropped$data_identity) && identical(dropped$data_identity$algorithm, "sha256") &&
+        grepl("^[[:xdigit:]]{64}$", dropped$data_identity$sha256),
+      "a fit without retained observations keeps a compact data identity")
+identity_frame <- d
+identity_frame$score[1L] <- -0
+negative_zero <- internal(".gt_model_data_canonical")(identity_frame, fit$design, fit$outcomes, fit$families)
+identity_frame$score[1L] <- 0
+positive_zero <- internal(".gt_model_data_canonical")(identity_frame, fit$design, fit$outcomes, fit$families)
+check(identical(internal(".gt_model_data_identity")(negative_zero),
+                internal(".gt_model_data_identity")(positive_zero)),
+      "canonical byte identity and exact comparison agree for signed numeric zero")
+changed_outcome <- d
+changed_outcome$score <- 100 * changed_outcome$score
+changed_id <- d
+changed_id$rater <- factor(paste0("different-", changed_id$rater))
+permuted_rows <- d[rev(seq_len(nrow(d))), ]
+for (original in list(fit, dropped)) {
+  for (wrong in list(changed_outcome, changed_id, permuted_rows))
+    expect_error(gt_bootstrap(original, replicates = 1, max_attempts = 1, seed = 11, data = wrong),
+      "does not match the fitted observations and design IDs in their original row order",
+      "same-shape changed outcomes, identifiers and reordered rows are refused before refitting")
+}
+copied <- d[rev(names(d))]
+copied$item <- as.character(copied$item)
+copied$unused <- seq_len(nrow(copied))
+rownames(copied) <- paste0("row-", seq_len(nrow(copied)))
+for (original in list(fit, dropped)) {
+  copy_boot <- gt_bootstrap(original, replicates = 1, max_attempts = 1, seed = 11, data = copied)
+  check(identical(copy_boot$components, boot$components[1L]),
+        "a copy with unchanged modeled observations ignores row names, storage and unused columns")
+}
+legacy <- dropped
+legacy$data_identity <- NULL
+expect_error(gt_bootstrap(legacy, replicates = 1, seed = 11, data = d),
+  "no verifiable data identity", "a legacy fit without observations or an identity cannot authenticate supplied data")
+legacy <- fit
+legacy$data_identity <- NULL
+check(identical(gt_bootstrap(legacy, replicates = 1, max_attempts = 1, seed = 11, data = d)$components,
+                boot$components[1L]), "legacy retained observations still support an exact data comparison")
+check(isTRUE(boot$settings$jackknife) && identical(boot$settings$requested_control, fit$control) &&
+        identical(boot$settings$refit_control$gaussian$check_hessian, FALSE) &&
+        is.character(boot$settings$retry_seed_policy),
+      "bootstrap records the requested controls, refit template, jackknife and retry-seed policy")
 expect_error(gt_bootstrap(dropped, replicates = 5, seed = 1, data = d[-1, ]), "does not describe the panel",
              "data from another panel is refused")
 batched <- fit
 batched$design$batch <- list(size = 5L)
 expect_error(gt_bootstrap(batched, replicates = 5, seed = 1), "Declared batches", "a batched design is refused")
 expect_error(gt_reliability(fit, bootstrap = joint_boot), "not made from this fit", "a bootstrap of another fit is refused")
+# Relabeling the objects leaves Gaussian sufficient statistics and point
+# estimates unchanged, but it is a different recorded data set. Attachment
+# must use the new identity as well as the original estimate checks.
+renamed <- d
+renamed$item <- factor(paste0("different-", renamed$item))
+renamed_fit <- gt_fit(renamed, "score", gt_design("item", "rater"))
+check(identical(renamed_fit$minus2loglik, fit$minus2loglik) &&
+        identical(renamed_fit$covariance_components, fit$covariance_components),
+      "different recorded identifiers can have exactly the same likelihood and components")
+expect_error(gt_reliability(renamed_fit, bootstrap = boot), "not made from this fit",
+             "matching point estimates cannot attach a new bootstrap to different fitted data")
+expect_error(gt_report(renamed_fit, bootstrap = boot), "not made from this fit",
+             "a report also refuses a bootstrap with another fitted data identity")
+legacy_boot <- boot
+legacy_boot$original$data_identity <- NULL
+check(identical(as.data.frame(gt_reliability(fit, bootstrap = legacy_boot)),
+                as.data.frame(gt_reliability(fit, bootstrap = boot))),
+      "legacy bootstrap objects keep their previous estimate-based attachment behavior")
+check(identical(gt_bootstrap(legacy, replicates = 1, max_attempts = 1, seed = 11)$original$data_identity,
+                fit$data_identity), "new bootstraps authenticate legacy fits that retained their observations")
 expect_error(gt_reliability(fit, interval_type = "percentile"), "need bootstrap", "a percentile interval needs a bootstrap")
 expect_error(gt_reliability(fit, bootstrap = boot, interval_type = "wald"), "A bootstrap was supplied", "wald with a bootstrap is refused")
 expect_error(gt_reliability(fit, bootstrap = boot, interval_type = "normal"), "interval_type must be", "an unknown interval is refused")
@@ -417,6 +522,13 @@ for (name in names(labeled)) {
           identical(retained$components, supplied$components) &&
           identical(retained$jackknife$components, supplied$jackknife$components),
         paste("the retained", name, "binary data gives the replicates and leave-one-out refits of the original data"))
+  without_data <- binary_fit
+  without_data$data <- NULL
+  recovered <- gt_bootstrap(without_data, replicates = 1, max_attempts = 1, seed = 8, data = frame)
+  encoded <- gt_bootstrap(without_data, replicates = 1, max_attempts = 1, seed = 8, data = binary_fit$data)
+  check(identical(recovered$components, retained$components[1L]) &&
+          identical(encoded$components, retained$components[1L]),
+        paste("the identity accepts original labels and retained codes for", name, "binary data"))
 }
 mixed <- transform(labeled$labels, grade = grade)
 mixed_fit <- gt_fit(mixed, c("label", "grade"), binary_design,
@@ -425,6 +537,11 @@ mixed_retained <- gt_bootstrap(mixed_fit, replicates = 1, max_attempts = 1, seed
 mixed_supplied <- gt_bootstrap(mixed_fit, replicates = 1, max_attempts = 1, seed = 8, data = mixed)
 check(mixed_retained$accepted == 1L && identical(mixed_retained$components, mixed_supplied$components),
       "joint labeled-binary and ordinal refits match the original data")
+mixed_dropped <- mixed_fit
+mixed_dropped$data <- NULL
+mixed_verified <- gt_bootstrap(mixed_dropped, replicates = 1, max_attempts = 1, seed = 8, data = mixed)
+check(identical(mixed_verified$components, mixed_retained$components),
+      "the identity accepts original joint binary and ordinal observations without retained data")
 cat("PASS: labeled binary outcomes\n")
 
 # --- reports with bootstrap intervals --------------------------------------------

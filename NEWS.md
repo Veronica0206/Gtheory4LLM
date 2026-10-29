@@ -15,6 +15,15 @@ threshold was loosened; where an optimizer path changed, the change is named.
 
 ## Reproduction and release review
 
+- Object bootstrap resampling now verifies that supplied data contain the
+  original modeled values, identifiers and row order. Fits retain a versioned
+  SHA-256 signature when data retention is disabled. Supplied refit controls
+  must preserve the original fixed covariance matrices, and results record
+  the effective controls, jackknife setting and seed policy.
+- Help distinguishes default delta-method intervals from explicit bootstrap
+  intervals, and dates the macOS/Linux full-data reproduction to its checked
+  candidate rather than transferring it to later archive bytes.
+
 - An installed native-data workflow defines the two scoped joint examples from
   their frozen public-data requests, with explicit fitting controls, output
   tables, refusal handling and numerical comparison tolerances. Sourcing the

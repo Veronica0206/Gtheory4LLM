@@ -34,11 +34,15 @@ On narrow devices, long labels are shortened with an ellipsis and a bracketed
 row number referring to \code{as.data.frame(x)}. Full outcome names remain in
 that table. Margins are restored after plotting.
 
-Discrete fits have intervals only when optional full observed information was
-requested and passed its acceptance, step-stability and curvature checks; at
+Default discrete delta-method intervals require optional full observed information
+that was requested and passed its acceptance, step-stability and curvature checks; at
 a boundary source they condition on that source held fixed. These asymptotic
-intervals are conditional on first-order Laplace;
-finite-sample coverage is not established. Latent-response coefficients do not
+intervals inherit the first-order Laplace approximation. Finite-sample coverage
+is not established. An explicit \code{\link{gt_bootstrap}}
+can instead supply percentile or BCa intervals without observed information;
+these describe object sampling conditional on the observed instrumentation
+levels and on accepted refits, with their separate availability checks.
+Latent-response coefficients do not
 describe observed label proportions or majority votes. Interval and boundary
 qualifications are described in \code{\link{gt_reliability}}.
 The plotting method uses base graphics; PDF and PNG devices can save the
