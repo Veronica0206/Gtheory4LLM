@@ -42,14 +42,13 @@ cross-platform release qualification remain separate work; see
 
 ## Install
 
-R 4.5 or later and OpenMx are required. Nothing in this package's own R code
-needs R 4.5; the floor is inherited from OpenMx 2.22.11, which calls a C entry
-point introduced in R 4.5.0 while declaring only `R (>= 3.5.0)` itself.
-Declaring it here turns a later, unexplained compilation failure into a clear
-refusal. Older pairings such as R 4.3 with OpenMx 2.21.11 have been reported to
-pass these checks but are not part of the validated gate; to use one, install
-from source with a relaxed floor, or `source("load_functions.R")`, which
-imposes no version requirement. This version contains C code, so
+R 4.5 or later and OpenMx are required. The bootstrap observation identity uses
+`tools::sha256sum()`, introduced in R 4.5.0. OpenMx 2.22.11 also calls a C
+entry point introduced in R 4.5.0 while declaring only `R (>= 3.5.0)` itself;
+the package's declared floor prevents a later compilation failure.
+The same minimum applies when sourcing `load_functions.R` directly. Older
+R/OpenMx pairings reported for earlier source versions do not establish
+compatibility with this implementation. This version contains C code, so
 installing it from source, and `source("load_functions.R")`, which compiles the
 same C file, need the C toolchain R itself uses: the Xcode command-line tools
 on macOS, Rtools on Windows, or a C compiler on Linux.

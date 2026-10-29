@@ -191,9 +191,10 @@ replace them. The full Ubuntu 24.04/current-R job retains its separately
 recorded backend coverage.
 OpenMx 2.22.11 uses the
 `Rf_isDataFrame` C API introduced in R 4.5.0 while declaring only
-`R (>= 3.5.0)` itself; the package therefore declares R 4.5.0 or later on its
-behalf. Nothing in this package's own R code requires R 4.5. The preflight
-rejects older R before loading dependencies.
+`R (>= 3.5.0)` itself. In addition, bootstrap observation identities use the
+`tools::sha256sum()` API added in R 4.5.0. The declared minimum therefore
+covers both the implementation and its dependency. Preflight rejects older R
+before loading dependencies.
 
 ```sh
 python3 scripts/check_documentation_lock.py --numerical scripts/dependency-locks/R-4.5.0.lock --documentation scripts/dependency-locks/minimum-documentation.lock

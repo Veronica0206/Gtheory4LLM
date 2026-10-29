@@ -365,9 +365,9 @@ corresponding evidence.
   reject the captured invalid starting steps before returning a fit. See
   [the backend investigation and qualification record](DEVELOPMENT_STATUS.md#intelnold-native-backend)
   and [issue #66](https://github.com/Veronica0206/Gtheory4LLM/issues/66).
-- R 4.5.0 or later is required, inherited from OpenMx rather than from this
-  package's own code. The README's install section explains why, and what to do
-  if you must use an older pairing.
+- R 4.5.0 or later is required for both package installation and standalone
+  use. The README's install section explains the package and dependency
+  requirements; older runtime pairings are not supported by this source.
 - The reported release state distinguishes a locally prepared bundle from a
   published release; see [the release checklist](RELEASE_CHECKLIST.md).
 - A configured CI workflow is not a passing run, a passing check is not

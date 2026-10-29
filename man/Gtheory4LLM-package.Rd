@@ -58,16 +58,13 @@ assessed only in a Gaussian pilot, where it fell below the nominal level. Discre
 unusable uncertainty remains explicitly unavailable rather than imputed.
 
 \subsection{Why this package declares R (>= 4.5.0)}{
-Nothing in this package's own R code needs R 4.5. The floor comes from
-the OpenMx version it supports. OpenMx 2.22.11 calls \code{Rf_isDataFrame}, a C
-entry point R introduced in 4.5.0, while declaring only \code{R (>= 3.5.0)}
-for itself. Declaring the floor here is what prevents an
-install on an older R from failing later with an unexplained compilation error.
-Earlier combinations such as R 4.3 with OpenMx 2.21.11 have been reported to
-run this package's checks; that pairing is not part of its validated gate. To
-use one, install from source with a relaxed floor, or load the implementation
-directly by sourcing \file{load_functions.R}, which imposes no version
-requirement of its own.
+R 4.5.0 supplies the SHA-256 function used to identify modeled observations
+for bootstrap verification. The implementation calls \code{tools::sha256sum()}.
+Its OpenMx
+dependency also uses a C interface introduced in that R version.
+Loading the standalone functions through \file{load_functions.R} has the
+same runtime requirement. Earlier reported checks with older R/OpenMx pairs
+belong to earlier source versions and do not qualify the current implementation.
 }
 
 The vignette \dQuote{How many evaluators, prompts, and runs?} demonstrates

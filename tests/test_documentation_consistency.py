@@ -91,7 +91,7 @@ class DocumentationSyncTests(unittest.TestCase):
 
 
 class VersionFloorTests(unittest.TestCase):
-    """The R floor is inherited from OpenMx, so its justification must agree."""
+    """The declared R floor and the installation guidance must agree."""
 
     def setUp(self):
         self.fields = description_fields()
