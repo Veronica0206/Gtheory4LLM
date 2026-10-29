@@ -4,7 +4,7 @@ This document separates implemented checks from the scientific validation still 
 
 ## Scoped native examples and numerical reproduction
 
-The [28 October 2026 candidate records](DEVELOPMENT_STATUS.md#100-release-gates)
+The [29 October 2026 candidate records](DEVELOPMENT_STATUS.md#100-release-gates)
 report numerical acceptance on macOS and Linux for two whole-data requests:
 
 | Native request | Retained observations and model | What the reported result establishes |
@@ -29,14 +29,16 @@ success conditional on fixed matrices does not measure uncertainty in those
 matrices or the decision to hold them. The candidate built from `2b31e84`
 (archive SHA-256
 `8e4854ee1ac0a9d2c3893528cb0c37ad9f5d741811c0fbddcc3ca91cd2fe6a45`)
-was subsequently refit on both panels on macOS and Linux on 28 October 2026.
-In every platform/model pair, numerical acceptance was retained, unrounded
-point estimates met both historical platform references, and conditional
-uncertainty met the saved macOS information reference. No interval-coverage
+was refit on both panels on macOS and Linux on 28 October 2026, and the adopted
+candidate built from `403aa86` (archive SHA-256
+`5219d180fb97263f3deeedba4911e1f40f02cd7894fa23f04f3433e547755528`) on
+29 October 2026. In every platform/model pair of both rounds, numerical acceptance was
+retained, unrounded point estimates met both historical platform references, and
+conditional uncertainty met the saved macOS information reference; apart from
+timings, the `403aa86` results are byte-identical to the `2b31e84` ones. No interval-coverage
 campaign is supplied by these runs.
-The subsequent bootstrap data/model-association repairs and nominal analytic
-gradient tail-product correction have their own package tests; these historical
-native runs are not fresh full-data fits of the replacement submission archive.
+The bootstrap data/model-association repairs and the nominal analytic gradient
+tail-product correction of `403aa86` have their own package tests.
 The tail correction applies to nominal outcomes, which neither native request
 uses. Its tests compare curvature products and both gradient correction paths
 with explicit stable-matrix references. They establish arithmetic agreement,

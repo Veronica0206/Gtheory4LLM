@@ -52,6 +52,18 @@ recorded below.
 
 ## 1.0.0 release gates
 
+These are the gates before 1.0.0 is approved, as of 2026-10-29. Priorities in
+the historical sections below are not renewed requirements. The reduced scope
+decided at Q3 stands: whole-data fits of all four drug-review aspects and of the
+six mental-health flags remain deferred.
+
+| Gate | State |
+|---|---|
+| Candidate archive | `Gtheory4LLM_1.0.0.tar.gz` built and checked from `403aa8664bd61ffb9bbe17afc6915ca70f8b5612` (SHA-256 `5219d180fb97263f3deeedba4911e1f40f02cd7894fa23f04f3433e547755528`, 785,808 bytes) by the candidate workflow run 40878740980, dispatched on that commit before its fast-forward into main through #114 on 2026-10-29. The ordinary R-devel check, the no-long-double check and the exact-archive macOS and Windows checks of these bytes each reported 0 errors, 0 warnings and 0 notes, as did a local macOS R 4.5.3 `--as-cran` check of the same bytes. The commit's full validation and compatibility workflows succeeded, and the push-event runs on main after the merge succeeded again, 9 of 9 jobs; the push-event candidate run built a second archive of the same commit (SHA-256 `d1a9020acf7a4f373fa75ff5a7f8699bf30f31be025679308fa06d4eac15c8ec`, 785,820 bytes), which differs from the adopted one only in the DESCRIPTION packaging timestamp and is not adopted. It is adopted as the release archive. It supersedes the candidate built from `2b31e84` (SHA-256 `8e4854ee1ac0a9d2c3893528cb0c37ad9f5d741811c0fbddcc3ca91cd2fe6a45`), which predates the submission-review repairs of #114: the bootstrap data and model binding (`R/bootstrap.R`), the observation identity recorded by `gt_fit()` (`R/fit.R`, with `tools` added to Imports) and the nominal tail curvature products of the analytic gradient (`R/discrete_gradient.R`). The two archives share one `src/` tree; 15 of their 152 files differ: DESCRIPTION, NEWS.md, README.md, those three R files, six help pages and three test files |
+| Dense/sparse equivalence (#4) | The frozen [protocol](../validation-studies/discrete-sparse-equivalence/PROTOCOL.md) was executed on 2026-10-26, from the reviewed implementation at `bec5612` on macOS and Linux; its `R/` and `src/` match those of the superseded `e0944b6` candidate. The [record](../validation-studies/discrete-sparse-equivalence/results/README.md) is **not passed under the frozen rules**. Five stage 3 quantity checks exceed their tolerances, in three case/platform outcomes: C13 on macOS, and C08 and C13 on Linux. The record gives each quantity's difference and its explanation. Every other comparison that ran is within tolerance. [Amendment 1](../validation-studies/discrete-sparse-equivalence/AMENDMENT-1.md), prospective stage 3 rules, was executed on 2026-10-27 from `dfb396a` on both platforms. Its [record](../validation-studies/discrete-sparse-equivalence/results-amendment-1/README.md) is **not passed**: every compared case passes stage 3, and C13 fails stage 4 on both platforms because neither backend accepts its fit. The investigation identified the dense roundoff cause addressed by #109; handling genuinely unusable evaluations in outer finite differences remains open in #59. [Amendment 2](../validation-studies/discrete-sparse-equivalence/AMENDMENT-2.md), prospective stage 4 rules for a fit both backends reject, was executed on 2026-10-27 from `5e0bb32`, whose `R/` and `src/` match the `2b31e84` candidate's. Its [record](../validation-studies/discrete-sparse-equivalence/results-amendment-2/README.md) is **passed** on both platforms: 12 compared cases pass with accepted fits, and C13 passes with matching rejected fits, which is agreement on a refusal, not an accepted fit. The adopted `403aa86` archive differs from that record's source in `R/bootstrap.R`, `R/fit.R` and `R/discrete_gradient.R`. The study sources every file in `R/`; its stage fits call `.gt_fit_discrete()` and its latent coefficients `gt_fit()`, which now also records an observation identity that enters no estimate; its cases use the default finite-difference gradient and never the bootstrap, so neither the nominal tail products nor the bootstrap guards are executed. The dense and sparse solvers the record compares are the ones in the adopted archive. The earlier records are unchanged and not passed |
+| Native reproduction | The two scoped joint models of the [native workflow](REAL_DATA_WORKFLOW.md) were run in full mode from 2026-10-29, from isolated installations of the adopted archive, on macOS (R 4.5.3, R's reference BLAS) and in the offline Linux container (R 4.5.2, OpenBLAS 0.3.26), with one numerical thread. **Passed** on both platforms. All four fits are numerically accepted and match both platforms' frozen point references: within 1.5e-5 in deviance (tolerance 0.01), 2.6e-4 in scaled components (0.02) and 4.5e-5 in G/Phi (1e-4). They also match the saved macOS conditional-information reference, with the same sources held and interval endpoints within 4.6e-5 against 0.001. Apart from timings, each model's result tables and diagnostics are byte-identical to those of the passing run from the `2b31e84` candidate on 2026-10-28, as expected: the #114 repairs act on the bootstrap, on the recorded observation identity and on the nominal analytic gradient, none of which these refits execute. The previous round's record is kept as separate project evidence and is superseded by this one. This supports numerical reproducibility of these two models from this archive on these two environments, not Laplace accuracy or interval coverage |
+| Release bundle | The archive, manual and manifest are prepared from the checked candidate and verified, then published as v1.0.0, following the [release checklist](RELEASE_CHECKLIST.md). A CRAN submission is recorded separately. A dry run of that preparation from a clean checkout of `403aa86`, adopting the checked candidate, succeeded on 2026-10-29: the staged bundle verified against the source commit and the release identity, the source validation scope passed with its `--as-cran` check at Status OK, and the public-content audit reported no findings; it wrote no tracked file. The bundle itself is not yet prepared |
+
 ### Submission review, 2026-10-29
 
 A subsequent review found that object bootstrap could accept changed outcomes
@@ -81,12 +93,10 @@ the long native fits. The replacement submission bundle must have its own
 checked archive, manual, manifest and validation report. Preparing that bundle
 does not merge the source, publish a GitHub release or submit to CRAN.
 
-### Candidate checkpoint, 2026-10-28
+### Candidate checkpoint, 2026-10-28, superseded on 2026-10-29
 
-These were the gates before 1.0.0 approval at the 2026-10-28 checkpoint.
-Priorities in the historical sections below are not renewed requirements. The
-reduced scope decided at Q3 stands: whole-data fits of all four drug-review
-aspects and of the six mental-health flags remain deferred.
+These were the gates at the 2026-10-28 checkpoint, when the candidate built from
+`2b31e84` was adopted; the table is kept as recorded.
 
 | Gate | State |
 |---|---|
@@ -131,7 +141,7 @@ The source version is 1.0.0; publication and the selected archive's qualificatio
 are separate states recorded in the release manifest. A development archive is
 not substituted for the final candidate. The installed native-data workflow
 now makes the two scoped requests and their comparison policy executable.
-The 1.0.0 archive itself has not been refit on the 21,600-row panels.
+The adopted 1.0.0 archive's own full-data replay on the 21,600-row panels passed on both platforms and is recorded in the release gates above.
 The long workflow is an opt-in reproduction entry point; its installed smoke
 check is synthetic. Saved-point conditional intervals are a separate numerical
 extension, with no Linux information result or coverage qualification inferred

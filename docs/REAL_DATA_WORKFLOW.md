@@ -108,11 +108,13 @@ that difference is reported as `uncertainty_mismatch` rather than success.
 
 The included references document calculations on earlier source revisions.
 The 1.0.0 candidate built from `2b31e84` was replayed in full mode on
-2026-10-28 on macOS and Linux and met both comparisons
-([release gates](DEVELOPMENT_STATUS.md#100-release-gates)); smoke mode and
-saved-point arithmetic do not replace such a replay. That evidence belongs to
-the recorded candidate bytes, before the subsequent bootstrap association
-repairs; it is not a full-data replay of a later replacement archive. Neither comparison
+2026-10-28 on macOS and Linux and met both comparisons, and the adopted
+candidate built from `403aa86` was replayed the same way on 2026-10-29 and met
+both comparisons, with each model's result tables byte-identical to the `2b31e84`
+replay apart from timings ([release gates](DEVELOPMENT_STATUS.md#100-release-gates)).
+Smoke mode and saved-point arithmetic do not replace such a replay. Each
+replay belongs to
+the archive bytes it ran from. Neither comparison
 demonstrates a global optimum, integration accuracy or calibrated confidence
 intervals after boundary selection.
 

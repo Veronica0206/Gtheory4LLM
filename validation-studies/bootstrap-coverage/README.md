@@ -39,8 +39,8 @@ The run executed a frozen copy of source commit `a962a4d`, recorded in
 release history and is not published. These are historical pilot results, not
 an execution of the current submission archive.
 
-Against the adopted `2b31e84` source, 31 of the 41 fingerprinted files are
-identical. The ten differences are:
+Against the adopted `403aa86` source, 29 of the 41 fingerprinted files are
+identical. The twelve differences are:
 
 - `R/discrete.R`, `R/discrete_boundary_escape.R` and `R/preflight.R`: the
   discrete boundary-escape trial budget and preflight coordinate check, which
@@ -48,10 +48,16 @@ identical. The ten differences are:
 - `R/discrete_mode.R` and `R/discrete_sparse_mode.R`: the shared roundoff
   safeguard and its use by the dense solver, outside the Gaussian path;
 - `R/bootstrap.R`: restoration of labeled binary responses; a guard requiring
-  the same instrumentation layout for every object; and correction of the
-  recorded Gaussian retry seed. The pilot uses complete panels and an explicit
+  the same instrumentation layout for every object; correction of the
+  recorded Gaussian retry seed; and the submission-review checks that supplied
+  data and refit controls belong to the fit, which change neither the resample
+  nor the refit. The pilot uses complete panels and an explicit
   retry seed. That explicit seed already governed the original refits; the
   later correction records it accurately rather than changing the seed used;
+- `R/fit.R`: the observation identity `gt_fit()` records before retention, an
+  additional field of the fit that enters no estimate;
+- `R/discrete_gradient.R`: the nominal tail curvature products of the analytic
+  gradient, which Gaussian fits do not reach;
 - `R/report.R`: report validation of bootstrap results; the runner builds no
   report;
 - `R/examples.R`: the `numeric` coding name and its `manuscript` alias; the
@@ -61,11 +67,10 @@ identical. The ten differences are:
   `replicates.csv`; the summarizer that ran is retained as
   [summarize-executed.R](results/summarize-executed.R).
 
-Subsequent submission-review changes add checks that bootstrap data and model
-specifications belong to the original fit. They do not turn this historical
-pilot into a fresh coverage assessment of the changed source. Its recorded
-undercoverage and scope restrictions remain applicable cautions; the pilot
-has not been rerun for this submission candidate.
+Those submission-review checks do not turn this historical pilot into a fresh
+coverage assessment of the changed source. Its recorded undercoverage and
+scope restrictions remain applicable cautions; the pilot has not been rerun
+for the adopted candidate.
 
 The executed runner, [run-executed.R](results/run-executed.R), is identical to
 [run.R](run.R). [summarize.R](summarize.R) rebuilds `replicates.csv` and

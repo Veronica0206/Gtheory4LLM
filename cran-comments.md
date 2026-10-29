@@ -37,13 +37,13 @@ uncertainty is still reported as unavailable. The documented
 near-boundary/weak-signal limitations remain in force.
 The 1.0.0 candidate built from `2b31e84` was refit on both panels on 2026-10-28, on macOS and
 Linux: all four fits were accepted and matched the point references and the
-macOS conditional-information reference. That archive predates the subsequent
-bootstrap data/model-association repairs, nominal gradient correction and
-documentation updates. These
-native results retain their own archive identity; they are not represented
-as full-data refits of the replacement submission archive.
-Included historical reference tables and synthetic workflow checks are not
-claimed as a fresh whole-data qualification of the final archive.
+macOS conditional-information reference. The adopted archive built from
+`403aa86` (SHA-256 `5219d180fb97263f3deeedba4911e1f40f02cd7894fa23f04f3433e547755528`)
+was refit the same way on 2026-10-29: all four fits were again accepted and
+matched both references, with result tables byte-identical to the `2b31e84` round
+apart from timings.
+The installed historical reference tables are the comparison targets of those
+replays; the synthetic workflow check is not a whole-data qualification.
 
 ## Current CRAN state and reverse dependencies
 
