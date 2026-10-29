@@ -97,9 +97,8 @@ The two numerical comparisons deliberately have different evidence scopes:
 - Conditional uncertainty is checked separately against the saved **macOS
   information-only** reference. Availability, conditional status, held-source
   membership and finite interval metadata must agree; SEs and interval endpoints
-  at both allocations use an absolute tolerance of `0.001`. This is a
-  prospective replay criterion, not a previously demonstrated Linux agreement
-  or coverage result.
+  at both allocations use an absolute tolerance of `0.001`. The criterion was
+  declared before the replay; it is not a coverage result.
 
 The coefficient and interval limits were declared for this public replay; only
 the deviance/component limits belonged to the original Q5 comparison. The
@@ -107,10 +106,11 @@ script never widens any limit after a failure. A new optimizer run can match
 the point references while missing the conditional-information reference, and
 that difference is reported as `uncertainty_mismatch` rather than success.
 
-The included references document calculations on earlier source revisions;
-they do not certify the release archive's bytes, which have not yet been run in
-full mode. Full mode is available for a later explicit replay;
-smoke mode and saved-point arithmetic do not replace it. Neither comparison
+The included references document calculations on earlier source revisions.
+The adopted 1.0.0 archive was replayed in full mode on 2026-10-28 on macOS and
+Linux and met both comparisons
+([release gates](DEVELOPMENT_STATUS.md#100-release-gates)); smoke mode and
+saved-point arithmetic do not replace such a replay. Neither comparison
 demonstrates a global optimum, integration accuracy or calibrated confidence
 intervals after boundary selection.
 

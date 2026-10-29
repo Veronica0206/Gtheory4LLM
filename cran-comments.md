@@ -25,10 +25,12 @@ accuracy, general interval calibration or a global optimum. The earlier native
 point fits lacked ordinary information; subsequent macOS calculations at their
 saved estimates supplied conditional intervals by holding the named singular
 nonzero source matrices fixed. Such intervals omit held-source estimation and
-boundary-selection uncertainty. They have no demonstrated coverage or matching
-Linux information calculation; unavailable uncertainty is still reported as
-unavailable. The documented near-boundary/weak-signal limitations remain in force.
-The 1.0.0 archive itself was not refit on the 21,600-row panels.
+boundary-selection uncertainty. Their coverage is not demonstrated; unavailable
+uncertainty is still reported as unavailable. The documented
+near-boundary/weak-signal limitations remain in force.
+The adopted 1.0.0 archive was refit on both panels on 2026-10-28, on macOS and
+Linux: all four fits were accepted and matched the point references and the
+macOS conditional-information reference.
 Included historical reference tables and synthetic workflow checks are not
 claimed as a fresh whole-data qualification of the final archive.
 
