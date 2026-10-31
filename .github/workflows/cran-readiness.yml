@@ -230,6 +230,19 @@ jobs:
           Invoke-Tlmgr 'install makeindex inconsolata helvetic times courier'
           Get-Command pdflatex -ErrorAction Stop
           Get-Command makeindex -ErrorAction Stop
+      - name: Install native gettext headers on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        timeout-minutes: 10
+        # nlme may need a source build before CRAN macOS binaries are available.
+        # Use CRAN's matching native library, with its published binary checksum.
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          gettext_archive="$RUNNER_TEMP/gettext-0.22.5-darwin.23-arm64.tar.xz"
+          curl --fail --location --retry 3 https://mac.r-project.org/bin/darwin23/arm64/gettext-0.22.5-darwin.23-arm64.tar.xz --output "$gettext_archive"
+          printf '%s  %s\n' bdc3356cfb2c8dd69618fd76975474f4ec793cbe8f4894389d0426da8f4facc3 "$gettext_archive" | shasum -a 256 -c -
+          sudo tar -xJf "$gettext_archive" -C / opt/R/arm64/include/libintl.h opt/R/arm64/lib/libintl.a
       - uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2
         with:
           packages: any::OpenMx, any::lme4, any::ordinal, any::knitr, any::rmarkdown, any::V8

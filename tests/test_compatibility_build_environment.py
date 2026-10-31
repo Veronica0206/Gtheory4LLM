@@ -1,4 +1,5 @@
 """Build prerequisites must preserve both numerical pins and source bytes."""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,61 @@ WORKFLOW = ROOT / ".github/workflows/compatibility.yml"
 
 
 class CompatibilityBuildEnvironmentTests(unittest.TestCase):
+    @unittest.skipUnless(os.name != "nt" and shutil.which("bash") and shutil.which("shasum"),
+                         "Unix Bash and shasum are needed for the macOS setup")
+    def test_native_gettext_install_requires_verified_download(self):
+        digest = "bdc3356cfb2c8dd69618fd76975474f4ec793cbe8f4894389d0426da8f4facc3"
+        for filename in ("compatibility.yml", "cran-readiness.yml"):
+            text = (ROOT / ".github/workflows" / filename).read_text()
+            if filename == "cran-readiness.yml":
+                text = text.split("  check-platforms:", 1)[1].split("  nold:", 1)[0]
+            step = next(step for step in re.findall(r"(?ms)^      - name: .*?(?=^      - |\Z)", text)
+                        if "name: Install native gettext headers on macOS" in step)
+            self.assertIn("if: runner.os == 'macOS'", step)
+            self.assertNotIn("continue-on-error:", step)
+            self.assertLess(text.index(step), text.index("uses: r-lib/actions/setup-r-dependencies@"))
+            script = "\n".join(line[10:] for line in step.split("        run: |\n", 1)[1].splitlines()
+                               if line.startswith("          "))
+            self.assertIn(digest, script)
+            self.assertIn("https://mac.r-project.org/bin/darwin23/arm64/gettext-0.22.5-darwin.23-arm64.tar.xz", script)
+            self.assertIn("-C / opt/R/arm64/include/libintl.h opt/R/arm64/lib/libintl.a", script)
+            with tempfile.TemporaryDirectory(prefix="gettext setup ") as directory:
+                root = Path(directory)
+                binaries = root / "bin"
+                binaries.mkdir()
+                source = root / "download"
+                source.write_bytes(b"verified fixture bytes")
+                fixture_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+                script = script.replace(digest, fixture_digest)
+                commands = {
+                    "uname": '#!/bin/sh\nprintf "%s\n" "$GETTEXT_TEST_ARCH"\n',
+                    "curl": '#!/bin/sh\nif [ "$GETTEXT_TEST_DOWNLOAD_STATUS" != 0 ]; then exit "$GETTEXT_TEST_DOWNLOAD_STATUS"; fi\n'
+                            'for arg in "$@"; do destination="$arg"; done\ncp "$GETTEXT_TEST_DOWNLOAD" "$destination"\n',
+                    "sudo": '#!/bin/sh\nprintf "%s\n" "$*" >> "$GETTEXT_TEST_INSTALL_LOG"\n',
+                }
+                for name, content in commands.items():
+                    command = binaries / name
+                    command.write_text(content)
+                    command.chmod(0o755)
+                for arch, download, corrupt, success in (
+                    ("arm64", 0, False, True),
+                    ("arm64", 22, False, False),
+                    ("arm64", 0, True, False),
+                    ("x86_64", 0, False, False),
+                ):
+                    with self.subTest(workflow=filename, arch=arch, download=download, corrupt=corrupt):
+                        log = root / "install-log"
+                        log.write_text("")
+                        source.write_bytes(b"wrong bytes" if corrupt else b"verified fixture bytes")
+                        environment = {**os.environ, "PATH": str(binaries) + os.pathsep + os.environ["PATH"],
+                                       "RUNNER_TEMP": str(root), "GETTEXT_TEST_ARCH": arch,
+                                       "GETTEXT_TEST_DOWNLOAD_STATUS": str(download),
+                                       "GETTEXT_TEST_DOWNLOAD": str(source), "GETTEXT_TEST_INSTALL_LOG": str(log)}
+                        result = subprocess.run(["bash", "-c", script], env=environment,
+                                                capture_output=True, text=True)
+                        self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
+                        self.assertEqual(bool(log.read_text()), success)
+
     def test_windows_uses_prebuilt_manual_tools_without_changing_unix_bundle(self):
         selected = "TINYTEX_INSTALLER: ${{ runner.os == 'Windows' && 'TinyTeX' || 'TinyTeX-1' }}"
         for filename in ("compatibility.yml", "cran-readiness.yml"):

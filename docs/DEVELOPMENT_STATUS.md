@@ -88,6 +88,14 @@ released archive remains the checked `c9276e0` build with SHA-256
 No package source, manual, published asset or historical release is replaced.
 This additional audit does not imply new model fits or statistical qualification.
 
+The first follow-up CI attempt also exposed a macOS runner prerequisite:
+`nlme` 3.1-172 fell back to a source build and could not find `libintl.h`.
+Both macOS jobs now install the native gettext header and static library from
+[R's official macOS library repository](https://mac.r-project.org/bin/), checking
+the published SHA-256 before extraction. This changes only the ephemeral runner
+setup; R package dependencies, numerical implementations and published assets
+are unchanged. Hosted verification is recorded on the follow-up pull request.
+
 ### Corrected candidate qualification, 2026-10-31
 
 Independent review reproduced two defects in the withdrawn `403aa86` archive:
