@@ -48,12 +48,12 @@ replays; the synthetic workflow check is not a whole-data qualification.
 ## Current CRAN state and reverse dependencies
 
 Read from the official CRAN package page, check page and PACKAGES.gz on
-2026-10-29 at 04:24 UTC. CRAN lists version 0.5.0,
+2026-10-31 at 02:35 UTC (October 30 in New York). CRAN lists version 0.5.0,
 published 2026-10-11, with all thirteen check flavors OK and no Additional
 issues section. This describes the currently listed version, not acceptance of
 1.0.0 or administrative closure of earlier correspondence.
 
-The source package index contained 25,613 records. No package named
+The source package index contained 25,621 records. No package named
 Gtheory4LLM in its Depends, Imports, LinkingTo,
 Suggests or Enhances fields. Thus there were zero listed reverse dependencies
 across those five fields at this checkpoint. Repeat the survey if submission
@@ -61,12 +61,12 @@ occurs after this record becomes outdated.
 
 ## Exact candidate evidence
 
-The submission copy of this file is completed after the final candidate has
-been checked, using its recorded source commit, archive size and SHA-256, R
-versions and dependency sessions, ordinary R-devel and no-long-double results,
-PDF manual and vignette outcomes, platform compatibility, reverse dependencies
-and any remaining NOTE dispositions. Development archives and older release
-checks below are not substituted for those final records.
+The completed [v1.0.0 release record](artifacts/README.md) identifies the
+selected archive, its source commit and checks. The distributed archive and
+manual are recorded in [artifacts/manifest.json](artifacts/manifest.json).
+The separate submission comments retain detailed environments, unsuccessful
+attempts and their dispositions. Development archives and older release checks
+below are not substituted for these final records.
 
 ## Historical records
 
