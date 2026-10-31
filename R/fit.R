@@ -97,10 +97,30 @@ gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian")
 
 # Canonical modeled columns, in fitted row order. Row names, unused columns,
 # factor storage and unused factor levels do not change the observations.
+# Numeric identifiers retain their exact values, independent of display options.
+# Integer/double storage is equivalent; factor/character labels are equivalent.
+# Numeric identifiers and their printed labels are deliberately distinct.
 # Binary values here are already the codes resolved by gt_fit().
 .gt_model_data_canonical <- function(data, design, outcomes, families) {
   variables <- c(design$object, design$facets)
-  values <- lapply(data[variables], function(x) enc2utf8(as.character(x)))
+  values <- lapply(data[variables], function(x) {
+    if (is.factor(x) || is.character(x)) return(enc2utf8(as.character(x)))
+    if (typeof(x) %in% c("integer", "double")) {
+      x <- as.double(x)
+      x[which(x == 0)] <- 0
+      return(x)
+    }
+    if (is.complex(x)) {
+      real <- Re(x)
+      imaginary <- Im(x)
+      real[which(real == 0)] <- 0
+      imaginary[which(imaginary == 0)] <- 0
+      return(complex(real = real, imaginary = imaginary))
+    }
+    if (is.logical(x)) return(as.logical(x))
+    if (is.raw(x)) return(as.raw(x))
+    stop("Unsupported design identifier type for observation identity.", call. = FALSE)
+  })
   for (outcome in outcomes) {
     x <- data[[outcome]]
     values[[outcome]] <- if (families[[outcome]]$family == "gaussian") as.double(x) else
@@ -118,7 +138,7 @@ gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian")
 .gt_model_data_identity <- function(values) {
   connection <- rawConnection(raw(), "wb")
   on.exit(close(connection), add = TRUE)
-  writeBin("Gtheory4LLM-modeled-data-v1", connection)
+  writeBin("Gtheory4LLM-modeled-data-v2", connection)
   writeBin(as.integer(length(values)), connection, size = 4L, endian = "big")
   for (name in names(values)) {
     x <- values[[name]]
@@ -127,10 +147,11 @@ gt_fit <- function(data, outcomes, design = NULL, family = gt_family("gaussian")
     writeBin(as.double(length(x)), connection, size = 8L, endian = "big")
     writeBin(as.raw(is.na(x)), connection)
     if (anyNA(x)) x[is.na(x)] <- if (is.character(x)) "" else if (is.integer(x)) 0L else 0
-    if (is.character(x)) writeBin(x, connection) else
-      writeBin(x, connection, size = if (is.integer(x)) 4L else 8L, endian = "big")
+    if (is.character(x) || is.raw(x)) writeBin(x, connection) else
+      writeBin(x, connection, size = if (is.complex(x)) 16L else
+        if (is.integer(x) || is.logical(x)) 4L else 8L, endian = "big")
   }
-  list(version = 1L, algorithm = "sha256",
+  list(version = 2L, algorithm = "sha256",
        sha256 = unname(tools::sha256sum(bytes = rawConnectionValue(connection))))
 }
 

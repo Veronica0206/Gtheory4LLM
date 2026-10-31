@@ -200,9 +200,10 @@ gt_bootstrap <- function(fit, replicates = 1000L, seed, max_attempts = 2L * repl
       stop("data does not match the fitted observations and design IDs in their original row order.", call. = FALSE)
   } else {
     identity <- fit[["observation_identity"]]
-    if (!is.list(identity) || !identical(identity$version, 1L) ||
+    if (!is.list(identity) || !identical(identity$version, 2L) ||
         !identical(identity$algorithm, "sha256") || length(identity$sha256) != 1L)
-      stop("This saved fit has no verifiable data identity and retained no data; refit the original data before bootstrapping.", call. = FALSE)
+      stop("This saved fit has no verifiable data identity in the current format and retained no data; ",
+        "version 1 identities cannot recover exact numeric IDs. Refit the original data before bootstrapping.", call. = FALSE)
     if (!identical(.gt_model_data_identity(canonical), identity))
       stop("data does not match the fitted observations and design IDs in their original row order.", call. = FALSE)
   }
@@ -449,9 +450,14 @@ summary.gt_bootstrap <- function(object, level = 0.95, interval_type = c("percen
 # bootstraps. A legacy bootstrap without this field keeps its older estimate
 # checks, rather than claiming data verification that was never recorded.
 .gt_bootstrap_fit_identity <- function(fit) {
-  if (!is.null(fit[["observation_identity"]])) return(fit[["observation_identity"]])
-  if (!is.data.frame(fit[["data"]])) return(NULL)
-  .gt_model_data_identity(.gt_model_data_canonical(fit[["data"]], fit$design, fit$outcomes, fit$families))
+  # Retained observations can upgrade an older identity without trusting its
+  # lossy encoding. An old digest alone cannot authenticate new bootstraps.
+  if (is.data.frame(fit[["data"]]))
+    return(.gt_model_data_identity(.gt_model_data_canonical(
+      fit[["data"]], fit$design, fit$outcomes, fit$families)))
+  identity <- fit[["observation_identity"]]
+  if (is.list(identity) && identical(identity$version, 2L) &&
+      identical(identity$algorithm, "sha256")) identity else NULL
 }
 
 # A bootstrap belongs to the fit whose estimates and modeled data it recorded.

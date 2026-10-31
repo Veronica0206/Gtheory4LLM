@@ -94,6 +94,46 @@ class InventoryFixtureTests(unittest.TestCase):
                                                     encoding="utf-8")
             return CHECK.workflow_job_names(root)
 
+    def test_comment_only_lines_do_not_end_jobs_or_nested_mappings(self):
+        for indent in (0, 2, 4, 6, 8, 10, 12):
+            comment = " " * indent + "# comment does not close a YAML block\n"
+            with self.subTest(indent=indent):
+                body = (comment + "  first:\n    runs-on: ubuntu-latest\n" + comment +
+                        "  matrix_job:\n    name: Check / ${{ matrix.os }}\n" + comment +
+                        "    strategy:\n" + comment + "      matrix:\n" + comment +
+                        "        os:\n" + comment + "          - linux\n" + comment +
+                        "          - windows\n" + comment +
+                        "    steps:\n      - run: true\n" + comment +
+                        "  final:\n    runs-on: ubuntu-latest\n" + comment)
+                self.assertEqual(self.inventory(body),
+                                 {"first", "Check / linux", "Check / windows", "final"})
+
+    def test_comments_do_not_hide_include_rows_or_unsupported_entries(self):
+        self.assertEqual(self.inventory("""  check:
+    name: Check / ${{ matrix.os }}
+    strategy:
+# strategy comment
+      matrix:
+  # matrix comment
+        include:
+# include comment
+          - os: linux
+    # comment between include rows
+          - os: windows
+"""), {"Check / linux", "Check / windows"})
+        with self.assertRaises(CHECK.WorkflowInventoryError):
+            self.inventory("  first:\n    runs-on: ubuntu-latest\n# comment\n"
+                           "  hidden:\n    name: Hidden\n    strategy:\n# comment\n"
+                           "      matrix: ${{ fromJSON(inputs.matrix) }}\n")
+
+    def test_hash_inside_quoted_scalar_is_not_a_comment(self):
+        self.assertEqual(self.inventory("""  check:
+    name: Check / ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ['linux#one', 'windows#two']
+"""), {"Check / linux#one", "Check / windows#two"})
+
     def test_inline_axes_form_a_cartesian_product(self):
         self.assertEqual(self.inventory("""  check:
     name: Exact / ${{ matrix.os }} / ${{ matrix.r }}

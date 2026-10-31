@@ -52,6 +52,24 @@ recorded below.
 
 ## 1.0.0 release gates
 
+### Independent review hold, 2026-10-30
+
+The `403aa86` archive with SHA-256 `5219d180...` is withdrawn from release
+approval. Independent review reproduced two defects: formatting-dependent,
+lossy numeric identifiers in bootstrap observation identities, and comment-only
+YAML lines that could hide later jobs from the workflow inventory. The source
+correction uses exact numeric identifiers and identity format 2, and removes
+comment-only lines before parsing workflow mapping boundaries. Regression tests
+cover unchanged data across display settings, changed group membership, legacy
+identity handling, and comments at every supported mapping level.
+
+PR #116 and its GitHub release remain drafts. The existing unpublished `v1.0.0`
+tag identifies the withdrawn candidate, not a corrected archive. A replacement
+must receive its own source/archive identity and checks, and the unpublished tag
+must be resolved explicitly before publication. The completed October 29 native
+runs below retain their original archive identity; they are not new full-data
+fits of the corrected source. Earlier records remain unchanged as evidence.
+
 These are the gates before 1.0.0 is approved, as of 2026-10-29. Priorities in
 the historical sections below are not renewed requirements. The reduced scope
 decided at Q3 stands: whole-data fits of all four drug-review aspects and of the

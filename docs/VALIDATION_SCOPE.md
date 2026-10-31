@@ -4,6 +4,12 @@ This document separates implemented checks from the scientific validation still 
 
 ## Scoped native examples and numerical reproduction
 
+The October 30 independent review withdrew release approval for the `403aa86`
+archive because its bootstrap identity used formatted numeric identifiers.
+The correction uses exact identifiers and a new identity format. Its software
+and archive checks are separate from the native records below; no new full-data
+execution or interval-coverage campaign is implied by that correction.
+
 The [29 October 2026 candidate records](DEVELOPMENT_STATUS.md#100-release-gates)
 report numerical acceptance on macOS and Linux for two whole-data requests:
 

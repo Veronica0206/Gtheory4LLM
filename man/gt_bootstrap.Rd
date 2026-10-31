@@ -27,13 +27,21 @@ fitted row order; needed when the fit was stored without its data. A supplied
 copy is checked against retained observations or a compact identity recorded
 before data retention. Matching only the panel dimensions is insufficient.
 Row names, unused columns, column order and factor storage do not matter;
+numeric identifiers are compared by exact value, treating integer and double
+storage as equivalent. Numeric identifiers are distinct from character labels;
+factor and character labels are equivalent. Number-display options such as
+\code{scipen} and \code{OutDec} do not affect identity verification.
 permuting rows is refused because object encounter order determines seeded
 resampling. Original category labels and the fit's retained binary codes are
 accepted under the fit's recorded category order. As in \code{gt_fit()}, original
 numeric or logical binary observations use labels \code{c("0", "1")}; reversed
 or other labels require a factor. Numeric 0/1 supplied for a fit with other
 labels is interpreted as its retained internal codes. Older fits that kept neither
-observations nor a verifiable identity must be refitted.}
+observations nor a verifiable identity must be refitted. Identity format 2
+preserves exact numeric identifiers. Older format-1 identities are not accepted
+without retained observations: their lost numeric precision cannot be recovered.
+Fits with retained observations can derive format 2 directly. Bootstrap objects
+carrying format-1 identities must be regenerated before attaching intervals.}
 \item{control}{A \code{\link{gt_control}} for the refits; by default the fit's
 own. Explicit controls set the refits' numerical settings and acceptance
 thresholds, so they need not match those used for the original fit. They must

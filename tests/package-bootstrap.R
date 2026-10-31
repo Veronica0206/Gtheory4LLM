@@ -549,6 +549,102 @@ check(identical(mixed_verified$components, mixed_retained$components),
       "the identity accepts original joint binary and ordinal observations without retained data")
 cat("PASS: labeled binary outcomes\n")
 
+# --- exact design identifiers and versioned observation identities --------------
+local({
+  canonical <- internal(".gt_model_data_canonical")
+  identity <- internal(".gt_model_data_identity")
+  authenticate <- internal(".gt_bootstrap_data")
+  fit_identity <- internal(".gt_bootstrap_fit_identity")
+  design <- gt_design("item", "rater", full_cell = FALSE)
+  gaussian <- list(score = gt_family("gaussian"))
+  panel <- expand.grid(item = c(1, 1 + 2^-52, 2, 3), rater = c(1.25, 2.5, 3.75),
+                       KEEP.OUT.ATTRS = FALSE)
+  panel$score <- seq_len(nrow(panel))
+  changed <- panel
+  rows <- which(panel$rater == 1.25 & panel$item %in% c(1, 1 + 2^-52))
+  changed$item[rows] <- rev(changed$item[rows])
+  kernel <- function(x) outer(x, x, `==`)
+  check(sum(kernel(panel$item) != kernel(changed$item)) == 16L,
+        "the numeric-collision fixture changes 16 item covariance-kernel entries")
+  before <- canonical(panel, design, "score", gaussian)
+  after <- canonical(changed, design, "score", gaussian)
+  check(!identical(before, after) && !identical(identity(before), identity(after)),
+        "distinct doubles that print alike retain distinct identities")
+  recorded <- list(design = design, outcomes = "score", families = gaussian,
+    panel = internal(".gt_panel_summary")(panel, design), data = panel,
+    observation_identity = identity(before))
+  check(identical(recorded$observation_identity$version, 2L),
+        "the exact identifier representation has a new identity version")
+  for (keep in c(TRUE, FALSE)) {
+    specimen <- recorded
+    if (!keep) specimen$data <- NULL
+    check(identical(authenticate(specimen, panel), panel), "original exact numeric IDs authenticate")
+    expect_error(authenticate(specimen, changed), "does not match the fitted observations",
+                 "within-rater reassignment is refused with and without retained data")
+  }
+  equivalent <- panel
+  equivalent$item <- rep(1:4, 3)
+  numeric_copy <- equivalent
+  numeric_copy$item <- as.double(numeric_copy$item)
+  check(identical(identity(canonical(equivalent, design, "score", gaussian)),
+                  identity(canonical(numeric_copy, design, "score", gaussian))),
+        "integer and double design storage have the same identity")
+  labeled <- numeric_copy
+  labeled$item <- as.character(labeled$item)
+  factored <- labeled
+  factored$item <- factor(factored$item, levels = c("unused", "4", "2", "1", "3"))
+  check(identical(identity(canonical(labeled, design, "score", gaussian)),
+                  identity(canonical(factored, design, "score", gaussian))) &&
+          !identical(identity(canonical(labeled, design, "score", gaussian)),
+                     identity(canonical(numeric_copy, design, "score", gaussian))),
+        "factor/character labels agree and remain distinct from numeric IDs")
+  zero <- panel
+  zero$item[1L] <- 0
+  minus_zero <- zero
+  minus_zero$item[1L] <- -0
+  check(identical(identity(canonical(zero, design, "score", gaussian)),
+                  identity(canonical(minus_zero, design, "score", gaussian))),
+        "signed zero design identifiers have one exact identity")
+  old_fit <- recorded
+  old_fit$observation_identity$version <- 1L
+  check(identical(fit_identity(old_fit), recorded$observation_identity) &&
+          identical(authenticate(old_fit, panel), panel),
+        "retained observations upgrade a format-1 identity")
+  old_bootstrap <- structure(list(original = list(
+    observation_identity = old_fit$observation_identity, outcomes = "score")),
+    class = "gt_bootstrap")
+  expect_error(internal(".gt_bootstrap_match")(old_fit, old_bootstrap), "not made from this fit",
+               "format-1 bootstrap identities cannot authenticate attached intervals")
+  old_fit$data <- NULL
+  expect_error(authenticate(old_fit, panel), "version 1 identities cannot recover exact numeric IDs",
+               "format-1 digests without observations require a refit")
+  check(is.null(fit_identity(old_fit)), "an old digest alone cannot authenticate new inference")
+
+  # Public API regression: only display settings change after an accepted fit
+  # that retains neither its observations nor its model.
+  original_options <- options(c("scipen", "OutDec"))
+  on.exit(options(original_options), add = TRUE)
+  options(scipen = 0, OutDec = ".")
+  numeric_panel <- expand.grid(item = seq_len(6) * 1e20, rater = c(1.25, 2.5, 3.75))
+  numeric_panel$label <- rep(c(0L, 1L, 0L, 1L, 1L, 0L), 3)
+  numeric_fit <- gt_fit(numeric_panel, "label", design, gt_family("binary", link = "logit"),
+    control = gt_control(discrete = list(fixed_covariance = list(item = matrix(.3), rater = matrix(.2))),
+                         retain = list(data = FALSE, model = FALSE)))
+  check(isTRUE(gt_diagnostics(numeric_fit)$numerically_accepted),
+        "the numeric-ID public binary fixture is accepted")
+  reference <- gt_bootstrap(numeric_fit, data = numeric_panel, replicates = 1,
+                            max_attempts = 1, seed = 11)
+  check(reference$accepted == 1L, "the numeric-ID reference bootstrap accepts one refit")
+  for (settings in list(list(scipen = 999, OutDec = "."), list(scipen = 0, OutDec = ","))) {
+    options(settings)
+    replay <- gt_bootstrap(numeric_fit, data = numeric_panel, replicates = 1,
+                           max_attempts = 1, seed = 11)
+    check(replay$accepted == 1L && identical(replay$components, reference$components),
+          "scipen and OutDec changes preserve the original data and public bootstrap")
+  }
+})
+cat("PASS: exact design identifiers and versioned observation identities\n")
+
 # --- reports with bootstrap intervals --------------------------------------------
 # A report recalculates bootstrap intervals with the bootstrap that made them,
 # refuses tables without it, edited tables and unrelated bootstraps, and keeps

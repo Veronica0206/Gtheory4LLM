@@ -15,6 +15,13 @@ threshold was loosened; where an optimizer path changed, the change is named.
 
 ## Reproduction and release review
 
+- Observation identities now preserve exact numeric design identifiers,
+  independently of number-display settings. Format 2 treats integer/double
+  storage as equivalent and factor/character labels as equivalent. Older
+  format-1 digests require retained observations or a refit; they cannot
+  recover numeric precision that was lost by formatting.
+- Workflow inventory ignores comment-only lines before determining mapping
+  boundaries, so valid YAML comments cannot hide later required checks.
 - The optional sparse nominal analytic gradient now forms curvature-vector
   products directly from stable diagonal and off-diagonal entries. This
   preserves tail contributions when a category probability rounds to one;

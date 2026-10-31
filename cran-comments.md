@@ -4,6 +4,13 @@ This record concerns the 1.0.0 release candidate. Publication, CRAN upload,
 maintainer confirmation and CRAN acceptance are separate steps. No submission
 or acceptance is asserted by this source file.
 
+The October 30 independent review withdrew the `403aa86` candidate from release
+approval. Bootstrap observation identities now preserve exact numeric IDs in
+format 2, independently of number-display options; older digest-only fits must
+be refitted. The workflow inventory now handles comment-only lines before
+mapping boundaries. A corrected archive requires its own recorded check results.
+The previously checked archive and its native runs remain historical evidence.
+
 ## Changes since the CRAN release
 
 Compared with CRAN 0.5.0, this update adds the formula interface and conventional

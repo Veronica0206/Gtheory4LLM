@@ -166,6 +166,12 @@ def workflow_job_names(root: Path) -> set[str]:
         raise WorkflowInventoryError("no workflow files found")
     for path in paths:
         text = path.read_text(encoding="utf-8")
+        # YAML comment-only lines have no indentation boundary. Remove them
+        # before finding any jobs/strategy/matrix block, including comments
+        # at column zero inside an otherwise indented mapping. Quoted values
+        # containing '#' remain untouched.
+        text = "\n".join(line for line in text.splitlines()
+                         if not line.lstrip().startswith("#")) + "\n"
         jobs = re.search(r"(?ms)^jobs:\s*\n(.*?)(?=^\S|\Z)", text)
         if jobs is None:
             raise WorkflowInventoryError(f"{path.name}: jobs must be a block mapping")
