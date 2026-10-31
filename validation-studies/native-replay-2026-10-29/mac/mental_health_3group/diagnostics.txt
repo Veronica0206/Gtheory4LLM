@@ -1,0 +1,18 @@
+G-theory fit diagnostics | sparse_joint_discrete_laplace 
+Estimator: ML_Laplace | approximation: First-order Laplace marginal ML; accuracy is not established for sparse groups or large annotation panels. 
+Optimizer: L-BFGS-B | Attempts: 6 | Selected attempt: primary_tight_escape_1 
+Optimizer completed: TRUE | Numerically accepted: TRUE 
+Likelihood approximation: not_assessed_first_order_laplace 
+Boundary or nearly singular sources: evaluator, prompt, evaluator:prompt, item:prompt, item:evaluator:prompt:temp 
+Outer gradient: analytic | 308 gradients | 0 refused
+
+Numerical stages:
+optimizer completion         passed       The optimizer reported completion.
+conditional mode             passed       The conditional mode converged within the requested tolerance.
+independent stationarity     passed       Independent stationarity held within tolerance.
+restart/tolerance stability  passed       Restarts and tighter tolerances reproduced the retained solution.
+numerical acceptance         passed       The fit met every numerical acceptance requirement.
+approximation assessment     not_assessed Approximation adequacy is not established for this fit (not_assessed_first_order_laplace).
+Data validation: Observed grouping columns, repeated groups, and linear independence of source kernels plus observation identity; this is not proof of discrete-model identification. 
+Standard errors: available for source variance components.
+Engine records remain in the returned list; printing never re-runs a check.

@@ -1,0 +1,3 @@
+"reference_platform","valid","passed","numerical_acceptance_matches","deviance_absolute_difference","component_scaled_difference","reliability_absolute_difference","single_reliability_absolute_difference","reason"
+"mac",TRUE,TRUE,TRUE,8.47649062052369e-10,4.43460552883476e-08,1.2274097294096e-09,5.0361155246037e-09,"complete historical platform reference matched"
+"linux",TRUE,TRUE,TRUE,4.72937244921923e-11,3.66982686616699e-15,4.44089209850063e-16,4.44089209850063e-16,"complete historical platform reference matched"

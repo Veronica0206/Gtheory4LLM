@@ -144,6 +144,24 @@ class PublicContentsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("--expected-data-kind", result.stderr)
 
+    def test_native_result_export_does_not_admit_adjacent_or_private_data(self):
+        prefix = "validation-studies/native-replay-2026-10-29/"
+        for relative in ("mac/status.csv",
+                         "linux/drug_review_efficacy_safety/reference-comparison.csv",
+                         "mac/mental_health_3group/uncertainty-comparison.csv"):
+            path = self.write(prefix + relative, "passed,estimate\nTRUE,0.5\n")
+            self.assertFalse(self.check("public_llm_annotations").findings)
+            path.write_text("passed,note\nTRUE,/" + "Users" + "/private-person/data.csv\n")
+            self.assertTrue(any(x["reason"] == "private home-directory path"
+                                for x in self.check("public_llm_annotations").findings))
+            path.unlink()
+        for relative in ("mac/observations.csv", "mac/mental_health_3group/data.csv",
+                         "windows/status.csv", "linux/nested/status.csv",
+                         "mac/mental_health_3group/nested/reliability.csv"):
+            with self.subTest(relative=relative):
+                audit = module.PublicAudit(self.root, "public_llm_annotations")
+                self.assertFalse(audit.allowed_path(prefix + relative, relative))
+
     def test_scientific_prose_is_allowed_but_private_directory_is_not(self):
         self.assertFalse(self.check().findings)
         self.write(Path("companion") / "draft.tex")

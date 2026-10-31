@@ -1,0 +1,3 @@
+"model","mode","status","numerical_acceptance","observed_information","uncertainty_scope","uncertainty_reference_comparison","reference_comparison","matched_reference_platform","deviance","elapsed_seconds","reason"
+"drug_review_efficacy_safety","full","accepted",TRUE,"available","boundary_conditional","matched","matched","mac;linux",25904.0235559595,2657.03238797188,"Boundary-conditional intervals; coverage remains unassessed."
+"mental_health_3group","full","accepted",TRUE,"available","boundary_conditional","matched","matched","mac;linux",30383.852591185,8166.79237103462,"Boundary-conditional intervals; coverage remains unassessed."

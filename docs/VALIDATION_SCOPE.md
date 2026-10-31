@@ -44,6 +44,10 @@ retained, unrounded point estimates met both historical platform references, and
 conditional uncertainty met the saved macOS information reference; apart from
 timings, the `403aa86` results are byte-identical to the `2b31e84` ones. No interval-coverage
 campaign is supplied by these runs.
+The [public October 29 records](../validation-studies/native-replay-2026-10-29/README.md)
+include the comparison tables, diagnostics, environment metadata and file hashes.
+They retain their historical archive identity; publishing them does not rerun
+the corrected archive.
 The bootstrap data/model-association repairs and the nominal analytic gradient
 tail-product correction of `403aa86` have their own package tests.
 The tail correction applies to nominal outcomes, which neither native request

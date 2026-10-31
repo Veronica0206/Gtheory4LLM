@@ -1,0 +1,8 @@
+                model mode   status numerical_acceptance observed_information
+ mental_health_3group full accepted                 TRUE            available
+    uncertainty_scope uncertainty_reference_comparison reference_comparison
+ boundary_conditional                          matched              matched
+ matched_reference_platform deviance elapsed_seconds
+                  mac;linux 30383.85        17568.22
+                                                       reason
+ Boundary-conditional intervals; coverage remains unassessed.

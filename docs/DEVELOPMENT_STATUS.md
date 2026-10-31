@@ -108,6 +108,12 @@ solver implementations, nominal-tail correction and compiled C source are
 unchanged. This preserves the earlier evidence's stated scope; it does not
 turn historical fits into fresh execution of the corrected archive.
 
+The [public October 29 native records](../validation-studies/native-replay-2026-10-29/README.md)
+now provide the machine-readable comparisons, diagnostics, protocol, environment
+metadata and hashes. Of 58 exported records, 56 are byte-identical to the
+originals; two provenance files redact filesystem paths only. The complete
+original fits and execution logs remain in project storage.
+
 ### Historical candidate qualification, 2026-10-29 — withdrawn
 
 Every use of "adopted archive" in the following dated table refers to the

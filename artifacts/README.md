@@ -14,3 +14,5 @@ The withdrawn `403aa86` / `5219d180...` archive must not be submitted. Its
 October 29 native fits remain historical evidence; no full-data rerun of this
 corrected archive is claimed. Approximation, conditional-interval and coverage
 limits remain in [validation scope](../docs/VALIDATION_SCOPE.md).
+The historical [machine-readable native records](../validation-studies/native-replay-2026-10-29/README.md)
+are available with their original archive identity and export hashes.

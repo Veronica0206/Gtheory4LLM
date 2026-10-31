@@ -157,6 +157,19 @@ STUDY_CSV_FILES = {
         "fixture.csv", "original-proposal-hessian.csv", "reference.csv",
         "replicates.csv", "summary.csv")
 }
+# Reviewed aggregate results from the bundled public annotation datasets.
+# These are estimates/diagnostics, not observation-level panels. Enumerate only
+# the exported paths; adjacent files and all private-content checks stay closed.
+NATIVE_REPLAY_CSV_FILES = {
+    f"validation-studies/native-replay-2026-10-29/{platform}/status.csv"
+    for platform in ("mac", "linux")
+} | {
+    f"validation-studies/native-replay-2026-10-29/{platform}/{model}/{name}"
+    for platform in ("mac", "linux")
+    for model in ("drug_review_efficacy_safety", "mental_health_3group")
+    for name in ("components.csv", "dstudy.csv", "reference-comparison.csv",
+                 "uncertainty-comparison.csv", "reliability.csv", "reliability-single.csv")
+}
 PUBLIC_FILES = {
     "DESCRIPTION", "NAMESPACE", "LICENSE", "LICENCE", "LICENSE.note",
     "NEWS", "NEWS.md", "NEWS.Rd", "README", "README.md", "README.Rmd",
@@ -302,8 +315,9 @@ class PublicAudit:
             self.fail(label, "Private document, notebook, opaque data bundle, or development archive type is forbidden.")
             return False
         if lower.endswith((".csv", ".tsv")) and relative not in (
-                {"inst/extdata/manifest.csv"} | STUDY_CSV_FILES):
-            self.fail(label, "Only the bundled-resource manifest CSV and declared synthetic study CSVs are permitted.")
+                {"inst/extdata/manifest.csv"} | STUDY_CSV_FILES | NATIVE_REPLAY_CSV_FILES):
+            self.fail(label, "Only the bundled-resource manifest CSV, declared synthetic study CSVs, "
+                      "and reviewed native-result CSVs are permitted.")
             return False
         # A previous release's archive is legitimate where it actually lived: in
         # artifacts/ at a commit made before the version bump. Everywhere else,

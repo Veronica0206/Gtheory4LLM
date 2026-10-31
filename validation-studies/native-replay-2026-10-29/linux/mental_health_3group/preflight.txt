@@ -1,0 +1,15 @@
+G-theory preflight: 21600 rows | sparse_joint_discrete_laplace 
+Observed levels: item=100, evaluator=4, prompt=3, temp=6, seed=3 
+Retained random sources: 10  | Random dimensions: 28521 | Model parameters: 63 
+Structural/resource checks: PASS 
+Panel cells (observed coded levels):
+           status cell_count_exact
+         complete            21600
+ under_replicated                0
+  over_replicated                0
+          missing                0
+Audit examples returned: missing_cells=0, replication_issues=0, row_examples=0 | Per-table limit: 10 
+Outcome profiles: 3 | See outcome_profile for category coverage, numeric summaries, and descriptive group variation.
+Supported reliability scale: latent 
+Reliability of latent-response averages; not label proportions, majority votes, or ordinal-score averages. 
+Preflight checks structure and configured size limits. It does not establish identification, approximation adequacy, fit acceptance, or scientific validity. 

@@ -1,0 +1,8 @@
+                       model mode   status numerical_acceptance
+ drug_review_efficacy_safety full accepted                 TRUE
+ observed_information    uncertainty_scope uncertainty_reference_comparison
+            available boundary_conditional                          matched
+ reference_comparison matched_reference_platform deviance elapsed_seconds
+              matched                  mac;linux 25904.02        2657.032
+                                                       reason
+ Boundary-conditional intervals; coverage remains unassessed.
