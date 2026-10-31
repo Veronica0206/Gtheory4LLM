@@ -31,7 +31,7 @@ numeric identifiers are compared by exact value, treating integer and double
 storage as equivalent. Numeric identifiers are distinct from character labels;
 factor and character labels are equivalent. Number-display options such as
 \code{scipen} and \code{OutDec} do not affect identity verification.
-permuting rows is refused because object encounter order determines seeded
+Permuting rows is refused because object encounter order determines seeded
 resampling. Original category labels and the fit's retained binary codes are
 accepted under the fit's recorded category order. As in \code{gt_fit()}, original
 numeric or logical binary observations use labels \code{c("0", "1")}; reversed
