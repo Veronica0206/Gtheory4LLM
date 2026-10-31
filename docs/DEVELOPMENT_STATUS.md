@@ -53,6 +53,41 @@ recorded below.
 
 ## 1.0.0 release gates
 
+### Post-publication history-audit correction, 2026-10-31
+
+Independent review found that the public-content auditor admitted superseded
+release archives in Git history but opened only the current archive filename.
+Earlier passing history reports therefore did not establish coverage of those
+older archives' decompressed members and serialized resources. No numerical
+package defect or actual data leak was established by that finding.
+
+The correction in `bd37f966574d92926d7b2190cb850f98814dad16` shares archive recognition between path
+admission and content inspection. Current-tree restrictions, member/size/link
+checks, private-content patterns and serialized-resource rules remain enforced.
+Two end-to-end regressions fail before the fix and pass after it: prohibited
+members/text/links and invalid/private RDS contents remain detectable after an
+older archive is removed from the current tree. The public-content suite passed
+33 tests; the full Python suite reported 237 tests, no failures and one
+environment-related skip. The final fixture spelling was checked again by all
+33 public-content tests.
+
+The [native-R scan record and complete archive inventory](validation/public-history-audit-2026-10-31.json)
+report **232 reachable commits, 17 archive inspections and 160 serialized-resource
+inspections, with no findings**. The archive count comprises 16 distinct blobs
+in the audited HEAD's history plus the current working-tree archive. This
+includes all 15 previously skipped superseded blobs and their 120 bundled RDS
+instances. R 4.5.3 performed the serialized-resource inspections. The scope is
+history reachable from the recorded commit, not every remote branch or tag;
+this is the scanner's concrete content policy, not a general privacy or
+redistribution-rights guarantee.
+
+This is a repository-tooling correction after publication. The immutable
+`v1.0.0` tag remains at `97faebe8f6465dca9697c82085e2130fdee4f5f3`, and the
+released archive remains the checked `c9276e0` build with SHA-256
+`d1328dac216d664c3c9ce4577ef26f354e88d1d6a4edf3e6a9c75d483929083c`.
+No package source, manual, published asset or historical release is replaced.
+This additional audit does not imply new model fits or statistical qualification.
+
 ### Corrected candidate qualification, 2026-10-31
 
 Independent review reproduced two defects in the withdrawn `403aa86` archive:

@@ -1,0 +1,380 @@
+{
+  "schema_version": 1,
+  "audited_commit": "bd37f966574d92926d7b2190cb850f98814dad16",
+  "auditor_sha256": "836080aaf3641b3518d5c5766f12666d6361d52b6c650bd2cd5799adc6dca9da",
+  "tests_sha256": "ad6cdef135396451dd3420497b41601dcd3f075dbf631c2de9817c56b31b9889",
+  "r_version": "R version 4.5.3 (2026-03-11)",
+  "r_platform": "aarch64-apple-darwin20",
+  "command": "python3 scripts/check_public_contents.py --working-tree --history --expected-data-kind public_llm_annotations",
+  "report": {
+    "passed": true,
+    "scopes_requested": [
+      "working_tree",
+      "reachable_git_history"
+    ],
+    "expected_data_kind": "public_llm_annotations",
+    "historical_data_kinds": [
+      "synthetic",
+      "public_llm_annotations"
+    ],
+    "files_checked": 4558,
+    "serialized_resources_checked": 160,
+    "archives_checked": 17,
+    "commits_checked": 232,
+    "findings": [],
+    "skipped_os_metadata": [],
+    "scope": "Concrete public-content policy; not a redistribution-rights determination or a substitute for human publication review."
+  },
+  "archive_inventory": {
+    "base_commit": "97faebe8f6465dca9697c82085e2130fdee4f5f3",
+    "reachable_commits": 231,
+    "distinct_archives": 16,
+    "superseded_archives": 15,
+    "superseded_rds_instances": 120,
+    "archives": [
+      {
+        "blob_id": "87cd0516ba1dcff33355950c4031192441ab90bf",
+        "representative_commit": "97faebe8f6465dca9697c82085e2130fdee4f5f3",
+        "paths": [
+          "artifacts/Gtheory4LLM_1.0.0.tar.gz"
+        ],
+        "sha256": "d1328dac216d664c3c9ce4577ef26f354e88d1d6a4edf3e6a9c75d483929083c",
+        "bytes": 787881,
+        "member_count": 163,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": false
+      },
+      {
+        "blob_id": "889c7461e8b0f6fac1c1a51c7ea5c594b20f097b",
+        "representative_commit": "c9276e0ea21a740b88bbbac3bd1442e6b1731050",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.6.0.tar.gz"
+        ],
+        "sha256": "d9a592b7b40b73dab9b6d051b4abbe2eff5cf54b1a22d15c58c7ec1d46aef5bd",
+        "bytes": 570725,
+        "member_count": 123,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "0d5a372e4dc0f99491c3587391426e15350e51b6",
+        "representative_commit": "352468d11ee7d09d7b0fba3e97cdf167dd6a75e7",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.5.0.tar.gz"
+        ],
+        "sha256": "10d501afc114335d6e5f1ddd4f933673726db50979b973549f1d1c893a873cc8",
+        "bytes": 534035,
+        "member_count": 117,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "d0b0f4c6208b3ade114dbcddee347a6d937f096f",
+        "representative_commit": "854e5e792b5dfcbacc88c2a32c0c9792b2d3772d",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.4.1.tar.gz"
+        ],
+        "sha256": "8261b2d8084a54fa69a4bb3b7ae0caac3eefcc75ba83969d09422d525460e554",
+        "bytes": 482151,
+        "member_count": 102,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "5f384f39c7dba06911e3144c1a9b3055a1faa64a",
+        "representative_commit": "9b59788ad9bfc6068faea9115b62ea920d58e745",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.4.0.tar.gz"
+        ],
+        "sha256": "a43a4cccbf2cd363625f36bad692e57aa0bde113be0492f642194c9c50362d65",
+        "bytes": 479899,
+        "member_count": 102,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "0a2513a7c3d352213158d2bdc6186e84c901f5ca",
+        "representative_commit": "9e7627c10b4740ca3472a4e8930e019a9016dfe7",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.2.0.tar.gz"
+        ],
+        "sha256": "910286884cbbac91ec9ea466ba1997e0a0c9a9b0d8779852d5c158ed6bc5eb78",
+        "bytes": 295761,
+        "member_count": 91,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "fc4a1a55fcda55f9bcca8ff29fa8cd407961e634",
+        "representative_commit": "a4dd59c50f54dd951bba89d86d4c32a3699a5597",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.2.0.tar.gz"
+        ],
+        "sha256": "fc70f69557fdccff334dd411f3dc5cb2ed0b2d78745d58a5bd7c5f6d75f173f3",
+        "bytes": 294771,
+        "member_count": 91,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "c32ed73343f047a26692e4dc0cb510731ba84ad0",
+        "representative_commit": "d6f952d15329d518728e0007fe2a1087b2ab3291",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.2.0.tar.gz"
+        ],
+        "sha256": "d54ca060e54e8265ab89ca9a6f6231f895728c0fda3a552bc0168d1ffdcb7b31",
+        "bytes": 293993,
+        "member_count": 91,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "96afe82109982ea18f0a64e9fea5cd948b73b8c1",
+        "representative_commit": "c49130594bcef367f2087aaa25cd0a049a8cdb71",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.2.0.tar.gz"
+        ],
+        "sha256": "a02b6ec89c9ab838e4289c1b78a26b27daba9f034b0763c7c541910e4c48a30b",
+        "bytes": 292256,
+        "member_count": 91,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "4bdd8eb5c63c126cc3dc4fe1866769c9c6cc12c8",
+        "representative_commit": "7a1e262a0ddb39dc0a5935479bc5ce93cffb9fc4",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.2.0.tar.gz"
+        ],
+        "sha256": "13fb99e69c299fdf865c533fe3f64b5bb3bb4975421293db221f4eb638537c7e",
+        "bytes": 289503,
+        "member_count": 91,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "5a8c0cfd3ce5ad3b98db63dbc1ef83a8d86ddeb5",
+        "representative_commit": "f24af76ecdc379e2431fbb2e0063f739b6c9d903",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.1.0.tar.gz"
+        ],
+        "sha256": "401a10b0a56848d2d4d60ef48548ba483ec247920534594c2d573357d1a14f88",
+        "bytes": 268403,
+        "member_count": 83,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "b2958bdeec9d77e38593f3b3f44ee9a44102f979",
+        "representative_commit": "1068ca8aa7211eaee1e3f5329e14517ff49cc0e0",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.1.0.tar.gz"
+        ],
+        "sha256": "8d53b76311621f8a34e0f26b228e982a5acaca07223d6e72d3fcd1a16168e033",
+        "bytes": 227734,
+        "member_count": 70,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "49f91f59487b565521290130310d1109e8d1d882",
+        "representative_commit": "0871ff6c9dc683b16e590b883a6bf73e35e43811",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.0.7.tar.gz"
+        ],
+        "sha256": "2daac646fd4fbb83c36c2d03259a3e88fbde712c5824ca1c79ca12b2b3803d37",
+        "bytes": 225934,
+        "member_count": 70,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "5a8e409b0a6c99ebaa52d798189a19eec5c98f9c",
+        "representative_commit": "5fd5ee692286d8fb2ae8ec85b9b9b194f2b6e6b8",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.0.6.tar.gz"
+        ],
+        "sha256": "6b4b39eb0c2a2b11f168d0ffdf15069a88419a0a8f5a984e3e2f5e7b2c7f16c9",
+        "bytes": 184730,
+        "member_count": 64,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "b12c4b10b2082522aa7cbf6115fba70b7abecea9",
+        "representative_commit": "6a7667efe35d9236dcf85689eec54b1411b0f0bc",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.0.6.tar.gz"
+        ],
+        "sha256": "91765333e393e77369a73d9c1104211c4539870d84e5c0b4d20e64b6ad9e928e",
+        "bytes": 184814,
+        "member_count": 64,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      },
+      {
+        "blob_id": "c6b0fd3893bff1be3980bcd589b6dd603af9646b",
+        "representative_commit": "56380789ab986e3e8074cd10f7234a396b02c583",
+        "paths": [
+          "artifacts/Gtheory4LLM_0.0.6.tar.gz"
+        ],
+        "sha256": "a0d06a688453f040722208204500e06264bbf6606b1df5e87ab1dffe1b88fae3",
+        "bytes": 113706,
+        "member_count": 63,
+        "bundled_rds_members": [
+          "Gtheory4LLM/inst/extdata/drug_review_4aspect.rds",
+          "Gtheory4LLM/inst/extdata/drug_review.rds",
+          "Gtheory4LLM/inst/extdata/hate_speech.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3group.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_3L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_6flag.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_7L.rds",
+          "Gtheory4LLM/inst/extdata/mental_health_nominal.rds"
+        ],
+        "superseded": true
+      }
+    ]
+  },
+  "interpretation": {
+    "history_scope": "Commits reachable from the audited HEAD, not every remote branch or tag.",
+    "archive_count": "16 distinct historical archive blobs plus the current working-tree archive.",
+    "newly_covered": "15 superseded archive blobs containing 120 bundled RDS instances.",
+    "published_release_changed": false,
+    "package_rerun": false
+  }
+}
