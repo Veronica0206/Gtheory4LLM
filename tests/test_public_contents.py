@@ -422,6 +422,77 @@ class PublicContentsTests(unittest.TestCase):
             self.assertFalse(probe.allowed_path(rejected, rejected, historical=True), rejected)
             self.assertTrue(probe.findings, rejected)
 
+    def removed_release_archive(self, content):
+        """Keep the only copy in an older commit, never in the current tree."""
+        self.git("init", "--quiet")
+        path = self.root / "artifacts" / (module.PACKAGE + "_0.0.1.tar.gz")
+        path.parent.mkdir(exist_ok=True)
+        path.write_bytes(content)
+        self.git("add", ".")
+        self.git("commit", "--quiet", "-m", "Earlier release")
+        path.unlink()
+        (self.root / "DESCRIPTION").write_text(
+            f"Package: {module.PACKAGE}\nVersion: {module.VERSION}\n")
+        self.git("add", ".")
+        self.git("commit", "--quiet", "-m", "Remove superseded release archive")
+
+    @unittest.skipUnless(shutil.which("git"), "Git is required for history fixtures")
+    def test_removed_superseded_archive_still_checks_members_and_text(self):
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:gz") as bundle:
+            for name, value in (
+                ("R/example.R", b'path <- "/' + b'Users' + b'/example/secret"\n'),
+                ("companion" + "/draft.tex", b"forbidden member"),
+            ):
+                member = tarfile.TarInfo(module.PACKAGE + "/" + name)
+                member.size = len(value)
+                bundle.addfile(member, io.BytesIO(value))
+            link = tarfile.TarInfo(module.PACKAGE + "/R/linked.R")
+            link.type = tarfile.SYMTYPE
+            link.linkname = "../../outside"
+            bundle.addfile(link)
+        self.removed_release_archive(buffer.getvalue())
+        current = self.check()
+        self.assertFalse(current.findings)
+        current.history()
+        self.assertEqual(current.commits_checked, 2)
+        self.assertEqual(current.archives_checked, 1)
+        self.assertEqual({x["reason"] for x in current.findings}, {
+            "private home-directory path",
+            "Private research or skill directory is forbidden.",
+            "Archive links and special files are forbidden.",
+        })
+        self.assertTrue(all("_0.0.1.tar.gz!" in x["path"] for x in current.findings))
+        self.assertFalse((self.root / "companion").exists())
+
+    @unittest.skipUnless(shutil.which("Rscript") and shutil.which("git"),
+                         "Rscript and Git are required for archived resource fixtures")
+    def test_removed_superseded_archive_inspects_serialized_resources(self):
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:gz") as bundle:
+            for name, mutation in (
+                ("synthetic", ""),
+                ("annotations", 'x$source_provenance$data_kind <- "public_llm_annotations"'),
+                ("unknown", 'x$source_provenance$data_kind <- "unknown"'),
+                ("private", 'x$codings$native$note <- paste0("/", "Users", "/example/secret")'),
+            ):
+                resource = self.resource(mutation)
+                value = resource.read_bytes()
+                resource.unlink()
+                member = tarfile.TarInfo(module.PACKAGE + "/inst/extdata/" + name + ".rds")
+                member.size = len(value)
+                bundle.addfile(member, io.BytesIO(value))
+        self.removed_release_archive(buffer.getvalue())
+        audit = self.check("public_llm_annotations")
+        self.assertFalse(audit.findings)
+        audit.history()
+        self.assertEqual(audit.commits_checked, 2)
+        self.assertEqual(audit.archives_checked, 1)
+        self.assertEqual(audit.rds_checked, 4)
+        self.assertEqual(len(audit.findings), 2, audit.findings)
+        self.assertEqual({x["path"].rsplit("/", 1)[-1] for x in audit.findings},
+                         {"unknown.rds", "private.rds"})
+
     def test_archive_members_are_audited_without_extraction(self):
         buffer = io.BytesIO()
         with tarfile.open(fileobj=buffer, mode="w:gz") as archive:

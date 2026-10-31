@@ -69,6 +69,16 @@ CURRENT_ARTIFACTS = {
 # for this package; the working tree and built archives stay pinned to VERSION.
 RELEASE_ARCHIVE = re.compile(rf"^{re.escape(PACKAGE)}_[0-9]+(?:[.-][0-9]+)*\.tar\.gz$")
 HISTORICAL_ARTIFACTS = {f"{PACKAGE}-manual.pdf", "manifest.json", "README.md"}
+
+
+def is_release_archive(relative: str, *, historical: bool = False) -> bool:
+    """Share archive recognition between path admission and content inspection."""
+    parts = relative.split("/")
+    return (relative == f"artifacts/{PACKAGE}_{VERSION}.tar.gz" or
+            historical and len(parts) == 2 and parts[0] == "artifacts" and
+            bool(RELEASE_ARCHIVE.fullmatch(parts[1])))
+
+
 PUBLIC_DIRECTORIES = {
     ".github", "R", "man", "inst", "data", "src", "tests", "vignettes",
     "scripts", "examples", "docs", "artifacts", "validation-studies"
@@ -300,8 +310,8 @@ class PublicAudit:
             return False
         if parts[0] == "artifacts":
             permitted = CURRENT_ARTIFACTS if not historical else (
-                HISTORICAL_ARTIFACTS | {parts[1]} if len(parts) == 2 and
-                RELEASE_ARCHIVE.match(parts[1]) else HISTORICAL_ARTIFACTS)
+                HISTORICAL_ARTIFACTS | {parts[1]} if
+                is_release_archive(relative, historical=True) else HISTORICAL_ARTIFACTS)
             if archive or not (directory and len(parts) == 1 or
                                len(parts) == 2 and parts[1] in permitted):
                 self.fail(label, "Only the current public release artifact set is permitted."
@@ -322,11 +332,8 @@ class PublicAudit:
         # A previous release's archive is legitimate where it actually lived: in
         # artifacts/ at a commit made before the version bump. Everywhere else,
         # and in the working tree, only the current release archive is allowed.
-        release_archive = f"artifacts/{PACKAGE}_{VERSION}.tar.gz"
-        superseded = (historical and len(parts) == 2 and parts[0] == "artifacts" and
-                      bool(RELEASE_ARCHIVE.match(parts[1])))
         if (lower.endswith((".gz", ".tgz", ".tar", ".bz2", ".xz", ".7z")) and
-                relative != release_archive and not superseded):
+                not is_release_archive(relative, historical=historical)):
             self.fail(label, "Unexpected or historical archive is forbidden.")
             return False
         if lower.endswith(".pdf") and relative != f"artifacts/{PACKAGE}-manual.pdf":
@@ -390,7 +397,7 @@ class PublicAudit:
             return
         if relative.endswith(".rds"):
             self.inspect_rds(content, label, historical=historical)
-        elif relative == f"artifacts/{PACKAGE}_{VERSION}.tar.gz":
+        elif is_release_archive(relative, historical=historical):
             if archive:
                 self.fail(label, "Nested release archives are forbidden.")
             else:
