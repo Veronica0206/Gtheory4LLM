@@ -1,6 +1,6 @@
 # Gtheory4LLM 1.0.0 release
 
-Release state: **prepared**.
+Release state: **published**.
 
 Version 1.0.0 extends the formula-based G-theory workflow with dense and sparse
 categorical fitting, optional analytic Laplace gradients, conditional-information
