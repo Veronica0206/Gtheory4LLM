@@ -120,9 +120,11 @@ with the exact hash, environments, results and any timing NOTE from these
 reports. The source comments describe the qualification process; they must
 not be substituted for the final archive's completed evidence.
 
-The declared branch policy adds the noLD job as a seventh required context.
-Applying that tighter live setting is a separate administrator operation;
-the committed policy alone does not change GitHub protection.
+The declared branch policy requires nine contexts, including noLD and the
+exact-archive macOS and Windows checks. Live enforcement was verified on
+2026-10-31; repeat the verifier before each release. The committed policy alone
+does not change GitHub protection. Do not cancel duplicate push or tag runs
+on a release head: GitHub can enforce those results alongside the PR runs.
 
 All main-branch changes, ordinary pull requests, and manual dispatches trigger
 candidate readiness, including vignette-, README-, and NEWS-only changes.

@@ -2,8 +2,9 @@
 
 Version history is in [NEWS](../NEWS.md); implementation boundaries are in
 [limitations](LIMITATIONS.md). Historical checkpoints below retain their original
-evidence and time-dependent statements. The delivered 0.6.0 release is identified
-below; its earlier gates remain in [the detailed qualification record](#detailed-060-qualification-record).
+evidence and time-dependent statements. The current 1.0.0 bundle is identified by [its manifest](../artifacts/manifest.json).
+The delivered 0.6.0 release and [its earlier qualification record](#detailed-060-qualification-record)
+remain below as historical evidence.
 
 ## Delivered 0.6.0 GitHub release
 
@@ -16,7 +17,7 @@ the checked build from `352468d11ee7d09d7b0fba3e97cdf167dd6a75e7`.
 No 0.6.0 CRAN submission is recorded. The 0.6.1 corrections and subsequent
 1.0 development changes are separate source revisions, absent from that archive.
 
-## 1.0.0 release candidate
+## 1.0.0 functionality
 
 Version 1.0.0 adds public dense/sparse categorical fitting, eligible
 equal fixed-call effects, optional observed information with boundary-conditional
@@ -52,23 +53,65 @@ recorded below.
 
 ## 1.0.0 release gates
 
-### Independent review hold, 2026-10-30
+### Corrected candidate qualification, 2026-10-31
 
-The `403aa86` archive with SHA-256 `5219d180...` is withdrawn from release
-approval. Independent review reproduced two defects: formatting-dependent,
-lossy numeric identifiers in bootstrap observation identities, and comment-only
-YAML lines that could hide later jobs from the workflow inventory. The source
-correction uses exact numeric identifiers and identity format 2, and removes
-comment-only lines before parsing workflow mapping boundaries. Regression tests
-cover unchanged data across display settings, changed group membership, legacy
-identity handling, and comments at every supported mapping level.
+Independent review reproduced two defects in the withdrawn `403aa86` archive:
+formatting-dependent, lossy numeric identifiers in bootstrap observation
+identities, and comment-only YAML lines that could hide later workflow jobs.
+The correction in `c9276e0ea21a740b88bbbac3bd1442e6b1731050` preserves exact typed
+identifiers with identity format 2 and handles comments at every supported
+workflow mapping boundary. Regression tests cover display options, changed
+group membership, integer/double and factor/character equivalences, and legacy
+identity migration. Older digest-only fits require refitting; older format-1
+bootstrap objects must be regenerated before attaching intervals.
 
-PR #116 and its GitHub release remain drafts. The existing unpublished `v1.0.0`
-tag identifies the withdrawn candidate, not a corrected archive. A replacement
-must receive its own source/archive identity and checks, and the unpublished tag
-must be resolved explicitly before publication. The completed October 29 native
-runs below retain their original archive identity; they are not new full-data
-fits of the corrected source. Earlier records remain unchanged as evidence.
+The selected `Gtheory4LLM_1.0.0.tar.gz` is **787,881 bytes**, SHA-256
+`d1328dac216d664c3c9ce4577ef26f354e88d1d6a4edf3e6a9c75d483929083c`.
+It was built from `c9276e0` with R 4.6.2 and adopted unchanged from
+[run 41164084964](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41164084964).
+Those exact bytes passed R-devel 4.7.0, macOS and Windows R 4.6.2
+`--as-cran` checks, and a local macOS R 4.5.3 `--as-cran` check, each with
+**0 errors, 0 warnings and 0 notes**, including examples, installed tests,
+vignettes and PDF/HTML manuals. The same archive passed the Linux R-devel
+no-long-double check with its PDF manual, followed by a separate **54/54**
+installed-test sweep; that check did not use `--as-cran`. The noLD reference
+BLAS probes passed before and after testing.
+
+[PR #117](https://github.com/Veronica0206/Gtheory4LLM/pull/117) has its own
+successful required workflows: [79/79 full numerical stages](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41163517066),
+including 71 R source tests; [47/47 compatibility stages on each of three platforms](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41163517113);
+and [all five exact-candidate jobs](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41163517061).
+The tested PR merge tree `691cda5` is identical to source `c9276e0`; its separately
+built archive is not the selected upload archive. A manually dispatched run
+supplies the selected archive's provenance and does not replace required PR checks.
+Final release integration and publication must satisfy the [repository policy](REPOSITORY_POLICY.md).
+
+The 88-page reference manual was rebuilt with the strict overfull-box check;
+its revised bootstrap pages were visually reviewed. The prepared archive,
+manual and manifest passed source correspondence across 143 packaged source
+files, isolated installation and a smoke test. Their current state and exact
+hashes are recorded in [the manifest](../artifacts/manifest.json). CRAN upload
+and acceptance are separate actions.
+
+The previous release PR #116 was closed without merging. Its unpublished tag
+object was preserved as `archive/v1.0.0-withdrawn-20261030`; the old `v1.0.0`
+name was removed with explicit maintainer approval using a temporary exception
+for that name alone. The complete original tag protection was immediately
+restored and verified. Published releases were unchanged. The replacement tag
+identifies the corrected bundle only after the release checklist is completed.
+
+No new full-data fits are claimed for `c9276e0`. The four accepted October 29
+fits below belong to the withdrawn `403aa86` archive. Comparing the archives
+shows that only `R/fit.R` and `R/bootstrap.R` changed among R implementations;
+the changes concern observation identity and bootstrap validation. The numerical
+solver implementations, nominal-tail correction and compiled C source are
+unchanged. This preserves the earlier evidence's stated scope; it does not
+turn historical fits into fresh execution of the corrected archive.
+
+### Historical candidate qualification, 2026-10-29 — withdrawn
+
+Every use of "adopted archive" in the following dated table refers to the
+withdrawn `403aa86` candidate, not the corrected archive above.
 
 These are the gates before 1.0.0 is approved, as of 2026-10-29. Priorities in
 the historical sections below are not renewed requirements. The reduced scope

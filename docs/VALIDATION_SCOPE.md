@@ -1,16 +1,17 @@
 # Validation scope
 
-This document separates implemented checks from the scientific validation still needed. The catalogue of unsupported combinations is [limitations](LIMITATIONS.md). The source targets the 1.0.0 release candidate; its publication status and archive checks are separate. Historical pilot results retain their recorded source versions and do not validate subsequent additions. This is not a test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
+This document separates implemented checks from the scientific validation still needed. The catalogue of unsupported combinations is [limitations](LIMITATIONS.md). The source version is 1.0.0; its publication status and archive checks are separate. Historical pilot results retain their recorded source versions and do not validate subsequent additions. This is not a test-run report, evidence of publication, or a supported operating envelope. See [validation entrypoints](../scripts/VALIDATION.md) for run evidence and environment requirements.
 
 ## Scoped native examples and numerical reproduction
 
 The October 30 independent review withdrew release approval for the `403aa86`
 archive because its bootstrap identity used formatted numeric identifiers.
-The correction uses exact identifiers and a new identity format. Its software
-and archive checks are separate from the native records below; no new full-data
+The corrected `c9276e0` source uses exact identifiers and identity format 2.
+Its [software and exact-archive checks](DEVELOPMENT_STATUS.md#corrected-candidate-qualification-2026-10-31)
+passed independently of the historical native records below. No new full-data
 execution or interval-coverage campaign is implied by that correction.
 
-The [29 October 2026 candidate records](DEVELOPMENT_STATUS.md#100-release-gates)
+The [29 October 2026 historical candidate records](DEVELOPMENT_STATUS.md#historical-candidate-qualification-2026-10-29--withdrawn)
 report numerical acceptance on macOS and Linux for two whole-data requests:
 
 | Native request | Retained observations and model | What the reported result establishes |

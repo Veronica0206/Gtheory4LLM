@@ -1,79 +1,73 @@
 # Gtheory4LLM 1.0.0 submission preparation
 
-This record concerns the 1.0.0 release candidate. Publication, CRAN upload,
-maintainer confirmation and CRAN acceptance are separate steps. No submission
-or acceptance is asserted by this source file.
+The source archive is prepared for maintainer upload. GitHub publication,
+CRAN upload, maintainer confirmation and acceptance are separate statuses.
+This record does not assert that a CRAN submission has occurred.
 
-The October 30 independent review withdrew the `403aa86` candidate from release
-approval. Bootstrap observation identities now preserve exact numeric IDs in
-format 2, independently of number-display options; older digest-only fits must
-be refitted. The workflow inventory now handles comment-only lines before
-mapping boundaries. A corrected archive requires its own recorded check results.
-The previously checked archive and its native runs remain historical evidence.
+## Exact archive
 
-## Changes since the CRAN release
+- File: `Gtheory4LLM_1.0.0.tar.gz`
+- Size: 787,881 bytes
+- SHA-256: `d1328dac216d664c3c9ce4577ef26f354e88d1d6a4edf3e6a9c75d483929083c`
+- Source: `c9276e0ea21a740b88bbbac3bd1442e6b1731050`
+- Built with R 4.6.2 and adopted unchanged from the checked candidate in
+  <https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41164084964>.
 
-Compared with CRAN 0.5.0, this update adds the formula interface and conventional
-model methods, a bounded lme4 Gaussian route, public sparse discrete fitting, optional observed
-information including conditional calculations with boundary sources held fixed,
-an analytic Laplace gradient and explicit projected boundary
-escape, an object bootstrap with percentile and BCa intervals, and categorical
-simulation/planning targets. `gt_example()` names its numeric coding
-`"numeric"`; the former name `"manuscript"` still works with a deprecation
-warning. The installed native-data
-workflow defines the two scoped whole-data joint examples and their numerical
-reproduction contract. NEWS.md and the help pages state the supported models
-and numerical guards.
+## Checks of those exact bytes
 
-Submission review also repaired bootstrap data/model association and a
-cancellation error in the optional nominal analytic-gradient curvature product.
-The latter has independent stable-matrix tail regressions; no incorrect
-accepted fit was demonstrated. The default finite-difference route and all
-numerical acceptance thresholds remain unchanged. Repository merge policy
-now includes the exact-archive macOS and Windows checks.
+All checks below reported **0 errors, 0 warnings and 0 notes**:
 
-Discrete estimation remains first-order Laplace. The native joint illustrations
-use efficacy/safety outcomes and three mental-health groups, not the full
-four-aspect/six-flag sets. Numerical acceptance does not establish approximation
-accuracy, general interval calibration or a global optimum. The earlier native
-point fits lacked ordinary information; subsequent macOS calculations at their
-saved estimates supplied conditional intervals by holding the named singular
-nonzero source matrices fixed. Such intervals omit held-source estimation and
-boundary-selection uncertainty. Their coverage is not demonstrated; unavailable
-uncertainty is still reported as unavailable. The documented
-near-boundary/weak-signal limitations remain in force.
-The 1.0.0 candidate built from `2b31e84` was refit on both panels on 2026-10-28, on macOS and
-Linux: all four fits were accepted and matched the point references and the
-macOS conditional-information reference. The adopted archive built from
-`403aa86` (SHA-256 `5219d180fb97263f3deeedba4911e1f40f02cd7894fa23f04f3433e547755528`)
-was refit the same way on 2026-10-29: all four fits were again accepted and
-matched both references, with result tables byte-identical to the `2b31e84` round
-apart from timings.
-The installed historical reference tables are the comparison targets of those
-replays; the synthetic workflow check is not a whole-data qualification.
+- Linux, R-devel 4.7.0: `R CMD check --as-cran`, including remote CRAN
+  incoming checks, examples, all 54 installed tests, vignettes, PDF and HTML manuals.
+- macOS and Windows, R 4.6.2: the same `--as-cran` archive check and manuals.
+- Local macOS, R 4.5.3: the same `--as-cran` archive check and manuals.
+- Linux R-devel without long double (2026-10-03 r90638): full
+  `R CMD check --no-stop-on-test-error`, including vignettes and PDF manual,
+  followed by a separate 54/54 installed-test sweep. Reference BLAS probes
+  passed before and after testing. This check did not use `--as-cran`.
+
+The hosted source runs are separate: 79/79 full numerical stages, including
+71 R source tests, and 47/47 compatibility stages on each of macOS, Windows
+and minimum-supported R 4.5.0. They passed on the PR #117 test tree, which
+is identical to the recorded source commit. The selected archive is identified
+above; other workflow builds are not substituted for it. No separate external
+system-clock verification is claimed.
+
+## Changes and review corrections
+
+Since CRAN 0.5.0, this release adds the formula interface and conventional
+model methods, a bounded lme4 Gaussian route, sparse categorical fitting,
+optional analytic Laplace gradients, conditional-information intervals,
+object-bootstrap percentile/BCa intervals, and categorical simulation/planning.
+The compiled component is one registered C source file, without C++, Fortran,
+OpenMP or external system libraries. R >= 4.5.0 is required.
+
+Submission review corrected bootstrap data/model association, nominal-gradient
+tail arithmetic, and the exact numeric identifier representation used to verify
+bootstrap data. Identity format 2 is independent of display options. Fits that
+retained observations can derive the new identity; older digest-only fits must
+be refitted, and format-1 bootstrap objects must be regenerated. The workflow
+inventory also handles comment-only YAML lines without omitting required jobs.
+All nine live branch-protection contexts remain enforced.
+
+Discrete fitting remains first-order Laplace. Conditional intervals omit
+uncertainty in held matrices and their selection. Historical bootstrap pilots
+showed undercoverage; no general coverage claim is made. The scoped native
+examples are two ordinal drug efficacy/safety outcomes and three binary
+mental-health groups. Four accepted full-data fits on October 29 belong to
+the withdrawn `403aa86` archive, not the corrected archive above. The numerical
+solvers and C source are unchanged by these identity/bootstrap repairs, but no
+fresh full-data replay of the corrected archive is claimed. Broader four-aspect
+and six-flag joint models remain outside the qualified examples.
 
 ## Current CRAN state and reverse dependencies
 
-Read from the official CRAN package page, check page and PACKAGES.gz on
-2026-10-29 at 04:24 UTC. CRAN lists version 0.5.0,
-published 2026-10-11, with all thirteen check flavors OK and no Additional
-issues section. This describes the currently listed version, not acceptance of
-1.0.0 or administrative closure of earlier correspondence.
-
-The source package index contained 25,613 records. No package named
-Gtheory4LLM in its Depends, Imports, LinkingTo,
-Suggests or Enhances fields. Thus there were zero listed reverse dependencies
-across those five fields at this checkpoint. Repeat the survey if submission
-occurs after this record becomes outdated.
-
-## Exact candidate evidence
-
-The submission copy of this file is completed after the final candidate has
-been checked, using its recorded source commit, archive size and SHA-256, R
-versions and dependency sessions, ordinary R-devel and no-long-double results,
-PDF manual and vignette outcomes, platform compatibility, reverse dependencies
-and any remaining NOTE dispositions. Development archives and older release
-checks below are not substituted for those final records.
+The official package/check pages and PACKAGES.gz were read on 2026-10-31 at
+02:35 UTC. CRAN listed 0.5.0, published 2026-10-11, with all thirteen check
+flavors OK and no Additional issues section. The index contained 25,621 package
+records; none listed Gtheory4LLM in Depends, Imports, LinkingTo, Suggests or
+Enhances. This describes the listed version and does not assert CRAN acceptance
+of 1.0.0 or administrative closure of previous correspondence.
 
 ## Historical records
 
