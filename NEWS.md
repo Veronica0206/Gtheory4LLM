@@ -1,13 +1,19 @@
-# Gtheory4LLM 1.0.0
+# Gtheory4LLM 1.0.0.9000 (development)
 
 <!-- release-identity:start -->
-Source version: **1.0.0**.
+Source version: **1.0.0.9000**.
 For versioned archives, manuals and publication status, see the
 [repository manifest](https://github.com/Veronica0206/Gtheory4LLM/blob/main/artifacts/manifest.json)
 and [GitHub releases](https://github.com/Veronica0206/Gtheory4LLM/releases).
 These repository records are excluded from the package archive; this source
 version does not assert that a corresponding release has been published.
 <!-- release-identity:end -->
+
+This development line follows the 1.0.0 release, which CRAN published on
+2026-11-01. The published 1.0.0 archive, its numerical engines, acceptance
+rules and every estimate are unchanged.
+
+# Gtheory4LLM 1.0.0
 
 This version retains the formula interface and historical
 release evidence while adding the capabilities below. No numerical acceptance
