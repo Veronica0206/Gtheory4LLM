@@ -9,7 +9,7 @@ check logs ended with `Status: OK`. The Windows test phase accounted for
 ordinary check. Seven files reserve longer comparisons for `NOT_CRAN=true`,
 which the package's full validation and Linux no-long-double jobs set.
 
-The selected `Gtheory4LLM_1.0.0.tar.gz` for [`v1.0.0-cran`](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v1.0.0-cran)
+The selected `Gtheory4LLM_1.0.0.tar.gz` for [`v1.0.0-resubmission`](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v1.0.0-resubmission)
 is 789,922 bytes. Its SHA-256 is
 `3ddcee65f3a06450429112fc3753edb64778745668f9bc728b37a3969a8d345a`.
 The [candidate workflow](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41340031849)
