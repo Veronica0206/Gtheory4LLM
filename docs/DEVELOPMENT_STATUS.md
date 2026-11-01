@@ -15,7 +15,9 @@ The same filename, `Gtheory4LLM_1.0.0.tar.gz`, identifies three builds.
 | [Post-merge CI build at `ed865dd`](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41349623324) | `90d8dcde1a5a` | The GitHub Windows R-release check passed in 406.453 seconds. |
 
 The selected archive is 789,922 bytes. The post-merge build differs in its
-packaging timestamps. Formal CRAN resubmission is pending as of November 1.
+packaging timestamps. CRAN published the selected archive on November 1 at
+23:20:21 UTC. CRAN's distributed copy, `5ea7dad7b1be`, 799,884 bytes, adds
+`Repository`, `Date/Publication` and an `MD5` file to the same contents.
 The [resubmission record](../cran-comments.md) gives the full checksum and
 the checks of the selected archive.
 

@@ -33,7 +33,13 @@ comparison when valgrind's preload library is present. The instrumented
 rchk and valgrind records below identify the earlier archive and patched
 library on which those checks ran.
 
-As of November 1, formal CRAN resubmission of the selected archive is pending.
+CRAN published 1.0.0 on November 1, 2026 at 23:20:21 UTC, about thirty minutes
+after the selected archive was uploaded. CRAN's distributed
+`Gtheory4LLM_1.0.0.tar.gz` is 799,884 bytes with SHA-256
+`5ea7dad7b1bedb209488875bd0986f0aedf88f429ad6e9c6f2ca63daa7a44f51`: the
+selected archive with `Repository: CRAN` and
+`Date/Publication: 2026-11-01 23:20:21 UTC` added to DESCRIPTION and an `MD5`
+file added. Every other file is byte-identical, and all 152 MD5 entries verify.
 
 ## Historical record of the first 1.0.0 upload
 
