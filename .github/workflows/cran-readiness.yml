@@ -112,6 +112,11 @@ jobs:
           name: cran-candidate-built-${{ github.sha }}
           path: ${{ runner.temp }}/downloaded-cran-candidate
       - name: Check the downloaded archive with R-devel, CRAN incoming checks, and its PDF manual
+        env:
+          # r-lib/actions/setup-r exports NOT_CRAN=true. This step checks the
+          # archive as CRAN's ten-minute farm does, without the long test
+          # comparisons, so its log shows the check time CRAN will see.
+          NOT_CRAN: 'false'
         shell: bash
         run: |
           args=(check --require-devel --expected-data-kind public_llm_annotations --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked")
@@ -256,6 +261,11 @@ jobs:
       # examples, installed tests and the PDF manual. It does not rebuild the
       # archive or repeat the separate source-validation matrix.
       - name: Check the exact downloaded archive and its PDF manual
+        env:
+          # r-lib/actions/setup-r exports NOT_CRAN=true. This step checks the
+          # archive as CRAN's ten-minute farm does, without the long test
+          # comparisons, so its log shows the check time CRAN will see.
+          NOT_CRAN: 'false'
         shell: bash
         run: python scripts/cran_readiness.py check --expected-data-kind public_llm_annotations --candidate-dir "$RUNNER_TEMP/downloaded-cran-candidate" --output-dir "$RUNNER_TEMP/cran-checked"
       - name: Preserve platform check evidence, including failures
@@ -285,6 +295,9 @@ jobs:
       OMP_NUM_THREADS: 1
       OPENBLAS_NUM_THREADS: 1
       MAKEFLAGS: -j4
+      # The long test comparisons run here; check-devel and the exact-archive
+      # jobs check the archive as CRAN's ten-minute farm does, without them.
+      NOT_CRAN: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install the container-native manifest checker

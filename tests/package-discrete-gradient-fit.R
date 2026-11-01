@@ -17,6 +17,11 @@ if (identical(Sys.getenv("GT_DISCRETE_GRADIENT_FIT_TEST_SOURCE"), "true")) {
   internal <- function(name) get(name, envir = asNamespace("Gtheory4LLM"), inherits = FALSE)
 }
 check <- function(condition, label) if (!isTRUE(condition)) stop("FAILED: ", label, call. = FALSE)
+# CRAN's check farm allows a package ten minutes of checking, so the long
+# comparisons below run only when NOT_CRAN=true, which the repository's
+# validation gates set (tests/README.md). Every skipped comparison says so.
+full <- identical(Sys.getenv("NOT_CRAN"), "true")
+skip <- function(what) cat("SKIP:", what, "(runs with NOT_CRAN=true)\n")
 expect_error <- function(expr, text, label) {
   error <- tryCatch({ force(expr); NULL }, error = identity)
   check(inherits(error, "error") && grepl(text, conditionMessage(error), fixed = TRUE),
@@ -174,13 +179,17 @@ both <- function(label, data, outcomes, family, reliability = FALSE, stall_excep
             function(fd, an) stability_distance(fd, an, data, outcomes, family))
 
 binary <- both("binary logit, one source at zero", data_binary(), "label", gt_family("binary"), reliability = TRUE)
-both("ordinal logit", data_ordinal(), "grade", gt_family("ordinal"), reliability = TRUE, stall_exception = TRUE)
-both("nominal, three categories", data_categorical(), "topic", gt_family("categorical"))
+if (full) {
+  both("ordinal logit", data_ordinal(), "grade", gt_family("ordinal"), reliability = TRUE, stall_exception = TRUE)
+  both("nominal, three categories", data_categorical(), "topic", gt_family("categorical"))
+} else skip("the ordinal and nominal panels on both routes")
 both("binary logit without an alternative start", data_binary(), "label", gt_family("binary"),
      alternative_starts = 0L)
-both("joint binary and ordinal", data_joint(), c("label", "grade"),
-     list(label = gt_family("binary"), grade = gt_family("ordinal")), stall_exception = TRUE,
-     criterion = "stability")
+if (full) {
+  both("joint binary and ordinal", data_joint(), c("label", "grade"),
+       list(label = gt_family("binary"), grade = gt_family("ordinal")), stall_exception = TRUE,
+       criterion = "stability")
+} else skip("the joint panel on both routes")
 
 # Declared scaling: optim() rescales a supplied gradient itself, so the route
 # returns stored-coordinate gradients and each attempt keeps its own metric.

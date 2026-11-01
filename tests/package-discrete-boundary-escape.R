@@ -16,6 +16,11 @@ if (identical(Sys.getenv("GT_BOUNDARY_ESCAPE_TEST_SOURCE"), "true")) {
   internal <- function(name) get(name, envir = asNamespace("Gtheory4LLM"), inherits = FALSE)
 }
 check <- function(condition, label) if (!isTRUE(condition)) stop("FAILED: ", label, call. = FALSE)
+# CRAN's check farm allows a package ten minutes of checking, so the long
+# comparisons below run only when NOT_CRAN=true, which the repository's
+# validation gates set (tests/README.md). Every skipped comparison says so.
+full <- identical(Sys.getenv("NOT_CRAN"), "true")
+skip <- function(what) cat("SKIP:", what, "(runs with NOT_CRAN=true)\n")
 expect_error <- function(expr, text, label) {
   error <- tryCatch({ force(expr); NULL }, error = identity)
   check(inherits(error, "error") && grepl(text, conditionMessage(error), fixed = TRUE),
@@ -100,7 +105,8 @@ cat(sprintf("PASS: stuck fixture (score %.3g, alpha %g, objective change %.4f; -
             abs(escaped$minus2loglik - reference$minus2loglik)))
 
 # --- fits that need no escape are unchanged ------------------------------------------
-for (route in c("analytic", "finite_difference")) {
+if (!full) skip("the finite-difference route of the no-op comparison")
+for (route in if (full) c("analytic", "finite_difference") else "analytic") {
   plain <- fit_with(gradient = route)
   with_escape <- fit_with(gradient = route, boundary_escape = "projected")
   check(identical(plain$parameters, with_escape$parameters) && identical(plain$minus2loglik, with_escape$minus2loglik) &&
@@ -110,7 +116,7 @@ for (route in c("analytic", "finite_difference")) {
             identical(a$rounds[[1L]]$reason, "every singular source is stationary"), logical(1))),
         paste("a fit at a legitimate boundary is unchanged by the escape on the", route, "route"))
 }
-cat("PASS: no-op at a legitimate boundary on both routes\n")
+cat(paste0("PASS: no-op at a legitimate boundary on ", if (full) "both routes" else "the analytic route", "\n"))
 
 # --- the partial covariance scores equal the full check's ------------------------------
 problem <- internal(".gt_d_laplace_problem")(d, c("label", "grade"), design, families,

@@ -60,11 +60,15 @@ H_diagonal <- 1 + sigma^2 * tapply(p_mode * (1 - p_mode), b$item, sum)
 expect(all(H_diagonal > 2), "the binary fixture retains its Gaussian-only infinite-variance tail condition")
 set.seed(271)
 rng_before <- .Random.seed
-for (budget in c(1000L, 5000L)) for (check_seed in c(17L, 31L, 47L)) {
+# CRAN's check farm allows a package ten minutes of checking: the other budget
+# and seeds run with NOT_CRAN=true, which the repository's validation gates set.
+full <- identical(Sys.getenv("NOT_CRAN"), "true")
+if (!full) cat("SKIP: the 1000-draw budget and two of the three seeds (runs with NOT_CRAN=true)\n")
+for (budget in if (full) c(1000L, 5000L) else 5000L) for (check_seed in if (full) c(17L, 31L, 47L) else 17L) {
   replicate_check <- gt_laplace_check(fit, method = "importance", draws = budget, seed = check_seed)
   expect(replicate_check$available && is.finite(replicate_check$mc_se) &&
            abs(replicate_check$refined_minus2loglik - 2 * reference) < 6 * replicate_check$mc_se + 1e-6,
-         "independent seeds and two budgets agree with the adaptive-integration reference within a broad regression tolerance")
+         "each seed and budget agrees with the adaptive-integration reference within a broad regression tolerance")
 }
 expect(identical(.Random.seed, rng_before), "mixture component selection and normal draws preserve the caller RNG")
 

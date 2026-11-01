@@ -514,7 +514,15 @@ local({
 capture <- nzchar(Sys.getenv("GTHEORY_CHARACTERIZATION_CAPTURE"))
 captured <- character()
 platform_refusals <- character()
-for (name in names(cases)) {
+# CRAN's check farm allows a package ten minutes of checking: outside the full
+# run (NOT_CRAN=true, set by the repository's validation gates) and a baseline
+# capture, the six Gaussian cases are compared and the slower discrete cases
+# are announced as skipped.
+full <- identical(Sys.getenv("NOT_CRAN"), "true")
+run <- if (full || capture) names(cases) else grep("^gaussian_", names(cases), value = TRUE)
+if (length(run) < length(cases))
+  cat("SKIP:", paste(setdiff(names(cases), run), collapse = ", "), "(runs with NOT_CRAN=true)\n")
+for (name in run) {
   record <- record_case(cases[[name]]())
   if (capture) {
     captured <- c(captured, deparse_record(name, record))
@@ -530,8 +538,8 @@ if (capture) {
   stop("Characterization baseline changed:\n", paste0("- ", failures, collapse = "\n"),
        "\nIf the change is intended, record why in NEWS.md and regenerate the baseline.")
 } else {
-  compared <- length(cases) - length(platform_refusals)
-  cat("PASS: characterization baseline reproduced for", compared, "of", length(cases), "canonical cases.\n")
+  compared <- length(run) - length(platform_refusals)
+  cat("PASS: characterization baseline reproduced for", compared, "of", length(run), "canonical cases.\n")
   if (length(platform_refusals))
     cat("On this platform the discrete optimizer did not reach a stationary point for",
         paste(platform_refusals, collapse = "; "), "and the engine refused the fit (#59);",
