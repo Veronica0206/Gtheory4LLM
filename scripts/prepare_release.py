@@ -16,6 +16,8 @@ Usage:
                                                        # adopt the archive CI checked
     python3 scripts/prepare_release.py --skip-validation   # re-bundle only
     python3 scripts/prepare_release.py --allow-dirty       # rehearsal only
+    python3 scripts/prepare_release.py --release-tag vX.Y.Z-cran \\
+        --supersedes-reason "..."                      # resubmit a refused version
 """
 from __future__ import annotations
 
@@ -177,22 +179,32 @@ def build_manual(package: str, work: Path, rscript: str = "Rscript") -> Path:
 
 
 def manifest_for(package: str, version: str, commit: str, state: str,
-                 archive: Path, manual: Path) -> dict:
-    return {
+                 archive: Path, manual: Path, release_tag: str | None = None,
+                 supersedes: dict | None = None) -> dict:
+    manifest = {
         "package": package, "version": version, "release_state": state,
         "source_commit": commit,
         "files": {path.name: {"bytes": path.stat().st_size, "sha256": digest(path)}
                   for path in (archive, manual)},
     }
+    if release_tag is not None and release_tag != f"v{version}":
+        manifest["release_tag"] = release_tag
+    if supersedes is not None:
+        manifest["supersedes"] = supersedes
+    return manifest
 
 
-def write_artifact_readme(package: str, version: str, state: str, destination: Path) -> None:
+def write_artifact_readme(package: str, version: str, state: str, destination: Path,
+                          release_tag: str | None = None, supersedes: dict | None = None) -> None:
     """Publication status lives only in excluded repository metadata."""
-    (destination / "README.md").write_text(
-        f"# {package} {version} release\n\nRelease state: **{state}**.\n\n"
-        "The [manifest](manifest.json) records the source commit, file sizes and SHA-256 hashes.\n"
-        "Publish exactly those files; never rebuild an already published version.\n",
-        encoding="utf-8")
+    text = (f"# {package} {version} release\n\nRelease state: **{state}**.\n\n"
+            "The [manifest](manifest.json) records the source commit, file sizes and SHA-256 hashes.\n"
+            "Publish exactly those files; never rebuild an already published version.\n")
+    if supersedes is not None:
+        text += (f"\nRelease tag: **{release_tag}**, a resubmission of {version}. It supersedes the bundle\n"
+                 f"published as {supersedes['release_tag']} (archive SHA-256 `{supersedes['sha256']}`),\n"
+                 f"whose release and assets stay as published: {supersedes['reason']}\n")
+    (destination / "README.md").write_text(text, encoding="utf-8")
 
 
 def require_neutral_source_prose(version: str) -> None:
@@ -213,20 +225,47 @@ def require_neutral_source_prose(version: str) -> None:
                              "DESCRIPTION and linking repository release metadata before preparing.")
 
 
-def refuse_published_version(version: str, state: str, destination: Path) -> None:
-    """Refuse before any build, even for --allow-dirty and scratch rehearsals."""
+def refuse_published_version(package: str, version: str, state: str, destination: Path,
+                             release_tag: str, supersedes_reason: str | None) -> dict | None:
+    """Refuse before any build, even for --allow-dirty and scratch rehearsals.
+
+    A version is bundled once. The one exception is a resubmission: CRAN
+    refused the published bundle, the fix keeps the version because CRAN never
+    published it, and the first release's tag and assets are immutable. Then
+    the version is bundled again under --release-tag v<version>-<suffix>, and
+    the manifest records which published bundle it supersedes and why.
+    """
     if state == "published":
         raise SystemExit("Preparation cannot use --state published; publish an unchanged prepared bundle.")
-    tag_exists = subprocess.run(["git", "-C", str(ROOT), "show-ref", "--verify", "--quiet",
-                                 f"refs/tags/v{version}"], check=False).returncode == 0
-    published = False
+    try:
+        CHECKS.release_tag_for({"version": version, "release_tag": release_tag})
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    if CHECKS.local_release_tag(ROOT, release_tag):
+        raise SystemExit(f"Tag {release_tag} already exists; a published bundle is never rebuilt or replaced.")
+    published = None
     for path in {ARTIFACTS / "manifest.json", destination / "manifest.json"}:
         if path.exists():
             manifest = json.loads(path.read_text(encoding="utf-8"))
-            published |= manifest.get("version") == version and manifest.get("release_state") == "published"
-    if tag_exists or published:
+            if manifest.get("version") == version and manifest.get("release_state") == "published":
+                published = manifest
+    version_tag_exists = CHECKS.local_release_tag(ROOT, f"v{version}")
+    if published is None and not version_tag_exists:
+        if supersedes_reason is not None or release_tag != f"v{version}":
+            raise SystemExit(f"No published {version} bundle exists to supersede; prepare it under v{version} "
+                             "without --release-tag or --supersedes-reason.")
+        return None
+    previous_tag = CHECKS.release_tag_for(published) if published is not None else f"v{version}"
+    if release_tag == previous_tag or supersedes_reason is None:
         raise SystemExit(f"Version {version} is already tagged or published; prepare a new version "
-                         "instead of rebuilding or replacing its files.")
+                         "instead of rebuilding or replacing its files. If CRAN refused that bundle and the "
+                         f"version stays, bundle a resubmission under --release-tag v{version}-<suffix> "
+                         "with --supersedes-reason.")
+    recorded = (published or {}).get("files", {}).get(f"{package}_{version}.tar.gz", {}).get("sha256")
+    if not CHECKS.local_release_tag(ROOT, previous_tag) or not recorded:
+        raise SystemExit(f"The published {version} bundle must be tagged {previous_tag} here, with its archive "
+                         "digest in artifacts/manifest.json, before a resubmission can supersede it.")
+    return {"release_tag": previous_tag, "sha256": recorded, "reason": supersedes_reason}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -251,7 +290,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", type=Path, metavar="DIR",
                         help="Build the bundle into DIR and change no tracked file. "
                              "The staged manifest and archive are verified before copying.")
+    parser.add_argument("--release-tag", metavar="TAG",
+                        help="Publish this bundle under TAG instead of v<version>: v<version>-<suffix>, for a "
+                             "resubmission of a version whose published bundle CRAN refused; requires "
+                             "--supersedes-reason.")
+    parser.add_argument("--supersedes-reason", metavar="REASON",
+                        help="Why the published bundle of this version is superseded; recorded in the manifest "
+                             "with that bundle's tag and archive digest. Requires --release-tag.")
     options = parser.parse_args(argv)
+    if (options.release_tag is None) != (options.supersedes_reason is None):
+        parser.error("--release-tag and --supersedes-reason go together: a resubmission names its tag and its reason.")
+    if options.supersedes_reason is not None and not options.supersedes_reason.strip():
+        parser.error("--supersedes-reason must say why the published bundle is superseded.")
     if options.cran_requested_maintenance is not None and options.skip_validation:
         parser.error("--cran-requested-maintenance requires source validation; remove --skip-validation.")
 
@@ -267,7 +317,9 @@ def main(argv: list[str] | None = None) -> int:
     destination = options.dry_run.resolve() if options.dry_run else ARTIFACTS
     if options.dry_run and (destination == ROOT.resolve() or ROOT.resolve() in destination.parents):
         raise SystemExit("--dry-run DIR must be outside the checkout to avoid changing tracked files.")
-    refuse_published_version(version, options.state, destination)
+    release_tag = options.release_tag or f"v{version}"
+    supersedes = refuse_published_version(package, version, options.state, destination, release_tag,
+                                          options.supersedes_reason)
     require_neutral_source_prose(version)
     commit = require_clean_tree(options.allow_dirty)
     with tempfile.TemporaryDirectory(prefix="gtheory-release-") as directory:
@@ -284,7 +336,7 @@ def main(argv: list[str] | None = None) -> int:
         shutil.copy2(archive, staging / archive.name)
         shutil.copy2(manual, staging / manual.name)
         manifest = manifest_for(package, version, commit, options.state,
-                                staging / archive.name, staging / manual.name)
+                                staging / archive.name, staging / manual.name, release_tag, supersedes)
         manifest["archive_provenance"] = provenance
         if options.cran_requested_maintenance is not None:
             # This records the preparation request separately from any adopted
@@ -293,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
                 "cran_requested_maintenance": options.cran_requested_maintenance}
         manifest_path = staging / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-        write_artifact_readme(package, version, options.state, staging)
+        write_artifact_readme(package, version, options.state, staging, release_tag, supersedes)
         run("Verify the bundle against its source commit and the release identity",
             [sys.executable, str(ROOT / "scripts/check_committed_artifact.py"),
              "--manifest", str(manifest_path), "--verify-only", "--check-release-identity"])
@@ -322,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:
     report = {
         "prepared_utc": datetime.now(timezone.utc).isoformat(),
         "package": package, "version": version, "release_state": options.state,
-        "source_commit": commit, "tag": f"v{version}",
+        "source_commit": commit, "tag": release_tag,
         "assets": sorted(manifest["files"]),
         "validation_run": not options.skip_validation,
         "archive_origin": provenance["origin"],
@@ -333,6 +385,8 @@ def main(argv: list[str] | None = None) -> int:
     }
     if options.cran_requested_maintenance is not None:
         report["cran_requested_maintenance"] = options.cran_requested_maintenance
+    if supersedes is not None:
+        report["supersedes"] = supersedes
     print("\n" + json.dumps(report, indent=2))
     print(f"""
 Prepared, not published. Nothing has been tagged, pushed, or uploaded.
@@ -341,9 +395,9 @@ To publish, follow docs/RELEASE_CHECKLIST.md. In outline:
   1. Commit artifacts/; README.md and NEWS.md stay identical to the source commit.
   2. Set release_state to "published" in artifacts/manifest.json and update
      artifacts/README.md, then commit only that excluded repository metadata.
-  3. Tag that commit:            git tag v{version}
+  3. Tag that commit:            git tag {release_tag}
   4. Verify the tag:             python3 scripts/check_committed_artifact.py \\
-                                   --verify-only --check-release-identity --release-tag v{version}
+                                   --verify-only --check-release-identity --release-tag {release_tag}
   5. Upload exactly these assets, unchanged:
        {"  ".join(sorted(manifest["files"]) + ["manifest.json"])}
      Compare the hosting service's sizes and SHA-256 values with the manifest.
