@@ -1,24 +1,30 @@
 {
   "package": "Gtheory4LLM",
   "version": "1.0.0",
-  "release_state": "published",
-  "source_commit": "c9276e0ea21a740b88bbbac3bd1442e6b1731050",
+  "release_state": "prepared",
+  "source_commit": "93f01d8d028c4b51d0681117246657872a2b1a37",
   "files": {
     "Gtheory4LLM_1.0.0.tar.gz": {
-      "bytes": 787881,
-      "sha256": "d1328dac216d664c3c9ce4577ef26f354e88d1d6a4edf3e6a9c75d483929083c"
+      "bytes": 789922,
+      "sha256": "3ddcee65f3a06450429112fc3753edb64778745668f9bc728b37a3969a8d345a"
     },
     "Gtheory4LLM-manual.pdf": {
-      "bytes": 433817,
-      "sha256": "7d3e0dd3d9a34e87c4043da92d7bead050ea5b1a4917ab06b1348b151bf11161"
+      "bytes": 433818,
+      "sha256": "efe05bbc8a3d9770e9e74a0cf9c579d48f2be159d800f8070c047d21422dab57"
     }
+  },
+  "release_tag": "v1.0.0-resubmission",
+  "supersedes": {
+    "release_tag": "v1.0.0",
+    "sha256": "d1328dac216d664c3c9ce4577ef26f354e88d1d6a4edf3e6a9c75d483929083c",
+    "reason": "CRAN incoming pretest on November 1, 2026 reported an overall check time of 15 minutes on Windows R-devel, exceeding the 10-minute threshold."
   },
   "archive_provenance": {
     "origin": "checked_candidate",
     "build_r_version": "4.6.2",
     "checked_r_version": "4.7.0",
     "expected_data_kind": "public_llm_annotations",
-    "check_report_sha256": "a39c682c0a8cc7f73e3fc1e9956de8fb48282d05ee65344f296cac483c146279",
+    "check_report_sha256": "3e5ecd06b4f38527891b627fd09a4e5f05f0528c99ea35de970a47c587d95602",
     "r_cmd_check": {
       "errors": 0,
       "warnings": 0,
