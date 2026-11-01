@@ -215,10 +215,12 @@ SEXP gt_selected_contractions(SEXP ps, SEXP is, SEXP xs, SEXP perms, SEXP ids,
     Rf_error("Selected inverse: contraction inputs must be an integer permutation, an integer index "
              "matrix, a double design matrix and a double curvature array.");
   if (XLENGTH(perms) != m) Rf_error("Selected inverse: the permutation length differs from the dimension.");
-  SEXP iddim = Rf_getAttrib(ids, R_DimSymbol), wdim = Rf_getAttrib(ws, R_DimSymbol);
+  SEXP iddim = PROTECT(Rf_getAttrib(ids, R_DimSymbol));
+  SEXP wdim = PROTECT(Rf_getAttrib(ws, R_DimSymbol));
   if (TYPEOF(iddim) != INTSXP || XLENGTH(iddim) != 2 || TYPEOF(wdim) != INTSXP || XLENGTH(wdim) != 2)
     Rf_error("Selected inverse: the index and design arguments must be matrices.");
-  int n = INTEGER(iddim)[0], k = INTEGER(iddim)[1], q = INTEGER(wdim)[0];
+  int n = INTEGER(iddim)[0], k = INTEGER(iddim)[1], q = INTEGER(wdim)[0], wk = INTEGER(wdim)[1];
+  UNPROTECT(2);
   if (n < 1 || n > GT_SI_MAX_OBSERVATIONS)
     Rf_error("Selected inverse: the observation cap (%d) is exceeded or no observation was given.",
              GT_SI_MAX_OBSERVATIONS);
@@ -228,7 +230,7 @@ SEXP gt_selected_contractions(SEXP ps, SEXP is, SEXP xs, SEXP perms, SEXP ids,
   if (q < 1 || q > GT_SI_MAX_LATENT)
     Rf_error("Selected inverse: the latent dimension cap (%d) is exceeded or no dimension was given.",
              GT_SI_MAX_LATENT);
-  if (INTEGER(wdim)[1] != k || XLENGTH(ids) != (R_xlen_t) n * k || XLENGTH(ws) != (R_xlen_t) q * k ||
+  if (wk != k || XLENGTH(ids) != (R_xlen_t) n * k || XLENGTH(ws) != (R_xlen_t) q * k ||
       XLENGTH(curvature) != (R_xlen_t) n * q * q)
     Rf_error("Selected inverse: contraction argument dimensions do not agree.");
   if ((double) n * k * k > GT_SI_MAX_CONTRACTION_WORK)
