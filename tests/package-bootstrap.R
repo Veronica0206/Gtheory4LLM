@@ -25,7 +25,18 @@ seeded <- function(seed) {
   suppressWarnings(RNGkind("Mersenne-Twister", "Inversion", "Rejection"))
   set.seed(seed)
 }
-forks <- !identical(.Platform$OS.type, "windows")
+# Forked workers stay off under valgrind: at each forked child's exit valgrind
+# runs glibc's __libc_freeres, whose stream cleanup rewinds the file offset
+# the child shares with the parent on the script R CMD BATCH is reading, and
+# the parent then parses spliced text. Valgrind announces itself to the
+# process it runs through LD_PRELOAD.
+forks <- !identical(.Platform$OS.type, "windows") &&
+  !grepl("vgpreload", Sys.getenv("LD_PRELOAD"), fixed = TRUE)
+# CRAN's check farm allows a package ten minutes of checking, so the long
+# comparisons below run only when NOT_CRAN=true, which the repository's
+# validation gates set (tests/README.md). Every skipped comparison says so.
+full <- identical(Sys.getenv("NOT_CRAN"), "true")
+skip <- function(what) cat("SKIP:", what, "(runs with NOT_CRAN=true)\n")
 
 # --- a Gaussian item-by-rater fit and its bootstrap ------------------------------
 seeded(2L)
@@ -64,15 +75,18 @@ for (b in c(1L, 37L)) {
 cat("PASS: resamples and replicates\n")
 
 # --- determinism ----------------------------------------------------------------------
-again <- gt_bootstrap(fit, replicates = 60, seed = 11)
-check(identical(again$components, boot$components) && is.null(again$jackknife),
-      "the same seed gives the same replicates")
-longer <- gt_bootstrap(fit, replicates = 20, seed = 11, max_attempts = 500)
-check(identical(longer$components, boot$components[1:20]),
-      "the attempt budget does not change the replicates")
-other <- gt_bootstrap(fit, replicates = 20, seed = 12)
-check(!identical(other$components, boot$components[1:20]), "another seed gives other replicates")
-if (forks) {
+if (full) {
+  again <- gt_bootstrap(fit, replicates = 60, seed = 11)
+  check(identical(again$components, boot$components) && is.null(again$jackknife),
+        "the same seed gives the same replicates")
+} else skip("the 60-replicate repeat of the bootstrap")
+longer <- gt_bootstrap(fit, replicates = if (full) 20 else 5, seed = 11, max_attempts = 500)
+check(identical(longer$components, boot$components[seq_along(longer$components)]),
+      "the same seed gives the same replicates whatever the attempt budget")
+other <- gt_bootstrap(fit, replicates = if (full) 20 else 5, seed = 12)
+check(!identical(other$components, boot$components[seq_along(other$components)]), "another seed gives other replicates")
+if (forks && !full) skip("the two-core replicate comparison")
+if (forks && full) {
   forked <- gt_bootstrap(fit, replicates = 60, seed = 11, jackknife = TRUE, cores = 2)
   same <- setdiff(names(boot$records), "seconds")
   check(identical(forked$components, boot$components) && identical(forked$records[same], boot$records[same]) &&
@@ -86,54 +100,56 @@ cat("PASS: determinism\n")
 # stream fixed by seed: the leave-one-out refits' first, then one resampling
 # and one retry seed per attempt. An explicit one, in the fit's controls or in
 # control =, governs every refit's restarts, and the records must show it.
-seeded(5L)
-small <- expand.grid(rater = factor(1:3), item = factor(sprintf("s%02d", 1:12)))
-small$score <- rnorm(12)[small$item] + rnorm(3, sd = .4)[small$rater] + rnorm(nrow(small), sd = .6)
-small_fit <- gt_fit(small, "score", gt_design("item", "rater"))
-stream <- local({ seeded(9L); sample.int(.Machine$integer.max, 12L + 2L * 6L) })
-drawn <- gt_bootstrap(small_fit, replicates = 3, seed = 9, jackknife = TRUE)
-check(identical(drawn$records$retry_seed, stream[12L + 2L * seq_len(drawn$attempts)]) &&
-        identical(drawn$jackknife$records$retry_seed, stream[1:12]),
-      "without an explicit retry seed, each refit records the seed it drew from the stream")
-own_fit <- gt_fit(small, "score", gt_design("item", "rater"), control = gt_control(gaussian = list(retry_seed = 123L)))
-own <- gt_bootstrap(own_fit, replicates = 3, seed = 9, jackknife = TRUE)
-override <- gt_bootstrap(small_fit, replicates = 3, seed = 9, jackknife = TRUE,
-                         control = gt_control(gaussian = list(retry_seed = 77L)))
-check(all(own$records$retry_seed == 123L) && all(own$jackknife$records$retry_seed == 123L) &&
-        all(override$records$retry_seed == 77L) && all(override$jackknife$records$retry_seed == 77L),
-      "an explicit retry seed, the fit's own or in control =, is the one recorded for every refit")
-# One iteration per trial from a far start makes every refit restart, and each
-# restart perturbs its start with the retry seed. The restart history of the
-# refit inside the bootstrap must be the one a direct fit of its resample gives
-# with the recorded seed, and not the one the stream's seed would give.
-far <- setNames(lapply(c("item", "rater", "Residual"), function(x) matrix(1e3, 1, 1)), c("item", "rater", "Residual"))
-restarting <- function(retry_seed) gt_control(gaussian = list(check_hessian = FALSE, initialization = "none",
-  start = far, max_iterations = 1L, extra_tries = 3L, retry_seed = retry_seed))
-.bootstrap_restarts <- new.env()
-.bootstrap_restarts$histories <- list()
-home <- environment(gt_bootstrap)
-invisible(suppressMessages(trace("gt_fit", where = home, print = FALSE, exit = quote(assign("histories",
-  c(.bootstrap_restarts$histories, list(returnValue()$retry_attempts)), envir = .bootstrap_restarts)))))
-restarted <- suppressWarnings(gt_bootstrap(small_fit, replicates = 1, max_attempts = 1, seed = 4,
-                                           control = restarting(123L)))
-suppressMessages(untrace("gt_fit", where = home))
-inside <- .bootstrap_restarts$histories
-record <- restarted$records[1, ]
-draw <- local({ seeded(record$seed); sample.int(12L, 12L, replace = TRUE) })
-resample <- do.call(rbind, lapply(seq_along(draw), function(k) {
-  rows <- small[small$item == levels(small$item)[[draw[[k]]]], ]
-  rows$item <- k
-  rows
-}))
-resample$item <- factor(resample$item, levels = seq_along(draw))
-replay <- function(retry_seed) suppressWarnings(gt_fit(resample, "score", gt_design("item", "rater"),
-  control = restarting(retry_seed)))$retry_attempts$minus2loglik
-streamed <- local({ seeded(4L); sample.int(.Machine$integer.max, 12L + 2L) })[[14L]]
-check(length(inside) == 1L && nrow(inside[[1L]]) == 4L && identical(record$retry_seed, 123L) &&
-        identical(replay(record$retry_seed), inside[[1L]]$minus2loglik) &&
-        !identical(replay(streamed), inside[[1L]]$minus2loglik),
-      "a refit's restarts are replayed by its recorded retry seed and not by the stream's")
-cat("PASS: retry seeds\n")
+if (full) {
+  seeded(5L)
+  small <- expand.grid(rater = factor(1:3), item = factor(sprintf("s%02d", 1:12)))
+  small$score <- rnorm(12)[small$item] + rnorm(3, sd = .4)[small$rater] + rnorm(nrow(small), sd = .6)
+  small_fit <- gt_fit(small, "score", gt_design("item", "rater"))
+  stream <- local({ seeded(9L); sample.int(.Machine$integer.max, 12L + 2L * 6L) })
+  drawn <- gt_bootstrap(small_fit, replicates = 3, seed = 9, jackknife = TRUE)
+  check(identical(drawn$records$retry_seed, stream[12L + 2L * seq_len(drawn$attempts)]) &&
+          identical(drawn$jackknife$records$retry_seed, stream[1:12]),
+        "without an explicit retry seed, each refit records the seed it drew from the stream")
+  own_fit <- gt_fit(small, "score", gt_design("item", "rater"), control = gt_control(gaussian = list(retry_seed = 123L)))
+  own <- gt_bootstrap(own_fit, replicates = 3, seed = 9, jackknife = TRUE)
+  override <- gt_bootstrap(small_fit, replicates = 3, seed = 9, jackknife = TRUE,
+                           control = gt_control(gaussian = list(retry_seed = 77L)))
+  check(all(own$records$retry_seed == 123L) && all(own$jackknife$records$retry_seed == 123L) &&
+          all(override$records$retry_seed == 77L) && all(override$jackknife$records$retry_seed == 77L),
+        "an explicit retry seed, the fit's own or in control =, is the one recorded for every refit")
+  # One iteration per trial from a far start makes every refit restart, and each
+  # restart perturbs its start with the retry seed. The restart history of the
+  # refit inside the bootstrap must be the one a direct fit of its resample gives
+  # with the recorded seed, and not the one the stream's seed would give.
+  far <- setNames(lapply(c("item", "rater", "Residual"), function(x) matrix(1e3, 1, 1)), c("item", "rater", "Residual"))
+  restarting <- function(retry_seed) gt_control(gaussian = list(check_hessian = FALSE, initialization = "none",
+    start = far, max_iterations = 1L, extra_tries = 3L, retry_seed = retry_seed))
+  .bootstrap_restarts <- new.env()
+  .bootstrap_restarts$histories <- list()
+  home <- environment(gt_bootstrap)
+  invisible(suppressMessages(trace("gt_fit", where = home, print = FALSE, exit = quote(assign("histories",
+    c(.bootstrap_restarts$histories, list(returnValue()$retry_attempts)), envir = .bootstrap_restarts)))))
+  restarted <- suppressWarnings(gt_bootstrap(small_fit, replicates = 1, max_attempts = 1, seed = 4,
+                                             control = restarting(123L)))
+  suppressMessages(untrace("gt_fit", where = home))
+  inside <- .bootstrap_restarts$histories
+  record <- restarted$records[1, ]
+  draw <- local({ seeded(record$seed); sample.int(12L, 12L, replace = TRUE) })
+  resample <- do.call(rbind, lapply(seq_along(draw), function(k) {
+    rows <- small[small$item == levels(small$item)[[draw[[k]]]], ]
+    rows$item <- k
+    rows
+  }))
+  resample$item <- factor(resample$item, levels = seq_along(draw))
+  replay <- function(retry_seed) suppressWarnings(gt_fit(resample, "score", gt_design("item", "rater"),
+    control = restarting(retry_seed)))$retry_attempts$minus2loglik
+  streamed <- local({ seeded(4L); sample.int(.Machine$integer.max, 12L + 2L) })[[14L]]
+  check(length(inside) == 1L && nrow(inside[[1L]]) == 4L && identical(record$retry_seed, 123L) &&
+          identical(replay(record$retry_seed), inside[[1L]]$minus2loglik) &&
+          !identical(replay(streamed), inside[[1L]]$minus2loglik),
+        "a refit's restarts are replayed by its recorded retry seed and not by the stream's")
+  cat("PASS: retry seeds\n")
+} else skip("the retry-seed replay checks")
 
 # --- coefficient intervals against closed forms ---------------------------------
 # Item-by-rater with four raters: Erho2 = item / (item + residual / 4) and
@@ -226,18 +242,22 @@ shared <- rnorm(25)
 joint$a <- shared[joint$item] + rnorm(nrow(joint), sd = .6)
 joint$b <- .7 * shared[joint$item] + rnorm(25, sd = .5)[joint$item] + rnorm(nrow(joint), sd = .6)
 joint_fit <- gt_fit(joint, c("a", "b"), gt_design("item", "rater"))
-joint_boot <- gt_bootstrap(joint_fit, replicates = 50, seed = 4)
-weights <- c(a = 0.5, b = 0.5)
-composite <- vapply(joint_boot$components, function(x) {
-  universe <- drop(crossprod(weights, x$item %*% weights))
-  universe / (universe + drop(crossprod(weights, x$Residual %*% weights)) / 3)
-}, numeric(1))
-joint_table <- as.data.frame(gt_reliability(joint_fit, score = gt_score(weights), bootstrap = joint_boot))
-row <- joint_table[joint_table$kind == "composite", ]
-check(joint_boot$accepted == 50L &&
-        max(abs(c(row$Erho2_lower, row$Erho2_upper) - quantile(composite, c(.025, .975), type = 6, names = FALSE))) < 1e-12,
-      "a composite's interval is the percentile interval of the replicate composites")
-cat("PASS: joint composite\n")
+# Outside the full run one replicate is enough for the guards below, which
+# refuse this bootstrap as another fit's.
+joint_boot <- gt_bootstrap(joint_fit, replicates = if (full) 50 else 1, seed = 4)
+if (full) {
+  weights <- c(a = 0.5, b = 0.5)
+  composite <- vapply(joint_boot$components, function(x) {
+    universe <- drop(crossprod(weights, x$item %*% weights))
+    universe / (universe + drop(crossprod(weights, x$Residual %*% weights)) / 3)
+  }, numeric(1))
+  joint_table <- as.data.frame(gt_reliability(joint_fit, score = gt_score(weights), bootstrap = joint_boot))
+  row <- joint_table[joint_table$kind == "composite", ]
+  check(joint_boot$accepted == 50L &&
+          max(abs(c(row$Erho2_lower, row$Erho2_upper) - quantile(composite, c(.025, .975), type = 6, names = FALSE))) < 1e-12,
+        "a composite's interval is the percentile interval of the replicate composites")
+  cat("PASS: joint composite\n")
+} else skip("the joint composite interval from 50 replicates")
 
 # The lme4 route takes no retry seed or Hessian setting; its refits run with
 # the fit's own controls.
@@ -261,12 +281,15 @@ check(identical(start[["rater::variance[label]"]], binary_fit$starting_parameter
         identical(start[c(1L, 2L)], binary_fit$parameters[c(1L, 2L)]),
       "a warm start keeps the estimates except at the boundary source")
 binary_boot <- gt_bootstrap(binary_fit, replicates = 50, seed = 8)
-cold <- gt_bootstrap(binary_fit, replicates = 50, seed = 8, warm_start = FALSE)
 binary_table <- as.data.frame(gt_reliability(binary_fit, scale = "latent", bootstrap = binary_boot))
-cold_table <- as.data.frame(gt_reliability(binary_fit, scale = "latent", bootstrap = cold))
-check(binary_boot$accepted == 50L && is.finite(binary_table$Erho2_lower) &&
-        abs(binary_table$Erho2_upper - cold_table$Erho2_upper) < 1e-4,
-      "a binary bootstrap from warm and cold starts reaches the same interval")
+check(binary_boot$accepted == 50L && is.finite(binary_table$Erho2_lower),
+      "a binary bootstrap from warm starts gives a latent interval")
+if (full) {
+  cold <- gt_bootstrap(binary_fit, replicates = 50, seed = 8, warm_start = FALSE)
+  cold_table <- as.data.frame(gt_reliability(binary_fit, scale = "latent", bootstrap = cold))
+  check(abs(binary_table$Erho2_upper - cold_table$Erho2_upper) < 1e-4,
+        "a binary bootstrap from warm and cold starts reaches the same interval")
+} else skip("the cold-start repeat of the binary bootstrap")
 # A one-iteration optimizer cannot be accepted: every attempt is refused,
 # recorded, never counted, and no interval is reported.
 refusing <- gt_bootstrap(binary_fit, replicates = 3, seed = 8, max_attempts = 5,
@@ -489,9 +512,11 @@ check(identical(gt_bootstrap(legacy, replicates = 1, max_attempts = 1, seed = 11
 expect_error(gt_reliability(fit, interval_type = "percentile"), "need bootstrap", "a percentile interval needs a bootstrap")
 expect_error(gt_reliability(fit, bootstrap = boot, interval_type = "wald"), "A bootstrap was supplied", "wald with a bootstrap is refused")
 expect_error(gt_reliability(fit, bootstrap = boot, interval_type = "normal"), "interval_type must be", "an unknown interval is refused")
-no_jack <- as.data.frame(gt_reliability(fit, bootstrap = again, interval_type = "bca"))
-check(!isTRUE(no_jack$uncertainty_available) && grepl("jackknife = TRUE", no_jack$uncertainty_reason, fixed = TRUE) &&
-        is.na(no_jack$Erho2_lower), "BCa without the leave-one-out refits is unavailable with its reason")
+if (full) {
+  no_jack <- as.data.frame(gt_reliability(fit, bootstrap = again, interval_type = "bca"))
+  check(!isTRUE(no_jack$uncertainty_available) && grepl("jackknife = TRUE", no_jack$uncertainty_reason, fixed = TRUE) &&
+          is.na(no_jack$Erho2_lower), "BCa without the leave-one-out refits is unavailable with its reason")
+} else skip("BCa on the repeat without leave-one-out refits")
 printed <- paste(capture.output(print(boot)), collapse = "\n")
 check(grepl("Object bootstrap of 30 items | 60 accepted of 60 requested | 60 attempts", printed, fixed = TRUE) &&
         grepl("BCa acceleration available", printed, fixed = TRUE) && identical(as.data.frame(boot), boot$records),
@@ -516,17 +541,21 @@ expect_error(gt_fit(transform(bd, label = coded), "label", binary_design,
 labeled <- list(numeric = transform(bd, label = coded),
   labels = transform(bd, label = factor(ifelse(coded == 1L, "yes", "no"), levels = c("no", "yes"))),
   reversed = transform(bd, label = factor(as.character(coded), levels = c("1", "0"))))
-for (name in names(labeled)) {
+# Outside the full run the reversed labels, the encoding most easily coded
+# backwards, are checked without the leave-one-out refits.
+if (!full) skip("two of the three label encodings and the leave-one-out refits")
+for (name in if (full) names(labeled) else "reversed") {
   frame <- labeled[[name]]
   binary_fit <- gt_fit(frame, "label", binary_design, gt_family("binary"))
   check(isTRUE(gt_diagnostics(binary_fit)$numerically_accepted), paste("the", name, "binary fit is accepted"))
-  retained <- gt_bootstrap(binary_fit, replicates = 3, max_attempts = 3, seed = 8, jackknife = TRUE)
-  supplied <- gt_bootstrap(binary_fit, replicates = 3, max_attempts = 3, seed = 8, jackknife = TRUE,
+  retained <- gt_bootstrap(binary_fit, replicates = 3, max_attempts = 3, seed = 8, jackknife = full)
+  supplied <- gt_bootstrap(binary_fit, replicates = 3, max_attempts = 3, seed = 8, jackknife = full,
                            data = frame)
-  check(retained$accepted == 3L && retained$attempts == 3L && isTRUE(retained$jackknife$complete) &&
+  check(retained$accepted == 3L && retained$attempts == 3L && (!full || isTRUE(retained$jackknife$complete)) &&
           identical(retained$components, supplied$components) &&
           identical(retained$jackknife$components, supplied$jackknife$components),
-        paste("the retained", name, "binary data gives the replicates and leave-one-out refits of the original data"))
+        paste("the retained", name, "binary data gives the replicates", if (full) "and leave-one-out refits",
+              "of the original data"))
   without_data <- binary_fit
   without_data$data <- NULL
   recovered <- gt_bootstrap(without_data, replicates = 1, max_attempts = 1, seed = 8, data = frame)
@@ -535,18 +564,20 @@ for (name in names(labeled)) {
           identical(encoded$components, retained$components[1L]),
         paste("the identity accepts original labels and retained codes for", name, "binary data"))
 }
-mixed <- transform(labeled$labels, grade = grade)
-mixed_fit <- gt_fit(mixed, c("label", "grade"), binary_design,
-  list(label = gt_family("binary"), grade = gt_family("ordinal")))
-mixed_retained <- gt_bootstrap(mixed_fit, replicates = 1, max_attempts = 1, seed = 8)
-mixed_supplied <- gt_bootstrap(mixed_fit, replicates = 1, max_attempts = 1, seed = 8, data = mixed)
-check(mixed_retained$accepted == 1L && identical(mixed_retained$components, mixed_supplied$components),
-      "joint labeled-binary and ordinal refits match the original data")
-mixed_dropped <- mixed_fit
-mixed_dropped$data <- NULL
-mixed_verified <- gt_bootstrap(mixed_dropped, replicates = 1, max_attempts = 1, seed = 8, data = mixed)
-check(identical(mixed_verified$components, mixed_retained$components),
-      "the identity accepts original joint binary and ordinal observations without retained data")
+if (full) {
+  mixed <- transform(labeled$labels, grade = grade)
+  mixed_fit <- gt_fit(mixed, c("label", "grade"), binary_design,
+    list(label = gt_family("binary"), grade = gt_family("ordinal")))
+  mixed_retained <- gt_bootstrap(mixed_fit, replicates = 1, max_attempts = 1, seed = 8)
+  mixed_supplied <- gt_bootstrap(mixed_fit, replicates = 1, max_attempts = 1, seed = 8, data = mixed)
+  check(mixed_retained$accepted == 1L && identical(mixed_retained$components, mixed_supplied$components),
+        "joint labeled-binary and ordinal refits match the original data")
+  mixed_dropped <- mixed_fit
+  mixed_dropped$data <- NULL
+  mixed_verified <- gt_bootstrap(mixed_dropped, replicates = 1, max_attempts = 1, seed = 8, data = mixed)
+  check(identical(mixed_verified$components, mixed_retained$components),
+        "the identity accepts original joint binary and ordinal observations without retained data")
+} else skip("the joint labeled-binary and ordinal refits")
 cat("PASS: labeled binary outcomes\n")
 
 # --- exact design identifiers and versioned observation identities --------------

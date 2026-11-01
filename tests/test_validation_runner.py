@@ -182,6 +182,7 @@ class ValidationRunnerTests(unittest.TestCase):
         self.assertEqual(captured["rscript"], "/resolved/Rscript")
         self.assertEqual(captured["environment"]["R_LIBS_USER"], str(library.resolve()))
         self.assertEqual(captured["environment"]["GTHEORY_FULL_VALIDATION"], "true")
+        self.assertEqual(captured["environment"]["NOT_CRAN"], "true")
         self.assertEqual(captured["timeout"], 77)
         self.assertTrue(report["release_manifest_staged"])
         self.assertTrue(plan.call_args.args[9])

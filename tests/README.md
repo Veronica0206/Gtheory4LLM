@@ -169,6 +169,15 @@ evidence gate with controlled runtime records).
   documented numerical gates; a saved acceptance flag from another platform
   is not a universal expected result.
 - A test that cannot run says so rather than passing quietly.
+- CRAN's check farm allows a package ten minutes of checking. The installed
+  tests run their long comparisons only with `NOT_CRAN=true`, which
+  `scripts/run_validation.py` and the no-long-double CI job set; an
+  `R CMD check` of the archive without it, as on CRAN and in the R-devel and
+  exact-archive CI jobs, runs every file and announces each skipped comparison
+  with a `SKIP:` line. The switch lives in `package-bootstrap.R`,
+  `package-batch.R`, `package-discrete-gradient-information.R`,
+  `package-discrete-gradient-fit.R`, `package-discrete-boundary-escape.R`,
+  `package-characterization.R` and `package-laplace-check.R`.
 
 Run one file directly while developing:
 

@@ -15,6 +15,20 @@ threshold was loosened; where an optimizer path changed, the change is named.
 
 ## Reproduction and release review
 
+- Installed tests run their long comparisons only when `NOT_CRAN=true`, which
+  `scripts/run_validation.py` and the no-long-double CI job set; a check
+  without it, as on CRAN's ten-minute check farm, still runs every file and
+  every feature at small size and announces each skipped comparison with a
+  `SKIP:` line (`tests/README.md`). The first upload of this version was
+  refused by CRAN's pre-test for its check time alone, 15 minutes on the
+  Windows machine with both check logs clean.
+- The compiled selected inverse protects both `dim` attribute lookups in
+  `gt_selected_contractions()` and reads the design width before
+  unprotecting, closing the one unprotected-variable report rchk gave on the
+  first archive; checks and messages are unchanged.
+- `tests/package-bootstrap.R` keeps its forked two-core comparison off under
+  valgrind, whose `__libc_freeres` at a forked child's exit rewinds the script
+  offset the child shares with the parent.
 - Observation identities now preserve exact numeric design identifiers,
   independently of number-display settings. Format 2 treats integer/double
   storage as equivalent and factor/character labels as equivalent. Older

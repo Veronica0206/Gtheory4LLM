@@ -18,6 +18,11 @@ if (identical(Sys.getenv("GT_GRADIENT_INFORMATION_TEST_SOURCE"), "true")) {
   internal <- function(name) get(name, envir = asNamespace("Gtheory4LLM"), inherits = FALSE)
 }
 check <- function(condition, label) if (!isTRUE(condition)) stop("FAILED: ", label, call. = FALSE)
+# CRAN's check farm allows a package ten minutes of checking, so the long
+# comparisons below run only when NOT_CRAN=true, which the repository's
+# validation gates set (tests/README.md). Every skipped comparison says so.
+full <- identical(Sys.getenv("NOT_CRAN"), "true")
+skip <- function(what) cat("SKIP:", what, "(runs with NOT_CRAN=true)\n")
 
 # The frozen response fixture shipped with the installed tests.
 script_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
@@ -98,13 +103,15 @@ compare <- function(label, data, outcomes, family, families, design = gt_design(
 binary <- panel("binary")
 ordinal <- panel("ordinal")
 binary_fits <- compare("binary logit, one source", binary$data, "y", binary$family, list(y = binary$family))
-compare("ordinal logit, one source", ordinal$data, "y", ordinal$family, list(y = ordinal$family))
-joint <- binary$data
-joint$z <- ordinal$data$y[match(paste(joint$item, joint$rater), paste(ordinal$data$item, ordinal$data$rater))]
-check(!anyNA(joint$z), "the joint panel pairs every binary row with an ordinal row")
-joint_families <- list(y = binary$family, z = ordinal$family)
-compare("joint binary and ordinal, one unstructured source", joint, c("y", "z"), joint_families, joint_families,
-        reliability = FALSE)
+if (full) {
+  compare("ordinal logit, one source", ordinal$data, "y", ordinal$family, list(y = ordinal$family))
+  joint <- binary$data
+  joint$z <- ordinal$data$y[match(paste(joint$item, joint$rater), paste(ordinal$data$item, ordinal$data$rater))]
+  check(!anyNA(joint$z), "the joint panel pairs every binary row with an ordinal row")
+  joint_families <- list(y = binary$family, z = ordinal$family)
+  compare("joint binary and ordinal, one unstructured source", joint, c("y", "z"), joint_families, joint_families,
+          reliability = FALSE)
+} else skip("the ordinal and joint information panels")
 
 # --- refusals ---------------------------------------------------------------------
 # A refused gradient makes information unavailable with its reason; the
@@ -199,22 +206,28 @@ held_difference <- max(abs(zero_fits$finite_difference$uncertainty$parameter_cov
 check(isTRUE(reference$available) && held_difference < 1e-6,
       sprintf("held at zero, the information equals the model without the source (relative difference %.3g)", held_difference))
 
-# A rank-one rater covariance in a joint binary-ordinal panel is held fixed at
-# its fitted, singular but nonzero value.
-seeded(9001L)
-joint_panel <- expand.grid(rater = factor(1:6), item = factor(1:18))
-joint_panel$label <- rbinom(nrow(joint_panel), 1L,
-  plogis(.3 + rnorm(18, sd = .9)[joint_panel$item] + rnorm(6, sd = .5)[joint_panel$rater]))
-seeded(4242L)
-eta <- rnorm(18, sd = .8)[joint_panel$item] + rnorm(6, sd = .4)[joint_panel$rater] + rnorm(nrow(joint_panel))
-joint_panel$grade <- ordered(c("low", "mid", "high")[1L + (eta > -.7) + (eta > .6)], levels = c("low", "mid", "high"))
-joint_panel_families <- list(label = gt_family("binary"), grade = gt_family("ordinal"))
-singular_fits <- lapply(c(analytic = "analytic", finite_difference = "finite_difference"), function(route)
-  fit_route(joint_panel, c("label", "grade"), joint_panel_families, route, gt_design("item", "rater", full_cell = FALSE)))
-singular_routes <- conditional("a rank-one rater covariance", singular_fits, "rater", "singular_nonzero",
-                               joint_panel, c("label", "grade"), joint_panel_families)
-check(min(eigen(singular_fits$analytic$covariance_components$rater, symmetric = TRUE, only.values = TRUE)$values) < 1e-6 &&
-        max(eigen(singular_fits$analytic$covariance_components$rater, symmetric = TRUE, only.values = TRUE)$values) > 1e-2,
-      "the joint panel's rater covariance is singular but nonzero")
-cat(sprintf("PASS: boundary sources held fixed (same-point Hessian differences %.2e and %.2e; held at zero vs. the model without it %.2e)\n",
-            zero_routes, singular_routes, held_difference))
+if (full) {
+  # A rank-one rater covariance in a joint binary-ordinal panel is held fixed at
+  # its fitted, singular but nonzero value.
+  seeded(9001L)
+  joint_panel <- expand.grid(rater = factor(1:6), item = factor(1:18))
+  joint_panel$label <- rbinom(nrow(joint_panel), 1L,
+    plogis(.3 + rnorm(18, sd = .9)[joint_panel$item] + rnorm(6, sd = .5)[joint_panel$rater]))
+  seeded(4242L)
+  eta <- rnorm(18, sd = .8)[joint_panel$item] + rnorm(6, sd = .4)[joint_panel$rater] + rnorm(nrow(joint_panel))
+  joint_panel$grade <- ordered(c("low", "mid", "high")[1L + (eta > -.7) + (eta > .6)], levels = c("low", "mid", "high"))
+  joint_panel_families <- list(label = gt_family("binary"), grade = gt_family("ordinal"))
+  singular_fits <- lapply(c(analytic = "analytic", finite_difference = "finite_difference"), function(route)
+    fit_route(joint_panel, c("label", "grade"), joint_panel_families, route, gt_design("item", "rater", full_cell = FALSE)))
+  singular_routes <- conditional("a rank-one rater covariance", singular_fits, "rater", "singular_nonzero",
+                                 joint_panel, c("label", "grade"), joint_panel_families)
+  check(min(eigen(singular_fits$analytic$covariance_components$rater, symmetric = TRUE, only.values = TRUE)$values) < 1e-6 &&
+          max(eigen(singular_fits$analytic$covariance_components$rater, symmetric = TRUE, only.values = TRUE)$values) > 1e-2,
+        "the joint panel's rater covariance is singular but nonzero")
+  cat(sprintf("PASS: boundary sources held fixed (same-point Hessian differences %.2e and %.2e; held at zero vs. the model without it %.2e)\n",
+              zero_routes, singular_routes, held_difference))
+} else {
+  skip("the rank-one joint boundary panel on both routes")
+  cat(sprintf("PASS: boundary sources held fixed (same-point Hessian difference %.2e; held at zero vs. the model without it %.2e)\n",
+              zero_routes, held_difference))
+}

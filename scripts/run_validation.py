@@ -313,7 +313,9 @@ def main(argv: list[str] | None = None) -> int:
     if options.library and not options.library.is_dir():
         parser.error("--library must name an existing restored R library")
     env = os.environ.copy()
-    env.update({"GTHEORY_FULL_VALIDATION": "true", "PYTHONDONTWRITEBYTECODE": "1",
+    # NOT_CRAN=true runs the installed tests' long comparisons, which a check
+    # on CRAN's ten-minute farm skips and announces (tests/README.md).
+    env.update({"GTHEORY_FULL_VALIDATION": "true", "NOT_CRAN": "true", "PYTHONDONTWRITEBYTECODE": "1",
                 "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"})
     if options.library:
         env["R_LIBS_USER"] = str(options.library.resolve())

@@ -285,6 +285,9 @@ jobs:
       OMP_NUM_THREADS: 1
       OPENBLAS_NUM_THREADS: 1
       MAKEFLAGS: -j4
+      # The long test comparisons run here; check-devel and the exact-archive
+      # jobs check the archive as CRAN's ten-minute farm does, without them.
+      NOT_CRAN: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install the container-native manifest checker
