@@ -1,10 +1,7 @@
 # Gtheory4LLM 1.0.0 release
 
-Release state: **prepared**.
+Release state: **published**.
 
-The [manifest](manifest.json) records the source commit, file sizes and SHA-256 hashes.
-Publish exactly those files; never rebuild an already published version.
+The [published manifest](manifest.json) identifies the archive and reference manual for `v1.0.0-cran`. The source tarball is 789,922 bytes and has SHA-256 `3ddcee65f3a06450429112fc3753edb64778745668f9bc728b37a3969a8d345a`.
 
-Release tag: **v1.0.0-cran**, a resubmission of 1.0.0. It supersedes the bundle
-published as v1.0.0 (archive SHA-256 `d1328dac216d664c3c9ce4577ef26f354e88d1d6a4edf3e6a9c75d483929083c`),
-whose release and assets stay as published: CRAN incoming pretest on November 1, 2026 reported an overall check time of 15 minutes on Windows R-devel, exceeding the 10-minute threshold.
+The November 1 incoming pretest returned the first `v1.0.0` archive for a 15-minute Windows check. For the corrected archive, win-builder R-devel reported `Status: OK`, a 580-second check and a 14-second installation. All 54 test files passed. The [submission record](../cran-comments.md) has the original feedback and the checks for the corrected archive.
