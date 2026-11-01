@@ -1,10 +1,46 @@
-# Gtheory4LLM 1.0.0 submission preparation
+# Gtheory4LLM 1.0.0 CRAN resubmission record
 
-The source archive is prepared for maintainer upload. GitHub publication,
-CRAN upload, maintainer confirmation and acceptance are separate statuses.
-This record does not assert that a CRAN submission has occurred.
+## November 1, 2026 — response to the incoming check-time NOTE
 
-## Exact archive
+CRAN returned the first 1.0.0 upload because the Windows R-devel incoming
+check took 15 minutes against a 10-minute limit. Both the Windows and Debian
+check logs ended with `Status: OK`. The Windows test phase accounted for
+12 minutes. The revised package runs all 54 installed test files in its
+ordinary check. Seven files reserve longer comparisons for `NOT_CRAN=true`,
+which the package's full validation and Linux no-long-double jobs set.
+
+The selected `Gtheory4LLM_1.0.0.tar.gz` for [`v1.0.0-resubmission`](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v1.0.0-resubmission)
+is 789,922 bytes. Its SHA-256 is
+`3ddcee65f3a06450429112fc3753edb64778745668f9bc728b37a3969a8d345a`.
+The [candidate workflow](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41340031849)
+built it from commit `93f01d8d028c4b51d0681117246657872a2b1a37`.
+The merged source at `ed865dd` has the same Git tree.
+
+- Windows R-devel r90820 via [win-builder](https://win-builder.r-project.org/Ab8p4GqjtRO9/)
+  returned `Status: OK`. The check took 580 seconds, with 14 seconds reported
+  separately for installation. All 54 test files ran in 398 seconds.
+- Linux R-devel, Windows R 4.6.2 and macOS R 4.6.2 each passed
+  `R CMD check --as-cran` on this archive with zero errors, warnings or
+  notes. On Linux R-devel without long double, the full-mode package check
+  passed and the separate installed-test sweep passed 54/54 files.
+- After both fixes merged, a fresh local macOS arm64 R 4.5.3
+  `R CMD check --as-cran --timings` on the saved archive passed all 54
+  test files with zero errors, warnings or notes.
+
+The selected archive also protects both dimension attributes in
+`gt_selected_contractions()` and skips the forked two-core bootstrap
+comparison when valgrind's preload library is present. The instrumented
+rchk and valgrind records below identify the earlier archive and patched
+library on which those checks ran.
+
+As of November 1, formal CRAN resubmission of the selected archive is pending.
+
+## Historical record of the first 1.0.0 upload
+
+The October 31 GitHub release `v1.0.0` supplied the archive for the first
+CRAN upload on November 1. The records below describe that archive.
+
+### First upload archive
 
 - File: `Gtheory4LLM_1.0.0.tar.gz`
 - Size: 787,881 bytes
@@ -13,7 +49,7 @@ This record does not assert that a CRAN submission has occurred.
 - Built with R 4.6.2 and adopted unchanged from the checked candidate in
   <https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41164084964>.
 
-## Checks of those exact bytes
+### Checks of the first upload
 
 All checks below reported **0 errors, 0 warnings and 0 notes**:
 
@@ -33,7 +69,7 @@ is identical to the recorded source commit. The selected archive is identified
 above; other workflow builds are not substituted for it. No separate external
 system-clock verification is claimed.
 
-## Memory checks of those exact bytes
+### Memory checks of the first upload
 
 Run on 2026-10-31 and 2026-11-01 on the archive above (SHA-256
 `d1328dac216d664c3c9ce4577ef26f354e88d1d6a4edf3e6a9c75d483929083c`), unchanged.
@@ -46,9 +82,10 @@ release records outside the repository.
   of the `.Call` argument `ids` is held unprotected across a second
   `Rf_getAttrib(, R_DimSymbol)`. The argument is protected by the evaluator for
   the duration of the call and the dim lookup does not allocate, so the object
-  cannot be collected; the flag is conservative. 1.0.1 protects both dim
-  lookups and reads the design width before unprotecting, with the same checks
-  and messages; bcheck reports no package finding on the patched library.
+  cannot be collected; the flag is conservative. A separately patched library
+  protected both dim lookups and read the design width before unprotecting,
+  with the same checks and messages. bcheck reported no package finding on
+  that patched library.
 - valgrind (memcheck 3.22.0; R 4.5.2 built with
   `--with-valgrind-instrumentation=2`, aarch64 Ubuntu 24.04, one numerical
   thread; `--leak-check=full --track-origins=yes`): `R CMD check --use-valgrind`
@@ -67,10 +104,9 @@ release records outside the repository.
   `R CMD BATCH` is reading, and the parent parses spliced text. Valgrind's
   summary for the parent process reports 0 errors at that point. The test
   passes natively and under valgrind with `--run-libc-freeres=no`, which the
-  Status OK run above used. 1.0.1 keeps the forked comparison off when
-  valgrind's preload library is present.
+  Status OK run above used.
 
-## Changes and review corrections
+### Changes and review corrections before the first upload
 
 Since CRAN 0.5.0, this release adds the formula interface and conventional
 model methods, a bounded lme4 Gaussian route, sparse categorical fitting,
@@ -97,7 +133,7 @@ solvers and C source are unchanged by these identity/bootstrap repairs, but no
 fresh full-data replay of the corrected archive is claimed. Broader four-aspect
 and six-flag joint models remain outside the qualified examples.
 
-## Current CRAN state and reverse dependencies
+### CRAN state and reverse dependencies before the first upload
 
 The official package/check pages and PACKAGES.gz were read on 2026-10-31 at
 02:35 UTC. CRAN listed 0.5.0, published 2026-10-11, with all thirteen check

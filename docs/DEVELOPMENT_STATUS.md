@@ -1,10 +1,23 @@
 # Development status
 
-Version history is in [NEWS](../NEWS.md); implementation boundaries are in
-[limitations](LIMITATIONS.md). Historical checkpoints below retain their original
-evidence and time-dependent statements. The current 1.0.0 bundle is identified by [its manifest](../artifacts/manifest.json).
-The delivered 0.6.0 release and [its earlier qualification record](#detailed-060-qualification-record)
-remain below as historical evidence.
+See [NEWS](../NEWS.md) for version history and [limitations](LIMITATIONS.md)
+for implementation boundaries. The historical checkpoints below retain their
+dated evidence.
+
+## 1.0.0 CRAN resubmission record, November 1, 2026
+
+The same filename, `Gtheory4LLM_1.0.0.tar.gz`, identifies three builds.
+
+| Build | SHA-256 prefix | Check record |
+| --- | --- | --- |
+| [`v1.0.0`](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v1.0.0), first CRAN upload | `d1328dac216d` | CRAN returned it after a 15-minute Windows R-devel check. |
+| [`v1.0.0-resubmission`](https://github.com/Veronica0206/Gtheory4LLM/releases/tag/v1.0.0-resubmission), selected for resubmission | `3ddcee65f3a0` | Win-builder R-devel passed in 580 seconds, with installation reported separately at 14 seconds. |
+| [Post-merge CI build at `ed865dd`](https://github.com/Veronica0206/Gtheory4LLM/actions/runs/41349623324) | `90d8dcde1a5a` | The GitHub Windows R-release check passed in 406.453 seconds. |
+
+The selected archive is 789,922 bytes. The post-merge build differs in its
+packaging timestamps. Formal CRAN resubmission is pending as of November 1.
+The [resubmission record](../cran-comments.md) gives the full checksum and
+the checks of the selected archive.
 
 ## Delivered 0.6.0 GitHub release
 
