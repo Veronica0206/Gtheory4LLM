@@ -33,6 +33,43 @@ is identical to the recorded source commit. The selected archive is identified
 above; other workflow builds are not substituted for it. No separate external
 system-clock verification is claimed.
 
+## Memory checks of those exact bytes
+
+Run on 2026-10-31 and 2026-11-01 on the archive above (SHA-256
+`d1328dac216d664c3c9ce4577ef26f354e88d1d6a4edf3e6a9c75d483929083c`), unchanged.
+The full record (environment, scripts, logs and .Rout files) is kept with the
+release records outside the repository.
+
+- rchk (kalibera/rchk, R-devel r89293, LLVM 14; bcheck, maacheck, fficheck):
+  fficheck and maacheck report no issue. bcheck reports one `[UP]` in
+  `gt_selected_contractions` (`src/gt_selected_inverse.c:218`): the dim attribute
+  of the `.Call` argument `ids` is held unprotected across a second
+  `Rf_getAttrib(, R_DimSymbol)`. The argument is protected by the evaluator for
+  the duration of the call and the dim lookup does not allocate, so the object
+  cannot be collected; the flag is conservative. 1.0.1 protects both dim
+  lookups and reads the design width before unprotecting, with the same checks
+  and messages; bcheck reports no package finding on the patched library.
+- valgrind (memcheck 3.22.0; R 4.5.2 built with
+  `--with-valgrind-instrumentation=2`, aarch64 Ubuntu 24.04, one numerical
+  thread; `--leak-check=full --track-origins=yes`): `R CMD check --use-valgrind`
+  on the archive, Status OK with all 54 tests, the examples and both vignettes,
+  plus the tangled vignette code run separately under valgrind. No error block
+  or leak record in any output has a frame in `Gtheory4LLM.so`. The records
+  present are the memcpy overlap in R's PORT routines (`dl7itv_`, `portsrc.f`,
+  reached through `nlminb`), one CHOLMOD allocation inside the Matrix package,
+  and the glibc start-up blocks (setenv, loader and thread-local storage) that
+  every process reports as possibly lost when `__libc_freeres` is not run.
+- Valgrind caveat: with valgrind's default `--run-libc-freeres=yes`,
+  `tests/package-bootstrap.R` stops with a parse error after its forked
+  two-core comparison (`parallel::mclapply`, `cores = 2`). Valgrind runs glibc's
+  `__libc_freeres` at each forked child's exit; its stream cleanup rewinds the
+  file offset the children share with the parent on the script that
+  `R CMD BATCH` is reading, and the parent parses spliced text. Valgrind's
+  summary for the parent process reports 0 errors at that point. The test
+  passes natively and under valgrind with `--run-libc-freeres=no`, which the
+  Status OK run above used. 1.0.1 keeps the forked comparison off when
+  valgrind's preload library is present.
+
 ## Changes and review corrections
 
 Since CRAN 0.5.0, this release adds the formula interface and conventional
