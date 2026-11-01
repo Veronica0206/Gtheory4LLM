@@ -250,6 +250,69 @@ def release_order(version: str) -> tuple[int, ...]:
     return tuple(parts)
 
 
+RELEASE_TAG_SUFFIX = re.compile(r"[A-Za-z0-9][A-Za-z0-9.]*")
+
+
+def release_tag_for(manifest: dict) -> str:
+    """The tag a bundle publishes under: v<version>, or a declared resubmission tag.
+
+    A version is bundled once. The exception is a resubmission: CRAN refused
+    the published bundle, the fix keeps the version because CRAN never
+    published it, and the first release's tag and assets are immutable. The
+    second bundle then declares release_tag v<version>-<suffix>; the suffix
+    keeps the tag tied to its version, and any other name is a mismatch.
+    """
+    version = manifest["version"]
+    tag = manifest.get("release_tag") or f"v{version}"
+    if tag != f"v{version}":
+        prefix = f"v{version}-"
+        suffix = tag[len(prefix):] if tag.startswith(prefix) else ""
+        if not RELEASE_TAG_SUFFIX.fullmatch(suffix):
+            raise ValueError(f"Artifact manifest release_tag must be v{version} or v{version}-<suffix>, not {tag!r}")
+    return tag
+
+
+def verify_superseded_bundle(root: Path, manifest: dict, release_tag: str) -> dict | None:
+    """A resubmission names the published bundle it replaces, and git must bear it out.
+
+    The record carries that bundle's tag, its archive digest and the reason
+    it was replaced. The tag must exist here, publish this package version,
+    and its manifest must record that digest; the tag stays as published.
+    """
+    package, version = manifest["package"], manifest["version"]
+    supersedes = manifest.get("supersedes")
+    resubmission = release_tag != f"v{version}"
+    if supersedes is None:
+        if resubmission:
+            raise ValueError(f"Artifact manifest release_tag {release_tag} is a resubmission tag, so the manifest "
+                             "must record under supersedes the published bundle it replaces")
+        return None
+    if not resubmission:
+        raise ValueError("Artifact manifest supersedes a bundle but keeps the version tag; "
+                         f"a resubmission publishes under v{version}-<suffix>")
+    expected = {"release_tag", "sha256", "reason"}
+    if not isinstance(supersedes, dict) or set(supersedes) != expected or \
+            not all(isinstance(supersedes[key], str) and supersedes[key] for key in expected):
+        raise ValueError("Artifact manifest supersedes must record release_tag, sha256 and reason")
+    previous = supersedes["release_tag"]
+    if previous == release_tag or not local_release_tag(root, previous):
+        raise ValueError(f"Artifact manifest supersedes {previous}, which is not another tag in this checkout; "
+                         "fetch tags, or correct the record")
+    try:
+        previous_manifest = json.loads(git(root, "show", f"refs/tags/{previous}:artifacts/manifest.json"))
+    except subprocess.CalledProcessError as error:
+        raise ValueError(f"Superseded tag {previous} carries no artifact manifest") from error
+    archive_name = f"{package}_{version}.tar.gz"
+    recorded = previous_manifest.get("files", {}).get(archive_name, {}).get("sha256")
+    if (previous_manifest.get("package"), previous_manifest.get("version"),
+            previous_manifest.get("release_state")) != (package, version, "published") or \
+            release_tag_for(previous_manifest) != previous:
+        raise ValueError(f"Superseded tag {previous} does not publish {package} {version}")
+    if not re.fullmatch(r"[0-9a-f]{64}", supersedes["sha256"]) or recorded != supersedes["sha256"]:
+        raise ValueError(f"Superseded tag {previous} records archive digest {recorded}, not the one supersedes names")
+    return supersedes
+
+
 def verify_release_identity(root: Path, manifest_path: Path,
                             release_tag: str | None = None) -> dict:
     """Check current release prose without rewriting historical archive contents.
@@ -320,7 +383,8 @@ def verify_release_identity(root: Path, manifest_path: Path,
     if heading != f"# {package} {version} release":
         raise ValueError("artifacts/README.md: release version mismatch with manifest")
     # A declared state is only worth as much as the git evidence behind it.
-    version_tag = f"v{version}"
+    version_tag = release_tag_for(manifest)
+    supersedes = verify_superseded_bundle(root, manifest, version_tag)
     tag_present = local_release_tag(root, version_tag)
     if state == "published" and not tag_present:
         raise ValueError(f"Release state 'published' requires the {version_tag} tag in this "
@@ -357,7 +421,7 @@ def verify_release_identity(root: Path, manifest_path: Path,
             "source_commit": manifest["source_commit"], "development_checkout": development,
             "release_state": state, "version_tag_present": tag_present,
             "release_tag": release_tag, "release_tag_checked": release_tag is not None,
-            "published": state == "published",
+            "supersedes": supersedes, "published": state == "published",
             "archive_matches_current_checkout": "not_asserted; compared to recorded source commit"}
 
 

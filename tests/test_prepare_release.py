@@ -194,6 +194,77 @@ class PrepareReleaseTests(unittest.TestCase):
             self.assertEqual(recorded["bytes"], path.stat().st_size)
             self.assertEqual(recorded["sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
 
+    # --- a resubmission of a refused version ----------------------------------
+
+    def publish_first_bundle(self):
+        """The repository after 1.2.3 was published, before CRAN refused it."""
+        (self.artifacts / "manifest.json").write_text(json.dumps(
+            {"package": "Example", "version": "1.2.3", "release_state": "published",
+             "files": {"Example_1.2.3.tar.gz": {"bytes": 3, "sha256": "ab" * 32},
+                       "Example-manual.pdf": {"bytes": 3, "sha256": "cd" * 32}}}))
+        self.git("add", "-A")
+        self.git("commit", "-qm", "publish 1.2.3")
+        self.git("tag", "v1.2.3")
+        self.commit = self.git("rev-parse", "HEAD")
+
+    def test_a_refused_version_is_bundled_again_under_a_resubmission_tag(self):
+        self.publish_first_bundle()
+        with patch.object(RELEASE, "run"):
+            status, output = self.run_main(["--skip-validation", "--release-tag", "v1.2.3-cran",
+                                            "--supersedes-reason", "CRAN's pre-test refused the check time."])
+        self.assertEqual(status, 0)
+        manifest = json.loads((self.artifacts / "manifest.json").read_text())
+        self.assertEqual(manifest["release_tag"], "v1.2.3-cran")
+        self.assertEqual(manifest["release_state"], "prepared")
+        self.assertEqual(manifest["supersedes"], {"release_tag": "v1.2.3", "sha256": "ab" * 32,
+                                                  "reason": "CRAN's pre-test refused the check time."})
+        readme = (self.artifacts / "README.md").read_text()
+        self.assertIn("v1.2.3-cran", readme)
+        self.assertIn("ab" * 32, readme)
+        self.assertIn("git tag v1.2.3-cran", output)
+        self.assertIn("--release-tag v1.2.3-cran", output)
+        self.assertTrue(RELEASE.CHECKS.local_release_tag(self.root, "v1.2.3"), "the first release's tag is untouched")
+
+    def test_an_ordinary_bundle_records_no_resubmission(self):
+        with patch.object(RELEASE, "run"):
+            self.run_main(["--skip-validation"])
+        manifest = json.loads((self.artifacts / "manifest.json").read_text())
+        self.assertNotIn("release_tag", manifest)
+        self.assertNotIn("supersedes", manifest)
+
+    def test_a_resubmission_needs_the_refused_bundle_a_reason_and_a_new_tag(self):
+        self.publish_first_bundle()
+        for label, args in (("the tag alone", ["--release-tag", "v1.2.3-cran"]),
+                            ("the reason alone", ["--supersedes-reason", "refused"]),
+                            ("a blank reason", ["--release-tag", "v1.2.3-cran", "--supersedes-reason", " "])):
+            with self.subTest(case=label):
+                with patch.object(RELEASE, "build_archive") as build, redirect_stdout(io.StringIO()), \
+                        self.assertRaises(SystemExit) as error:
+                    RELEASE.main(["--skip-validation", *args])
+                self.assertEqual(error.exception.code, 2)
+                build.assert_not_called()
+        for label, args, message in (
+                ("the version tag itself", ["--release-tag", "v1.2.3", "--supersedes-reason", "refused"],
+                 "already exists"),
+                ("another version", ["--release-tag", "v1.2.4-cran", "--supersedes-reason", "refused"],
+                 "release_tag must be"),
+                ("an empty suffix", ["--release-tag", "v1.2.3-", "--supersedes-reason", "refused"],
+                 "release_tag must be")):
+            with self.subTest(case=label):
+                with patch.object(RELEASE, "build_archive") as build, self.assertRaisesRegex(SystemExit, message):
+                    RELEASE.main(["--skip-validation", *args])
+                build.assert_not_called()
+        self.git("tag", "v1.2.3-cran")
+        with patch.object(RELEASE, "build_archive") as build, self.assertRaisesRegex(SystemExit, "already exists"):
+            RELEASE.main(["--skip-validation", "--release-tag", "v1.2.3-cran", "--supersedes-reason", "refused"])
+        build.assert_not_called()
+
+    def test_a_resubmission_without_a_published_bundle_is_refused(self):
+        with patch.object(RELEASE, "build_archive") as build, \
+                self.assertRaisesRegex(SystemExit, "No published 1.2.3 bundle"):
+            RELEASE.main(["--skip-validation", "--release-tag", "v1.2.3-cran", "--supersedes-reason", "refused"])
+        build.assert_not_called()
+
     # --- refusals ------------------------------------------------------------
     def test_a_dirty_tree_is_refused_unless_rehearsing(self):
         (self.root / "README.md").write_text(README + "uncommitted\n", encoding="utf-8")

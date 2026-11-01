@@ -32,7 +32,8 @@ continues to accept that legacy format.
    uploads, or submits. `--dry-run DIR` must point outside the checkout and also
    verifies the staged bundle; `--skip-validation` skips only the source suite,
    never archive integrity or release identity. Existing version tags or a
-   published manifest for that version block rebuilding before any build starts.
+   published manifest for that version block rebuilding before any build starts,
+   except for a declared resubmission (below).
    `--state published` is rejected even for a rehearsal.
 
    To make the archive in the manifest the very archive the candidate workflow
@@ -48,6 +49,22 @@ continues to accept that legacy format.
    successful R-devel check of those exact bytes; the manual is still built
    here; every other verification runs as before. The manifest records which origin the archive
    had under `archive_provenance`.
+   If CRAN refuses a published bundle and the fix keeps the version, which
+   CRAN accepts because it never published that version, the version is
+   bundled again under a resubmission tag, since the first release's tag and
+   assets are immutable:
+
+   ```sh
+   python3 scripts/prepare_release.py --from-checked-candidate /path/to/cran-candidate-checked \
+     --release-tag v<version>-<suffix> --supersedes-reason "<what CRAN refused>"
+   ```
+
+   The manifest records `release_tag` and, under `supersedes`, the first
+   bundle's tag, archive SHA-256 and the reason; the identity check requires
+   that tag to exist here and to record that digest. Publication then tags and
+   releases `v<version>-<suffix>` as in steps 5 and 6, with that tag in place
+   of `v<version>`. The first release stays as published, and
+   `docs/DEVELOPMENT_STATUS.md` records which bytes CRAN holds.
 3. Review the printed source commit, files, hashes and checks. Retain the exact
    archive checked on each platform; a rebuilt candidate has its own identity,
    which is why the previous step can adopt the checked one. If manual building

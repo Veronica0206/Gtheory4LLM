@@ -35,7 +35,7 @@ class ReleaseIdentityTests(unittest.TestCase):
         self.fixture.write_manifest(release_state="published")
         self.write_summaries(state="published")
         self.fixture.git("add", "-A")
-        self.fixture.git("commit", "-qm", "publish")
+        self.fixture.git("commit", "-qm", "publish", "--allow-empty")
         if CHECK.local_release_tag(self.root, "v0.0.1"):
             self.fixture.git("tag", "-d", "v0.0.1")
         self.fixture.git("tag", "v0.0.1")
@@ -256,6 +256,76 @@ class ReleaseIdentityTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "stale unpublished-release prose"):
                     self.verify()
                 path.write_text(original)
+
+    def resubmit(self, **fields):
+        """Bundle 0.0.1 again after its publication, as a resubmission does.
+
+        The first release stays tagged v0.0.1 with its own manifest; the fix
+        keeps the version and the new bundle declares its tag and what it
+        supersedes.
+        """
+        self.publish()
+        first = json.loads(self.manifest.read_text())["files"]["Example_0.0.1.tar.gz"]["sha256"]
+        self.resubmissions = getattr(self, "resubmissions", 0) + 1
+        self.fixture.members["R/example.R"] = f"example <- function() 1  # fix {self.resubmissions}\n".encode()
+        (self.root / "R/example.R").write_bytes(self.fixture.members["R/example.R"])
+        self.fixture.git("add", "R/example.R")
+        self.fixture.git("commit", "-qm", "fix")
+        self.fixture.commit = self.fixture.git("rev-parse", "HEAD").decode().strip()
+        self.fixture.write_archive()
+        declared = {"release_tag": "v0.0.1-cran",
+                    "supersedes": {"release_tag": "v0.0.1", "sha256": first,
+                                   "reason": "CRAN's pre-test refused the check time."}}
+        declared.update(fields)
+        self.fixture.write_manifest(release_state="prepared", **declared)
+        self.neutral_summaries()
+        self.fixture.git("add", "-A")
+        self.fixture.git("commit", "-qm", "resubmission bundle", "--allow-empty")
+        return first, declared
+
+    def test_a_resubmission_publishes_under_its_own_tag(self):
+        first, declared = self.resubmit()
+        result = self.verify()
+        self.assertFalse(result["published"])
+        self.assertFalse(result["release_tag_checked"])
+        self.assertEqual(result["supersedes"]["release_tag"], "v0.0.1")
+        self.fixture.write_manifest(release_state="published", **declared)
+        with self.assertRaisesRegex(ValueError, "requires the v0.0.1-cran tag"):
+            self.verify()
+        self.fixture.git("add", "-A")
+        self.fixture.git("commit", "-qm", "publish the resubmission")
+        self.fixture.git("tag", "v0.0.1-cran")
+        result = self.verify("v0.0.1-cran")
+        self.assertTrue(result["published"])
+        self.assertEqual(result["release_tag"], "v0.0.1-cran")
+        self.assertEqual(result["supersedes"]["sha256"], first)
+        self.assertTrue(self.verify()["release_tag_checked"])
+        with self.assertRaisesRegex(ValueError, "tag/version mismatch"):
+            self.verify("v0.0.1")
+        self.assertTrue(CHECK.local_release_tag(self.root, "v0.0.1"), "the first release's tag is untouched")
+
+    def test_a_resubmission_must_name_the_bundle_it_supersedes(self):
+        first, _ = self.resubmit()
+        cases = (
+            ("no supersedes record", {"supersedes": None}, "must record under supersedes"),
+            ("supersedes without a resubmission tag", {"release_tag": None}, "keeps the version tag"),
+            ("another digest", {"supersedes": {"release_tag": "v0.0.1", "sha256": "f" * 64, "reason": "x"}},
+             "records archive digest"),
+            ("a tag that does not exist", {"supersedes": {"release_tag": "v0.0.1-old", "sha256": first, "reason": "x"}},
+             "not another tag"),
+            ("its own tag", {"supersedes": {"release_tag": "v0.0.1-cran", "sha256": first, "reason": "x"}},
+             "not another tag"),
+            ("no reason", {"supersedes": {"release_tag": "v0.0.1", "sha256": first, "reason": ""}},
+             "must record release_tag, sha256 and reason"),
+            ("a tag of another version", {"release_tag": "v0.0.2-cran"}, "release_tag must be"),
+            ("a tag without the version", {"release_tag": "cran-0.0.1"}, "release_tag must be"),
+            ("an empty suffix", {"release_tag": "v0.0.1-"}, "release_tag must be"),
+        )
+        for label, fields, message in cases:
+            with self.subTest(case=label):
+                self.resubmit(**fields)
+                with self.assertRaisesRegex(ValueError, message):
+                    self.verify()
 
     def test_prose_guard_preserves_history_examples_and_distinct_versions(self):
         self.publish()
