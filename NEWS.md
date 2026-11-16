@@ -13,6 +13,17 @@ This development line follows the 1.0.0 release, which CRAN published on
 2026-11-01. The published 1.0.0 archive, its numerical engines, acceptance
 rules and every estimate are unchanged.
 
+## Documentation
+
+- A quick-start vignette, `vignette("quick-start")`, runs one complete
+  analysis of the bundled hate-speech panel in five steps.
+- `docs/VALIDATION_SUMMARY.md` summarizes, by model family, what the
+  validation studies and the October 2026 qualification campaign checked and
+  how far each result reaches.
+- The README replaces the research-beta label with a statement of what
+  numerical acceptance does and does not establish, and of the interface kept
+  within the 1.x series.
+
 # Gtheory4LLM 1.0.0
 
 This version retains the formula interface and historical

@@ -1,0 +1,113 @@
+---
+title: "Quick start"
+output:
+  rmarkdown::html_vignette:
+    toc: false
+vignette: >
+  %\VignetteIndexEntry{Quick start}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE, purl = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 90)
+```
+
+This page runs one complete analysis in five steps: declare the design, fit
+it, read the fit, compute coefficients and a decision study, and plan. It uses
+the hate-speech panel bundled with the package: 100 posts labeled by four LLM
+evaluators under three prompts, at six temperatures, with three seeds, 21,600
+labels in all, deposited publicly under CC BY 4.0. Its labels are coded 1, 2
+and 3 and analyzed here as Gaussian working scores; the last section points to
+the categorical models of the labels themselves.
+
+```{r library}
+library(Gtheory4LLM)
+hs <- gt_example("hate_speech", coding = "numeric")
+```
+
+## 1. Declare the design
+
+A model formula names the outcome and the random sources. Here items,
+evaluators and prompts are crossed, temperature is nested within evaluator and
+prompt, and seed within temperature. `measured` names the object of
+measurement; always give it, because the coefficients describe that variable.
+
+```{r design}
+hs_model <- score ~ item * evaluator * prompt +
+  evaluator:prompt:temp + evaluator:prompt:temp:seed +
+  item:evaluator:prompt:temp
+pre <- gt_preflight(hs_model, hs$data, measured = "item")
+pre$fitting_feasible
+```
+
+## 2. Fit and check acceptance
+
+`gt_fit()` estimates the source variances by REML on the exact balanced
+likelihood. Coefficients are computed only from a fit that passes the
+numerical acceptance checks.
+
+```{r fit}
+fit <- gt_fit(hs_model, hs$data, measured = "item")
+gt_diagnostics(fit)$numerically_accepted
+```
+
+If a fit is refused, `gt_diagnostics(fit)$acceptance_failures` names the
+check that failed; `?gt_control` describes the settings that address each
+one.
+
+## 3. Read the fit
+
+```{r summary}
+v <- summary(fit)$variances
+v[c("source", "variance", "std_error")]
+```
+
+The item variance is the universe-score variance. Sources that contain the
+item, such as item by evaluator, are relative error; sources without it shift
+every item and count only as absolute error.
+
+## 4. Coefficients and a decision study
+
+$E\rho^2$ describes how well the mean over the observed conditions orders the
+items, and $\Phi$ how well it places them on the scale. Facets are random by
+default; `fixed` restricts the universe to the observed levels.
+
+```{r reliability}
+cols <- c("Erho2", "Erho2_lower", "Erho2_upper", "Phi")
+subset(as.data.frame(gt_reliability(fit)), kind == "outcome")[cols]
+subset(as.data.frame(gt_reliability(fit, fixed = "evaluator")),
+  kind == "outcome")[cols]
+```
+
+A decision study projects the coefficients to other allocations, holding the
+source variances fixed, and `gt_dstudy_target()` screens them against a target.
+
+```{r dstudy}
+grid <- expand.grid(evaluator = 1:4, prompt = 1:3, temp = 1, seed = 1:3)
+screen <- gt_dstudy_target(gt_dstudy(fit, grid), target = 0.90)
+screen[screen$fewest_measurements %in% TRUE,
+  c("allocation_evaluator", "allocation_prompt", "allocation_seed",
+    "estimate", "Erho2_lower", "Erho2_upper")]
+```
+
+The screen uses the point estimate; the lower interval bound can fall below
+the target.
+
+## 5. Plan and go further
+
+- `gt_plan()` compares allocations by cost, and `gt_pilot_plan()` simulates
+  how precisely a pilot would estimate a protocol; see
+  `vignette("study-planning", package = "Gtheory4LLM")`.
+- `gt_bootstrap()` resamples items for percentile or BCa intervals. The
+  delta-method intervals assume the homoscedastic model behind the likelihood
+  curvature, which coded labels can violate; the bootstrap does not rely on it.
+- The labels themselves can be fitted as ordered or unordered categories with
+  `gt_example("hate_speech", coding = "native")`, the sparse Laplace engine
+  and `gt_reliability(fit, scale = "latent")`; on the full panel such fits
+  take minutes. `gt_categorical_target()` then projects observed-scale targets
+  such as agreement between the majority labels of two panels.
+- `vignette("LLM-workflow", package = "Gtheory4LLM")` walks through a complete
+  synthetic study, and the repository's validation summary lists what has been
+  validated for each model family.

@@ -7,12 +7,21 @@ evaluation studies. Specify which evaluator, prompt, and
 repeated-run sources matter for your study, fit their variation, and compare
 projected reliability across alternative numbers of evaluators and prompts.
 
-This is a research beta. Passing the package's numerical acceptance checks does
-**not** establish parameter recovery, interval coverage, Laplace approximation
-quality, or a scientifically sufficient number of evaluators. Read
-[docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md) before quoting a coefficient, and
-[docs/VALIDATION_SCOPE.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/VALIDATION_SCOPE.md) for what has actually been
-validated.
+Every fit must pass numerical acceptance checks, which establish that the
+optimizer reached a stationary and reproducible solution, before coefficients
+are computed from it. Those checks
+do not by themselves establish parameter recovery, interval coverage, Laplace
+approximation quality, or a sufficient number of evaluators.
+[docs/VALIDATION_SUMMARY.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/VALIDATION_SUMMARY.md)
+summarizes what has been validated for each model family, and
+[docs/LIMITATIONS.md](https://github.com/Veronica0206/Gtheory4LLM/blob/main/docs/LIMITATIONS.md)
+lists what the package does not do. `vignette("quick-start", package = "Gtheory4LLM")`
+runs a complete analysis in five steps.
+
+Within the 1.x series, the exported functions, their argument names and
+defaults, and the columns of their `as.data.frame()` results are kept;
+changes add to them. A change that alters a reported value is announced in
+NEWS.md.
 
 <!-- release-identity:start -->
 Source version: **1.0.0.9000**.
